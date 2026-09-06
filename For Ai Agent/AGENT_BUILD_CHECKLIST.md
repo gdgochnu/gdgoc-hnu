@@ -21,7 +21,7 @@
 - [x] 0.3 Enable Google as an OAuth provider in Supabase Auth (client ID/secret configured). (2026-09-06)
 
 > **Note added in v2:** Vercel deployment steps (0.4–0.6 in the spec's recommended setup) were not part of the original Phase 0 — add them now if not already done: push repo to GitHub, connect to Vercel, add env vars from spec §10.2, set up a staging Supabase project for previews. Confirm with the project owner before marking as done.
-- [ ] 0.4 Push the repo to GitHub and connect it to a new Vercel project; confirm the skeleton app deploys successfully to a live Vercel URL.
+- [x] 0.4 Push the repo to GitHub and connect it to a new Vercel project; confirm the skeleton app deploys successfully to a live Vercel URL. (2026-09-07)
 - [ ] 0.5 Add all environment variables from spec §10.2 to the Vercel project (Production + Preview), confirm none are committed to the repo.
 - [ ] 0.6 Set up a separate staging Supabase project and confirm Vercel Preview deployments point to it, not production data.
 
