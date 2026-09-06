@@ -305,6 +305,7 @@ export default async function TaskDetailPage({ params, searchParams }: TaskDetai
         canEditTask={canEditTask}
         canSubmitReview={canSubmitReview}
         currentUserId={userId}
+        currentUserRole={role as any}
         mockRole={mockParam}
         assignees={assignees as any}
         parentTask={parentTask}

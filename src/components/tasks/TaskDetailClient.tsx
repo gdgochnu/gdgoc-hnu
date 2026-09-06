@@ -28,7 +28,8 @@ import {
   Users,
   Award,
   GitFork,
-  Share2
+  Share2,
+  ArrowUpRight
 } from 'lucide-react';
 import { 
   ApprovalStageTracker, 
@@ -125,6 +126,7 @@ export interface TaskDetailClientProps {
   canEditTask: boolean;
   canSubmitReview: boolean;
   currentUserId?: string;
+  currentUserRole?: UserRole;
   mockRole?: string | null;
   assignees?: TaskAssigneeItem[];
   parentTask?: {
@@ -156,6 +158,7 @@ export function TaskDetailClient({
   canEditTask,
   canSubmitReview,
   currentUserId,
+  currentUserRole,
   mockRole,
   assignees = [],
   parentTask,
@@ -190,6 +193,44 @@ export function TaskDetailClient({
   // Action status state
   const [actionLoading, setActionLoading] = useState(false);
   const [bannerNotice, setBannerNotice] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  // Delegation Upward Action States (Spec §4.2 Part B #6 & #7, Step 6.5)
+  const [delegationActionType, setDelegationActionType] = useState<'approve_upward' | 'final_signoff' | 'request_changes' | null>(null);
+  const [delegationActionNotes, setDelegationActionNotes] = useState('');
+  const [isActingOnDelegation, setIsActingOnDelegation] = useState(false);
+
+  const handleDelegationAction = async () => {
+    if (!delegationActionType) return;
+    try {
+      setIsActingOnDelegation(true);
+      const url = `/api/tasks/${task.id}/approve-delegation${mockQuery}`;
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: delegationActionType,
+          notes: delegationActionNotes.trim() || undefined,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Action failed');
+
+      if (data.task) {
+        setTask((prev) => ({ ...prev, ...data.task }));
+      }
+      setBannerNotice({
+        type: 'success',
+        text: data.message || 'Delegation workflow updated successfully!',
+      });
+      setDelegationActionType(null);
+      setDelegationActionNotes('');
+      router.refresh();
+    } catch (err: any) {
+      setBannerNotice({ type: 'error', text: err.message });
+    } finally {
+      setIsActingOnDelegation(false);
+    }
+  };
 
   const handleStartPersonalTask = async () => {
     try {
@@ -661,18 +702,144 @@ export function TaskDetailClient({
                     fontWeight: 800,
                     padding: '0.25rem 0.65rem',
                     borderRadius: '999px',
-                    background: 'rgba(168, 85, 247, 0.2)',
-                    color: '#D8B4FE',
-                    border: '1px solid rgba(168, 85, 247, 0.45)',
+                    background: task.status === 'review' ? 'rgba(52, 168, 83, 0.2)' : 'rgba(168, 85, 247, 0.2)',
+                    color: task.status === 'review' ? '#86EFAC' : '#D8B4FE',
+                    border: task.status === 'review' ? '1px solid rgba(52, 168, 83, 0.45)' : '1px solid rgba(168, 85, 247, 0.45)',
                   }}
                 >
-                  {task.status === 'delegated' ? 'Waiting on Child Deliverable' : 'Child Deliverable Active'}
+                  {task.status === 'delegated' ? 'Waiting on Child Deliverable' : task.status === 'review' ? 'Deliverable Ready for Review' : 'Child Deliverable Active'}
                 </span>
               </div>
 
               <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
-                This deliverable has been delegated down the chapter chain. When the child task is submitted, this parent task will automatically advance into <strong>Review</strong> for your sign-off.
+                {task.status === 'review'
+                  ? 'Child task deliverable has been submitted! You can evaluate the work, advance it upward to the next chapter leadership tier, or give final executive sign-off.'
+                  : 'This deliverable has been delegated down the chapter chain. When the child task is submitted, this parent task will automatically advance into Review for your sign-off.'}
               </p>
+
+              {/* Review & Upward Advance Box when parent is in Review */}
+              {task.status === 'review' && (
+                <div
+                  style={{
+                    padding: '1.25rem',
+                    borderRadius: 'var(--radius-sm)',
+                    background: 'rgba(52, 168, 83, 0.08)',
+                    border: '1px solid rgba(52, 168, 83, 0.35)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '0.85rem',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <CheckCircle2 size={18} color="#34A853" />
+                      <span style={{ fontSize: '0.92rem', fontWeight: 800, color: '#A7F3D0' }}>
+                        Delegated Deliverable Awaiting Evaluation
+                      </span>
+                    </div>
+                    {task.evidence_url && (
+                      <a
+                        href={task.evidence_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="btn btn-outline"
+                        style={{
+                          padding: '0.35rem 0.75rem',
+                          fontSize: '0.8rem',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '0.4rem',
+                          color: '#93C5FD',
+                          borderColor: 'rgba(147, 197, 253, 0.4)',
+                        }}
+                      >
+                        <ExternalLink size={13} />
+                        <span>Inspect Submitted Deliverable</span>
+                      </a>
+                    )}
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '0.65rem' }}>
+                    {task.parent_task_id ? (
+                      <button
+                        type="button"
+                        onClick={() => setDelegationActionType('approve_upward')}
+                        className="btn btn-primary"
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '0.45rem',
+                          fontSize: '0.85rem',
+                          padding: '0.45rem 1rem',
+                          background: 'linear-gradient(135deg, #A855F7, #4285F4)',
+                          border: 'none',
+                          fontWeight: 700,
+                        }}
+                      >
+                        <ArrowUpRight size={15} />
+                        <span>Approve & Submit Upward</span>
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => setDelegationActionType('final_signoff')}
+                        className="btn btn-primary"
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '0.45rem',
+                          fontSize: '0.85rem',
+                          padding: '0.45rem 1rem',
+                          background: 'linear-gradient(135deg, #34A853, #0F9D58)',
+                          border: 'none',
+                          fontWeight: 700,
+                        }}
+                      >
+                        <CheckCircle2 size={15} />
+                        <span>Executive Final Sign-Off (Close Chain)</span>
+                      </button>
+                    )}
+
+                    {task.parent_task_id && (currentUserRole === 'president' || currentUserRole === 'co_president') && (
+                      <button
+                        type="button"
+                        onClick={() => setDelegationActionType('final_signoff')}
+                        className="btn btn-outline"
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '0.45rem',
+                          fontSize: '0.85rem',
+                          padding: '0.45rem 0.9rem',
+                          color: '#86EFAC',
+                          borderColor: 'rgba(52, 168, 83, 0.4)',
+                          fontWeight: 700,
+                        }}
+                      >
+                        <CheckCircle2 size={14} />
+                        <span>Direct Final Sign-Off</span>
+                      </button>
+                    )}
+
+                    <button
+                      type="button"
+                      onClick={() => setDelegationActionType('request_changes')}
+                      className="btn btn-outline"
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '0.45rem',
+                        fontSize: '0.85rem',
+                        padding: '0.45rem 0.9rem',
+                        color: 'var(--text-secondary)',
+                      }}
+                    >
+                      <RotateCcw size={14} />
+                      <span>Request Revisions</span>
+                    </button>
+                  </div>
+                </div>
+              )}
 
               {/* List of child tasks */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
@@ -1785,6 +1952,124 @@ export function TaskDetailClient({
           mockRole={mockRole}
           currentUserId={currentUserId}
         />
+      )}
+
+      {/* Delegation Action Confirmation & Notes Modal */}
+      {delegationActionType && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 9999,
+            background: 'rgba(5, 8, 15, 0.75)',
+            backdropFilter: 'blur(8px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '1.5rem',
+          }}
+          onClick={() => setDelegationActionType(null)}
+        >
+          <div
+            className="glass-panel"
+            style={{
+              maxWidth: '520px',
+              width: '100%',
+              padding: '2rem',
+              background: 'rgba(19, 27, 46, 0.95)',
+              border: `1px solid ${
+                delegationActionType === 'final_signoff'
+                  ? 'rgba(52, 168, 83, 0.4)'
+                  : delegationActionType === 'approve_upward'
+                  ? 'rgba(168, 85, 247, 0.4)'
+                  : 'rgba(234, 67, 53, 0.4)'
+              }`,
+              boxShadow: '0 24px 60px rgba(0, 0, 0, 0.6)',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem' }}>
+              <div>
+                <h3 style={{ fontSize: '1.25rem', fontWeight: 800, margin: 0, color: 'var(--text-primary)' }}>
+                  {delegationActionType === 'final_signoff'
+                    ? '🎉 Executive Final Sign-Off'
+                    : delegationActionType === 'approve_upward'
+                    ? '🚀 Approve & Submit Upward'
+                    : '🔄 Request Revisions'}
+                </h3>
+                <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                  {delegationActionType === 'final_signoff'
+                    ? 'Grant chapter executive approval and officially close this deliverable and all downstream tasks as Done.'
+                    : delegationActionType === 'approve_upward'
+                    ? 'Endorse this deliverable and advance the parent task into Review for higher chapter leadership sign-off.'
+                    : 'Return the deliverable back to the child task assignee with requested improvements.'}
+                </p>
+              </div>
+              <button
+                onClick={() => setDelegationActionType(null)}
+                style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: 0 }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div style={{ marginBottom: '1.25rem' }}>
+              <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-secondary)', marginBottom: '0.4rem' }}>
+                Review Notes & Feedback (Optional):
+              </label>
+              <textarea
+                value={delegationActionNotes}
+                onChange={(e) => setDelegationActionNotes(e.target.value)}
+                placeholder={
+                  delegationActionType === 'request_changes'
+                    ? 'Detail what needs to be improved or corrected...'
+                    : 'Add any remarks or praise for the team...'
+                }
+                rows={4}
+                className="input-field"
+                style={{ width: '100%', fontSize: '0.85rem', resize: 'vertical' }}
+              />
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem' }}>
+              <button
+                type="button"
+                onClick={() => setDelegationActionType(null)}
+                disabled={isActingOnDelegation}
+                className="btn btn-outline"
+                style={{ fontSize: '0.85rem', padding: '0.45rem 1rem' }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleDelegationAction}
+                disabled={isActingOnDelegation}
+                className="btn btn-primary"
+                style={{
+                  fontSize: '0.85rem',
+                  padding: '0.45rem 1.25rem',
+                  background:
+                    delegationActionType === 'final_signoff'
+                      ? 'linear-gradient(135deg, #34A853, #0F9D58)'
+                      : delegationActionType === 'approve_upward'
+                      ? 'linear-gradient(135deg, #A855F7, #4285F4)'
+                      : 'linear-gradient(135deg, #EA4335, #C5221F)',
+                  border: 'none',
+                  fontWeight: 700,
+                }}
+              >
+                {isActingOnDelegation
+                  ? 'Processing...'
+                  : delegationActionType === 'final_signoff'
+                  ? 'Confirm Final Sign-Off'
+                  : delegationActionType === 'approve_upward'
+                  ? 'Confirm & Submit Upward'
+                  : 'Send Revision Request'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

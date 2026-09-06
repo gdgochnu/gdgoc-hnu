@@ -157,6 +157,29 @@ export async function actOnApprovalStep(params: ActOnApprovalStepParams) {
       .from('tasks')
       .update({ status: newTaskStatus, updated_at: now })
       .eq('id', instance.entity_id);
+
+    // Spec §4.2 Part B #6 & #7: Upward Auto-submit & Chain Closure
+    if (action === 'approved' && isFinal) {
+      const { data: currentTask } = await admin
+        .from('tasks')
+        .select('id, title, evidence_url, parent_task_id')
+        .eq('id', instance.entity_id)
+        .maybeSingle();
+
+      if (currentTask) {
+        if (currentTask.parent_task_id) {
+          await propagateDelegationUpwardOnSubmit({
+            childTaskId: currentTask.id,
+            childTitle: currentTask.title,
+            childEvidenceUrl: currentTask.evidence_url,
+            parentTaskId: currentTask.parent_task_id,
+            actorId: caller.id,
+            actorName: caller.full_name,
+          });
+        }
+        await closeDelegationChain(currentTask.id, caller.id, caller.full_name);
+      }
+    }
   } else if (instance.workflow_type === 'event_publish') {
     let newEventStatus = 'submitted_for_review';
     if (action === 'approved' && isFinal) newEventStatus = 'approved';
@@ -200,3 +223,127 @@ export async function actOnApprovalStep(params: ActOnApprovalStepParams) {
     isFinal,
   };
 }
+
+/**
+ * Propagate deliverable upward to parent task when a child task is submitted/finished
+ * (Spec §4.2 Part B #6, Step 6.5)
+ */
+export async function propagateDelegationUpwardOnSubmit(params: {
+  childTaskId: string;
+  childTitle: string;
+  childEvidenceUrl?: string | null;
+  parentTaskId: string;
+  actorId: string;
+  actorName?: string;
+}) {
+  const admin = createAdminClient();
+  const { childTaskId, childTitle, childEvidenceUrl, parentTaskId, actorId, actorName } = params;
+
+  const { data: parentTask } = await admin
+    .from('tasks')
+    .select('id, title, status, evidence_url, delegated_by_id, assignee_id, created_by, parent_task_id')
+    .eq('id', parentTaskId)
+    .maybeSingle();
+
+  if (!parentTask || parentTask.status === 'done') return null;
+
+  // Flip parent status to review if it was delegated or in_progress/todo
+  const updatePayload: any = {
+    status: 'review',
+    updated_at: new Date().toISOString(),
+  };
+
+  if (!parentTask.evidence_url && childEvidenceUrl) {
+    updatePayload.evidence_url = childEvidenceUrl;
+  }
+
+  const { data: updatedParent } = await admin
+    .from('tasks')
+    .update(updatePayload)
+    .eq('id', parentTaskId)
+    .select('*')
+    .single();
+
+  let recipientId = parentTask.delegated_by_id;
+  if (!recipientId || recipientId === actorId) {
+    recipientId = parentTask.assignee_id && parentTask.assignee_id !== actorId ? parentTask.assignee_id : parentTask.created_by;
+  }
+
+  if (recipientId && recipientId !== actorId) {
+    await admin.from('notifications').insert({
+      profile_id: recipientId,
+      type: 'task_review',
+      title: 'Delegated Task Submitted for Review 📥',
+      message: `Deliverable for child task "${childTitle}" has been submitted. Parent task "${parentTask.title}" has moved to Review for your sign-off.`,
+      related_entity_type: 'task',
+      related_entity_id: parentTaskId,
+    });
+  }
+
+  await admin.from('task_comments').insert({
+    task_id: parentTaskId,
+    author_id: actorId,
+    body: `📥 **Delegated Deliverable Submitted for Review**\n\n` +
+      `Child task [${childTitle}](/tasks/${childTaskId}) deliverable was submitted by ${actorName || 'assignee'}.\n\n` +
+      `This parent task has automatically advanced from **${parentTask.status}** to **Review** for your evaluation and sign-off.\n\n` +
+      (childEvidenceUrl ? `📎 **Deliverable Link:** ${childEvidenceUrl}` : ''),
+  });
+
+  await admin.from('audit_logs').insert({
+    actor_id: actorId,
+    action: 'task_upward_auto_submitted',
+    entity_type: 'task',
+    entity_id: parentTaskId,
+    metadata: {
+      parent_task_id: parentTaskId,
+      child_task_id: childTaskId,
+      child_title: childTitle,
+      evidence_url: childEvidenceUrl,
+      recipient_id: recipientId,
+    },
+  });
+
+  return updatedParent;
+}
+
+/**
+ * Recursively closes all child tasks in the delegation chain as 'done'
+ * when an upstream root/parent task receives final executive sign-off (Spec §4.2 Part B #7)
+ */
+export async function closeDelegationChain(taskId: string, actorId: string, actorName?: string) {
+  const admin = createAdminClient();
+
+  const { data: childTasks } = await admin
+    .from('tasks')
+    .select('id, title, status')
+    .eq('parent_task_id', taskId);
+
+  if (!childTasks || childTasks.length === 0) return;
+
+  for (const child of childTasks) {
+    if (child.status !== 'done') {
+      await admin
+        .from('tasks')
+        .update({ status: 'done', updated_at: new Date().toISOString() })
+        .eq('id', child.id);
+
+      await admin.from('task_comments').insert({
+        task_id: child.id,
+        author_id: actorId,
+        body: `✅ **Delegation Chain Final Sign-Off**\n\nThe upstream parent deliverable has received final approval from ${actorName || 'leadership'}. This task is officially completed and closed as **Done**.`,
+      });
+
+      await admin.from('audit_logs').insert({
+        actor_id: actorId,
+        action: 'task_delegation_chain_closed',
+        entity_type: 'task',
+        entity_id: child.id,
+        metadata: { parent_task_id: taskId, root_actor_id: actorId },
+      });
+    }
+
+    // Recursively close any child tasks below this child (even if this child was already marked done previously)
+    await closeDelegationChain(child.id, actorId, actorName);
+  }
+}
+
