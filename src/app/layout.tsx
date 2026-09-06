@@ -32,7 +32,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <head>
         <link rel="icon" href="/icons/icon.svg" type="image/svg+xml" />
         <link rel="manifest" href="/manifest.webmanifest" />
@@ -40,7 +40,7 @@ export default function RootLayout({
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
       </head>
-      <body>
+      <body suppressHydrationWarning>
         <NavigationProgressBar />
         <div className="ambient-glow" aria-hidden="true" />
         {children}
