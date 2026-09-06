@@ -1,12 +1,12 @@
 import { AppShell } from '@/components/layout/AppShell';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getUserContext } from '@/lib/auth/get-user-context';
-import { notFound, redirect } from 'next/navigation';
+import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft, Radio, ShieldAlert } from 'lucide-react';
-import { ReviewBroadcastSubmissionsModal } from '@/components/tasks/ReviewBroadcastSubmissionsModal';
 import { TaskDetailData, TaskAssigneeItem } from '@/components/tasks/TaskDetailClient';
-import { ReviewSubmissionsClient } from './ReviewSubmissionsClient';
+import { ReviewSubmissionsClient } from '@/components/tasks/ReviewSubmissionsClient';
+import { UserRole } from '@/types';
 
 export const dynamic = 'force-dynamic';
 
@@ -35,7 +35,7 @@ export default async function ReviewSubmissionsPage({
     const { data: mockUser } = await admin
       .from('profiles')
       .select('id, full_name, role, department_id, status')
-      .eq('role', mockParam)
+      .eq('role', mockParam as UserRole)
       .limit(1)
       .maybeSingle();
 
@@ -45,8 +45,8 @@ export default async function ReviewSubmissionsPage({
     }
   }
 
-  // 1. Fetch task
-  const { data: task, error: taskErr } = await admin
+  // 1. Fetch task with relations
+  const { data: rawTask, error: taskErr } = await admin
     .from('tasks')
     .select(`
       id,
@@ -66,18 +66,97 @@ export default async function ReviewSubmissionsPage({
       approval_instance_id,
       created_at,
       updated_at,
-      departments:department_id (id, name, code, branch)
+      departments:department_id (
+        id,
+        name,
+        code,
+        branch
+      ),
+      assignee:assignee_id (
+        id,
+        full_name,
+        email,
+        avatar_url,
+        role,
+        position
+      ),
+      creator:created_by (
+        id,
+        full_name,
+        email,
+        avatar_url,
+        role,
+        position
+      )
     `)
     .eq('id', taskId)
     .maybeSingle();
 
-  if (taskErr || !task) {
-    notFound();
+  // If task not found, show user-friendly error card
+  if (taskErr || !rawTask) {
+    return (
+      <AppShell>
+        <div style={{ maxWidth: '600px', margin: '4rem auto', padding: '0 1.5rem', textAlign: 'center' }}>
+          <div className="glass-panel" style={{ padding: '3.5rem 2rem' }}>
+            <div
+              style={{
+                width: '56px',
+                height: '56px',
+                borderRadius: '14px',
+                background: 'rgba(234, 67, 53, 0.15)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                margin: '0 auto 1.5rem',
+                color: '#EA4335',
+              }}
+            >
+              <ShieldAlert size={28} />
+            </div>
+
+            <h2 style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '0.75rem' }}>
+              Broadcast Task Not Found
+            </h2>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginBottom: '2rem', lineHeight: 1.6 }}>
+              The requested broadcast task could not be found or may have been deleted.
+            </p>
+
+            <Link
+              href={mockParam ? `/tasks?mock=${mockParam}` : '/tasks'}
+              className="btn btn-outline"
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.9rem' }}
+            >
+              <ArrowLeft size={16} />
+              <span>Return to Tasks Kanban</span>
+            </Link>
+          </div>
+        </div>
+      </AppShell>
+    );
   }
 
-  if (task.assignment_mode !== 'broadcast') {
-    redirect(`/tasks/${taskId}`);
+  // If not a broadcast task, redirect to standard task detail page
+  if (rawTask.assignment_mode !== 'broadcast') {
+    redirect(`/tasks/${taskId}${mockParam ? `?mock=${mockParam}` : ''}`);
   }
+
+  // Normalize joined relations safely
+  const departmentObj = Array.isArray(rawTask.departments)
+    ? rawTask.departments[0]
+    : rawTask.departments;
+  const assigneeObj = Array.isArray(rawTask.assignee)
+    ? rawTask.assignee[0]
+    : rawTask.assignee;
+  const creatorObj = Array.isArray(rawTask.creator)
+    ? rawTask.creator[0]
+    : rawTask.creator;
+
+  const task: TaskDetailData = {
+    ...rawTask,
+    departments: departmentObj || null,
+    assignee: assigneeObj || null,
+    creator: creatorObj || null,
+  };
 
   // 2. Fetch all task assignees
   const { data: rawAssignees } = await admin
@@ -159,7 +238,7 @@ export default async function ReviewSubmissionsPage({
               </span>
               <span style={{ color: 'var(--text-muted)' }}>•</span>
               <span style={{ fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
-                {(task.departments as any)?.name || 'Committee'}
+                {task.departments?.name || 'Committee Deliverable'}
               </span>
             </div>
 
@@ -174,7 +253,7 @@ export default async function ReviewSubmissionsPage({
 
         {/* Review & Consolidation Workspace Client */}
         <ReviewSubmissionsClient
-          task={task as any}
+          task={task}
           assignees={assignees}
           mockRole={mockParam}
         />
