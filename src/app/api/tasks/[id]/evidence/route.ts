@@ -19,16 +19,21 @@ export async function PATCH(
     // Support mock dev query param
     const { searchParams } = new URL(req.url);
     const mockRole = searchParams.get('mock');
+    const mockUserId = searchParams.get('mock_user_id');
 
-    if (!callerId && mockRole && process.env.NODE_ENV !== 'production') {
-      const { data: mockUser } = await admin
-        .from('profiles')
-        .select('id')
-        .eq('role', mockRole)
-        .limit(1)
-        .maybeSingle();
+    if ((!callerId || mockRole || mockUserId) && process.env.NODE_ENV !== 'production') {
+      if (mockUserId) {
+        callerId = mockUserId;
+      } else if (mockRole) {
+        const { data: mockUser } = await admin
+          .from('profiles')
+          .select('id')
+          .eq('role', mockRole)
+          .limit(1)
+          .maybeSingle();
 
-      if (mockUser) callerId = mockUser.id;
+        if (mockUser) callerId = mockUser.id;
+      }
     }
 
     if (!callerId) {
