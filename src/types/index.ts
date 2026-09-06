@@ -22,6 +22,39 @@ export type ProfileStatus =
   | 'suspended'
   | 'alumni';
 
+export interface Profile {
+  id: string;
+  full_name: string;
+  email: string;
+  avatar_url: string | null;
+  phone: string | null;
+  university_id: string | null;
+  faculty: string | null;
+  academic_year: string | null;
+  role: UserRole;
+  department_id: string | null;
+  position: string | null;
+  skills: string[];
+  portfolio_url: string | null;
+  motivation: string | null;
+  how_heard: string | null;
+  availability_hours: number | null;
+  status: ProfileStatus;
+  approved_by: string | null;
+  approved_at: string | null;
+  rejection_reason: string | null;
+  join_date: string;
+  left_at?: string | null;
+  leave_reason?: string | null;
+  overall_score: number;
+  attendance_rate: number;
+  leaderboard_opt_in: boolean;
+  custom_fields: Record<string, any> | null;
+  created_at: string;
+  updated_at: string;
+}
+
+
 export type TaskStatus =
   | 'todo'
   | 'in_progress'
