@@ -25,7 +25,8 @@ import {
   X,
   AlertTriangle,
   Radio,
-  Users
+  Users,
+  Award
 } from 'lucide-react';
 import { 
   ApprovalStageTracker, 
@@ -33,6 +34,7 @@ import {
   ApprovalStepItem 
 } from '@/components/approvals/ApprovalStageTracker';
 import { SubmitForReviewModal } from '@/components/tasks/SubmitForReviewModal';
+import { ReviewBroadcastSubmissionsModal } from '@/components/tasks/ReviewBroadcastSubmissionsModal';
 import { TaskStatus, TaskPriority, UserRole, TaskAssignmentMode, TaskAssigneeStatus } from '@/types';
 
 export interface TaskAssigneeItem {
@@ -158,6 +160,7 @@ export function TaskDetailClient({
 
   // Submit for Review modal state
   const [showSubmitModal, setShowSubmitModal] = useState(false);
+  const [showReviewModal, setShowReviewModal] = useState(false);
 
   // Action status state
   const [actionLoading, setActionLoading] = useState(false);
@@ -767,8 +770,8 @@ export function TaskDetailClient({
                   </p>
                 </div>
 
-                {/* Progress pill */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                {/* Actions and Progress pill */}
+                <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '0.6rem' }}>
                   <span
                     style={{
                       fontSize: '0.8rem',
@@ -782,6 +785,42 @@ export function TaskDetailClient({
                   >
                     {assigneesList.filter((a) => a.status === 'submitted').length} / {assigneesList.length} Submitted
                   </span>
+
+                  <Link
+                    href={`/tasks/${task.id}/review-submissions${mockQuery}`}
+                    className="btn btn-outline"
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '0.35rem',
+                      fontSize: '0.8rem',
+                      padding: '0.35rem 0.75rem',
+                      color: '#C084FC',
+                      borderColor: 'rgba(168, 85, 247, 0.4)',
+                    }}
+                  >
+                    <ExternalLink size={13} />
+                    <span>Review Grid</span>
+                  </Link>
+
+                  <button
+                    type="button"
+                    onClick={() => setShowReviewModal(true)}
+                    className="btn btn-primary"
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '0.4rem',
+                      fontSize: '0.8rem',
+                      padding: '0.35rem 0.85rem',
+                      background: 'linear-gradient(135deg, #A855F7, #4285F4)',
+                      border: 'none',
+                      fontWeight: 700,
+                    }}
+                  >
+                    <Award size={14} />
+                    <span>Consolidate & Review</span>
+                  </button>
                 </div>
               </div>
 
@@ -1508,6 +1547,28 @@ export function TaskDetailClient({
             setBannerNotice({ type: 'success', text: 'Task successfully submitted for multi-stage governance review!' });
             router.refresh();
           }}
+        />
+      )}
+
+      {/* Review Broadcast Submissions Modal */}
+      {showReviewModal && (
+        <ReviewBroadcastSubmissionsModal
+          task={task}
+          assignees={assigneesList}
+          isOpen={showReviewModal}
+          onClose={() => setShowReviewModal(false)}
+          onSuccess={(updatedTask) => {
+            setShowReviewModal(false);
+            if (updatedTask) {
+              setTask((prev) => ({ ...prev, ...updatedTask }));
+            }
+            setBannerNotice({
+              type: 'success',
+              text: 'Broadcast submissions consolidated! Task has been moved to Review in the approval engine.',
+            });
+            router.refresh();
+          }}
+          mockRole={mockRole}
         />
       )}
     </div>
