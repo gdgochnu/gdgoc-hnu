@@ -513,7 +513,7 @@ export function TasksKanbanClient({
                                 Broadcast
                               </span>
                             )}
-                            {isRejected && (
+                            {task.status === 'rejected' && (
                               <span
                                 style={{
                                   fontSize: '0.72rem',
@@ -526,6 +526,21 @@ export function TasksKanbanClient({
                                 }}
                               >
                                 Rejected
+                              </span>
+                            )}
+                            {task.status === 'delegated' && (
+                              <span
+                                style={{
+                                  fontSize: '0.72rem',
+                                  fontWeight: 800,
+                                  padding: '0.15rem 0.45rem',
+                                  borderRadius: '4px',
+                                  background: 'rgba(168, 85, 247, 0.2)',
+                                  color: '#D8B4FE',
+                                  border: '1px solid rgba(168, 85, 247, 0.4)',
+                                }}
+                              >
+                                Delegated
                               </span>
                             )}
                             <span

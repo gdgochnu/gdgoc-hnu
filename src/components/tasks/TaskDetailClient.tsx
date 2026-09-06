@@ -26,7 +26,9 @@ import {
   AlertTriangle,
   Radio,
   Users,
-  Award
+  Award,
+  GitFork,
+  Share2
 } from 'lucide-react';
 import { 
   ApprovalStageTracker, 
@@ -35,6 +37,7 @@ import {
 } from '@/components/approvals/ApprovalStageTracker';
 import { SubmitForReviewModal } from '@/components/tasks/SubmitForReviewModal';
 import { ReviewBroadcastSubmissionsModal } from '@/components/tasks/ReviewBroadcastSubmissionsModal';
+import { DelegateTaskModal } from '@/components/tasks/DelegateTaskModal';
 import { TaskStatus, TaskPriority, UserRole, TaskAssignmentMode, TaskAssigneeStatus } from '@/types';
 
 export interface TaskAssigneeItem {
@@ -124,6 +127,24 @@ export interface TaskDetailClientProps {
   currentUserId?: string;
   mockRole?: string | null;
   assignees?: TaskAssigneeItem[];
+  parentTask?: {
+    id: string;
+    title: string;
+    status: TaskStatus;
+    assignee_id?: string | null;
+    departments?: { name: string } | null;
+  } | null;
+  childTasks?: Array<{
+    id: string;
+    title: string;
+    status: TaskStatus;
+    assignment_mode: TaskAssignmentMode;
+    assignee_id?: string | null;
+    department_id: string;
+    created_at: string;
+    assignee?: { id: string; full_name: string; avatar_url?: string | null; role?: string } | null;
+    departments?: { id: string; name: string; code: string } | null;
+  }>;
 }
 
 export function TaskDetailClient({
@@ -137,11 +158,14 @@ export function TaskDetailClient({
   currentUserId,
   mockRole,
   assignees = [],
+  parentTask,
+  childTasks = [],
 }: TaskDetailClientProps) {
   const router = useRouter();
   const [task, setTask] = useState<TaskDetailData>(initialTask);
   const [comments, setComments] = useState<TaskCommentItem[]>(initialComments);
   const [assigneesList, setAssigneesList] = useState<TaskAssigneeItem[]>(assignees);
+  const [childTasksList, setChildTasksList] = useState(childTasks);
   const myAssignment = assigneesList.find((a) => a.profile_id === currentUserId);
   const [personalEvidenceInput, setPersonalEvidenceInput] = useState(myAssignment?.evidence_url || '');
   const [isSubmittingPersonal, setIsSubmittingPersonal] = useState(false);
@@ -161,6 +185,7 @@ export function TaskDetailClient({
   // Submit for Review modal state
   const [showSubmitModal, setShowSubmitModal] = useState(false);
   const [showReviewModal, setShowReviewModal] = useState(false);
+  const [showDelegateModal, setShowDelegateModal] = useState(false);
 
   // Action status state
   const [actionLoading, setActionLoading] = useState(false);
@@ -266,6 +291,8 @@ export function TaskDetailClient({
         return { label: 'In Review', icon: ShieldCheck, color: '#FBBF24', bg: 'rgba(251, 191, 36, 0.15)', border: 'rgba(251, 191, 36, 0.3)' };
       case 'done':
         return { label: 'Completed', icon: CheckCircle2, color: '#34D399', bg: 'rgba(52, 211, 153, 0.15)', border: 'rgba(52, 211, 153, 0.3)' };
+      case 'delegated':
+        return { label: 'Delegated', icon: GitFork, color: '#C084FC', bg: 'rgba(168, 85, 247, 0.15)', border: 'rgba(168, 85, 247, 0.3)' };
       case 'rejected':
         return { label: 'Changes Requested', icon: AlertTriangle, color: '#F87171', bg: 'rgba(248, 113, 113, 0.15)', border: 'rgba(248, 113, 113, 0.3)' };
       default:
@@ -451,7 +478,29 @@ export function TaskDetailClient({
         </div>
 
         {/* Action Controls */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+          {/* Downward Delegation Action (Spec §4.2 Part B) */}
+          {(task.status === 'todo' || task.status === 'in_progress') && canEditTask && (
+            <button
+              onClick={() => setShowDelegateModal(true)}
+              className="btn btn-outline"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+                fontSize: '0.88rem',
+                fontWeight: 700,
+                color: '#C084FC',
+                borderColor: 'rgba(168, 85, 247, 0.45)',
+                background: 'rgba(168, 85, 247, 0.08)',
+                padding: '0.55rem 1.15rem',
+              }}
+            >
+              <GitFork size={16} />
+              <span>Delegate Task</span>
+            </button>
+          )}
+
           {task.status === 'todo' && (
             <button
               onClick={handleStartTask}
@@ -544,6 +593,147 @@ export function TaskDetailClient({
         {/* LEFT COLUMN: Main Task Spec, Deliverables, Workflow Tracker, Comments */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
           
+          {/* Upstream Parent Task Link (If this task was delegated down) */}
+          {parentTask && (
+            <div
+              style={{
+                padding: '0.85rem 1.15rem',
+                borderRadius: 'var(--radius-md)',
+                background: 'rgba(168, 85, 247, 0.1)',
+                border: '1px solid rgba(168, 85, 247, 0.35)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                flexWrap: 'wrap',
+                gap: '0.75rem',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.88rem' }}>
+                <GitFork size={16} color="#C084FC" />
+                <span style={{ color: 'var(--text-secondary)' }}>Delegated from parent task:</span>
+                <Link
+                  href={`/tasks/${parentTask.id}${mockQuery}`}
+                  style={{ fontWeight: 700, color: '#F3E8FF', textDecoration: 'underline' }}
+                >
+                  {parentTask.title}
+                </Link>
+              </div>
+              <span
+                style={{
+                  fontSize: '0.75rem',
+                  padding: '0.2rem 0.55rem',
+                  borderRadius: '4px',
+                  background: 'rgba(168, 85, 247, 0.25)',
+                  color: '#E9D5FF',
+                  fontWeight: 800,
+                  textTransform: 'uppercase',
+                }}
+              >
+                Parent: {parentTask.status}
+              </span>
+            </div>
+          )}
+
+          {/* Downstream Delegated Branch (If this task is delegated or has child tasks) */}
+          {(task.status === 'delegated' || childTasksList.length > 0) && (
+            <div
+              className="glass-panel"
+              style={{
+                padding: '1.5rem',
+                background: 'rgba(19, 27, 46, 0.85)',
+                border: '1px solid rgba(168, 85, 247, 0.4)',
+                boxShadow: '0 8px 32px rgba(168, 85, 247, 0.15)',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '1rem',
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <GitFork size={18} color="#C084FC" />
+                  <h3 style={{ fontSize: '1.15rem', fontWeight: 800, margin: 0, color: '#F3E8FF' }}>
+                    Delegation Branch (Spec §4.2 Part B)
+                  </h3>
+                </div>
+                <span
+                  style={{
+                    fontSize: '0.75rem',
+                    fontWeight: 800,
+                    padding: '0.25rem 0.65rem',
+                    borderRadius: '999px',
+                    background: 'rgba(168, 85, 247, 0.2)',
+                    color: '#D8B4FE',
+                    border: '1px solid rgba(168, 85, 247, 0.45)',
+                  }}
+                >
+                  {task.status === 'delegated' ? 'Waiting on Child Deliverable' : 'Child Deliverable Active'}
+                </span>
+              </div>
+
+              <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+                This deliverable has been delegated down the chapter chain. When the child task is submitted, this parent task will automatically advance into <strong>Review</strong> for your sign-off.
+              </p>
+
+              {/* List of child tasks */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+                {childTasksList.map((ct) => (
+                  <div
+                    key={ct.id}
+                    style={{
+                      padding: '0.85rem 1rem',
+                      borderRadius: 'var(--radius-sm)',
+                      background: 'rgba(0, 0, 0, 0.3)',
+                      border: '1px solid rgba(255, 255, 255, 0.07)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      flexWrap: 'wrap',
+                      gap: '0.75rem',
+                    }}
+                  >
+                    <div>
+                      <Link
+                        href={`/tasks/${ct.id}${mockQuery}`}
+                        style={{ fontSize: '0.92rem', fontWeight: 700, color: '#93C5FD', textDecoration: 'none' }}
+                      >
+                        {ct.title}
+                      </Link>
+                      <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>
+                        {ct.assignment_mode === 'broadcast' ? 'Broadcast to Committee' : `Assigned to: ${ct.assignee?.full_name || 'Member'}`} • {ct.departments?.name}
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                      <span
+                        style={{
+                          fontSize: '0.72rem',
+                          fontWeight: 700,
+                          padding: '0.2rem 0.5rem',
+                          borderRadius: '4px',
+                          textTransform: 'uppercase',
+                          background: ct.status === 'done' ? 'rgba(52, 168, 83, 0.18)' : ct.status === 'review' ? 'rgba(251, 188, 4, 0.18)' : 'rgba(255, 255, 255, 0.08)',
+                          color: ct.status === 'done' ? '#86EFAC' : ct.status === 'review' ? '#FDE047' : 'var(--text-secondary)',
+                          border: ct.status === 'done' ? '1px solid rgba(52, 168, 83, 0.35)' : ct.status === 'review' ? '1px solid rgba(251, 188, 4, 0.35)' : '1px solid var(--border-subtle)',
+                        }}
+                      >
+                        {ct.status}
+                      </span>
+
+                      <Link
+                        href={`/tasks/${ct.id}${mockQuery}`}
+                        className="btn btn-outline"
+                        style={{ padding: '0.3rem 0.65rem', fontSize: '0.75rem', display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}
+                      >
+                        <span>Inspect Child Task</span>
+                        <ExternalLink size={12} />
+                      </Link>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Card 1: Task Core Overview */}
           <div className="glass-panel" style={{ padding: '1.75rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
             {/* Top Badges */}
@@ -1569,6 +1759,31 @@ export function TaskDetailClient({
             router.refresh();
           }}
           mockRole={mockRole}
+        />
+      )}
+
+      {/* Delegate Task Modal (Spec §4.2 Part B) */}
+      {showDelegateModal && (
+        <DelegateTaskModal
+          task={task}
+          isOpen={showDelegateModal}
+          onClose={() => setShowDelegateModal(false)}
+          onSuccess={(childTask, updatedParentTask) => {
+            setShowDelegateModal(false);
+            if (updatedParentTask) {
+              setTask((prev) => ({ ...prev, ...updatedParentTask, status: 'delegated' }));
+            }
+            if (childTask) {
+              setChildTasksList((prev) => [childTask, ...prev]);
+            }
+            setBannerNotice({
+              type: 'success',
+              text: `Task successfully delegated! Child task created: "${childTask?.title || 'Delegated task'}"`,
+            });
+            router.refresh();
+          }}
+          mockRole={mockRole}
+          currentUserId={currentUserId}
         />
       )}
     </div>

@@ -254,7 +254,36 @@ export default async function TaskDetailPage({ params, searchParams }: TaskDetai
 
   const assignees = rawAssignees || [];
 
-  // 5. Permissions check
+  // 5. Fetch Parent and Child tasks for Delegation chain (Spec §4.2 Part B)
+  let parentTask: any = null;
+  if (task.parent_task_id) {
+    const { data: pTask } = await admin
+      .from('tasks')
+      .select('id, title, status, assignee_id, departments:department_id(name)')
+      .eq('id', task.parent_task_id)
+      .maybeSingle();
+    parentTask = pTask;
+  }
+
+  const { data: rawChildTasks } = await admin
+    .from('tasks')
+    .select(`
+      id,
+      title,
+      status,
+      assignment_mode,
+      assignee_id,
+      department_id,
+      created_at,
+      assignee:assignee_id(id, full_name, avatar_url, role),
+      departments:department_id(id, name, code)
+    `)
+    .eq('parent_task_id', taskId)
+    .order('created_at', { ascending: false });
+
+  const childTasks = rawChildTasks || [];
+
+  // 6. Permissions check
   const role = userProfile?.role || 'member';
   const isPresident = role === 'president' || role === 'co_president';
   const isBranchHead = role === 'branch_head';
@@ -278,6 +307,8 @@ export default async function TaskDetailPage({ params, searchParams }: TaskDetai
         currentUserId={userId}
         mockRole={mockParam}
         assignees={assignees as any}
+        parentTask={parentTask}
+        childTasks={childTasks as any}
       />
     </AppShell>
   );
