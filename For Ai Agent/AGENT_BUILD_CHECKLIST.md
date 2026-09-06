@@ -79,7 +79,7 @@
 - [x] 6.7 Confirm the original fixed 3-stage escalation chain (spec §4.2 part C) still works unchanged for a task that is assigned directly to one Member and never delegated further. (2026-09-07)
 
 ## ▶️ RESUME HERE — Phase 7 — Low-Dependency Feature Additions
-- [ ] 7.1 Build the **New-Member Onboarding Checklist** (spec §4.15): `onboarding_checklist_templates` + `onboarding_checklist_items` tables, auto-generate a checklist on account approval, progress widget on the Member dashboard, "Onboarded" badge on completion.
+- [x] 7.1 Build the **New-Member Onboarding Checklist** (spec §4.15): `onboarding_checklist_templates` + `onboarding_checklist_items` tables, auto-generate a checklist on account approval, progress widget on the Member dashboard, "Onboarded" badge on completion. (2026-09-07)
 - [ ] 7.2 Build **Offboarding & Alumni Archive** (spec §4.16): add `alumni` to `profiles.status` + `left_at`/`leave_reason`, the "Move to Alumni" action (Head recommends, President/Co-President confirms — same pattern as account approval), and the read-only `/members/alumni` directory.
 - [ ] 7.3 Apply the **Dark Mode** theme (spec §7) as the platform's single design theme across all existing screens built so far.
 
