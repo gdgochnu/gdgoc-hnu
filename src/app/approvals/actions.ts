@@ -9,6 +9,8 @@ import {
   sendChangesRequestedEmail, 
   sendRejectionEmail 
 } from '@/lib/email/service';
+import { generateOnboardingChecklistForProfile } from '@/lib/onboarding/checklist';
+
 
 // Verify caller is President or Co-President
 async function verifyLeadershipCaller() {
@@ -126,7 +128,12 @@ export async function approveAccount(
       is_read: false,
     });
 
-    // 5. Send Welcome Email notification
+    // 5. Auto-generate personalized onboarding checklist (Spec §4.15)
+    await generateOnboardingChecklistForProfile(profileId, departmentId).catch((err) =>
+      console.warn('Failed to auto-generate onboarding checklist:', err)
+    );
+
+    // 6. Send Welcome Email notification
     const { data: targetProfile } = await admin
       .from('profiles')
       .select('email, full_name')

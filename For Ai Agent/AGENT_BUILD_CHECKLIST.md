@@ -68,7 +68,7 @@
 
 ---
 
-## ▶️ RESUME HERE — Phase 6 — Task Delegation & Broadcast Assignment Upgrade (spec §4.2 parts A & B)
+## Phase 6 — Task Delegation & Broadcast Assignment Upgrade (spec §4.2 parts A & B) ✅ (completed)
 *This must be built before Phase 8 (Events), since events will link to tasks created by this upgraded system.*
 - [x] 6.1 Migrate the `tasks` table: add `event_id`, `parent_task_id`, `assignment_mode`, `delegated_by_id`; create the `task_assignees` table (spec §3.3). (2026-09-07)
 - [x] 6.2 Build **Broadcast assignment**: when creating a task, let the creator pick `assignment_mode = broadcast` + a target committee; generate a `task_assignees` row per member; each member gets their own independent To Do/In Progress/Submitted status + evidence on their personal task view. (2026-09-07)
@@ -76,9 +76,9 @@
 - [x] 6.4 Build the **"Delegate" action** on a task detail page (visible only to assignees who have people below them): choose a recipient (single person / a specific Head one level down / broadcast to a chosen committee), add optional notes, and create the child task (`parent_task_id` set, original task status → `delegated`). (2026-09-07)
 - [x] 6.5 Wire the **upward auto-submit**: when a child task is marked done/submitted, automatically flip its `parent_task_id` task to `Review` and notify whoever delegated it, repeating until the chain reaches the original root creator for final closure. (2026-09-07)
 - [x] 6.6 Confirm end-to-end with the exact scenario from the spec: President creates a task for the Non-Tech Head → Non-Tech Head delegates to the Media Head (with notes) → Media Head broadcasts to all Media members → members submit → Media Head picks the best and submits up → Non-Tech Head reviews and submits up → President gives final approval → task closes `Done`. (2026-09-07)
-- [ ] 6.7 Confirm the original fixed 3-stage escalation chain (spec §4.2 part C) still works unchanged for a task that is assigned directly to one Member and never delegated further.
+- [x] 6.7 Confirm the original fixed 3-stage escalation chain (spec §4.2 part C) still works unchanged for a task that is assigned directly to one Member and never delegated further. (2026-09-07)
 
-## Phase 7 — Low-Dependency Feature Additions
+## ▶️ RESUME HERE — Phase 7 — Low-Dependency Feature Additions
 - [ ] 7.1 Build the **New-Member Onboarding Checklist** (spec §4.15): `onboarding_checklist_templates` + `onboarding_checklist_items` tables, auto-generate a checklist on account approval, progress widget on the Member dashboard, "Onboarded" badge on completion.
 - [ ] 7.2 Build **Offboarding & Alumni Archive** (spec §4.16): add `alumni` to `profiles.status` + `left_at`/`leave_reason`, the "Move to Alumni" action (Head recommends, President/Co-President confirms — same pattern as account approval), and the read-only `/members/alumni` directory.
 - [ ] 7.3 Apply the **Dark Mode** theme (spec §7) as the platform's single design theme across all existing screens built so far.

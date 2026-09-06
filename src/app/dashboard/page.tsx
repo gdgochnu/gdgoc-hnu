@@ -11,12 +11,14 @@ import {
   Award, 
   ArrowRight, 
   Briefcase, 
-  Image as ImageIcon, 
+  ImageIcon, 
   ClipboardList, 
   UserCheck, 
   Sparkles,
   ChevronRight
 } from 'lucide-react';
+import { OnboardingChecklistWidget } from '@/components/dashboard/OnboardingChecklistWidget';
+import { getProfileOnboardingProgress, generateOnboardingChecklistForProfile } from '@/lib/onboarding/checklist';
 
 export const dynamic = 'force-dynamic';
 
@@ -38,6 +40,20 @@ export default async function DashboardPage() {
   const role = context.profile?.role || 'member';
   const isPresident = role === 'president';
   const isLeadership = ['president', 'co_president', 'branch_head', 'committee_head', 'committee_co_head'].includes(role);
+
+  // Fetch onboarding progress for member
+  let onboardingProgress = null;
+  if (context.profile?.id) {
+    try {
+      onboardingProgress = await getProfileOnboardingProgress(context.profile.id);
+      if (onboardingProgress.total === 0 && context.profile.status === 'active') {
+        await generateOnboardingChecklistForProfile(context.profile.id, context.profile.department_id);
+        onboardingProgress = await getProfileOnboardingProgress(context.profile.id);
+      }
+    } catch {
+      onboardingProgress = null;
+    }
+  }
 
   return (
     <AppShell>
@@ -125,6 +141,14 @@ export default async function DashboardPage() {
             ) : null}
           </div>
         </div>
+
+        {/* Onboarding Checklist Widget (Spec §4.15) */}
+        {onboardingProgress && (
+          <OnboardingChecklistWidget
+            initialProgress={onboardingProgress}
+            profileId={context.profile?.id}
+          />
+        )}
 
         {/* Role-Specific Metric Cards */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1.25rem' }}>

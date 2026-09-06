@@ -100,3 +100,24 @@ export type ApprovalInstanceStatus =
   | 'rejected'
   | 'changes_requested';
 
+export interface OnboardingChecklistTemplate {
+  id: string;
+  department_id: string | null;
+  item: string;
+  sort_order: number;
+  created_by: string | null;
+  created_at: string;
+}
+
+export interface OnboardingChecklistItem {
+  id: string;
+  profile_id: string;
+  template_id: string | null;
+  label: string;
+  is_done: boolean;
+  completed_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+
