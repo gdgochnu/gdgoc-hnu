@@ -14,15 +14,20 @@ export async function POST(req: NextRequest) {
     if (!callerId) {
       const { searchParams } = new URL(req.url);
       const mockRole = searchParams.get('mock');
-      if (mockRole && process.env.NODE_ENV !== 'production') {
-        const admin = createAdminClient();
-        const { data: mockUser } = await admin
-          .from('profiles')
-          .select('id')
-          .eq('role', mockRole)
-          .limit(1)
-          .maybeSingle();
-        if (mockUser) callerId = mockUser.id;
+      const mockUserId = searchParams.get('mock_user_id');
+      if ((mockRole || mockUserId) && process.env.NODE_ENV !== 'production') {
+        if (mockUserId) {
+          callerId = mockUserId;
+        } else if (mockRole) {
+          const admin = createAdminClient();
+          const { data: mockUser } = await admin
+            .from('profiles')
+            .select('id')
+            .eq('role', mockRole)
+            .limit(1)
+            .maybeSingle();
+          if (mockUser) callerId = mockUser.id;
+        }
       }
     }
 
