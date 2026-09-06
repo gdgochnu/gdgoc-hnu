@@ -58,6 +58,10 @@ export default async function TaskDetailPage({ params, searchParams }: TaskDetai
       department_id,
       assignee_id,
       created_by,
+      delegated_by_id,
+      parent_task_id,
+      assignment_mode,
+      event_id,
       priority,
       status,
       deadline,
@@ -224,12 +228,38 @@ export default async function TaskDetailPage({ params, searchParams }: TaskDetai
     }
   }
 
-  // 4. Permissions check
+  // 4. Fetch Task Assignees for Broadcast Tasks (Spec §3.17 & §4.2)
+  const { data: rawAssignees } = await admin
+    .from('task_assignees')
+    .select(`
+      id,
+      task_id,
+      profile_id,
+      status,
+      evidence_url,
+      submitted_at,
+      created_at,
+      updated_at,
+      profile:profile_id (
+        id,
+        full_name,
+        email,
+        avatar_url,
+        role,
+        position
+      )
+    `)
+    .eq('task_id', taskId)
+    .order('created_at', { ascending: true });
+
+  const assignees = rawAssignees || [];
+
+  // 5. Permissions check
   const role = userProfile?.role || 'member';
   const isPresident = role === 'president' || role === 'co_president';
   const isBranchHead = role === 'branch_head';
   const isCommitteeHead = role === 'committee_head' || role === 'committee_co_head';
-  const isAssignee = userId === task.assignee_id;
+  const isAssignee = userId === task.assignee_id || assignees.some((a) => a.profile_id === userId);
   const isCreator = userId === task.created_by;
 
   const canEditTask = isPresident || isBranchHead || isCommitteeHead;
@@ -247,6 +277,7 @@ export default async function TaskDetailPage({ params, searchParams }: TaskDetai
         canSubmitReview={canSubmitReview}
         currentUserId={userId}
         mockRole={mockParam}
+        assignees={assignees as any}
       />
     </AppShell>
   );

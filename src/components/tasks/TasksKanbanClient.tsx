@@ -20,9 +20,10 @@ import {
   Sparkles,
   ExternalLink,
   ChevronRight,
-  Tag
+  Tag,
+  Users
 } from 'lucide-react';
-import { TaskStatus, TaskPriority, UserRole, TaskAssignmentMode } from '@/types';
+import { TaskStatus, TaskPriority, UserRole, TaskAssignmentMode, TaskAssigneeStatus } from '@/types';
 
 export interface TaskItem {
   id: string;
@@ -55,6 +56,20 @@ export interface TaskItem {
     role: string;
     position?: string | null;
   } | null;
+  task_assignees?: Array<{
+    id: string;
+    profile_id: string;
+    status: TaskAssigneeStatus;
+    evidence_url?: string | null;
+    submitted_at?: string | null;
+    profile?: {
+      id: string;
+      full_name: string;
+      avatar_url?: string | null;
+      role: string;
+      position?: string | null;
+    } | null;
+  }>;
 }
 
 export interface DepartmentOption {
@@ -179,7 +194,12 @@ export function TasksKanbanClient({
 
       // My tasks
       if (onlyMyTasks) {
-        if (t.assignee_id !== currentUserId) return false;
+        if (t.assignment_mode === 'broadcast') {
+          const isAssigned = t.task_assignees?.some((a) => a.profile_id === currentUserId);
+          if (!isAssigned) return false;
+        } else {
+          if (t.assignee_id !== currentUserId) return false;
+        }
       }
 
       return true;
@@ -572,36 +592,67 @@ export function TasksKanbanClient({
                             borderTop: '1px solid rgba(255, 255, 255, 0.06)',
                           }}
                         >
-                          {/* Assignee */}
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                            {task.assignee?.avatar_url ? (
-                              <img
-                                src={task.assignee.avatar_url}
-                                alt={task.assignee.full_name}
-                                style={{ width: '22px', height: '22px', borderRadius: '50%', objectFit: 'cover' }}
-                              />
-                            ) : (
+                          {/* Assignee or Broadcast indicator */}
+                          {task.assignment_mode === 'broadcast' ? (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
                               <div
                                 style={{
                                   width: '22px',
                                   height: '22px',
                                   borderRadius: '50%',
-                                  background: 'rgba(66, 133, 244, 0.2)',
-                                  color: '#93C5FD',
+                                  background: 'rgba(168, 85, 247, 0.2)',
+                                  color: '#C084FC',
                                   display: 'flex',
                                   alignItems: 'center',
                                   justifyContent: 'center',
-                                  fontSize: '0.7rem',
-                                  fontWeight: 700,
                                 }}
                               >
-                                {task.assignee?.full_name ? task.assignee.full_name.charAt(0) : '?'}
+                                <Users size={12} />
                               </div>
-                            )}
-                            <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', fontWeight: 600 }}>
-                              {task.assignee?.full_name || 'Unassigned'}
-                            </span>
-                          </div>
+                              <span style={{ fontSize: '0.78rem', color: '#D8B4FE', fontWeight: 600 }}>
+                                {(() => {
+                                  const myAssignment = task.task_assignees?.find((a) => a.profile_id === currentUserId);
+                                  if (myAssignment) {
+                                    const statusLabel = myAssignment.status === 'submitted' ? 'Submitted' : myAssignment.status === 'in_progress' ? 'In Progress' : 'To Do';
+                                    return `You: ${statusLabel}`;
+                                  }
+                                  const total = task.task_assignees?.length || 0;
+                                  const doneCount = task.task_assignees?.filter((a) => a.status === 'submitted').length || 0;
+                                  return total > 0 ? `${doneCount}/${total} submitted` : 'Broadcast';
+                                })()}
+                              </span>
+                            </div>
+                          ) : (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                              {task.assignee?.avatar_url ? (
+                                <img
+                                  src={task.assignee.avatar_url}
+                                  alt={task.assignee.full_name}
+                                  style={{ width: '22px', height: '22px', borderRadius: '50%', objectFit: 'cover' }}
+                                />
+                              ) : (
+                                <div
+                                  style={{
+                                    width: '22px',
+                                    height: '22px',
+                                    borderRadius: '50%',
+                                    background: 'rgba(66, 133, 244, 0.2)',
+                                    color: '#93C5FD',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    fontSize: '0.7rem',
+                                    fontWeight: 700,
+                                  }}
+                                >
+                                  {task.assignee?.full_name ? task.assignee.full_name.charAt(0) : '?'}
+                                </div>
+                              )}
+                              <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', fontWeight: 600 }}>
+                                {task.assignee?.full_name || 'Unassigned'}
+                              </span>
+                            </div>
+                          )}
 
                           {/* Deadline */}
                           {deadlineInfo && (

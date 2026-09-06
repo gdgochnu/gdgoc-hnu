@@ -53,6 +53,10 @@ export default async function TasksPage() {
       department_id,
       assignee_id,
       created_by,
+      delegated_by_id,
+      parent_task_id,
+      assignment_mode,
+      event_id,
       priority,
       status,
       deadline,
@@ -61,7 +65,15 @@ export default async function TasksPage() {
       created_at,
       updated_at,
       departments:department_id (id, name, code, branch),
-      assignee:assignee_id (id, full_name, avatar_url, role, position)
+      assignee:assignee_id (id, full_name, avatar_url, role, position),
+      task_assignees (
+        id,
+        profile_id,
+        status,
+        evidence_url,
+        submitted_at,
+        profile:profile_id (id, full_name, avatar_url, role, position)
+      )
     `)
     .order('created_at', { ascending: false });
 
@@ -116,6 +128,10 @@ export default async function TasksPage() {
         department_id,
         assignee_id,
         created_by,
+        delegated_by_id,
+        parent_task_id,
+        assignment_mode,
+        event_id,
         priority,
         status,
         deadline,

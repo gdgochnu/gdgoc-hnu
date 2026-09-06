@@ -9,9 +9,11 @@ import {
   Building2, 
   User, 
   AlertCircle,
-  Flag
+  Flag,
+  Radio,
+  Users
 } from 'lucide-react';
-import { TaskPriority } from '@/types';
+import { TaskPriority, TaskAssignmentMode } from '@/types';
 import { TaskItem, DepartmentOption } from './TasksKanbanClient';
 
 export interface AssigneeOption {
@@ -44,6 +46,7 @@ export function CreateTaskModal({
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [deptId, setDeptId] = useState(defaultDeptId || (departments[0]?.id ?? ''));
+  const [assignmentMode, setAssignmentMode] = useState<TaskAssignmentMode>('single');
   const [assigneeId, setAssigneeId] = useState('');
   const [priority, setPriority] = useState<TaskPriority>('medium');
   const [deadline, setDeadline] = useState('');
@@ -85,7 +88,8 @@ export function CreateTaskModal({
           title: title.trim(),
           description: description.trim() || undefined,
           department_id: deptId,
-          assignee_id: assigneeId || null,
+          assignment_mode: assignmentMode,
+          assignee_id: assignmentMode === 'broadcast' ? null : (assigneeId || null),
           priority,
           deadline: deadline || undefined,
         }),
@@ -101,6 +105,7 @@ export function CreateTaskModal({
       // Reset form
       setTitle('');
       setDescription('');
+      setAssignmentMode('single');
       setAssigneeId('');
       setDeadline('');
       setPriority('medium');
@@ -211,6 +216,65 @@ export function CreateTaskModal({
             />
           </div>
 
+          {/* Assignment Mode Toggle (Spec §3.3 / §4.2) */}
+          <div>
+            <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '0.4rem' }}>
+              Assignment Mode
+            </label>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+              <button
+                type="button"
+                onClick={() => setAssignmentMode('single')}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.65rem',
+                  padding: '0.75rem 0.9rem',
+                  borderRadius: 'var(--radius-sm)',
+                  border: `1px solid ${assignmentMode === 'single' ? 'rgba(66, 133, 244, 0.8)' : 'var(--border-subtle)'}`,
+                  background: assignmentMode === 'single' ? 'rgba(66, 133, 244, 0.15)' : 'rgba(255, 255, 255, 0.02)',
+                  color: assignmentMode === 'single' ? '#93C5FD' : 'var(--text-secondary)',
+                  cursor: 'pointer',
+                  textAlign: 'left',
+                  transition: 'var(--transition-smooth)',
+                }}
+              >
+                <User size={18} color={assignmentMode === 'single' ? '#4285F4' : 'var(--text-muted)'} />
+                <div>
+                  <div style={{ fontWeight: 700, fontSize: '0.85rem' }}>Single Assignee</div>
+                  <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Assigned to one member</div>
+                </div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setAssignmentMode('broadcast');
+                  setAssigneeId('');
+                }}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.65rem',
+                  padding: '0.75rem 0.9rem',
+                  borderRadius: 'var(--radius-sm)',
+                  border: `1px solid ${assignmentMode === 'broadcast' ? 'rgba(168, 85, 247, 0.8)' : 'var(--border-subtle)'}`,
+                  background: assignmentMode === 'broadcast' ? 'rgba(168, 85, 247, 0.15)' : 'rgba(255, 255, 255, 0.02)',
+                  color: assignmentMode === 'broadcast' ? '#C084FC' : 'var(--text-secondary)',
+                  cursor: 'pointer',
+                  textAlign: 'left',
+                  transition: 'var(--transition-smooth)',
+                }}
+              >
+                <Radio size={18} color={assignmentMode === 'broadcast' ? '#A855F7' : 'var(--text-muted)'} />
+                <div>
+                  <div style={{ fontWeight: 700, fontSize: '0.85rem' }}>Broadcast Mode</div>
+                  <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>All committee members</div>
+                </div>
+              </button>
+            </div>
+          </div>
+
           {/* Committee & Assignee Row */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))', gap: '1rem' }}>
             {/* Committee */}
@@ -235,24 +299,51 @@ export function CreateTaskModal({
               </select>
             </div>
 
-            {/* Assignee */}
-            <div>
-              <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '0.4rem' }}>
-                Assignee
-              </label>
-              <select
-                className="input-field"
-                value={assigneeId}
-                onChange={(e) => setAssigneeId(e.target.value)}
-              >
-                <option value="">Unassigned (Open for pickup)</option>
-                {filteredMembers.map((m) => (
-                  <option key={m.id} value={m.id}>
-                    {m.full_name} ({m.role.replace('_', ' ')})
-                  </option>
-                ))}
-              </select>
-            </div>
+            {/* Assignee Selection (Single vs Broadcast) */}
+            {assignmentMode === 'broadcast' ? (
+              <div>
+                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '0.4rem' }}>
+                  Target Recipients
+                </label>
+                <div
+                  style={{
+                    padding: '0.65rem 0.9rem',
+                    borderRadius: 'var(--radius-sm)',
+                    background: 'rgba(168, 85, 247, 0.1)',
+                    border: '1px solid rgba(168, 85, 247, 0.3)',
+                    color: '#D8B4FE',
+                    fontSize: '0.82rem',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.5rem',
+                    minHeight: '44px',
+                  }}
+                >
+                  <Users size={16} color="#C084FC" />
+                  <span>
+                    Auto-assigns to <strong>all {filteredMembers.length} members</strong> of this committee.
+                  </span>
+                </div>
+              </div>
+            ) : (
+              <div>
+                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '0.4rem' }}>
+                  Assignee
+                </label>
+                <select
+                  className="input-field"
+                  value={assigneeId}
+                  onChange={(e) => setAssigneeId(e.target.value)}
+                >
+                  <option value="">Unassigned (Open for pickup)</option>
+                  {filteredMembers.map((m) => (
+                    <option key={m.id} value={m.id}>
+                      {m.full_name} ({m.role.replace('_', ' ')})
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
           </div>
 
           {/* Priority & Deadline Row */}

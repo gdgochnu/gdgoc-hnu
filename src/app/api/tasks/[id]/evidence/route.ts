@@ -51,7 +51,7 @@ export async function PATCH(
     // Verify task exists
     const { data: task, error: taskErr } = await admin
       .from('tasks')
-      .select('id, title, evidence_url, status')
+      .select('id, title, evidence_url, status, assignment_mode')
       .eq('id', taskId)
       .single();
 
@@ -59,7 +59,57 @@ export async function PATCH(
       return NextResponse.json({ error: 'Task not found' }, { status: 404 });
     }
 
-    // Update evidence URL
+    // Check if this is a broadcast task and caller is an assigned member
+    if (task.assignment_mode === 'broadcast') {
+      const { data: assigneeRow } = await admin
+        .from('task_assignees')
+        .select('id, profile_id, status')
+        .eq('task_id', taskId)
+        .eq('profile_id', callerId)
+        .maybeSingle();
+
+      if (assigneeRow) {
+        const { data: updatedAssignee, error: assigneeErr } = await admin
+          .from('task_assignees')
+          .update({
+            evidence_url: evidenceUrl,
+            status: 'submitted',
+            submitted_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', assigneeRow.id)
+          .select()
+          .single();
+
+        if (assigneeErr) {
+          return NextResponse.json({ error: assigneeErr.message }, { status: 500 });
+        }
+
+        // Record comment in thread
+        await admin.from('task_comments').insert({
+          task_id: taskId,
+          author_id: callerId,
+          body: `📥 Submitted personal deliverable: ${evidenceUrl}`,
+        });
+
+        // Audit log
+        await admin.from('audit_logs').insert({
+          actor_id: callerId,
+          action: 'task_evidence_submitted',
+          entity_type: 'task',
+          entity_id: taskId,
+          metadata: { mode: 'broadcast', evidence_url: evidenceUrl },
+        });
+
+        return NextResponse.json({
+          status: 'ok',
+          message: 'Personal deliverable submitted successfully',
+          task_assignee: updatedAssignee,
+        });
+      }
+    }
+
+    // Default single task or leadership consolidating main evidence
     const { data: updatedTask, error: updateErr } = await admin
       .from('tasks')
       .update({

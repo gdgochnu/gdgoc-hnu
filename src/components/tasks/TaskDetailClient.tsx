@@ -23,7 +23,9 @@ import {
   Link2,
   Edit3,
   X,
-  AlertTriangle
+  AlertTriangle,
+  Radio,
+  Users
 } from 'lucide-react';
 import { 
   ApprovalStageTracker, 
@@ -31,7 +33,26 @@ import {
   ApprovalStepItem 
 } from '@/components/approvals/ApprovalStageTracker';
 import { SubmitForReviewModal } from '@/components/tasks/SubmitForReviewModal';
-import { TaskStatus, TaskPriority, UserRole, TaskAssignmentMode } from '@/types';
+import { TaskStatus, TaskPriority, UserRole, TaskAssignmentMode, TaskAssigneeStatus } from '@/types';
+
+export interface TaskAssigneeItem {
+  id: string;
+  task_id: string;
+  profile_id: string;
+  status: TaskAssigneeStatus;
+  evidence_url?: string | null;
+  submitted_at?: string | null;
+  created_at: string;
+  updated_at: string;
+  profile?: {
+    id: string;
+    full_name: string;
+    email?: string;
+    avatar_url?: string | null;
+    role?: UserRole;
+    position?: string | null;
+  } | null;
+}
 
 export interface TaskDetailData {
   id: string;
@@ -100,6 +121,7 @@ export interface TaskDetailClientProps {
   canSubmitReview: boolean;
   currentUserId?: string;
   mockRole?: string | null;
+  assignees?: TaskAssigneeItem[];
 }
 
 export function TaskDetailClient({
@@ -112,10 +134,18 @@ export function TaskDetailClient({
   canSubmitReview,
   currentUserId,
   mockRole,
+  assignees = [],
 }: TaskDetailClientProps) {
   const router = useRouter();
   const [task, setTask] = useState<TaskDetailData>(initialTask);
   const [comments, setComments] = useState<TaskCommentItem[]>(initialComments);
+  const [assigneesList, setAssigneesList] = useState<TaskAssigneeItem[]>(assignees);
+  const myAssignment = assigneesList.find((a) => a.profile_id === currentUserId);
+  const [personalEvidenceInput, setPersonalEvidenceInput] = useState(myAssignment?.evidence_url || '');
+  const [isSubmittingPersonal, setIsSubmittingPersonal] = useState(false);
+  const [isStartingPersonal, setIsStartingPersonal] = useState(false);
+  const [isEditingPersonalEvidence, setIsEditingPersonalEvidence] = useState(!myAssignment?.evidence_url);
+
   const [newComment, setNewComment] = useState('');
   const [isPostingComment, setIsPostingComment] = useState(false);
   const [commentError, setCommentError] = useState<string | null>(null);
@@ -132,6 +162,79 @@ export function TaskDetailClient({
   // Action status state
   const [actionLoading, setActionLoading] = useState(false);
   const [bannerNotice, setBannerNotice] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  const handleStartPersonalTask = async () => {
+    try {
+      setIsStartingPersonal(true);
+      const url = `/api/tasks/${task.id}/start${mockQuery}`;
+      const res = await fetch(url, { method: 'POST' });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to start task');
+
+      setAssigneesList((prev) =>
+        prev.map((a) => (a.profile_id === currentUserId ? { ...a, status: 'in_progress' } : a))
+      );
+      if (task.status === 'todo') {
+        setTask((prev) => ({ ...prev, status: 'in_progress' }));
+      }
+      setBannerNotice({ type: 'success', text: 'You have started working on this broadcast deliverable!' });
+    } catch (err: any) {
+      setBannerNotice({ type: 'error', text: err.message });
+    } finally {
+      setIsStartingPersonal(false);
+    }
+  };
+
+  const handleSubmitPersonalEvidence = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!personalEvidenceInput.trim()) return;
+
+    try {
+      setIsSubmittingPersonal(true);
+      const url = `/api/tasks/${task.id}/evidence${mockQuery}`;
+      const res = await fetch(url, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ evidenceUrl: personalEvidenceInput.trim() }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to submit deliverable');
+
+      setAssigneesList((prev) =>
+        prev.map((a) =>
+          a.profile_id === currentUserId
+            ? {
+                ...a,
+                status: 'submitted',
+                evidence_url: personalEvidenceInput.trim(),
+                submitted_at: new Date().toISOString(),
+              }
+            : a
+        )
+      );
+      setIsEditingPersonalEvidence(false);
+      setBannerNotice({ type: 'success', text: 'Your deliverable has been submitted successfully!' });
+      setComments((prev) => [
+        ...prev,
+        {
+          id: `temp-${Date.now()}`,
+          task_id: task.id,
+          author_id: currentUserId || '',
+          body: `📥 Submitted personal deliverable: ${personalEvidenceInput.trim()}`,
+          created_at: new Date().toISOString(),
+          author: {
+            id: currentUserId || '',
+            full_name: 'You',
+            avatar_url: null,
+          },
+        },
+      ]);
+    } catch (err: any) {
+      setBannerNotice({ type: 'error', text: err.message });
+    } finally {
+      setIsSubmittingPersonal(false);
+    }
+  };
 
   const mockQuery = mockRole ? `?mock=${mockRole}` : '';
 
@@ -634,6 +737,368 @@ export function TaskDetailClient({
             </div>
           </div>
 
+          {/* Card: Broadcast Submissions & Member Workspace (Spec §3.17 & §4.2 Part A) */}
+          {task.assignment_mode === 'broadcast' && (
+            <div
+              className="glass-panel"
+              style={{
+                padding: '1.75rem',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '1.5rem',
+                background: 'rgba(19, 27, 46, 0.75)',
+                border: '1px solid rgba(168, 85, 247, 0.35)',
+              }}
+            >
+              {/* Header */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '0.75rem' }}>
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem' }}>
+                    <Radio size={16} color="#C084FC" />
+                    <span style={{ fontSize: '0.75rem', fontWeight: 800, textTransform: 'uppercase', color: '#C084FC', letterSpacing: '0.05em' }}>
+                      Broadcast Assignment
+                    </span>
+                  </div>
+                  <h3 style={{ fontSize: '1.2rem', fontWeight: 800, margin: 0, color: 'var(--text-primary)' }}>
+                    Committee Submissions Dashboard
+                  </h3>
+                  <p style={{ margin: 0, marginTop: '0.25rem', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                    All active members of <strong>{task.departments?.name || 'this committee'}</strong> have an independent submission slot.
+                  </p>
+                </div>
+
+                {/* Progress pill */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                  <span
+                    style={{
+                      fontSize: '0.8rem',
+                      fontWeight: 700,
+                      padding: '0.35rem 0.75rem',
+                      borderRadius: '999px',
+                      background: 'rgba(168, 85, 247, 0.15)',
+                      color: '#D8B4FE',
+                      border: '1px solid rgba(168, 85, 247, 0.3)',
+                    }}
+                  >
+                    {assigneesList.filter((a) => a.status === 'submitted').length} / {assigneesList.length} Submitted
+                  </span>
+                </div>
+              </div>
+
+              {/* Progress bar */}
+              <div style={{ width: '100%', height: '6px', background: 'rgba(255, 255, 255, 0.08)', borderRadius: '999px', overflow: 'hidden' }}>
+                <div
+                  style={{
+                    height: '100%',
+                    width: `${assigneesList.length > 0 ? (assigneesList.filter((a) => a.status === 'submitted').length / assigneesList.length) * 100 : 0}%`,
+                    background: 'linear-gradient(90deg, #A855F7, #34A853)',
+                    borderRadius: '999px',
+                    transition: 'width 0.4s ease',
+                  }}
+                />
+              </div>
+
+              {/* Personal Member Submission Box (If logged in user is one of the assignees) */}
+              {myAssignment && (
+                <div
+                  style={{
+                    padding: '1.25rem',
+                    borderRadius: 'var(--radius-md)',
+                    background: 'rgba(168, 85, 247, 0.08)',
+                    border: '1px solid rgba(168, 85, 247, 0.35)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '1rem',
+                  }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <User size={16} color="#C084FC" />
+                      <span style={{ fontSize: '0.9rem', fontWeight: 800, color: '#F3E8FF' }}>
+                        Your Personal Deliverable Slot
+                      </span>
+                    </div>
+
+                    <span
+                      style={{
+                        fontSize: '0.75rem',
+                        fontWeight: 700,
+                        padding: '0.2rem 0.55rem',
+                        borderRadius: '4px',
+                        textTransform: 'uppercase',
+                        background:
+                          myAssignment.status === 'submitted'
+                            ? 'rgba(52, 168, 83, 0.2)'
+                            : myAssignment.status === 'in_progress'
+                            ? 'rgba(251, 188, 4, 0.2)'
+                            : 'rgba(255, 255, 255, 0.08)',
+                        color:
+                          myAssignment.status === 'submitted'
+                            ? '#86EFAC'
+                            : myAssignment.status === 'in_progress'
+                            ? '#FDE047'
+                            : 'var(--text-secondary)',
+                        border:
+                          myAssignment.status === 'submitted'
+                            ? '1px solid rgba(52, 168, 83, 0.4)'
+                            : myAssignment.status === 'in_progress'
+                            ? '1px solid rgba(251, 188, 4, 0.4)'
+                            : '1px solid var(--border-subtle)',
+                      }}
+                    >
+                      {myAssignment.status === 'submitted'
+                        ? 'Submitted'
+                        : myAssignment.status === 'in_progress'
+                        ? 'In Progress'
+                        : 'To Do'}
+                    </span>
+                  </div>
+
+                  {myAssignment.status === 'todo' && (
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.75rem' }}>
+                      <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                        You haven't started this deliverable yet. Mark it in-progress when you begin.
+                      </p>
+                      <button
+                        onClick={handleStartPersonalTask}
+                        disabled={isStartingPersonal}
+                        className="btn btn-primary"
+                        style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 1rem', fontSize: '0.85rem' }}
+                      >
+                        <Play size={14} />
+                        <span>{isStartingPersonal ? 'Starting...' : 'Start Working'}</span>
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Submission Form / Display */}
+                  {myAssignment.status !== 'todo' && (
+                    <div>
+                      {myAssignment.status === 'submitted' && !isEditingPersonalEvidence ? (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
+                            <a
+                              href={myAssignment.evidence_url || '#'}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '0.5rem',
+                                fontSize: '0.88rem',
+                                color: '#93C5FD',
+                                textDecoration: 'underline',
+                                wordBreak: 'break-all',
+                              }}
+                            >
+                              <ExternalLink size={14} />
+                              <span>{myAssignment.evidence_url}</span>
+                            </a>
+
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setPersonalEvidenceInput(myAssignment.evidence_url || '');
+                                setIsEditingPersonalEvidence(true);
+                              }}
+                              style={{
+                                background: 'none',
+                                border: 'none',
+                                color: 'var(--google-blue)',
+                                fontSize: '0.8rem',
+                                fontWeight: 600,
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '0.3rem',
+                              }}
+                            >
+                              <Edit3 size={13} />
+                              <span>Change Link</span>
+                            </button>
+                          </div>
+                          {myAssignment.submitted_at && (
+                            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                              Submitted on {new Date(myAssignment.submitted_at).toLocaleString()}
+                            </span>
+                          )}
+                        </div>
+                      ) : (
+                        <form onSubmit={handleSubmitPersonalEvidence} style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+                          <label style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
+                            Deliverable Link (Google Drive / GitHub PR / Figma):
+                          </label>
+                          <div style={{ display: 'flex', gap: '0.5rem' }}>
+                            <input
+                              type="url"
+                              value={personalEvidenceInput}
+                              onChange={(e) => setPersonalEvidenceInput(e.target.value)}
+                              placeholder="https://drive.google.com/... or https://github.com/..."
+                              className="input-field"
+                              style={{ flex: 1, fontSize: '0.85rem' }}
+                              required
+                            />
+                            <button
+                              type="submit"
+                              disabled={isSubmittingPersonal}
+                              className="btn btn-primary"
+                              style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', padding: '0.5rem 1rem', fontSize: '0.85rem' }}
+                            >
+                              <Send size={14} />
+                              <span>{isSubmittingPersonal ? 'Submitting...' : 'Submit'}</span>
+                            </button>
+                            {myAssignment.status === 'submitted' && (
+                              <button
+                                type="button"
+                                onClick={() => setIsEditingPersonalEvidence(false)}
+                                className="btn btn-outline"
+                                style={{ padding: '0.5rem 0.8rem', fontSize: '0.85rem' }}
+                              >
+                                Cancel
+                              </button>
+                            )}
+                          </div>
+                        </form>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Committee Members Submissions List */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                <div style={{ fontSize: '0.82rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-muted)', letterSpacing: '0.05em' }}>
+                  All Committee Member Deliverables
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+                  {assigneesList.length === 0 ? (
+                    <div style={{ padding: '1rem', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+                      No members assigned to this broadcast deliverable yet.
+                    </div>
+                  ) : (
+                    assigneesList.map((assignee) => {
+                      const isSubmitted = assignee.status === 'submitted';
+                      const isInProgress = assignee.status === 'in_progress';
+
+                      return (
+                        <div
+                          key={assignee.id}
+                          style={{
+                            padding: '0.85rem 1rem',
+                            borderRadius: 'var(--radius-sm)',
+                            background: 'rgba(255, 255, 255, 0.025)',
+                            border: `1px solid ${isSubmitted ? 'rgba(52, 168, 83, 0.25)' : 'var(--border-subtle)'}`,
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            flexWrap: 'wrap',
+                            gap: '0.75rem',
+                          }}
+                        >
+                          {/* Member identity */}
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                            {assignee.profile?.avatar_url ? (
+                              <img
+                                src={assignee.profile.avatar_url}
+                                alt={assignee.profile.full_name}
+                                style={{ width: '32px', height: '32px', borderRadius: '50%', objectFit: 'cover' }}
+                              />
+                            ) : (
+                              <div
+                                style={{
+                                  width: '32px',
+                                  height: '32px',
+                                  borderRadius: '50%',
+                                  background: 'rgba(168, 85, 247, 0.2)',
+                                  color: '#C084FC',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  fontSize: '0.8rem',
+                                  fontWeight: 700,
+                                }}
+                              >
+                                {assignee.profile?.full_name?.charAt(0) || 'M'}
+                              </div>
+                            )}
+
+                            <div>
+                              <div style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                                {assignee.profile?.full_name || 'Committee Member'}
+                                {assignee.profile_id === currentUserId && (
+                                  <span style={{ marginLeft: '0.4rem', fontSize: '0.72rem', color: '#93C5FD' }}>(You)</span>
+                                )}
+                              </div>
+                              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                                {assignee.profile?.position || assignee.profile?.role?.replace('_', ' ') || 'Member'}
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Status & Deliverable Link */}
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
+                            <span
+                              style={{
+                                fontSize: '0.72rem',
+                                fontWeight: 700,
+                                padding: '0.2rem 0.5rem',
+                                borderRadius: '4px',
+                                textTransform: 'uppercase',
+                                background: isSubmitted
+                                  ? 'rgba(52, 168, 83, 0.15)'
+                                  : isInProgress
+                                  ? 'rgba(251, 188, 4, 0.15)'
+                                  : 'rgba(255, 255, 255, 0.05)',
+                                color: isSubmitted
+                                  ? '#86EFAC'
+                                  : isInProgress
+                                  ? '#FDE047'
+                                  : 'var(--text-muted)',
+                                border: isSubmitted
+                                  ? '1px solid rgba(52, 168, 83, 0.3)'
+                                  : isInProgress
+                                  ? '1px solid rgba(251, 188, 4, 0.3)'
+                                  : '1px solid var(--border-subtle)',
+                              }}
+                            >
+                              {isSubmitted ? 'Submitted' : isInProgress ? 'In Progress' : 'To Do'}
+                            </span>
+
+                            {assignee.evidence_url ? (
+                              <a
+                                href={assignee.evidence_url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="btn btn-outline"
+                                style={{
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '0.35rem',
+                                  padding: '0.35rem 0.75rem',
+                                  fontSize: '0.78rem',
+                                  color: '#93C5FD',
+                                  borderColor: 'rgba(66, 133, 244, 0.4)',
+                                }}
+                              >
+                                <ExternalLink size={12} />
+                                <span>View Deliverable</span>
+                              </a>
+                            ) : (
+                              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>
+                                Awaiting submission
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Card 2: Governance & Multi-Stage Approval Tracker */}
           <div className="glass-panel" style={{ padding: '1.75rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -872,10 +1337,35 @@ export function TaskDetailClient({
           {/* Card: Assignee Details */}
           <div className="glass-panel" style={{ padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
             <div style={{ fontSize: '0.8rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-muted)', letterSpacing: '0.05em' }}>
-              Assigned Member
+              {task.assignment_mode === 'broadcast' ? 'Broadcast Recipients' : 'Assigned Member'}
             </div>
 
-            {task.assignee ? (
+            {task.assignment_mode === 'broadcast' ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
+                <div
+                  style={{
+                    width: '44px',
+                    height: '44px',
+                    borderRadius: '50%',
+                    background: 'rgba(168, 85, 247, 0.2)',
+                    color: '#C084FC',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <Users size={22} />
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                  <span style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                    {task.departments?.name || 'Committee'} Members
+                  </span>
+                  <span style={{ fontSize: '0.78rem', color: '#D8B4FE' }}>
+                    {assigneesList.length} members assigned
+                  </span>
+                </div>
+              </div>
+            ) : task.assignee ? (
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
                 {task.assignee.avatar_url ? (
                   <img

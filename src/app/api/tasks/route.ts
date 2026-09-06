@@ -59,7 +59,16 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { title, description, department_id, assignee_id, priority = 'medium', deadline } = body;
+    const { 
+      title, 
+      description, 
+      department_id, 
+      assignee_id, 
+      priority = 'medium', 
+      deadline,
+      assignment_mode = 'single',
+      event_id 
+    } = body;
 
     if (!title || !title.trim()) {
       return NextResponse.json({ error: 'Task title is required.' }, { status: 400 });
@@ -86,13 +95,16 @@ export async function POST(req: NextRequest) {
     }
 
     // Insert task
+    const isBroadcast = assignment_mode === 'broadcast';
     const { data: newTask, error: insertErr } = await admin
       .from('tasks')
       .insert({
         title: title.trim(),
         description: description?.trim() || null,
         department_id,
-        assignee_id: assignee_id || null,
+        assignment_mode: isBroadcast ? 'broadcast' : 'single',
+        assignee_id: isBroadcast ? null : (assignee_id || null),
+        event_id: event_id || null,
         created_by: callerId,
         priority,
         status: 'todo',
@@ -105,6 +117,10 @@ export async function POST(req: NextRequest) {
         department_id,
         assignee_id,
         created_by,
+        delegated_by_id,
+        parent_task_id,
+        assignment_mode,
+        event_id,
         priority,
         status,
         deadline,
@@ -122,8 +138,41 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: insertErr?.message || 'Failed to create task' }, { status: 500 });
     }
 
-    // Notify assignee if assigned
-    if (assignee_id && assignee_id !== callerId) {
+    // If broadcast mode: generate task_assignees rows for all active committee members (Spec §3.17 & §4.2 Part A)
+    if (isBroadcast) {
+      const { data: deptMembers } = await admin
+        .from('profiles')
+        .select('id, full_name')
+        .eq('department_id', department_id)
+        .eq('status', 'active');
+
+      if (deptMembers && deptMembers.length > 0) {
+        const assigneesPayload = deptMembers.map((m) => ({
+          task_id: newTask.id,
+          profile_id: m.id,
+          status: 'todo',
+        }));
+
+        await admin.from('task_assignees').insert(assigneesPayload);
+
+        // Notify committee members
+        const notificationsPayload = deptMembers
+          .filter((m) => m.id !== callerId)
+          .map((m) => ({
+            profile_id: m.id,
+            type: 'task_assigned',
+            title: 'New Broadcast Task 📢',
+            message: `A new task "${newTask.title}" has been broadcast to your committee. Check your board.`,
+            related_entity_type: 'task',
+            related_entity_id: newTask.id,
+          }));
+
+        if (notificationsPayload.length > 0) {
+          await admin.from('notifications').insert(notificationsPayload);
+        }
+      }
+    } else if (assignee_id && assignee_id !== callerId) {
+      // Single assignee notification
       await admin.from('notifications').insert({
         profile_id: assignee_id,
         type: 'task_assigned',

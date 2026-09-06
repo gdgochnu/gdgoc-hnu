@@ -46,7 +46,47 @@ export async function POST(
       return NextResponse.json({ error: 'Task not found' }, { status: 404 });
     }
 
-    // 2. Update status to in_progress (and assign caller if unassigned)
+    // If Broadcast mode: update the member's personal assignee row to in_progress
+    if (task.assignment_mode === 'broadcast') {
+      const { data: updatedAssignee, error: assigneeErr } = await admin
+        .from('task_assignees')
+        .update({
+          status: 'in_progress',
+          updated_at: new Date().toISOString(),
+        })
+        .eq('task_id', taskId)
+        .eq('profile_id', callerId)
+        .select()
+        .single();
+
+      if (assigneeErr) {
+        return NextResponse.json({ error: assigneeErr.message }, { status: 500 });
+      }
+
+      // Ensure main task status is at least in_progress
+      if (task.status === 'todo') {
+        await admin
+          .from('tasks')
+          .update({ status: 'in_progress', updated_at: new Date().toISOString() })
+          .eq('id', taskId);
+      }
+
+      await admin.from('audit_logs').insert({
+        actor_id: callerId,
+        action: 'task_started',
+        entity_type: 'task',
+        entity_id: taskId,
+        metadata: { mode: 'broadcast', status: 'in_progress' },
+      });
+
+      return NextResponse.json({
+        status: 'ok',
+        task_assignee: updatedAssignee,
+        message: 'Broadcast task marked in progress',
+      });
+    }
+
+    // 2. Single mode: update status to in_progress (and assign caller if unassigned)
     const updates: any = {
       status: 'in_progress',
       updated_at: new Date().toISOString(),
