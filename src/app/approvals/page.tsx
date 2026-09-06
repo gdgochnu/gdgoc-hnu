@@ -1,0 +1,179 @@
+import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
+import Link from 'next/link';
+import { LeadershipDashboardTabs } from '@/components/LeadershipDashboardTabs';
+import { SignInWithGoogleButton } from '@/components/SignInWithGoogleButton';
+import { ShieldAlert, Users } from 'lucide-react';
+
+export const dynamic = 'force-dynamic';
+
+export default async function ApprovalsPage() {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (!user) {
+    return (
+      <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+        <header className="header-nav">
+          <div className="nav-content">
+            <Link href="/" className="brand-badge">
+              <div className="brand-title">GDGoC HNU OS</div>
+            </Link>
+          </div>
+        </header>
+        <main style={{ maxWidth: '600px', margin: '6rem auto', padding: '0 1.5rem', textAlign: 'center' }}>
+          <div className="glass-panel" style={{ padding: '3rem 2rem' }}>
+            <h1 style={{ fontSize: '1.5rem', fontWeight: 700, marginBottom: '1rem' }}>Leadership Sign In Required</h1>
+            <p style={{ color: 'var(--text-secondary)', marginBottom: '2rem', fontSize: '0.95rem' }}>
+              The management portal is restricted to Chapter Leadership and Committee Heads.
+            </p>
+            <SignInWithGoogleButton label="Sign in with Google" variant="primary" />
+          </div>
+        </main>
+      </div>
+    );
+  }
+
+  const admin = createAdminClient();
+
+  // Fetch caller's profile
+  let { data: callerProfile } = await admin
+    .from('profiles')
+    .select('id, role, status, department_id')
+    .eq('id', user.id)
+    .maybeSingle();
+
+  // Check if caller has leadership authority
+  const allowedRoles = ['president', 'co_president', 'branch_head', 'committee_head', 'committee_co_head'];
+  let hasAuthority = callerProfile && allowedRoles.includes(callerProfile.role) && callerProfile.status === 'active';
+  
+  // Early bootstrap check: if no president exists at all in the database, promote current user
+  if (!hasAuthority) {
+    const { count } = await admin
+      .from('profiles')
+      .select('id', { count: 'exact', head: true })
+      .eq('role', 'president');
+
+    if (count === 0) {
+      await admin
+        .from('profiles')
+        .update({ role: 'president', status: 'active' })
+        .eq('id', user.id);
+      callerProfile = { id: user.id, role: 'president', status: 'active', department_id: null };
+      hasAuthority = true;
+    }
+  }
+
+  if (!hasAuthority || !callerProfile) {
+    return (
+      <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+        <header className="header-nav">
+          <div className="nav-content">
+            <Link href="/" className="brand-badge">
+              <div className="brand-title">GDGoC HNU OS</div>
+            </Link>
+          </div>
+        </header>
+        <main style={{ maxWidth: '600px', margin: '6rem auto', padding: '0 1.5rem', textAlign: 'center' }}>
+          <div className="glass-panel" style={{ padding: '3rem 2rem' }}>
+            <div style={{ width: '56px', height: '56px', borderRadius: '14px', background: 'rgba(234, 67, 53, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.5rem' }}>
+              <ShieldAlert size={28} color="var(--google-red)" />
+            </div>
+            <h1 style={{ fontSize: '1.5rem', fontWeight: 700, marginBottom: '0.75rem' }}>Access Restricted</h1>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '0.95rem', lineHeight: 1.6, marginBottom: '1.5rem' }}>
+              Only Chapter Leadership (President, Co-President, Branch Heads, and Committee Heads) can access this workspace.
+            </p>
+            <Link href="/" className="btn-secondary">Return to Home</Link>
+          </div>
+        </main>
+      </div>
+    );
+  }
+
+  // 1. Fetch departments, pending accounts, and managed accounts in parallel
+  const isPresidential = ['president', 'co_president'].includes(callerProfile.role);
+
+  let pendingQuery = admin
+    .from('profiles')
+    .select('*')
+    .eq('status', 'pending_review')
+    .order('created_at', { ascending: false });
+
+  let managedQuery = admin
+    .from('profiles')
+    .select('*')
+    .in('status', ['active', 'suspended'])
+    .order('created_at', { ascending: false });
+
+  if (!isPresidential && callerProfile.department_id) {
+    if (['committee_head', 'committee_co_head'].includes(callerProfile.role)) {
+      pendingQuery = pendingQuery.eq('department_id', callerProfile.department_id);
+      managedQuery = managedQuery.eq('department_id', callerProfile.department_id);
+    }
+  }
+
+  const [deptRes, pendingRes, managedRes] = await Promise.all([
+    admin.from('departments').select('id, name, code, branch').order('name'),
+    pendingQuery,
+    managedQuery,
+  ]);
+
+  const deptList = deptRes.data || [];
+  const deptMap = new Map(deptList.map(d => [d.id, d]));
+
+  const pendingAccounts = (pendingRes.data || []).map(acc => ({
+    ...acc,
+    departments: acc.department_id ? deptMap.get(acc.department_id) || null : null,
+  }));
+
+  const managedMembers = (managedRes.data || []).map(acc => ({
+    ...acc,
+    departments: acc.department_id ? deptMap.get(acc.department_id) || null : null,
+  }));
+
+  const roleTitle = callerProfile.role === 'president' 
+    ? 'Presidential Portal'
+    : callerProfile.role === 'co_president'
+    ? 'Co-Presidential Portal'
+    : callerProfile.role === 'branch_head'
+    ? 'Branch Head Portal'
+    : 'Committee Head Portal';
+
+  return (
+    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+      {/* Navigation Header */}
+      <header className="header-nav">
+        <div className="nav-content">
+          <Link href="/" className="brand-badge">
+            <div className="brand-logo-wrap">
+              <span style={{ fontWeight: 800, fontSize: '1.1rem', background: 'linear-gradient(135deg, #4285F4, #34A853)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+                &lt;&gt;
+              </span>
+            </div>
+            <div>
+              <div className="brand-title">GDGoC HNU OS</div>
+              <div className="brand-sub">Leadership Command & Approvals</div>
+            </div>
+          </Link>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            <span style={{ fontSize: '0.8rem', padding: '0.3rem 0.75rem', borderRadius: '999px', background: 'rgba(66, 133, 244, 0.15)', color: '#93C5FD', fontWeight: 600 }}>
+              {roleTitle}
+            </span>
+          </div>
+        </div>
+      </header>
+
+      {/* Main Body */}
+      <main style={{ maxWidth: '1100px', margin: '0 auto', padding: '2.5rem 1.5rem 5rem', width: '100%' }}>
+        <LeadershipDashboardTabs
+          pendingAccounts={pendingAccounts || []}
+          managedMembers={managedMembers || []}
+          departments={deptList}
+          currentUserId={user.id}
+          currentUserRole={callerProfile.role}
+        />
+      </main>
+    </div>
+  );
+}
+
