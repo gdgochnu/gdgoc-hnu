@@ -21,7 +21,7 @@ export async function GET(req: NextRequest) {
     // 2. Fetch or prepare at least 2 active test members in this department
     const { data: existingMembers } = await admin
       .from('profiles')
-      .select('id, full_name, role, status')
+      .select('id, full_name, role, status, department_id')
       .eq('department_id', testDept.id)
       .eq('status', 'active')
       .limit(2);
@@ -32,7 +32,7 @@ export async function GET(req: NextRequest) {
     if (testMembers.length < 2) {
       const { data: otherProfiles } = await admin
         .from('profiles')
-        .select('id, full_name, role, status')
+        .select('id, full_name, role, status, department_id')
         .eq('status', 'active')
         .neq('department_id', testDept.id)
         .limit(2 - testMembers.length);
