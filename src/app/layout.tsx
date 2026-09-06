@@ -32,7 +32,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en" className="dark" style={{ colorScheme: 'dark' }} suppressHydrationWarning>
       <head>
         <link rel="icon" href="/icons/icon.svg" type="image/svg+xml" />
         <link rel="manifest" href="/manifest.webmanifest" />

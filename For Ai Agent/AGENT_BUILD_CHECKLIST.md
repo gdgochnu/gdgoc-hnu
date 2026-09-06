@@ -78,12 +78,12 @@
 - [x] 6.6 Confirm end-to-end with the exact scenario from the spec: President creates a task for the Non-Tech Head → Non-Tech Head delegates to the Media Head (with notes) → Media Head broadcasts to all Media members → members submit → Media Head picks the best and submits up → Non-Tech Head reviews and submits up → President gives final approval → task closes `Done`. (2026-09-07)
 - [x] 6.7 Confirm the original fixed 3-stage escalation chain (spec §4.2 part C) still works unchanged for a task that is assigned directly to one Member and never delegated further. (2026-09-07)
 
-## ▶️ RESUME HERE — Phase 7 — Low-Dependency Feature Additions
+## Phase 7 — Low-Dependency Feature Additions ✅ (completed)
 - [x] 7.1 Build the **New-Member Onboarding Checklist** (spec §4.15): `onboarding_checklist_templates` + `onboarding_checklist_items` tables, auto-generate a checklist on account approval, progress widget on the Member dashboard, "Onboarded" badge on completion. (2026-09-07)
 - [x] 7.2 Build **Offboarding & Alumni Archive** (spec §4.16): add `alumni` to `profiles.status` + `left_at`/`leave_reason`, the "Move to Alumni" action (Head recommends, President/Co-President confirms — same pattern as account approval), and the read-only `/members/alumni` directory. (2026-09-07)
-- [ ] 7.3 Apply the **Dark Mode** theme (spec §7) as the platform's single design theme across all existing screens built so far.
+- [x] 7.3 Apply the **Dark Mode** theme (spec §7) as the platform's single design theme across all existing screens built so far. (2026-09-07)
 
-## Phase 8 — Events (full lifecycle, upgraded)
+## ▶️ RESUME HERE — Phase 8 — Events (full lifecycle, upgraded)
 - [ ] 8.1 Build the internal Event Builder (draft creation: details, capacity, custom registration fields, owners).
 - [ ] 8.2 Add the **Event Task List** to the event builder — create/link tasks with `tasks.event_id` set (reuses the Phase 6 task system, including delegation/broadcast).
 - [ ] 8.3 Build the **check-in access assignment** step: assigning the "Attendance Check-in" task to specific people also adds them to `events.checkin_access_profile_ids`.
