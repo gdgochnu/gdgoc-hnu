@@ -110,11 +110,7 @@ export default async function FacultiesSettingsPage() {
     .eq('status', 'in_progress');
 
   return (
-    <AppShell
-      profile={callerProfile}
-      pendingApprovalsCount={pendingApprovalsCount || 0}
-      title="Faculty Options"
-    >
+    <AppShell>
       <div style={{ padding: '2rem 1.5rem 4rem', maxWidth: '1100px', margin: '0 auto', width: '100%' }} suppressHydrationWarning>
         {/* Breadcrumb Header */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '1.5rem' }}>
