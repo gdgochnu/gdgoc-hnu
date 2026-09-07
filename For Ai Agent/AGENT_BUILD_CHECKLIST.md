@@ -116,7 +116,7 @@
   - Faculty list displaying Arabic name, English name, sort order, and active/inactive status.
   - Add Faculty modal, Edit Faculty modal, quick Active/Inactive toggle, and sort order controls.
   - Instant cache revalidation so updates reflect immediately in the profile form dropdown.
-- [ ] P.5 **Update Member Profile Page (`/members/[id]`) & Account Approvals List**:
+- [x] P.5 **Update Member Profile Page (`/members/[id]`) & Account Approvals List**: (2026-09-07)
   - Update `src/components/MemberProfileView.tsx` & `src/app/members/[id]/page.tsx`: Display dual Arabic/English names, Faculty, Major, Academic Year, WhatsApp, and social media icons.
   - **Security Gate for National ID**: Strictly render National ID only if viewer is President, Co-President, or a member of the HR committee (`code === 'HR'`). Gated from regular members.
   - Update `src/components/AccountApprovalsList.tsx` so President and Leadership see complete v4 applicant details during review.
