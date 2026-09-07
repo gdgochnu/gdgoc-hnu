@@ -190,6 +190,11 @@ export function AppNavigation({
             icon: Building2,
           },
           {
+            label: 'Faculty Options',
+            href: '/settings/faculties',
+            icon: GraduationCap,
+          },
+          {
             label: 'Google Drive Bridge',
             href: '/settings/drive',
             icon: FolderCog,

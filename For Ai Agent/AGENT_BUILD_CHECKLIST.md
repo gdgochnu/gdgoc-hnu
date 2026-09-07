@@ -110,7 +110,7 @@
   - Update `src/types/index.ts` with `FacultyOption` interface and v4 `Profile` properties.
   - Update `/onboarding/complete-profile/actions.ts` with server-side validation: Arabic 4-part name (min 4 words), English 4-part name (min 4 words), National ID (14 digits Egyptian ID), valid Egyptian mobile & WhatsApp, academic year (1st–5th), department/major free text, faculty from active `faculty_options`, optional social links.
   - Update `src/app/onboarding/complete-profile/page.tsx` & `src/components/CompleteProfileForm.tsx`: Clean dark mode layout with Arabic/English inputs, dynamic faculty select, synced WhatsApp field, and validation feedback.
-- [ ] P.4 **Build `/settings/faculties` (President-Only Faculty Management)**:
+- [x] P.4 **Build `/settings/faculties` (President-Only Faculty Management)**: (2026-09-07)
   - Routes & Components: `src/app/settings/faculties/page.tsx`, `actions.ts`, and `src/components/FacultiesManagementClient.tsx`.
   - President-gated access (same authentication pattern as `/settings/committees`).
   - Faculty list displaying Arabic name, English name, sort order, and active/inactive status.
