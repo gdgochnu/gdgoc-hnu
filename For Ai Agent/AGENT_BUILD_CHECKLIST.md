@@ -1,8 +1,14 @@
-# GDGoC HNU OS — Agent Build Checklist (v2)
+# GDGoC HNU OS — Agent Build Checklist (v3)
 
-> Companion to `GDGoC_HNU_OS_SPEC.md` v3 (the full spec — read it first, and re-read the relevant section before each step below). This file is the **execution plan**: small, sequential, independently-verifiable steps.
+> Companion to `GDGoC_HNU_OS_SPEC.md` v4 (the full spec — read it first, and re-read the relevant section before each step below). This file is the **execution plan**: small, sequential, independently-verifiable steps.
 >
-> **v2 note:** Phases 0–5 below were already completed by a previous agent session (checked off with dates). New requirements arrived after that point — **task delegation, broadcast assignment, event-linked tasks with gated check-in access, plus 8 additional features** (onboarding checklist, alumni archive, dark mode, event feedback, event budget, global search, Google Calendar, public stats page). These are inserted as **Phase 6 onward**, starting immediately after the last completed step, ahead of continuing to Events — because Events now depends on the upgraded Task system. **Resume work at Phase 6, Step 6.1.**
+> **v3 note:** Phases 0–7 below were already completed by a previous agent session (checked off with dates). New requirements arrived in v4:
+> 1. **Phase P — ACTIVE NOW:** Profile fields update (Arabic/English 4-part names, 14-digit National ID, Faculty dropdown, WhatsApp, social links) + `faculty_options` table + President faculty management (`/settings/faculties`). This is the immediate prerequisite.
+> 2. **Phases 8–24:** Core Team OS execution (Events, Attendance, CRM, Approvals, Gamification, Drive, etc.).
+> 3. **Phase S — UPCOMING / NOT ACTIVE NOW:** Student Portal System (spec §4.S) — completely separate system for university students (accounts, courses, workshops, QR check-in by HR, instructor tasks, certificates). Scheduled after Team OS completion.
+> 4. **Phase 25:** Final QA across all systems.
+>
+> **Execution Order:** Phase P ➡️ Phases 8–24 (Team OS) ➡️ Phase S (Student Portal: S.A → S.F) ➡️ Phase 25.
 
 ## ⚠️ Working Protocol (read this before starting)
 
@@ -37,7 +43,9 @@
 - [x] 1.9 Write and apply RLS policies for every table above (spec §3.17) — no table left without an explicit policy. (2026-09-06)
 - [x] 1.10 Verify with a quick manual test: a second test user genuinely cannot `SELECT` another committee's `tasks` row via the anon/authenticated client. (2026-09-06)
 
-> **Schema additions needed in v2** (new tables/columns introduced by this update — build these in Phase 6+ alongside the feature that needs them, not all at once): `tasks.event_id`/`parent_task_id`/`assignment_mode`/`delegated_by_id`, `task_assignees`, `events.checkin_access_profile_ids`/`gcal_event_id`, `onboarding_checklist_templates`, `onboarding_checklist_items`, `profiles.status='alumni'`/`left_at`/`leave_reason`, `event_feedback`, `event_budget_items`. See spec §3 for exact columns.
+> **Schema additions needed in v2** (new tables/columns — build in Phase 6+ alongside their features): `tasks.event_id`/`parent_task_id`/`assignment_mode`/`delegated_by_id`, `task_assignees`, `events.checkin_access_profile_ids`/`gcal_event_id`, `onboarding_checklist_templates`, `onboarding_checklist_items`, `profiles.status='alumni'`/`left_at`/`leave_reason`, `event_feedback`, `event_budget_items`. See spec §3 for exact columns.
+
+> **Schema additions needed in v4** (new in this update — build alongside their features in the phases below): `faculty_options` (Phase P.1), updated `profiles` columns (Phase P.2 migration), Student Portal tables `student_profiles`, `courses`, `course_sessions`, `course_enrollments`, `workshops`, `workshop_registrations`, `student_attendance`, `student_tasks`, `student_task_submissions`, `student_certificates` (Student Portal Phases A–F). See spec §3, §4.S.10 for exact columns.
 
 ## Phase 2 — Auth & Onboarding ✅ (completed)
 - [x] 2.1 Build the landing page + "Sign in with Google" button. (2026-09-06)
@@ -47,6 +55,8 @@
 - [x] 2.5 Build the account status page (`/onboarding/status`) shown to non-active users. (2026-09-06)
 - [x] 2.6 Wire up welcome/rejection/changes-requested notifications + emails. (2026-09-06)
 - [x] 2.7 Build the Suspend/Reactivate action for President/Co-President/Heads. (2026-09-06)
+
+> **v4 note:** The profile fields from spec §2.2 have been updated (Arabic/English names, National ID, Faculty dropdown, WhatsApp, social media). Phase P below covers the migration + updated form. The existing Phase 2 checks remain since the original form was built — the field updates are tracked separately in Phase P.
 
 ## Phase 3 — Committee & Member Management ✅ (completed)
 - [x] 3.1 Build `/settings/committees` (President-only): create/edit committees, assign Head/Co-Head. (2026-09-06)
@@ -83,7 +93,38 @@
 - [x] 7.2 Build **Offboarding & Alumni Archive** (spec §4.16): add `alumni` to `profiles.status` + `left_at`/`leave_reason`, the "Move to Alumni" action (Head recommends, President/Co-President confirms — same pattern as account approval), and the read-only `/members/alumni` directory. (2026-09-07)
 - [x] 7.3 Apply the **Dark Mode** theme (spec §7) as the platform's single design theme across all existing screens built so far. (2026-09-07)
 
-## ▶️ RESUME HERE — Phase 8 — Events (full lifecycle, upgraded)
+## ▶️ ACTIVE NOW — Phase P — Profile Fields Update & Faculty Options Management (v4 new)
+*Read spec §2.2, §3.2, §3.3 (`faculty_options`), and `implementation_plan.md` before starting. This is the immediate prerequisite before Phase 8 (Events) since profile data is used org-wide.*
+- [x] P.1 **Create `faculty_options` table & RLS**: (2026-09-07)
+  - File: `supabase/migrations/20260907000015_create_faculty_options.sql`
+  - Columns: `id (uuid PK)`, `name_ar (text)`, `name_en (text)`, `sort_order (int)`, `is_active (bool default true)`, `created_at (timestamptz)`, `updated_at (timestamptz)`.
+  - Seed initial HNU faculties (Engineering Helwan, Computers & AI, Science, Commerce, Applied Arts, Technology & Education).
+  - RLS: Readable by all authenticated users; INSERT/UPDATE/DELETE strictly restricted to Chapter President (`role = 'president'`).
+- [ ] P.2 **Supabase Migration for `profiles` Table Alterations (v4 schema)**:
+  - File: `supabase/migrations/20260907000016_update_profiles_v4.sql`
+  - Add columns: `full_name_ar (text)`, `full_name_en (text)`, `national_id (text unique)`, `whatsapp_number (text)`, `department_major (text)`, `academic_year (smallint 1-5)`, `facebook_url (text)`, `instagram_url (text)`, `linkedin_url (text)`.
+  - Data preservation: Copy existing `full_name` data to `full_name_ar` and `full_name_en`; keep `full_name` synchronized/accessible for backward compatibility with existing Phases 0–7.
+  - Move legacy `skills` and `portfolio_url` into `custom_fields` jsonb.
+  - Update `handle_new_user()` trigger to populate both `full_name` and `full_name_en` from OAuth metadata seamlessly.
+- [ ] P.3 **Update Profile Types & "Complete Your Profile" Form**:
+  - Update `src/types/index.ts` with `FacultyOption` interface and v4 `Profile` properties.
+  - Update `/onboarding/complete-profile/actions.ts` with server-side validation: Arabic 4-part name (min 4 words), English 4-part name (min 4 words), National ID (14 digits Egyptian ID), valid Egyptian mobile & WhatsApp, academic year (1st–5th), department/major free text, faculty from active `faculty_options`, optional social links.
+  - Update `src/app/onboarding/complete-profile/page.tsx` & `src/components/CompleteProfileForm.tsx`: Clean dark mode layout with Arabic/English inputs, dynamic faculty select, synced WhatsApp field, and validation feedback.
+- [ ] P.4 **Build `/settings/faculties` (President-Only Faculty Management)**:
+  - Routes & Components: `src/app/settings/faculties/page.tsx`, `actions.ts`, and `src/components/FacultiesManagementClient.tsx`.
+  - President-gated access (same authentication pattern as `/settings/committees`).
+  - Faculty list displaying Arabic name, English name, sort order, and active/inactive status.
+  - Add Faculty modal, Edit Faculty modal, quick Active/Inactive toggle, and sort order controls.
+  - Instant cache revalidation so updates reflect immediately in the profile form dropdown.
+- [ ] P.5 **Update Member Profile Page (`/members/[id]`) & Account Approvals List**:
+  - Update `src/components/MemberProfileView.tsx` & `src/app/members/[id]/page.tsx`: Display dual Arabic/English names, Faculty, Major, Academic Year, WhatsApp, and social media icons.
+  - **Security Gate for National ID**: Strictly render National ID only if viewer is President, Co-President, or a member of the HR committee (`code === 'HR'`). Gated from regular members.
+  - Update `src/components/AccountApprovalsList.tsx` so President and Leadership see complete v4 applicant details during review.
+- [ ] P.6 **Confirm End-to-End via Automated Verification Route & UI**:
+  - Create test verification endpoint `src/app/api/test-phase-p/route.ts` validating: `faculty_options` CRUD, profile v4 schema, National ID uniqueness, privacy gating on National ID, and profile submission flow.
+  - Manual UI verification: complete profile form → check `/settings/faculties` → check `/members/[id]`.
+
+## Phase 8 — Events (full lifecycle, upgraded)
 - [ ] 8.1 Build the internal Event Builder (draft creation: details, capacity, custom registration fields, owners).
 - [ ] 8.2 Add the **Event Task List** to the event builder — create/link tasks with `tasks.event_id` set (reuses the Phase 6 task system, including delegation/broadcast).
 - [ ] 8.3 Build the **check-in access assignment** step: assigning the "Attendance Check-in" task to specific people also adds them to `events.checkin_access_profile_ids`.
@@ -203,6 +244,78 @@
 - [ ] 24.4 Full event lifecycle dry run (draft → review → approval → publish → registration → gated QR check-in → completed → feedback survey → certificates).
 - [ ] 24.5 Mobile QR check-in timing test (confirm under ~10 seconds per attendee).
 - [ ] 24.6 Certificate issue-and-verify dry run.
-- [ ] 24.7 RLS penetration checks from spec §9 item 14, confirmed blocked, including the check-in access gate.
+- [ ] 24.7 RLS penetration checks from spec §10 item 14, confirmed blocked, including the check-in access gate.
 - [ ] 24.8 Confirm production Vercel deployment + custom domain + HTTPS are live and preview deployments still point to staging.
 - [ ] 24.9 Hand off `TESTER_CHECKLIST.md` for full manual QA sign-off.
+
+---
+
+## Phase S — Student Portal System (Upcoming Milestone — NOT ACTIVE NOW)
+> ⏸️ **Status:** Scheduled for execution AFTER Team OS Phases 8–24 are completed and verified.
+> Spec Reference: `GDGoC_HNU_OS_SPEC.md` §4.S
+> Summary: Dedicated system for university students covering accounts, courses, workshops, HR QR attendance scanning, instructor tasks, and certificates.
+
+### Sub-Phase S.A: Student Auth & Profile
+*Read spec §4.S.1, §4.S.2, §4.S.10 before starting.*
+- [ ] S.A.1 Create `student_profiles` table (spec §4.S.10) with all fields incl. `qr_code` (unique text, generated with `gen_random_uuid()` or similar on account creation); RLS as per spec §4.S.11.
+- [ ] S.A.2 Build the Student Portal landing page at `/student` — public page with overview of courses/workshops and a "Register / Sign In" button.
+- [ ] S.A.3 Wire Google sign-in for students: first sign-in → create `student_profiles` row (`status='incomplete'`) → redirect to `/student/onboarding`.
+- [ ] S.A.4 Build the "Complete Your Student Profile" form at `/student/onboarding` using the exact fields from spec §4.S.2; on submit → `status='active'` (no approval needed) → redirect to `/student/dashboard`.
+- [ ] S.A.5 Build the student dashboard skeleton at `/student/dashboard` with placeholder sections: My Courses, My Workshops, My Tasks, Attendance Summary, Certificates, My QR Code.
+- [ ] S.A.6 Build `/student/my-qr`: displays the student's `student_profiles.qr_code` as a large scannable QR (use a client-side QR library) with a download button.
+- [ ] S.A.7 Confirm end-to-end: student registers with Google → completes profile form → lands on dashboard → can see personal QR code.
+
+### Sub-Phase S.B: Courses & Sessions
+*Read spec §4.S.3, §4.S.4, §4.S.10 before starting.*
+- [ ] S.B.1 Create `courses`, `course_sessions`, `course_enrollments` tables (spec §4.S.10); RLS as per spec §4.S.11.
+- [ ] S.B.2 Build team admin Course CRUD at `/student-portal/admin/courses`: list, create, edit, publish, archive; access gated to HR Head/Co-Head + assigned Instructors (own courses only) + President/Co-President.
+- [ ] S.B.3 Build Session management within `/student-portal/admin/courses/[id]`: add/edit/delete sessions with session number, title, date, time, venue/link; mark sessions as completed/cancelled.
+- [ ] S.B.4 Build student-facing course browse at `/student/courses` and course detail at `/student/courses/[id]` (shows sessions list + Enroll button).
+- [ ] S.B.5 Wire enrollment flow: open enrollment → immediately `confirmed`; gated enrollment → `pending` → instructor approves via admin page. Waitlist when at capacity.
+- [ ] S.B.6 Show enrolled courses on student dashboard with progress bar (sessions attended / total) and next session info.
+- [ ] S.B.7 Confirm end-to-end: admin creates a published course with 3 sessions → student enrolls → student sees course on dashboard.
+
+### Sub-Phase S.C: Workshops
+*Read spec §4.S.3, §4.S.4, §4.S.10 before starting.*
+- [ ] S.C.1 Create `workshops`, `workshop_registrations` tables (spec §4.S.10); RLS as per spec §4.S.11.
+- [ ] S.C.2 Build team admin Workshop CRUD at `/student-portal/admin/workshops`: list, create, edit, publish, archive; toggle `registration_open`; same role-gating as courses.
+- [ ] S.C.3 Build student-facing workshop browse at `/student/workshops` and detail at `/student/workshops/[id]` with Register button (disabled when registration is closed or capacity full).
+- [ ] S.C.4 On registration: create `workshop_registrations` row with unique `qr_code`; show QR at `/student/workshops/[id]/confirmation`; send confirmation email with QR.
+- [ ] S.C.5 Show registered workshops on student dashboard under "My Workshops" with status (upcoming / attended / missed).
+- [ ] S.C.6 Confirm end-to-end: admin creates + publishes workshop → student registers → sees QR confirmation → admin sees student in registrations list.
+
+### Sub-Phase S.D: Student Attendance (QR Scan by HR)
+*Read spec §4.S.5, §4.S.10, §4.S.11 before starting.*
+- [ ] S.D.1 Create `student_attendance` table (spec §4.S.10); RLS: INSERT restricted to authenticated team members (HR/Instructor/President) — students cannot self-insert; students read own rows only.
+- [ ] S.D.2 Build team admin QR scan screen at `/student-portal/admin/attendance/[sessionId]` — mobile-optimised camera UI using a JS QR scanner library; access gated to HR role, the session's assigned instructor, and President/Co-President.
+- [ ] S.D.3 Wire QR scan: reads `student_profiles.qr_code` → looks up student → creates `student_attendance` row → shows confirmation; block duplicate scans with a clear warning message.
+- [ ] S.D.4 Build manual check-in on the same screen: search student by name, national ID, or phone → same attendance row creation.
+- [ ] S.D.5 Build post-session summary panel on the scan screen: present count, absent list (enrolled but not scanned).
+- [ ] S.D.6 Build student attendance history at `/student/my-attendance`: list of all sessions and workshops with present/absent/not-enrolled status + attendance rate.
+- [ ] S.D.7 Confirm end-to-end: HR opens scan screen on mobile → scans student's personal QR → attendance recorded → student's dashboard shows updated rate → duplicate scan blocked.
+
+### Sub-Phase S.E: Instructor Tasks
+*Read spec §4.S.6, §4.S.10, §4.S.11 before starting.*
+- [ ] S.E.1 Create `student_tasks`, `student_task_submissions` tables (spec §4.S.10); RLS as per spec §4.S.11.
+- [ ] S.E.2 Build task creation in course admin page (`/student-portal/admin/courses/[id]/tasks`): title, description, due date, submission type (link / file), max score (optional), assigned to (all enrolled / specific students).
+- [ ] S.E.3 Build submission review screen (`/student-portal/admin/courses/[id]/tasks/[tid]/submissions`): see all submissions; enter score + feedback comment per student; mark graded / needs_revision / final.
+- [ ] S.E.4 Build student task list at `/student/my-tasks`: pending tasks with due date, submitted tasks awaiting grade, graded tasks with score and feedback.
+- [ ] S.E.5 Build task detail + submission page at `/student/my-tasks/[taskId]`: description, deadline, submission type → URL input field OR file upload → Submit button.
+- [ ] S.E.6 Wire instructor notification on submission, and student notification when graded (in-app + email).
+- [ ] S.E.7 Confirm end-to-end: instructor creates task → enrolled student submits (link) → instructor grades + leaves feedback → student receives notification and sees score.
+
+### Sub-Phase S.F: Student Certificates
+*Read spec §4.S.8, §4.S.10, §4.S.11, and §4.14 (Team OS cert system) before starting.*
+- [ ] S.F.1 Create `student_certificates` table (spec §4.S.10); RLS as per spec §4.S.11.
+- [ ] S.F.2 Build student certificate issuance flow at `/student-portal/admin/certificates`: choose course/workshop → system shows students meeting attendance threshold → President/Co-President selects recipients → generate PDFs (reuse §4.14 engine with shared `certificate_templates`) → create `student_certificates` rows.
+- [ ] S.F.3 Wire `/verify/[code]` public page to also resolve `student_certificates.verification_code` and show authenticity details (same page works for both team and student certificates).
+- [ ] S.F.4 Build student certificates list at `/student/certificates`: all received certificates with download links and verification QR/link.
+- [ ] S.F.5 Wire student certificate notification: when issued, notify student in-app + by email with download link.
+- [ ] S.F.6 Confirm end-to-end: mark course completed → issue certificates to qualifying students → student receives notification → student downloads certificate → QR on PDF resolves correctly at `/verify/[code]`.
+
+## Phase 25 — Final QA (All Systems)
+- [ ] 25.1 All Phase 24 Team OS dry runs (onboarding → approval, delegation + broadcast, fixed-escalation, event lifecycle, QR check-in timing, certificate issue + verify).
+- [ ] 25.2 Student Portal full dry run: student registers → completes profile → enrolls in course → HR scans QR at a session → student submits a task → instructor grades → certificate issued → student downloads certificate → `/verify/[code]` confirms authenticity.
+- [ ] 25.3 RLS penetration: student calls `student_attendance` INSERT directly → confirm server blocks it; student reads another student's submission → confirm RLS blocks it.
+- [ ] 25.4 Confirm team member token cannot access student-only data endpoints and vice versa (tokens are scoped by `profiles` vs `student_profiles`).
+- [ ] 25.5 Hand off updated `TESTER_CHECKLIST.md` (which now includes Student Portal section) for full manual QA sign-off.

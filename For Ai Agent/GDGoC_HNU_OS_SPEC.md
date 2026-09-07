@@ -1,6 +1,15 @@
-# GDGoC HNU OS — Full Product & Technical Specification (v3)
+# GDGoC HNU OS — Full Product & Technical Specification (v4)
 
-> **Purpose of this document:** This is a complete, self-contained specification meant to be handed to an AI coding agent (or a dev team) to build the **entire platform end-to-end**. It covers product scope, roles & permissions, database schema, features, workflows, dashboards, storage architecture, security, and non-functional requirements. Every ambiguous point has an explicit **assumption** flagged in §12 so the builder never has to guess silently.
+> **Purpose of this document:** This is a complete, self-contained specification meant to be handed to an AI coding agent (or a dev team) to build the **entire platform end-to-end**. It covers product scope, roles & permissions, database schema, features, workflows, dashboards, storage architecture, security, and non-functional requirements. Every ambiguous point has an explicit **assumption** flagged in §13 so the builder never has to guess silently.
+>
+> **v4 additions (new in this version):**
+> - **§S / §8** — Student Portal: a completely separate public-facing system for university students (not team members) to register, browse and enroll in courses (with sessions) and workshops, attend sessions via QR scanned by HR, submit tasks set by instructors (link or file), and receive certificates. Fully separate auth, DB tables, and routes from the Team OS.
+> - **§2.2** — Profile fields updated: Arabic 4-part name + English 4-part name, National ID (14-digit), Faculty as dropdown from `faculty_options` table, Department as free text, Academic year, Mobile, WhatsApp, Facebook, Instagram, LinkedIn.
+> - **§3.2** — `profiles` schema updated to reflect new fields.
+> - **§3 new** — `faculty_options` table added (President-managed list for the Faculty dropdown).
+> - **§6** — Routes updated with Student Portal routes and `/settings/faculties`.
+> - **§12** — Build order updated to include Student Portal phases A–F.
+> - **§13** — Open assumptions updated with Student Portal assumptions.
 >
 > **Companion documents (same folder):**
 > - `AGENT_BUILD_CHECKLIST.md` — the same scope broken into small, sequential, confirmable build steps for the coding agent to execute one at a time.
@@ -105,10 +114,31 @@ tech | non_tech
 6. Only `status = 'active'` can access the authenticated app.
 7. **Suspension** → President/Co-President (or delegated Head) can set `status = 'suspended'` anytime — instantly revokes access, reversible.
 
-### 2.2 "Complete Your Profile" form — fields
-*(same recommended field set as v1 — see §3.2 for storage; extendable via `custom_fields jsonb` without a migration)*
+### 2.2 "Complete Your Profile" form — fields (UPDATED v4)
 
-Full name · Email (read-only, from Google) · Profile photo · Phone number · University/Student ID · Faculty/College · Academic year · Committee applying to · Preferred position · Skills (tags) · Portfolio/CV/LinkedIn link · Motivation ("Why join?") · How did you hear about us · Availability (hrs/week) · Agree to code of conduct (required checkbox).
+> ⚠️ **v4 change:** fields have been updated from v1. The exact required fields are below. `custom_fields jsonb` remains for future extension without a migration.
+
+**Required fields (all required unless marked optional):**
+1. **Full name in Arabic (4-part)** — e.g. أحمد محمد علي حسن — minimum four words
+2. **Full name in English (4-part)** — e.g. Ahmed Mohamed Ali Hassan — minimum four words
+3. **National ID** — 14-digit Egyptian national ID number, validated format
+4. **Faculty / College** — dropdown (multiple choice), values managed by President at `/settings/faculties` (e.g. كلية الهندسة, كلية الحاسبات والمعلومات, كلية العلوم, etc.)
+5. **Department / Major** — free-text field (student types their own, e.g. "هندسة الحاسبات", "نظم معلومات")
+6. **Academic year (Grade)** — dropdown: 1st / 2nd / 3rd / 4th / 5th year
+7. **Mobile number** — Egyptian mobile number (validated)
+8. **WhatsApp number** — Egyptian mobile number (pre-filled same as mobile, editable if different)
+9. **Facebook profile URL** — optional
+10. **Instagram handle/URL** — optional
+11. **LinkedIn profile URL** — optional
+12. **Committee applying to** — dropdown (from active departments)
+13. **Preferred position** — free text
+14. **Motivation ("Why join?")** — free text
+15. **How did you hear about us** — dropdown
+16. **Availability (hrs/week)** — number input
+17. **Agree to code of conduct** — required checkbox
+
+**Read-only (from Google OAuth):**
+- Email address
 
 ### 2.3 Public Recruitment Page
 Public marketing + "Join Us" page → triggers Google sign-in → funnels into §2.1 step 3. One funnel, no separate disconnected Google Form.
@@ -123,7 +153,9 @@ Public marketing + "Join Us" page → triggers Google sign-in → funnels into �
 `id, code (unique), name, branch (department_branch), head_id (FK profiles), co_head_id (FK profiles), description, drive_folder_id (nullable, see §10)`
 
 ### 3.2 `profiles`
-`id (= auth.users.id), full_name, email (unique), avatar_url, phone, university_id, faculty, academic_year, role (user_role), department_id (FK departments, nullable until approved), position, skills (text[]), portfolio_url, motivation, how_heard, availability_hours, status (incomplete/pending_review/changes_requested/active/rejected/suspended/alumni), approved_by, approved_at, rejection_reason, join_date, left_at (nullable, set when moved to alumni), leave_reason (nullable), overall_score (numeric, cached), attendance_rate (numeric, cached — see §4.6), leaderboard_opt_in (bool), custom_fields (jsonb)`
+`id (= auth.users.id), full_name_ar (text — Arabic 4-part name), full_name_en (text — English 4-part name), email (unique), avatar_url, national_id (text, 14 chars, unique), phone (text), whatsapp_number (text), faculty (text — value chosen from faculty_options list), department_major (text — free text major/department), academic_year (smallint 1-5), facebook_url (text nullable), instagram_url (text nullable), linkedin_url (text nullable), role (user_role), department_id (FK departments, nullable until approved), position (text), motivation (text), how_heard (text), availability_hours (int), status (incomplete/pending_review/changes_requested/active/rejected/suspended/alumni), approved_by, approved_at, rejection_reason, join_date, left_at (nullable, set when moved to alumni), leave_reason (nullable), overall_score (numeric, cached), attendance_rate (numeric, cached — see §4.6), leaderboard_opt_in (bool), custom_fields (jsonb)`
+
+> **v4 note:** `full_name` replaced by `full_name_ar` + `full_name_en`. `university_id` replaced by `national_id`. `skills` and `portfolio_url` moved into `custom_fields` if needed. `phone` split into `phone` + `whatsapp_number`. Social media fields added. `faculty` is a controlled text value chosen from the `faculty_options` table. `department_major` is free text.
 
 ### 3.3 Core operational tables
 
@@ -157,6 +189,10 @@ Public marketing + "Join Us" page → triggers Google sign-in → funnels into �
 `id, profile_id, type, title, message, related_entity_type, related_entity_id, is_read, created_at`
 
 **`badges`** / **`member_badges`** / **`points_log`** — see §4.13 (expanded).
+
+**`faculty_options`** *(new in v4 — managed by President at `/settings/faculties`)*
+`id, name_ar (text — Arabic faculty name), name_en (text — English faculty name), sort_order (int), is_active (bool default true), created_at`
+> President can add, edit, reorder, and deactivate faculty options. The Faculty/College dropdown in the profile form and student registration form pulls from active rows ordered by `sort_order`. Deactivating a faculty hides it from new selections but does not affect existing profile rows.
 
 ### 3.9 New-member Onboarding Checklist tables
 
@@ -219,7 +255,8 @@ This one engine powers **task completion approval** (for tasks that are *not* de
 - `event_budget_items`: readable/editable by the event's Operations owners + President/Co-President only — not by general committee members.
 - `certificates`: recipient can read their own; President/Co-President see all; public verification page uses a narrow `SELECT`-only RPC that returns just the fields needed to prove authenticity (no PII beyond name/event/date).
 - `audit_logs`: readable only by President/Co-President; insert-only for the system, no client-side update/delete policy exists at all.
-- Public-facing surfaces (Recruitment Page, Event Registration Page, Certificate Verification Page, Public Stats Page) use a restricted `anon` policy: `INSERT`-only where applicable, or a narrow `SELECT` via a security-definer RPC — never direct table `SELECT` access to `anon`.
+- `faculty_options`: readable by all authenticated users (for the dropdown); writable only by President.
+- Public-facing surfaces (Recruitment Page, Event Registration Page, Certificate Verification Page, Public Stats Page, **Student Portal public pages**) use a restricted `anon` policy: `INSERT`-only where applicable, or a narrow `SELECT` via a security-definer RPC — never direct table `SELECT` access to `anon`.
 
 ---
 
@@ -412,6 +449,156 @@ Designed to feel like a genuine, distinctive system rather than a bolted-on poin
 
 ---
 
+## 4.S Student Portal — Full Feature Specification (v4 New)
+
+> The Student Portal is a **completely separate system** from the Team OS. It is a public-facing platform for **university students** (who are NOT GDGoC team members) to register, attend courses and workshops, submit tasks assigned by instructors, and track their own learning journey.
+>
+> A team member (e.g. a Head or President) can be an Instructor in the Student Portal, but a student cannot access the Team OS, and a team member does not automatically become a student.
+
+### 4.S.1 Purpose & Audience
+
+| | |
+|---|---|
+| **Who uses it** | Any university student — not limited to GDGoC team members |
+| **What they do** | Register → browse & enroll in courses/workshops → attend sessions (HR scans their QR) → submit tasks → receive certificates |
+| **Who manages it** | GDGoC team members acting as Instructors or HR Admins via `/student-portal/admin` |
+| **Auth** | Students register with Google OAuth — stored in separate `student_profiles` table (NOT the same `profiles` table as team members) |
+| **Access** | Routes prefixed with `/student` — students never see the Team OS routes |
+
+### 4.S.2 Student Registration & Profile
+
+**Flow:**
+1. Student visits `/student` (Student Portal landing page).
+2. Clicks "سجّل الآن / Register" → Google sign-in.
+3. First sign-in → redirect to **"Complete Your Student Profile"** form (blocks until submitted).
+4. On submit → account is **immediately active** (no manual approval required — unlike team member onboarding).
+5. Student lands on their **Student Dashboard**.
+
+**Student Profile fields — same field set as §2.2 minus the committee/role-specific fields:**
+1. Full name in Arabic (4-part) — required
+2. Full name in English (4-part) — required
+3. National ID (14-digit) — required
+4. University — dropdown (HNU + others, configurable in portal settings)
+5. Faculty / College — dropdown (from same `faculty_options` table used by team profiles)
+6. Department / Major — free text
+7. Academic year (1st–5th) — required
+8. Mobile number — required
+9. WhatsApp number — required (pre-filled same as mobile, editable)
+10. Facebook URL — optional
+11. Instagram URL — optional
+12. LinkedIn URL — optional
+
+### 4.S.3 Content Types
+
+#### Courses (with Sessions)
+- **Course:** a structured multi-session learning program. Fields: title, description, instructor(s), capacity, cover image, category/track, enrollment_type (open/gated), status (draft/published/archived).
+- **Session:** one class within a course. Fields: session number, title, date, start/end time, venue or online link, qr_secret, status (scheduled/completed/cancelled).
+- Students **enroll** in a course once and then attend individual sessions separately.
+
+#### Workshops (Standalone)
+- A **Workshop** is a single-session event (not a course series). Fields: title, description, instructor(s), date, start/end time, venue, capacity, registration deadline, status, registration_open flag, qr_secret.
+- Students register for workshops individually; on registration → unique QR code shown + emailed.
+
+### 4.S.4 Enrollment & Registration
+- **Course enrollment:** browse → enroll → if open: immediately confirmed; if gated: instructor approves → confirmation.
+- **Workshop registration:** browse → register → QR confirmation page + email.
+- Waitlist supported when capacity is full. Students can cancel their own enrollment/registration.
+
+### 4.S.5 Student Attendance — QR Scan by HR/Instructor
+
+> **Key difference from Team OS events:** the student does NOT scan any QR themselves. Instead, **HR or the Instructor scans the student's permanent personal QR** to record attendance.
+
+**Flow:**
+1. HR/Instructor opens `/student-portal/admin/attendance/[sessionId]` on their mobile device.
+2. This screen is **access-gated** — only HR role, the session's assigned Instructor, or President/Co-President.
+3. Student shows their **personal QR** (from `/student/my-qr` or confirmation email).
+4. HR/Instructor scans it → `student_attendance` row created → duplicate scan blocked.
+5. Manual check-in: search by name, national ID, or phone number.
+6. Attendance recorded per session (for courses) or per workshop.
+7. After the session, instructor sees: total present, absent list, latecomers.
+
+**Student QR:** each student has one **permanent QR** (`student_profiles.qr_code`) generated at account creation. This single QR is reused for every session and workshop — no separate QR per enrollment/event.
+
+### 4.S.6 Instructor Tasks
+
+Instructors assign **tasks** to students enrolled in a specific course or workshop (separate from the Team OS task system).
+
+- **Task fields:** title, description, due date, course/workshop link, submission type (link / file), max score (optional), assigned_to (all enrolled / specific students).
+- **Student flow:** sees task at `/student/my-tasks` → submits a URL or uploads a file → instructor grades and leaves feedback → student notified.
+- **Task statuses:** `pending` → `submitted` → `graded` / `needs_revision` → `final`.
+
+### 4.S.7 Student Dashboard (at `/student/dashboard`)
+- **My Courses:** progress bar per course (sessions attended / total), next session date
+- **My Workshops:** upcoming / attended / missed list
+- **My Tasks:** pending (with due date), submitted (awaiting grade), graded (with score)
+- **Attendance Summary:** overall rate + per-course breakdown
+- **Certificates:** received certificates with download links
+- **My QR Code:** large permanent QR with download button (for showing to HR on check-in day)
+
+### 4.S.8 Student Certificates
+- When a course/workshop is marked completed, Instructor/President bulk-issues certificates to students with attendance ≥ configured threshold (default 75%).
+- Uses the **same certificate template + PDF generation system** as Team OS (§4.14), but stored in `student_certificates` (separate table).
+- Student notified in-app + by email with download link.
+- Certificate appears on student dashboard + verified on public `/verify/[code]` page.
+
+### 4.S.9 Team Admin — Student Portal Management Panel
+
+At `/student-portal/admin`:
+
+| Action | President/Co-Pres | HR Head/Co-Head | Assigned Instructor | HR Member |
+|---|---|---|---|---|
+| Create/publish courses & workshops | ✅ | ✅ | ✅ (own only) | ❌ |
+| Scan student QR for check-in | ✅ | ✅ | ✅ (own sessions) | ✅ |
+| View all students | ✅ | ✅ | ✅ (own course/workshop) | ✅ |
+| Grade student tasks | ✅ | ❌ | ✅ (own course) | ❌ |
+| Issue student certificates | ✅ | ❌ | ❌ (request only) | ❌ |
+| Configure portal settings | ✅ | ❌ | ❌ | ❌ |
+
+### 4.S.10 Student Portal — Database Schema
+
+**`student_profiles`**
+`id (= auth.users.id), full_name_ar, full_name_en, email (unique), avatar_url, national_id (text, 14 chars, unique), university, faculty, department_major, academic_year (smallint 1-5), phone, whatsapp_number, facebook_url, instagram_url, linkedin_url, qr_code (text unique — permanent QR identifier generated on account creation), status (incomplete/active/suspended), created_at, updated_at`
+
+**`courses`**
+`id, title, description, cover_image_url, category, instructor_ids (uuid[]), capacity (nullable), enrollment_type (open/gated), status (draft/published/archived), created_by, created_at`
+
+**`course_sessions`**
+`id, course_id (FK courses), session_number (int), title, description, session_date, start_time, end_time, venue (text), online_link (nullable), qr_secret, status (scheduled/completed/cancelled), created_at`
+
+**`course_enrollments`**
+`id, course_id, student_id (FK student_profiles), status (pending/confirmed/rejected/withdrawn/waitlisted), enrolled_at, confirmed_at, created_at`
+
+**`workshops`**
+`id, title, description, cover_image_url, category, instructor_ids (uuid[]), date, start_time, end_time, venue, online_link (nullable), capacity (nullable), registration_deadline (timestamptz nullable), status (draft/published/archived/completed), registration_open (bool), qr_secret, created_by, created_at`
+
+**`workshop_registrations`**
+`id, workshop_id, student_id (FK student_profiles), qr_code (text unique — per-registration confirmation QR for the email), status (registered/waitlisted/cancelled), registered_at, created_at`
+
+**`student_attendance`**
+`id, session_id (FK course_sessions, nullable — null when it's a workshop attendance), workshop_id (FK workshops, nullable), student_id (FK student_profiles), check_in_time, checked_in_by (FK profiles — the team member who scanned), method (qr/manual), created_at`
+> Unique constraints: `(session_id, student_id)` and `(workshop_id, student_id)`.
+> INSERT is allowed only by authenticated team members (HR/Instructor/President/Co-President) — students cannot self-insert.
+
+**`student_tasks`**
+`id, course_id (FK courses, nullable), workshop_id (FK workshops, nullable), title, description, due_date, submission_type (link/file), max_score (numeric nullable), assigned_to (all_enrolled/specific), specific_student_ids (uuid[] nullable), status (active/closed), created_by (FK profiles — the instructor), created_at`
+
+**`student_task_submissions`**
+`id, task_id (FK student_tasks), student_id (FK student_profiles), submission_link (nullable), submission_file_url (nullable), score (numeric nullable), feedback_comment (text nullable), status (submitted/graded/needs_revision/final), submitted_at, graded_at, graded_by (FK profiles — the instructor), created_at`
+
+**`student_certificates`**
+`id, template_id (FK certificate_templates — shared with Team OS), student_id (FK student_profiles), course_id (FK courses, nullable), workshop_id (FK workshops, nullable), title, issue_date, certificate_number (unique, format GDGOC-STU-2026-000001), verification_code (uuid — embedded as QR on the PDF, verified at /verify/[code]), pdf_drive_file_id, pdf_drive_url, issued_by (FK profiles — team member who issued), created_at`
+
+### 4.S.11 Student Portal — RLS Principles
+- `student_profiles`: student reads/edits own row; HR + assigned Instructors + President/Co-President read all students.
+- `courses`, `workshops`: published ones readable by all authenticated users (students + team); drafts readable only by admins/instructors.
+- `course_enrollments`, `workshop_registrations`: student reads own records; instructors read their course's/workshop's records; HR + President read all.
+- `student_attendance`: student reads own records; instructors read records for their own sessions; HR + President read all; **INSERT strictly restricted to team members** (HR/Instructor/President) — students cannot self-record attendance.
+- `student_tasks`: active tasks readable by enrolled students; instructors + admins read/write all.
+- `student_task_submissions`: student reads/creates/edits own submission (until graded); instructors read all submissions for their course; HR + President read all; grade + feedback write only by instructors/President.
+- `student_certificates`: student reads own; President/Co-President read all; public `/verify/[code]` uses narrow security-definer RPC.
+
+---
+
 ## 5. Dashboards — Per Role (stats & widgets)
 
 ### 5.1 President / Co-President Dashboard
@@ -453,13 +640,13 @@ Public:
   /stats                         → Public chapter stats page (spec §4.21)
   /events/[slug]                 → Public event page + registration (only once event.status = published)
   /events/[slug]/confirmation
-  /verify/[verification_code]    → Certificate authenticity check
+  /verify/[verification_code]    → Certificate authenticity check (team members + students share this)
 
 Auth-gated (any status):
   /onboarding/complete-profile
   /onboarding/status
 
-Authenticated app (status = active):
+Authenticated app — Team OS (status = active):
   /dashboard                     → role-aware landing
   /search                        → global search results (spec §4.19)
   /members                       → directory (scoped by RLS)
@@ -491,6 +678,40 @@ Authenticated app (status = active):
   /settings/profile
   /settings/committees            → President-only structure editor
   /settings/drive                 → President-only Drive/Apps-Script connection settings
+  /settings/faculties             → President-only faculty/college list editor (v4 NEW)
+
+Student Portal — Student-facing (separate auth context):
+  /student                          → Student Portal landing page
+  /student/register                 → Google sign-in → student profile form
+  /student/onboarding               → Complete student profile (blocks until done)
+  /student/dashboard                → Student home: courses, tasks, attendance, QR
+  /student/courses                  → Browse all published courses
+  /student/courses/[id]             → Course detail + sessions list + enroll button
+  /student/workshops                → Browse all published workshops
+  /student/workshops/[id]           → Workshop detail + register button
+  /student/workshops/[id]/confirmation  → QR confirmation page after registration
+  /student/my-tasks                 → All assigned tasks + submission interface
+  /student/my-tasks/[taskId]        → Task detail + submission form (link or file upload)
+  /student/my-attendance            → Attendance history across all courses/workshops
+  /student/my-qr                    → Student's permanent personal QR code (full-screen, downloadable)
+  /student/certificates             → Certificates received
+  /student/profile                  → Edit own student profile
+
+Student Portal — Team Admin-facing (authenticated team member with appropriate role):
+  /student-portal/admin                              → Admin home: stats + quick links
+  /student-portal/admin/courses                      → Course list (team view)
+  /student-portal/admin/courses/new
+  /student-portal/admin/courses/[id]                 → Edit course + manage sessions
+  /student-portal/admin/courses/[id]/tasks           → Tasks for this course + all submissions
+  /student-portal/admin/courses/[id]/tasks/[tid]/submissions → All student submissions + grading
+  /student-portal/admin/workshops                    → Workshop list (team view)
+  /student-portal/admin/workshops/new
+  /student-portal/admin/workshops/[id]               → Edit workshop + manage registrations
+  /student-portal/admin/students                     → All students directory + search + export
+  /student-portal/admin/students/[id]                → Individual student: courses, attendance, tasks, certs
+  /student-portal/admin/attendance/[sessionId]       → Live QR scan screen + manual check-in
+  /student-portal/admin/certificates                 → Issue certificates to course/workshop attendees
+  /student-portal/admin/settings                     → Portal settings (roles, thresholds, etc.)
 ```
 
 ---
@@ -608,49 +829,70 @@ Vercel serves the service worker and manifest correctly out of the box — just 
 
 Even though scope is delivered in full, build in this dependency-safe order (this is also the exact order `AGENT_BUILD_CHECKLIST.md` follows):
 
+**Team OS Phases:**
 1. Vercel project set up + skeleton app deployed + Supabase schema (§3) + RLS (§3.17) + Google OAuth provider config.
-2. Auth + onboarding flow (§2) incl. approvals inbox.
-3. Committee/member management (§4.1) + role-aware app shell + routing (§6).
-4. Generic approval/escalation engine (§3.13) — built once, used as the fixed-chain fallback for Tasks and Events.
-5. Task & Kanban module — basic single-assignee tasks with the fixed escalation chain wired in (§4.2 part C).
-6. **Task Delegation & Broadcast Assignment upgrade** (§4.2 parts A & B) — extends the basic task module before Events is built, since Events depend on linkable tasks.
-7. New-Member Onboarding Checklist (§4.15), Offboarding & Alumni Archive (§4.16), and Dark Mode theme (§7) — low-dependency features slotted in early.
-8. Events full lifecycle incl. review/approval/publish + public registration + QR attendance + Event Task List + check-in access gating (§4.3, §4.4).
-9. Event Feedback Survey (§4.18) and Event Budget Tracking (§4.20) — both depend directly on Events.
-10. HR dashboard incl. org-wide attendance leaderboard (§4.5) + Member performance (§4.6).
-11. PR CRM (§4.7).
-12. Global Search (§4.19) — once Tasks, Members, Events, and PR Contacts all exist to search across.
-13. Google Drive bridge (§8) — needed before Media Library and Certificates can store real files.
-14. Google Calendar Integration (§4.17) — reuses the Drive bridge's Google account/credentials.
-15. Media workspace + central library (§4.8), Operations checklists (§4.9).
-16. President Command Center (§4.10) — depends on data from everything above.
-17. Notifications & approvals wiring across every module (§4.11).
-18. Reports & exports (§4.12).
-19. Gamification (§4.13).
-20. Certificates (§4.14) — depends on Drive bridge + attendance data.
-21. Public Chapter Stats Page (§4.21) — depends on aggregate data from most modules above.
-22. Vercel Cron jobs (§10.4) wired to their respective modules.
-23. Security hardening pass + audit log wiring across all of the above (§9).
-24. Final QA: RLS penetration checks, full onboarding→approval dry run, full task delegation + broadcast dry run (President→Non-Tech Head→Media Head→broadcast Members→back up to President), full fixed-escalation dry run (Member→Head→Branch Head→President), full event lifecycle dry run incl. task-gated check-in access, mobile QR check-in timing test, certificate issue-and-verify dry run.
+2. `faculty_options` table + `/settings/faculties` page — must exist before profile form is built.
+3. Auth + onboarding flow (§2) incl. approvals inbox — with **updated profile fields** (§2.2 v4).
+4. Committee/member management (§4.1) + role-aware app shell + routing (§6).
+5. Generic approval/escalation engine (§3.13) — built once, used as the fixed-chain fallback for Tasks and Events.
+6. Task & Kanban module — basic single-assignee tasks with the fixed escalation chain wired in (§4.2 part C).
+7. **Task Delegation & Broadcast Assignment upgrade** (§4.2 parts A & B) — extends the basic task module before Events is built, since Events depend on linkable tasks.
+8. New-Member Onboarding Checklist (§4.15), Offboarding & Alumni Archive (§4.16), and Dark Mode theme (§7) — low-dependency features slotted in early.
+9. Events full lifecycle incl. review/approval/publish + public registration + QR attendance + Event Task List + check-in access gating (§4.3, §4.4).
+10. Event Feedback Survey (§4.18) and Event Budget Tracking (§4.20) — both depend directly on Events.
+11. HR dashboard incl. org-wide attendance leaderboard (§4.5) + Member performance (§4.6).
+12. PR CRM (§4.7).
+13. Global Search (§4.19) — once Tasks, Members, Events, and PR Contacts all exist to search across.
+14. Google Drive bridge (§9) — needed before Media Library and Certificates can store real files.
+15. Google Calendar Integration (§4.17) — reuses the Drive bridge's Google account/credentials.
+16. Media workspace + central library (§4.8), Operations checklists (§4.9).
+17. President Command Center (§4.10) — depends on data from everything above.
+18. Notifications & approvals wiring across every module (§4.11).
+19. Reports & exports (§4.12).
+20. Gamification (§4.13).
+21. Certificates (§4.14) — depends on Drive bridge + attendance data.
+22. Public Chapter Stats Page (§4.21) — depends on aggregate data from most modules above.
+23. Vercel Cron jobs (§11.4) wired to their respective modules.
+24. Security hardening pass + audit log wiring across all of the above (§10).
+
+**Student Portal Phases (build after Team OS is stable):**
+25. **Phase A — Student Auth & Profile:** `student_profiles` table + RLS + `student_profiles.qr_code` generation on signup; student Google sign-in flow; student profile form (same faculty_options, separate table); student dashboard skeleton.
+26. **Phase B — Courses & Sessions:** `courses` + `course_sessions` + `course_enrollments` tables + RLS; team admin CRUD for courses/sessions; student browse + enroll; session schedule view on student dashboard.
+27. **Phase C — Workshops:** `workshops` + `workshop_registrations` tables + RLS; team admin CRUD for workshops; student browse + register; QR confirmation page + email.
+28. **Phase D — Student Attendance (QR scan by HR):** `student_attendance` table + RLS; team admin QR scan screen per session/workshop (mobile-optimised camera UI); manual check-in by name/national ID/phone; student attendance history on student dashboard.
+29. **Phase E — Instructor Tasks:** `student_tasks` + `student_task_submissions` tables + RLS; instructor creates tasks per course/workshop; student submits via link or file upload; instructor grades + leaves feedback; student notification on grading.
+30. **Phase F — Student Certificates:** `student_certificates` table + RLS; issue flow reusing §4.14 certificate system; student certificate dashboard; `/verify/[code]` integration for student certs.
+31. **Final QA (all systems):** RLS penetration checks, full Team OS dry runs, Student Portal dry run (registration → enrollment → session check-in by HR → task submission → grading → certificate issue → verify).
 
 ---
 
 ## 12. Open Assumptions Recap (confirm or override before/while building)
 
+**Team OS Assumptions:**
 1. **Task final approval** requires either the President *or* Co-President (not both) — flag if you want both required.
 2. **Event final approval** — same rule: either President or Co-President suffices.
 3. **Google Drive root account** — assumed to be run under a Google account you control (ideally a dedicated chapter account, not a personal one that leaves with a graduating President) — flag if you already have a Google Workspace org to use instead of a personal Drive + Apps Script bridge.
 4. **Certificate issuance** is President-only by default, with optional Co-President delegation — flag if Heads should ever be allowed to issue their own committee's certificates.
-5. Full onboarding field list in §2.2 — extend via `custom_fields jsonb` as needed.
-6. Default UI language is English with i18n-ready structure — flag if Arabic-first UI is actually required.
-7. WhatsApp notification channel is schema-ready but not built in this version.
-8. AI Assistant / data-query chatbot remains fully excluded from this build.
-9. SLA for "stuck in approval" escalation reminders defaults to 3 days — adjust if a different threshold is wanted.
-10. **Hosting:** Vercel is the deployment target for the whole app (§10); Supabase remains database/Auth/Realtime only — flag if Supabase Edge Functions are preferred over Next.js API Routes for any specific piece of server logic.
-11. **Delegation vs. fixed escalation:** a task follows the fixed 3-stage chain (§4.2 part C) only when nobody delegates it further; the moment someone delegates it downward, the chain that eventually approves it is exactly the reverse of the delegation path (§4.2 part B) — the fixed chain and manual delegation are not both applied to the same task.
-12. **Broadcast task consolidation** is manual: the task owner personally reviews all individual submissions and picks/summarizes the one that represents the task — there's no automatic "best answer" selection.
-13. **Check-in access** defaults to whoever is explicitly assigned the check-in task for that specific event, plus HR role and President/Co-President as a standing override — flag if you want a different default override set.
-14. **Offboarding authority** follows the same pattern as account approval: a Committee Head can recommend moving a member to alumni, but the President/Co-President has final say — flag if Heads should have unilateral authority within their own committee.
-15. **Dark mode only** — no light theme is planned; flag if a light/dark toggle is wanted after all.
-16. **Google Calendar** uses the same Google account/credentials as the Drive bridge for simplicity — flag if you'd rather keep Calendar and Drive on separate accounts.
-17. **Event feedback** defaults to anonymous unless the respondent opts to attach their name — flag if you'd rather default to attributed feedback.
+5. Default UI language is English with i18n-ready structure — flag if Arabic-first UI is actually required.
+6. WhatsApp notification channel is schema-ready but not built in this version.
+7. AI Assistant / data-query chatbot remains fully excluded from this build.
+8. SLA for "stuck in approval" escalation reminders defaults to 3 days — adjust if a different threshold is wanted.
+9. **Hosting:** Vercel is the deployment target for the whole app (§11); Supabase remains database/Auth/Realtime only — flag if Supabase Edge Functions are preferred over Next.js API Routes for any specific piece of server logic.
+10. **Delegation vs. fixed escalation:** a task follows the fixed 3-stage chain (§4.2 part C) only when nobody delegates it further; the moment someone delegates it downward, the chain that eventually approves it is exactly the reverse of the delegation path (§4.2 part B) — the fixed chain and manual delegation are not both applied to the same task.
+11. **Broadcast task consolidation** is manual: the task owner personally reviews all individual submissions and picks/summarizes the one that represents the task — there's no automatic "best answer" selection.
+12. **Check-in access** defaults to whoever is explicitly assigned the check-in task for that specific event, plus HR role and President/Co-President as a standing override — flag if you want a different default override set.
+13. **Offboarding authority** follows the same pattern as account approval: a Committee Head can recommend moving a member to alumni, but the President/Co-President has final say — flag if Heads should have unilateral authority within their own committee.
+14. **Dark mode only** — no light theme is planned; flag if a light/dark toggle is wanted after all.
+15. **Google Calendar** uses the same Google account/credentials as the Drive bridge for simplicity — flag if you'd rather keep Calendar and Drive on separate accounts.
+16. **Event feedback** defaults to anonymous unless the respondent opts to attach their name — flag if you'd rather default to attributed feedback.
+
+**Student Portal Assumptions (v4 new):**
+17. **Student registration:** open self-registration by default (any student can register immediately without manual approval). Flag if invite-only or admin-approval-required registration is preferred.
+18. **Student QR:** each student has one **permanent personal QR** (`student_profiles.qr_code`) used across all sessions and workshops — HR/Instructor scans this one QR to record any attendance, rather than generating a new QR per event. Flag if per-enrollment QR codes are preferred instead.
+19. **Student-team account linkage:** a GDGoC team member can also create a student account using the same Google email — they are treated as two separate roles (one `profiles` row + one `student_profiles` row). Flag if a unified single account with role toggle is preferred.
+20. **Faculty options list:** the same `faculty_options` table is shared between the team profile form and the student profile form by default. Flag if separate faculty lists are needed for team members vs. students.
+21. **Student task submission:** both link (URL) and file upload are supported as submission types, selectable per task. Flag if only one type is needed to simplify.
+22. **Profile field — National ID:** stored as text, validated to exactly 14 digits. Flag if full Egyptian NID checksum/format validation is required.
+23. **Profile fields — social media:** Facebook, Instagram, and LinkedIn are all optional for both team members and students — no minimum required.
+24. **Student attendance threshold for certificate:** default is ≥ 75% of sessions attended to qualify for a course certificate. Configurable per course in Student Portal settings. Flag if a different default is preferred.
+25. **Student Portal instructor role:** any team member can be assigned as an Instructor for a specific course or workshop. The assignment is per-course/per-workshop, not a global role change. Flag if a dedicated global "Instructor" role is preferred.
