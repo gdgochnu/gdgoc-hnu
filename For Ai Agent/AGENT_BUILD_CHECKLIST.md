@@ -120,7 +120,7 @@
   - Update `src/components/MemberProfileView.tsx` & `src/app/members/[id]/page.tsx`: Display dual Arabic/English names, Faculty, Major, Academic Year, WhatsApp, and social media icons.
   - **Security Gate for National ID**: Strictly render National ID only if viewer is President, Co-President, or a member of the HR committee (`code === 'HR'`). Gated from regular members.
   - Update `src/components/AccountApprovalsList.tsx` so President and Leadership see complete v4 applicant details during review.
-- [ ] P.6 **Confirm End-to-End via Automated Verification Route & UI**:
+- [x] P.6 **Confirm End-to-End via Automated Verification Route & UI**: (2026-09-07)
   - Create test verification endpoint `src/app/api/test-phase-p/route.ts` validating: `faculty_options` CRUD, profile v4 schema, National ID uniqueness, privacy gating on National ID, and profile submission flow.
   - Manual UI verification: complete profile form → check `/settings/faculties` → check `/members/[id]`.
 
