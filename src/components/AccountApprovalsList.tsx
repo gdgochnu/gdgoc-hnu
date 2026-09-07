@@ -11,13 +11,15 @@ import {
   Mail, 
   Phone, 
   ExternalLink, 
-  Calendar, 
-  GraduationCap, 
-  Clock, 
   MessageSquare,
   AlertCircle,
   Loader2,
-  ShieldAlert
+  Linkedin,
+  Facebook,
+  Instagram,
+  IdCard,
+  Building2,
+  GraduationCap
 } from 'lucide-react';
 
 export interface DepartmentItem {
@@ -30,12 +32,20 @@ export interface DepartmentItem {
 export interface PendingAccount {
   id: string;
   full_name: string;
+  full_name_ar?: string | null;
+  full_name_en?: string | null;
   email: string;
   avatar_url: string | null;
   phone: string | null;
+  whatsapp_number?: string | null;
+  national_id?: string | null;
   university_id: string | null;
   faculty: string | null;
-  academic_year: string | null;
+  department_major?: string | null;
+  academic_year: string | number | null;
+  facebook_url?: string | null;
+  instagram_url?: string | null;
+  linkedin_url?: string | null;
   position: string | null;
   skills: string[] | null;
   portfolio_url: string | null;
@@ -67,6 +77,17 @@ export function AccountApprovalsList({
   const [selectedRoles, setSelectedRoles] = useState<Record<string, UserRole>>({});
   const [selectedDepts, setSelectedDepts] = useState<Record<string, string>>({});
   const [selectedPositions, setSelectedPositions] = useState<Record<string, string>>({});
+
+  const formatAcademicYear = (year: string | number | null) => {
+    if (!year) return 'N/A';
+    const n = Number(year);
+    if (n === 1) return '1st Year (أولى)';
+    if (n === 2) return '2nd Year (ثانية)';
+    if (n === 3) return '3rd Year (ثالثة)';
+    if (n === 4) return '4th Year (رابعة)';
+    if (n === 5) return '5th Year (خامسة)';
+    return `Year ${year}`;
+  };
 
   const handleApprove = async (acc: PendingAccount) => {
     try {
@@ -156,6 +177,9 @@ export function AccountApprovalsList({
         const currentRole = selectedRoles[acc.id] || 'member';
         const currentDept = selectedDepts[acc.id] || acc.department_id || '';
         const currentPos = selectedPositions[acc.id] ?? (acc.position || 'Member');
+        const primaryName = acc.full_name_en || acc.full_name;
+        const secondaryName = acc.full_name_ar;
+        const whatsappContact = acc.whatsapp_number || acc.phone;
 
         return (
           <div
@@ -171,13 +195,13 @@ export function AccountApprovalsList({
             {/* Top Accent Strip */}
             <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '3px', background: 'var(--google-blue)' }} />
 
-            {/* Header: Candidate Info */}
+            {/* Header: Candidate Info with Dual Names */}
             <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap', marginBottom: '1.5rem' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
                 {acc.avatar_url ? (
                   <img
                     src={acc.avatar_url}
-                    alt={acc.full_name}
+                    alt={primaryName}
                     style={{ width: '56px', height: '56px', borderRadius: '50%', objectFit: 'cover', border: '2px solid rgba(66, 133, 244, 0.3)' }}
                   />
                 ) : (
@@ -186,21 +210,36 @@ export function AccountApprovalsList({
                   </div>
                 )}
                 <div>
-                  <h3 style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '0.2rem' }}>{acc.full_name}</h3>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap', fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', flexWrap: 'wrap' }}>
+                    <h3 style={{ fontSize: '1.25rem', fontWeight: 700, margin: 0 }}>
+                      {primaryName}
+                    </h3>
+                    {secondaryName && (
+                      <span style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--text-secondary)' }}>
+                        ({secondaryName})
+                      </span>
+                    )}
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap', fontSize: '0.82rem', color: 'var(--text-secondary)', marginTop: '0.35rem' }}>
                     <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
                       <Mail size={13} />
                       {acc.email}
                     </span>
                     {acc.phone && (
+                      <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                        <Phone size={13} />
+                        {acc.phone}
+                      </span>
+                    )}
+                    {whatsappContact && (
                       <a
-                        href={`https://wa.me/${acc.phone.replace(/[^0-9]/g, '')}`}
+                        href={`https://wa.me/${whatsappContact.replace(/[^0-9]/g, '')}`}
                         target="_blank"
                         rel="noreferrer"
                         style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', color: '#4ADE80', textDecoration: 'none' }}
                       >
                         <Phone size={13} />
-                        {acc.phone} (WhatsApp)
+                        {whatsappContact} (WhatsApp)
                       </a>
                     )}
                   </div>
@@ -217,18 +256,31 @@ export function AccountApprovalsList({
               </div>
             </div>
 
-            {/* Academic & Committee Overview Pills */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '0.85rem', marginBottom: '1.25rem', background: 'rgba(255, 255, 255, 0.02)', padding: '1rem', borderRadius: '12px' }}>
+            {/* Academic & Identification Overview Pills */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '0.85rem', marginBottom: '1.25rem', background: 'rgba(255, 255, 255, 0.02)', padding: '1rem', borderRadius: '12px' }}>
               <div>
-                <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', display: 'block' }}>FACULTY & YEAR</span>
+                <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', display: 'block' }}>FACULTY & MAJOR</span>
                 <span style={{ fontSize: '0.86rem', fontWeight: 600 }}>
-                  {acc.faculty || 'Unspecified'} • {acc.academic_year || 'N/A'}
+                  {acc.faculty || 'Unspecified'}
+                  {acc.department_major ? ` • ${acc.department_major}` : ''}
+                </span>
+              </div>
+              <div>
+                <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', display: 'block' }}>ACADEMIC YEAR</span>
+                <span style={{ fontSize: '0.86rem', fontWeight: 600 }}>
+                  {formatAcademicYear(acc.academic_year)}
                 </span>
               </div>
               <div>
                 <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', display: 'block' }}>STUDENT ID</span>
                 <span style={{ fontSize: '0.86rem', fontWeight: 600, fontFamily: 'monospace' }}>
                   {acc.university_id || 'N/A'}
+                </span>
+              </div>
+              <div>
+                <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', display: 'block' }}>NATIONAL ID (الرقم القومي)</span>
+                <span style={{ fontSize: '0.86rem', fontWeight: 700, fontFamily: 'monospace', color: '#86EFAC' }}>
+                  {acc.national_id || 'N/A'}
                 </span>
               </div>
               <div>
@@ -244,6 +296,57 @@ export function AccountApprovalsList({
                 </span>
               </div>
             </div>
+
+            {/* Social & Professional Links */}
+            {(acc.linkedin_url || acc.facebook_url || acc.instagram_url || acc.portfolio_url) && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '1.25rem' }}>
+                <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Profiles:</span>
+                {acc.linkedin_url && (
+                  <a
+                    href={acc.linkedin_url}
+                    target="_blank"
+                    rel="noreferrer"
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.78rem', color: '#93C5FD', textDecoration: 'none', background: 'rgba(66, 133, 244, 0.1)', padding: '0.2rem 0.55rem', borderRadius: '6px', border: '1px solid rgba(66, 133, 244, 0.25)' }}
+                  >
+                    <Linkedin size={12} />
+                    <span>LinkedIn</span>
+                  </a>
+                )}
+                {acc.facebook_url && (
+                  <a
+                    href={acc.facebook_url}
+                    target="_blank"
+                    rel="noreferrer"
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.78rem', color: 'var(--text-secondary)', textDecoration: 'none', background: 'rgba(255, 255, 255, 0.05)', padding: '0.2rem 0.55rem', borderRadius: '6px', border: '1px solid rgba(255, 255, 255, 0.1)' }}
+                  >
+                    <Facebook size={12} />
+                    <span>Facebook</span>
+                  </a>
+                )}
+                {acc.instagram_url && (
+                  <a
+                    href={acc.instagram_url}
+                    target="_blank"
+                    rel="noreferrer"
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.78rem', color: '#F472B6', textDecoration: 'none', background: 'rgba(255, 255, 255, 0.05)', padding: '0.2rem 0.55rem', borderRadius: '6px', border: '1px solid rgba(255, 255, 255, 0.1)' }}
+                  >
+                    <Instagram size={12} />
+                    <span>Instagram</span>
+                  </a>
+                )}
+                {acc.portfolio_url && (
+                  <a
+                    href={acc.portfolio_url}
+                    target="_blank"
+                    rel="noreferrer"
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.78rem', color: '#86EFAC', textDecoration: 'none', background: 'rgba(52, 168, 83, 0.1)', padding: '0.2rem 0.55rem', borderRadius: '6px', border: '1px solid rgba(52, 168, 83, 0.25)' }}
+                  >
+                    <ExternalLink size={12} />
+                    <span>Portfolio / CV</span>
+                  </a>
+                )}
+              </div>
+            )}
 
             {/* Motivation Statement */}
             {acc.motivation && (
@@ -267,21 +370,6 @@ export function AccountApprovalsList({
                     {s}
                   </span>
                 ))}
-              </div>
-            )}
-
-            {/* Portfolio Link */}
-            {acc.portfolio_url && (
-              <div style={{ marginBottom: '1.5rem' }}>
-                <a
-                  href={acc.portfolio_url}
-                  target="_blank"
-                  rel="noreferrer"
-                  style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.84rem', color: 'var(--google-blue)', textDecoration: 'none' }}
-                >
-                  <ExternalLink size={14} />
-                  <span>View Applicant Portfolio / CV</span>
-                </a>
               </div>
             )}
 

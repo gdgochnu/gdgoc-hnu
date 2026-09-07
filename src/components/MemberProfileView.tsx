@@ -14,25 +14,36 @@ import {
   Clock, 
   Award, 
   FileText, 
-  CheckCircle2, 
-  AlertCircle, 
   User, 
-  Briefcase, 
   Sparkles,
-  Layers,
   BarChart3,
-  ShieldAlert
+  ShieldAlert,
+  ShieldCheck,
+  Linkedin,
+  Facebook,
+  Instagram,
+  Globe,
+  IdCard,
+  BookOpen
 } from 'lucide-react';
 
 export interface MemberProfileData {
   id: string;
   full_name: string;
+  full_name_ar?: string | null;
+  full_name_en?: string | null;
   email: string;
   avatar_url: string | null;
   phone: string | null;
+  whatsapp_number?: string | null;
+  national_id?: string | null;
   university_id: string | null;
   faculty: string | null;
-  academic_year: string | null;
+  department_major?: string | null;
+  academic_year: string | number | null;
+  facebook_url?: string | null;
+  instagram_url?: string | null;
+  linkedin_url?: string | null;
   role: UserRole;
   position: string | null;
   skills: string[] | null;
@@ -58,12 +69,14 @@ interface MemberProfileViewProps {
   member: MemberProfileData;
   callerRole?: string;
   callerId?: string;
+  canViewNationalId?: boolean;
 }
 
 export function MemberProfileView({
   member,
   callerRole,
   callerId,
+  canViewNationalId = false,
 }: MemberProfileViewProps) {
   const [activeTab, setActiveTab] = useState<'overview' | 'skills' | 'performance' | 'certificates'>('overview');
 
@@ -87,7 +100,29 @@ export function MemberProfileView({
     }
   };
 
+  const getAcademicYearLabel = (year: string | number | null) => {
+    if (!year) return 'Not specified';
+    const num = Number(year);
+    switch (num) {
+      case 1:
+        return '1st Year (الفرقة الأولى)';
+      case 2:
+        return '2nd Year (الفرقة الثانية)';
+      case 3:
+        return '3rd Year (الفرقة الثالثة)';
+      case 4:
+        return '4th Year (الفرقة الرابعة)';
+      case 5:
+        return '5th Year (الفرقة الخامسة)';
+      default:
+        return `Year ${year}`;
+    }
+  };
+
   const roleBadge = getRoleBadge(member.role);
+  const primaryName = member.full_name_en || member.full_name;
+  const secondaryName = member.full_name_ar;
+  const whatsappContact = member.whatsapp_number || member.phone;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
@@ -148,15 +183,15 @@ export function MemberProfileView({
           {/* Identity Info */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', flexWrap: 'wrap' }}>
             <div style={{
-              width: '80px',
-              height: '80px',
+              width: '84px',
+              height: '84px',
               borderRadius: '50%',
               background: 'linear-gradient(135deg, rgba(66, 133, 244, 0.3), rgba(52, 168, 83, 0.3))',
               border: '2px solid rgba(255, 255, 255, 0.2)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              fontSize: '2rem',
+              fontSize: '2.2rem',
               fontWeight: 800,
               color: '#FFFFFF',
               flexShrink: 0,
@@ -165,14 +200,14 @@ export function MemberProfileView({
               {member.avatar_url ? (
                 <img src={member.avatar_url} alt="" style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} />
               ) : (
-                member.full_name?.charAt(0) || 'M'
+                primaryName?.charAt(0) || 'M'
               )}
             </div>
 
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
-                <h1 style={{ fontSize: '2rem', fontWeight: 800, letterSpacing: '-0.02em', margin: 0 }}>
-                  {member.full_name}
+                <h1 style={{ fontSize: '1.85rem', fontWeight: 800, letterSpacing: '-0.02em', margin: 0 }}>
+                  {primaryName}
                 </h1>
                 <span style={{
                   fontSize: '0.75rem',
@@ -202,7 +237,21 @@ export function MemberProfileView({
                 ) : null}
               </div>
 
-              <div style={{ color: 'var(--text-secondary)', fontSize: '1rem', marginTop: '0.35rem' }}>
+              {/* Dual Arabic Name */}
+              {secondaryName && (
+                <div style={{
+                  fontSize: '1.15rem',
+                  fontWeight: 700,
+                  color: 'var(--text-secondary)',
+                  marginTop: '0.25rem',
+                  fontFamily: 'inherit',
+                  letterSpacing: '0.01em',
+                }}>
+                  {secondaryName}
+                </div>
+              )}
+
+              <div style={{ color: 'var(--text-secondary)', fontSize: '0.95rem', marginTop: '0.35rem' }}>
                 {member.position || (member.department ? `Member of ${member.department.name}` : 'General Chapter Member')}
               </div>
 
@@ -216,29 +265,73 @@ export function MemberProfileView({
             </div>
           </div>
 
-          {/* Quick Contact Actions */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+          {/* Quick Contact & Social Actions */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', flexWrap: 'wrap' }}>
             {member.email ? (
               <a
                 href={`mailto:${member.email}`}
                 className="btn-secondary"
-                style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.6rem 1rem', fontSize: '0.85rem' }}
+                style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', padding: '0.55rem 0.95rem', fontSize: '0.85rem' }}
+                title="Send Email"
               >
-                <Mail size={16} color="var(--google-blue)" />
+                <Mail size={15} color="var(--google-blue)" />
                 <span>Email</span>
               </a>
             ) : null}
 
-            {member.phone ? (
+            {whatsappContact ? (
               <a
-                href={`https://wa.me/${member.phone.replace(/[^0-9]/g, '')}`}
+                href={`https://wa.me/${whatsappContact.replace(/[^0-9]/g, '')}`}
                 target="_blank"
                 rel="noreferrer"
                 className="btn-secondary"
-                style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.6rem 1rem', fontSize: '0.85rem' }}
+                style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', padding: '0.55rem 0.95rem', fontSize: '0.85rem', borderColor: 'rgba(52, 168, 83, 0.3)' }}
+                title="Message on WhatsApp"
               >
-                <Phone size={16} color="var(--google-green)" />
-                <span>WhatsApp</span>
+                <Phone size={15} color="var(--google-green)" />
+                <span style={{ color: '#86EFAC' }}>WhatsApp</span>
+              </a>
+            ) : null}
+
+            {member.linkedin_url ? (
+              <a
+                href={member.linkedin_url}
+                target="_blank"
+                rel="noreferrer"
+                className="btn-secondary"
+                style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', padding: '0.55rem 0.95rem', fontSize: '0.85rem', borderColor: 'rgba(66, 133, 244, 0.3)' }}
+                title="LinkedIn Profile"
+              >
+                <Linkedin size={15} color="var(--google-blue)" />
+                <span style={{ color: '#93C5FD' }}>LinkedIn</span>
+              </a>
+            ) : null}
+
+            {member.facebook_url ? (
+              <a
+                href={member.facebook_url}
+                target="_blank"
+                rel="noreferrer"
+                className="btn-secondary"
+                style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', padding: '0.55rem 0.95rem', fontSize: '0.85rem' }}
+                title="Facebook Profile"
+              >
+                <Facebook size={15} color="#60A5FA" />
+                <span>Facebook</span>
+              </a>
+            ) : null}
+
+            {member.instagram_url ? (
+              <a
+                href={member.instagram_url}
+                target="_blank"
+                rel="noreferrer"
+                className="btn-secondary"
+                style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', padding: '0.55rem 0.95rem', fontSize: '0.85rem' }}
+                title="Instagram Profile"
+              >
+                <Instagram size={15} color="#F472B6" />
+                <span>Instagram</span>
               </a>
             ) : null}
 
@@ -248,10 +341,10 @@ export function MemberProfileView({
                 target="_blank"
                 rel="noreferrer"
                 className="btn-primary"
-                style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.6rem 1.25rem', fontSize: '0.85rem' }}
+                style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', padding: '0.55rem 1.15rem', fontSize: '0.85rem' }}
               >
                 <span>Portfolio</span>
-                <ExternalLink size={15} />
+                <ExternalLink size={14} />
               </a>
             ) : null}
           </div>
@@ -384,10 +477,19 @@ export function MemberProfileView({
 
               <div>
                 <div style={{ color: 'var(--text-muted)', fontSize: '0.78rem', textTransform: 'uppercase', fontWeight: 600 }}>
+                  Department / Major
+                </div>
+                <div style={{ color: '#FFFFFF', fontWeight: 700, marginTop: '2px' }}>
+                  {member.department_major || 'General / Unspecified'}
+                </div>
+              </div>
+
+              <div>
+                <div style={{ color: 'var(--text-muted)', fontSize: '0.78rem', textTransform: 'uppercase', fontWeight: 600 }}>
                   Academic Year
                 </div>
                 <div style={{ color: '#FFFFFF', fontWeight: 700, marginTop: '2px' }}>
-                  {member.academic_year || 'Not specified'}
+                  {getAcademicYearLabel(member.academic_year)}
                 </div>
               </div>
 
@@ -398,6 +500,63 @@ export function MemberProfileView({
                 <div style={{ color: '#FFFFFF', fontWeight: 700, marginTop: '2px', fontFamily: 'monospace' }}>
                   {member.university_id || 'Not specified'}
                 </div>
+              </div>
+
+              {/* National ID with Security Gate */}
+              <div style={{
+                padding: '0.85rem',
+                borderRadius: '10px',
+                background: canViewNationalId ? 'rgba(52, 168, 83, 0.06)' : 'rgba(255, 255, 255, 0.03)',
+                border: canViewNationalId ? '1px solid rgba(52, 168, 83, 0.2)' : '1px solid rgba(255, 255, 255, 0.08)',
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.35rem' }}>
+                  <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem', textTransform: 'uppercase', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                    <IdCard size={14} color={canViewNationalId ? 'var(--google-green)' : 'var(--text-muted)'} />
+                    <span>National ID (الرقم القومي)</span>
+                  </div>
+
+                  {canViewNationalId ? (
+                    <span style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '0.3rem',
+                      fontSize: '0.72rem',
+                      fontWeight: 700,
+                      color: '#86EFAC',
+                      background: 'rgba(52, 168, 83, 0.15)',
+                      padding: '0.15rem 0.5rem',
+                      borderRadius: '999px',
+                    }}>
+                      <ShieldCheck size={12} />
+                      <span>Authorized View</span>
+                    </span>
+                  ) : (
+                    <span style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '0.3rem',
+                      fontSize: '0.72rem',
+                      fontWeight: 600,
+                      color: 'var(--text-muted)',
+                      background: 'rgba(255, 255, 255, 0.06)',
+                      padding: '0.15rem 0.5rem',
+                      borderRadius: '999px',
+                    }}>
+                      <ShieldAlert size={12} />
+                      <span>Confidential</span>
+                    </span>
+                  )}
+                </div>
+
+                {canViewNationalId ? (
+                  <div style={{ color: '#FFFFFF', fontWeight: 800, fontSize: '1rem', fontFamily: 'monospace', letterSpacing: '0.06em' }}>
+                    {member.national_id || 'Not provided'}
+                  </div>
+                ) : (
+                  <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem', letterSpacing: '0.15em', fontStyle: 'italic' }}>
+                    •••••••••••••• (HR / President Gated)
+                  </div>
+                )}
               </div>
 
               <div>
@@ -451,6 +610,106 @@ export function MemberProfileView({
                   </div>
                 </div>
               ) : null}
+
+              {/* Social Channels Quick List */}
+              <div>
+                <div style={{ color: 'var(--text-muted)', fontSize: '0.78rem', textTransform: 'uppercase', fontWeight: 600, marginBottom: '0.4rem' }}>
+                  Social & Professional Profiles
+                </div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+                  {member.linkedin_url && (
+                    <a
+                      href={member.linkedin_url}
+                      target="_blank"
+                      rel="noreferrer"
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '0.35rem',
+                        fontSize: '0.78rem',
+                        padding: '0.3rem 0.6rem',
+                        borderRadius: '6px',
+                        background: 'rgba(66, 133, 244, 0.1)',
+                        color: '#93C5FD',
+                        textDecoration: 'none',
+                        border: '1px solid rgba(66, 133, 244, 0.25)',
+                      }}
+                    >
+                      <Linkedin size={13} />
+                      <span>LinkedIn</span>
+                    </a>
+                  )}
+                  {member.facebook_url && (
+                    <a
+                      href={member.facebook_url}
+                      target="_blank"
+                      rel="noreferrer"
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '0.35rem',
+                        fontSize: '0.78rem',
+                        padding: '0.3rem 0.6rem',
+                        borderRadius: '6px',
+                        background: 'rgba(255, 255, 255, 0.05)',
+                        color: 'var(--text-secondary)',
+                        textDecoration: 'none',
+                        border: '1px solid rgba(255, 255, 255, 0.1)',
+                      }}
+                    >
+                      <Facebook size={13} />
+                      <span>Facebook</span>
+                    </a>
+                  )}
+                  {member.instagram_url && (
+                    <a
+                      href={member.instagram_url}
+                      target="_blank"
+                      rel="noreferrer"
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '0.35rem',
+                        fontSize: '0.78rem',
+                        padding: '0.3rem 0.6rem',
+                        borderRadius: '6px',
+                        background: 'rgba(255, 255, 255, 0.05)',
+                        color: 'var(--text-secondary)',
+                        textDecoration: 'none',
+                        border: '1px solid rgba(255, 255, 255, 0.1)',
+                      }}
+                    >
+                      <Instagram size={13} />
+                      <span>Instagram</span>
+                    </a>
+                  )}
+                  {member.portfolio_url && (
+                    <a
+                      href={member.portfolio_url}
+                      target="_blank"
+                      rel="noreferrer"
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '0.35rem',
+                        fontSize: '0.78rem',
+                        padding: '0.3rem 0.6rem',
+                        borderRadius: '6px',
+                        background: 'rgba(52, 168, 83, 0.1)',
+                        color: '#86EFAC',
+                        textDecoration: 'none',
+                        border: '1px solid rgba(52, 168, 83, 0.25)',
+                      }}
+                    >
+                      <Globe size={13} />
+                      <span>Portfolio</span>
+                    </a>
+                  )}
+                  {!member.linkedin_url && !member.facebook_url && !member.instagram_url && !member.portfolio_url && (
+                    <span style={{ color: 'var(--text-muted)', fontSize: '0.82rem' }}>No external links linked</span>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -497,44 +756,84 @@ export function MemberProfileView({
               External profiles, code repositories, and work showcases.
             </p>
 
-            {member.portfolio_url ? (
-              <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                padding: '1.25rem',
-                borderRadius: '12px',
-                background: 'rgba(255, 255, 255, 0.04)',
-                border: '1px solid rgba(255, 255, 255, 0.08)',
-                flexWrap: 'wrap',
-                gap: '1rem',
-              }}>
-                <div>
-                  <div style={{ fontWeight: 700, fontSize: '0.95rem', color: '#FFFFFF' }}>Personal Portfolio / Link</div>
-                  <div style={{ color: 'var(--google-blue)', fontSize: '0.85rem', wordBreak: 'break-all', marginTop: '2px' }}>
-                    {member.portfolio_url}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              {member.portfolio_url ? (
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '1.25rem',
+                  borderRadius: '12px',
+                  background: 'rgba(255, 255, 255, 0.04)',
+                  border: '1px solid rgba(255, 255, 255, 0.08)',
+                  flexWrap: 'wrap',
+                  gap: '1rem',
+                }}>
+                  <div>
+                    <div style={{ fontWeight: 700, fontSize: '0.95rem', color: '#FFFFFF' }}>Personal Portfolio / Link</div>
+                    <div style={{ color: 'var(--google-blue)', fontSize: '0.85rem', wordBreak: 'break-all', marginTop: '2px' }}>
+                      {member.portfolio_url}
+                    </div>
                   </div>
-                </div>
 
-                <a
-                  href={member.portfolio_url}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="btn-primary"
-                  style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.55rem 1.25rem', fontSize: '0.85rem' }}
-                >
-                  <span>Open Link</span>
-                  <ExternalLink size={15} />
-                </a>
-              </div>
-            ) : (
-              <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>No portfolio link submitted.</p>
-            )}
+                  <a
+                    href={member.portfolio_url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="btn-primary"
+                    style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.55rem 1.25rem', fontSize: '0.85rem' }}
+                  >
+                    <span>Open Link</span>
+                    <ExternalLink size={15} />
+                  </a>
+                </div>
+              ) : (
+                <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>No portfolio link submitted.</p>
+              )}
+
+              {/* LinkedIn Row */}
+              {member.linkedin_url && (
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '1.25rem',
+                  borderRadius: '12px',
+                  background: 'rgba(255, 255, 255, 0.04)',
+                  border: '1px solid rgba(255, 255, 255, 0.08)',
+                  flexWrap: 'wrap',
+                  gap: '1rem',
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                    <div style={{ width: '36px', height: '36px', borderRadius: '8px', background: 'rgba(66, 133, 244, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <Linkedin size={18} color="var(--google-blue)" />
+                    </div>
+                    <div>
+                      <div style={{ fontWeight: 700, fontSize: '0.95rem', color: '#FFFFFF' }}>LinkedIn Profile</div>
+                      <div style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', wordBreak: 'break-all' }}>
+                        {member.linkedin_url}
+                      </div>
+                    </div>
+                  </div>
+
+                  <a
+                    href={member.linkedin_url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="btn-secondary"
+                    style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.55rem 1.15rem', fontSize: '0.85rem' }}
+                  >
+                    <span>View LinkedIn</span>
+                    <ExternalLink size={14} />
+                  </a>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       ) : null}
 
-      {/* Tab 3: Performance & Attendance (Prepared for Phase 7 & Spec §7.5) */}
+      {/* Tab 3: Performance & Attendance (Prepared for Phase 10 & Spec §7.5) */}
       {activeTab === 'performance' ? (
         <div className="glass-panel" style={{ padding: '3.5rem 2rem', textAlign: 'center' }}>
           <div style={{ width: '56px', height: '56px', borderRadius: '14px', background: 'rgba(251, 188, 4, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.25rem' }}>
@@ -542,16 +841,16 @@ export function MemberProfileView({
           </div>
           <h3 style={{ fontSize: '1.3rem', fontWeight: 800, marginBottom: '0.5rem' }}>Performance & Attendance Hub</h3>
           <p style={{ color: 'var(--text-secondary)', fontSize: '0.95rem', maxWidth: '520px', margin: '0 auto 1.5rem', lineHeight: 1.6 }}>
-            Monthly performance reviews, deadline adherence metrics, and event check-in attendance rates will be tracked and displayed here once committee tasks and events launch in Phases 5–7.
+            Monthly performance reviews, deadline adherence metrics, and event check-in attendance rates will be tracked and displayed here as committee events and tasks progress.
           </p>
           <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', padding: '0.4rem 0.85rem', borderRadius: '999px', background: 'rgba(251, 188, 4, 0.1)', color: '#FDE047', fontSize: '0.82rem', fontWeight: 700 }}>
             <Sparkles size={14} />
-            <span>Coming in Phase 7 (Spec §7.5)</span>
+            <span>Coming in Phase 10 (Spec §4.10)</span>
           </div>
         </div>
       ) : null}
 
-      {/* Tab 4: Certificates (Prepared for Phase 1 & Certificates Spec §3.5) */}
+      {/* Tab 4: Certificates (Prepared for Spec §3.14) */}
       {activeTab === 'certificates' ? (
         <div className="glass-panel" style={{ padding: '3.5rem 2rem', textAlign: 'center' }}>
           <div style={{ width: '56px', height: '56px', borderRadius: '14px', background: 'rgba(234, 67, 53, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.25rem' }}>
@@ -563,7 +862,7 @@ export function MemberProfileView({
           </p>
           <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', padding: '0.4rem 0.85rem', borderRadius: '999px', background: 'rgba(234, 67, 53, 0.1)', color: '#FCA5A5', fontSize: '0.82rem', fontWeight: 700 }}>
             <Award size={14} />
-            <span>Coming with Certificate Engine (Spec §3.5)</span>
+            <span>Coming with Certificate Engine (Spec §3.14)</span>
           </div>
         </div>
       ) : null}

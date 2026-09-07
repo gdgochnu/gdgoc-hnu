@@ -1,8 +1,9 @@
 import { AppShell } from '@/components/layout/AppShell';
 import { createClient } from '@/lib/supabase/server';
+import { getUserContext } from '@/lib/auth/get-user-context';
 import { MemberProfileView, MemberProfileData } from '@/components/MemberProfileView';
 import Link from 'next/link';
-import { ShieldAlert, ArrowLeft, Users } from 'lucide-react';
+import { ShieldAlert, ArrowLeft } from 'lucide-react';
 
 export const dynamic = 'force-dynamic';
 
@@ -13,7 +14,7 @@ interface MemberProfilePageProps {
 export default async function MemberProfilePage({ params }: MemberProfilePageProps) {
   const { id } = await params;
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const context = await getUserContext();
 
   // 1. Fetch member profile respecting Postgres RLS
   const { data: profile, error } = await supabase
@@ -21,12 +22,20 @@ export default async function MemberProfilePage({ params }: MemberProfilePagePro
     .select(`
       id,
       full_name,
+      full_name_ar,
+      full_name_en,
       email,
       avatar_url,
       phone,
-      university_id,
+      whatsapp_number,
+      national_id,
       faculty,
+      department_major,
       academic_year,
+      facebook_url,
+      instagram_url,
+      linkedin_url,
+      university_id,
       role,
       position,
       skills,
@@ -47,8 +56,8 @@ export default async function MemberProfilePage({ params }: MemberProfilePagePro
   if (error || !profile) {
     return (
       <AppShell>
-        <div style={{ maxWidth: '600px', margin: '4rem auto', padding: '0 1.5rem', textAlign: 'center' }}>
-          <div className="glass-panel" style={{ padding: '3.5rem 2rem' }}>
+        <div style={{ maxWidth: '600px', margin: '4rem auto', padding: '0 1.5rem', textAlign: 'center' }} suppressHydrationWarning>
+          <div className="glass-panel" style={{ padding: '3.5rem 2rem' }} suppressHydrationWarning>
             <div style={{
               width: '56px',
               height: '56px',
@@ -95,17 +104,28 @@ export default async function MemberProfilePage({ params }: MemberProfilePagePro
     }
   }
 
+  // 3. Security Gate for National ID (Spec §1.3, Checklist Step P.5)
+  // Strictly allow viewing National ID only if viewer is President, Co-President, HR member, or viewing own profile
+  const isPresidential = context.profile?.role ? ['president', 'co_president'].includes(context.profile.role) : false;
+  const isHRMember = context.profile?.department?.code === 'HR';
+  const isSelf = context.user?.id === profile.id;
+  const canViewNationalId = Boolean(isPresidential || isHRMember || isSelf);
+
   const memberData: MemberProfileData = {
     ...profile,
+    // If viewer is not authorized to see National ID, mask it on the server
+    national_id: canViewNationalId ? profile.national_id : null,
     department,
   };
 
   return (
     <AppShell>
-      <div style={{ padding: '2.5rem 2rem 5rem', maxWidth: '1100px', margin: '0 auto' }}>
+      <div style={{ padding: '2.5rem 2rem 5rem', maxWidth: '1100px', margin: '0 auto' }} suppressHydrationWarning>
         <MemberProfileView
           member={memberData}
-          callerId={user?.id}
+          callerRole={context.profile?.role}
+          callerId={context.user?.id}
+          canViewNationalId={canViewNationalId}
         />
       </div>
     </AppShell>
