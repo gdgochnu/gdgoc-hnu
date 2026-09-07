@@ -129,7 +129,7 @@
 - [x] 8.2 Add the **Event Task List** to the event builder — create/link tasks with `tasks.event_id` set (reuses the Phase 6 task system, including delegation/broadcast). (2026-09-07)
 - [x] 8.3 Build the **check-in access assignment** step: assigning the "Attendance Check-in" task to specific people also adds them to `events.checkin_access_profile_ids`. (2026-09-07)
 - [x] 8.4 Wire "Submit for Review" → approval engine (Branch Head → President/Co-President stages). (2026-09-07)
-- [ ] 8.5 Build the event review/approval screen (`/events/[id]/review`).
+- [x] 8.5 Build the event review/approval screen (`/events/[id]/review`). (2026-09-07)
 - [ ] 8.6 Build the "Publish" action (only enabled once `status = approved`).
 - [ ] 8.7 Build the Public Event Page (`/events/[slug]`) with the registration form.
 - [ ] 8.8 Build the registration confirmation page + QR-code email.
