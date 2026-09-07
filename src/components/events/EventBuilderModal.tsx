@@ -1,8 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { createEventDraft, CreateEventDraftInput } from '@/app/events/actions';
-import { EventRegistrationField, EventOwner } from '@/types';
+import { createEventDraft, CreateEventDraftInput, EventTaskDraftInput } from '@/app/events/actions';
+import { EventRegistrationField, EventOwner, TaskPriority, TaskAssignmentMode } from '@/types';
 import { 
   X, 
   Plus, 
@@ -17,7 +17,8 @@ import {
   AlertCircle, 
   Loader2,
   Sparkles,
-  ChevronRight
+  ChevronRight,
+  CheckSquare
 } from 'lucide-react';
 
 interface DepartmentOption {
@@ -53,7 +54,7 @@ export function EventBuilderModal({
   members,
   defaultDepartmentId,
 }: EventBuilderModalProps) {
-  const [currentStep, setCurrentStep] = useState<'basics' | 'owners' | 'fields'>('basics');
+  const [currentStep, setCurrentStep] = useState<'basics' | 'owners' | 'fields' | 'tasks'>('basics');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -75,6 +76,15 @@ export function EventBuilderModal({
 
   // Registration Fields State
   const [registrationFields, setRegistrationFields] = useState<EventRegistrationField[]>([]);
+
+  // Event Tasks State (Step 8.2)
+  const [initialTasks, setInitialTasks] = useState<EventTaskDraftInput[]>([]);
+  const [newTaskTitle, setNewTaskTitle] = useState('');
+  const [newTaskDeptId, setNewTaskDeptId] = useState(departmentId);
+  const [newTaskPriority, setNewTaskPriority] = useState<TaskPriority>('medium');
+  const [newTaskMode, setNewTaskMode] = useState<TaskAssignmentMode>('single');
+  const [newTaskAssigneeId, setNewTaskAssigneeId] = useState('');
+  const [newTaskDeadline, setNewTaskDeadline] = useState('');
 
   if (!isOpen) return null;
 
@@ -135,6 +145,28 @@ export function EventBuilderModal({
     setRegistrationFields(registrationFields.filter((_, idx) => idx !== index));
   };
 
+  const handleAddInitialTask = () => {
+    if (!newTaskTitle.trim()) return;
+    setInitialTasks([
+      ...initialTasks,
+      {
+        title: newTaskTitle.trim(),
+        departmentId: newTaskDeptId || departmentId,
+        priority: newTaskPriority,
+        assignmentMode: newTaskMode,
+        assigneeId: newTaskMode === 'single' ? (newTaskAssigneeId || null) : null,
+        deadline: newTaskDeadline || undefined,
+      },
+    ]);
+    setNewTaskTitle('');
+    setNewTaskAssigneeId('');
+    setNewTaskDeadline('');
+  };
+
+  const handleRemoveInitialTask = (index: number) => {
+    setInitialTasks(initialTasks.filter((_, idx) => idx !== index));
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage(null);
@@ -171,6 +203,7 @@ export function EventBuilderModal({
         departmentId,
         owners,
         registrationFields,
+        tasks: initialTasks,
       };
 
       const result = await createEventDraft(input);
@@ -269,6 +302,7 @@ export function EventBuilderModal({
           background: 'rgba(0, 0, 0, 0.2)',
           padding: '0.5rem 1.5rem',
           gap: '0.5rem',
+          overflowX: 'auto',
         }}>
           <button
             type="button"
@@ -285,10 +319,11 @@ export function EventBuilderModal({
               display: 'flex',
               alignItems: 'center',
               gap: '0.4rem',
+              whiteSpace: 'nowrap',
             }}
           >
             <Calendar size={15} />
-            <span>1. Details & Logistics</span>
+            <span>1. Logistics</span>
           </button>
 
           <button
@@ -306,10 +341,11 @@ export function EventBuilderModal({
               display: 'flex',
               alignItems: 'center',
               gap: '0.4rem',
+              whiteSpace: 'nowrap',
             }}
           >
             <Users size={15} />
-            <span>2. Event Owners ({owners.length})</span>
+            <span>2. Leads ({owners.length})</span>
           </button>
 
           <button
@@ -327,10 +363,33 @@ export function EventBuilderModal({
               display: 'flex',
               alignItems: 'center',
               gap: '0.4rem',
+              whiteSpace: 'nowrap',
             }}
           >
             <HelpCircle size={15} />
-            <span>3. Custom Registration ({registrationFields.length})</span>
+            <span>3. Questions ({registrationFields.length})</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setCurrentStep('tasks')}
+            style={{
+              padding: '0.6rem 1rem',
+              borderRadius: '8px',
+              border: 'none',
+              background: currentStep === 'tasks' ? 'rgba(168, 85, 247, 0.15)' : 'transparent',
+              color: currentStep === 'tasks' ? '#D8B4FE' : 'var(--text-secondary)',
+              fontWeight: 700,
+              fontSize: '0.85rem',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.4rem',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            <CheckSquare size={15} />
+            <span>4. Tasks ({initialTasks.length})</span>
           </button>
         </div>
 
@@ -906,6 +965,236 @@ export function EventBuilderModal({
               </div>
             </div>
           )}
+
+          {/* STEP 4: Event Tasks (Step 8.2) */}
+          {currentStep === 'tasks' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+              <div>
+                <h4 style={{ fontSize: '1rem', fontWeight: 800, margin: 0 }}>Attach Event Tasks</h4>
+                <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', margin: '0.25rem 0 1rem' }}>
+                  Pre-seed operational and technical tasks linked to this event (e.g. slides, venue booking, check-in duty).
+                </p>
+
+                <div style={{
+                  padding: '1.25rem',
+                  borderRadius: '12px',
+                  background: 'rgba(255, 255, 255, 0.03)',
+                  border: '1px solid var(--border-subtle)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '0.75rem',
+                }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '0.75rem' }}>
+                    <div style={{ gridColumn: 'span 2' }}>
+                      <label style={{ display: 'block', fontSize: '0.72rem', color: 'var(--text-muted)', marginBottom: '0.2rem' }}>TASK TITLE *</label>
+                      <input
+                        type="text"
+                        value={newTaskTitle}
+                        onChange={(e) => setNewTaskTitle(e.target.value)}
+                        placeholder="e.g. Prepare presentation slides & live demo"
+                        style={{
+                          width: '100%',
+                          padding: '0.55rem 0.75rem',
+                          borderRadius: '8px',
+                          background: 'rgba(255, 255, 255, 0.05)',
+                          border: '1px solid var(--border-subtle)',
+                          color: '#FFFFFF',
+                          fontSize: '0.88rem',
+                          outline: 'none',
+                        }}
+                      />
+                    </div>
+
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.72rem', color: 'var(--text-muted)', marginBottom: '0.2rem' }}>COMMITTEE</label>
+                      <select
+                        value={newTaskDeptId}
+                        onChange={(e) => setNewTaskDeptId(e.target.value)}
+                        style={{
+                          width: '100%',
+                          padding: '0.55rem 0.75rem',
+                          borderRadius: '8px',
+                          background: 'rgba(255, 255, 255, 0.05)',
+                          border: '1px solid var(--border-subtle)',
+                          color: '#FFFFFF',
+                          fontSize: '0.85rem',
+                          outline: 'none',
+                        }}
+                      >
+                        {departments.map((d) => (
+                          <option key={d.id} value={d.id}>
+                            {d.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.72rem', color: 'var(--text-muted)', marginBottom: '0.2rem' }}>PRIORITY</label>
+                      <select
+                        value={newTaskPriority}
+                        onChange={(e) => setNewTaskPriority(e.target.value as TaskPriority)}
+                        style={{
+                          width: '100%',
+                          padding: '0.55rem 0.75rem',
+                          borderRadius: '8px',
+                          background: 'rgba(255, 255, 255, 0.05)',
+                          border: '1px solid var(--border-subtle)',
+                          color: '#FFFFFF',
+                          fontSize: '0.85rem',
+                          outline: 'none',
+                        }}
+                      >
+                        <option value="low">Low</option>
+                        <option value="medium">Medium</option>
+                        <option value="high">High</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.72rem', color: 'var(--text-muted)', marginBottom: '0.2rem' }}>MODE</label>
+                      <select
+                        value={newTaskMode}
+                        onChange={(e) => setNewTaskMode(e.target.value as TaskAssignmentMode)}
+                        style={{
+                          width: '100%',
+                          padding: '0.55rem 0.75rem',
+                          borderRadius: '8px',
+                          background: 'rgba(255, 255, 255, 0.05)',
+                          border: '1px solid var(--border-subtle)',
+                          color: '#FFFFFF',
+                          fontSize: '0.85rem',
+                          outline: 'none',
+                        }}
+                      >
+                        <option value="single">Single Assignee</option>
+                        <option value="broadcast">Broadcast to Committee 📢</option>
+                      </select>
+                    </div>
+
+                    {newTaskMode === 'single' && (
+                      <div>
+                        <label style={{ display: 'block', fontSize: '0.72rem', color: 'var(--text-muted)', marginBottom: '0.2rem' }}>ASSIGNEE</label>
+                        <select
+                          value={newTaskAssigneeId}
+                          onChange={(e) => setNewTaskAssigneeId(e.target.value)}
+                          style={{
+                            width: '100%',
+                            padding: '0.55rem 0.75rem',
+                            borderRadius: '8px',
+                            background: 'rgba(255, 255, 255, 0.05)',
+                            border: '1px solid var(--border-subtle)',
+                            color: '#FFFFFF',
+                            fontSize: '0.85rem',
+                            outline: 'none',
+                          }}
+                        >
+                          <option value="">-- Unassigned --</option>
+                          {members
+                            .filter(m => !newTaskDeptId || m.department_id === newTaskDeptId)
+                            .map((m) => (
+                              <option key={m.id} value={m.id}>
+                                {m.full_name_en || m.full_name}
+                              </option>
+                            ))}
+                        </select>
+                      </div>
+                    )}
+
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.72rem', color: 'var(--text-muted)', marginBottom: '0.2rem' }}>DEADLINE</label>
+                      <input
+                        type="date"
+                        value={newTaskDeadline}
+                        onChange={(e) => setNewTaskDeadline(e.target.value)}
+                        style={{
+                          width: '100%',
+                          padding: '0.55rem 0.75rem',
+                          borderRadius: '8px',
+                          background: 'rgba(255, 255, 255, 0.05)',
+                          border: '1px solid var(--border-subtle)',
+                          color: '#FFFFFF',
+                          fontSize: '0.85rem',
+                          outline: 'none',
+                        }}
+                      />
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '0.25rem' }}>
+                    <button
+                      type="button"
+                      onClick={handleAddInitialTask}
+                      disabled={!newTaskTitle.trim()}
+                      className="btn-primary"
+                      style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', padding: '0.5rem 1rem', fontSize: '0.85rem' }}
+                    >
+                      <Plus size={14} />
+                      <span>Add to Event Task List</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Initial Tasks List */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: 700 }}>
+                  TASKS TO CREATE WITH EVENT ({initialTasks.length})
+                </span>
+
+                {initialTasks.length === 0 ? (
+                  <div style={{
+                    padding: '2rem',
+                    textAlign: 'center',
+                    border: '1px dashed var(--border-subtle)',
+                    borderRadius: '10px',
+                    color: 'var(--text-muted)',
+                    fontSize: '0.88rem',
+                  }}>
+                    No tasks added to draft yet. You can also add tasks anytime from the Event details page after saving.
+                  </div>
+                ) : (
+                  initialTasks.map((t, idx) => (
+                    <div
+                      key={idx}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        padding: '0.75rem 1rem',
+                        borderRadius: '10px',
+                        background: 'rgba(255, 255, 255, 0.03)',
+                        border: '1px solid var(--border-subtle)',
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                        <CheckSquare size={16} color="var(--google-blue)" />
+                        <span style={{ fontWeight: 700, fontSize: '0.88rem', color: '#FFFFFF' }}>{t.title}</span>
+                        {t.assignmentMode === 'broadcast' && (
+                          <span style={{ fontSize: '0.7rem', padding: '0.1rem 0.4rem', borderRadius: '4px', background: 'rgba(168, 85, 247, 0.2)', color: '#D8B4FE' }}>
+                            Broadcast 📢
+                          </span>
+                        )}
+                      </div>
+
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                        <span style={{ fontSize: '0.75rem', textTransform: 'capitalize', color: 'var(--text-muted)' }}>
+                          {t.priority} priority
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveInitialTask(idx)}
+                          style={{ background: 'transparent', border: 'none', color: '#F87171', cursor: 'pointer', padding: '0.2rem' }}
+                        >
+                          <Trash2 size={15} />
+                        </button>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Modal Footer */}
@@ -928,10 +1217,14 @@ export function EventBuilderModal({
           </button>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-            {currentStep !== 'fields' && (
+            {currentStep !== 'tasks' && (
               <button
                 type="button"
-                onClick={() => setCurrentStep(currentStep === 'basics' ? 'owners' : 'fields')}
+                onClick={() => {
+                  if (currentStep === 'basics') setCurrentStep('owners');
+                  else if (currentStep === 'owners') setCurrentStep('fields');
+                  else if (currentStep === 'fields') setCurrentStep('tasks');
+                }}
                 className="btn-secondary"
                 style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', padding: '0.6rem 1rem', fontSize: '0.88rem' }}
               >

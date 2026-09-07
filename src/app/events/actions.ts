@@ -4,7 +4,17 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getUserContext } from '@/lib/auth/get-user-context';
 import { revalidatePath } from 'next/cache';
-import { EventRegistrationField, EventOwner } from '@/types';
+import { EventRegistrationField, EventOwner, TaskPriority, TaskAssignmentMode } from '@/types';
+
+export interface EventTaskDraftInput {
+  title: string;
+  description?: string;
+  departmentId: string;
+  assigneeId?: string | null;
+  assignmentMode?: TaskAssignmentMode;
+  priority?: TaskPriority;
+  deadline?: string;
+}
 
 export interface CreateEventDraftInput {
   title: string;
@@ -18,6 +28,7 @@ export interface CreateEventDraftInput {
   departmentId: string;
   registrationFields?: EventRegistrationField[];
   owners?: EventOwner[];
+  tasks?: EventTaskDraftInput[];
 }
 
 function generateSlug(title: string): string {
@@ -158,6 +169,14 @@ export async function createEventDraft(input: CreateEventDraftInput) {
       return { success: false, error: `Database error creating event: ${insertErr?.message}` };
     }
 
+    // Seed initial event tasks if provided (Step 8.2)
+    if (input.tasks && input.tasks.length > 0) {
+      for (const t of input.tasks) {
+        if (!t.title?.trim()) continue;
+        await createEventTaskInternal(admin, context.user.id, event.id, t);
+      }
+    }
+
     revalidatePath('/events');
     revalidatePath('/dashboard');
 
@@ -169,6 +188,205 @@ export async function createEventDraft(input: CreateEventDraftInput) {
     return {
       success: false,
       error: err instanceof Error ? err.message : 'Unknown error creating event draft.',
+    };
+  }
+}
+
+async function createEventTaskInternal(
+  admin: ReturnType<typeof createAdminClient>,
+  callerId: string,
+  eventId: string,
+  input: EventTaskDraftInput
+) {
+  const isBroadcast = input.assignmentMode === 'broadcast';
+  const { data: newTask, error } = await admin
+    .from('tasks')
+    .insert({
+      title: input.title.trim(),
+      description: input.description?.trim() || null,
+      department_id: input.departmentId,
+      assignee_id: isBroadcast ? null : (input.assigneeId || null),
+      assignment_mode: isBroadcast ? 'broadcast' : 'single',
+      event_id: eventId,
+      priority: input.priority || 'medium',
+      status: 'todo',
+      deadline: input.deadline ? new Date(input.deadline).toISOString() : null,
+      created_by: callerId,
+    })
+    .select('id, title, department_id')
+    .single();
+
+  if (!error && newTask && isBroadcast) {
+    const { data: deptMembers } = await admin
+      .from('profiles')
+      .select('id')
+      .eq('department_id', input.departmentId)
+      .eq('status', 'active');
+
+    if (deptMembers && deptMembers.length > 0) {
+      await admin.from('task_assignees').insert(
+        deptMembers.map(m => ({
+          task_id: newTask.id,
+          profile_id: m.id,
+          status: 'todo',
+        }))
+      );
+    }
+  }
+
+  return newTask;
+}
+
+export async function createEventTask(eventId: string, input: EventTaskDraftInput) {
+  try {
+    const context = await getUserContext();
+    if (!context.user || !context.profile || context.profile.status !== 'active') {
+      return { success: false, error: 'Unauthorized.' };
+    }
+
+    const admin = createAdminClient();
+
+    // Verify event exists
+    const { data: event, error: eventErr } = await admin
+      .from('events')
+      .select('id, department_id, status')
+      .eq('id', eventId)
+      .maybeSingle();
+
+    if (eventErr || !event) {
+      return { success: false, error: 'Event not found.' };
+    }
+
+    const taskTitle = input.title?.trim();
+    if (!taskTitle || taskTitle.length < 2) {
+      return { success: false, error: 'Task title must be at least 2 characters long.' };
+    }
+
+    const deptId = input.departmentId || event.department_id;
+    const task = await createEventTaskInternal(admin, context.user.id, eventId, {
+      ...input,
+      departmentId: deptId,
+    });
+
+    if (!task) {
+      return { success: false, error: 'Failed to create event task.' };
+    }
+
+    revalidatePath(`/events/${eventId}`);
+    revalidatePath(`/events/${eventId}/tasks`);
+    revalidatePath('/tasks');
+
+    return { success: true, task };
+  } catch (err: unknown) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : 'Error creating event task.',
+    };
+  }
+}
+
+export async function getEventTasks(eventId: string) {
+  try {
+    const admin = createAdminClient();
+    const { data: tasks, error } = await admin
+      .from('tasks')
+      .select(`
+        id,
+        title,
+        description,
+        department_id,
+        assignee_id,
+        created_by,
+        delegated_by_id,
+        parent_task_id,
+        assignment_mode,
+        event_id,
+        priority,
+        status,
+        deadline,
+        evidence_url,
+        approval_instance_id,
+        created_at,
+        updated_at,
+        departments:department_id (id, name, code, branch),
+        assignee:assignee_id (id, full_name, avatar_url, role, position),
+        task_assignees (
+          id,
+          profile_id,
+          status,
+          evidence_url,
+          submitted_at,
+          profile:profile_id (id, full_name, avatar_url, role, position)
+        )
+      `)
+      .eq('event_id', eventId)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      return { success: false, error: error.message };
+    }
+
+    return { success: true, tasks: tasks || [] };
+  } catch (err: unknown) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : 'Error fetching event tasks.',
+    };
+  }
+}
+
+export async function linkExistingTaskToEvent(taskId: string, eventId: string) {
+  try {
+    const context = await getUserContext();
+    if (!context.user) return { success: false, error: 'Unauthorized.' };
+
+    const admin = createAdminClient();
+    const { error } = await admin
+      .from('tasks')
+      .update({ event_id: eventId })
+      .eq('id', taskId);
+
+    if (error) {
+      return { success: false, error: error.message };
+    }
+
+    revalidatePath(`/events/${eventId}`);
+    revalidatePath(`/events/${eventId}/tasks`);
+    revalidatePath('/tasks');
+
+    return { success: true };
+  } catch (err: unknown) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : 'Error linking task.',
+    };
+  }
+}
+
+export async function unlinkTaskFromEvent(taskId: string, eventId: string) {
+  try {
+    const context = await getUserContext();
+    if (!context.user) return { success: false, error: 'Unauthorized.' };
+
+    const admin = createAdminClient();
+    const { error } = await admin
+      .from('tasks')
+      .update({ event_id: null })
+      .eq('id', taskId);
+
+    if (error) {
+      return { success: false, error: error.message };
+    }
+
+    revalidatePath(`/events/${eventId}`);
+    revalidatePath(`/events/${eventId}/tasks`);
+    revalidatePath('/tasks');
+
+    return { success: true };
+  } catch (err: unknown) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : 'Error unlinking task.',
     };
   }
 }
@@ -203,6 +421,9 @@ export async function deleteEventDraft(eventId: string) {
     if (!isPresidential && !isCreator && !isDeptHead) {
       return { success: false, error: 'Forbidden: You do not have permission to delete this event.' };
     }
+
+    // Unlink tasks attached to this event before deletion so tasks are preserved
+    await admin.from('tasks').update({ event_id: null }).eq('event_id', eventId);
 
     const { error: delErr } = await admin
       .from('events')
