@@ -100,7 +100,7 @@
   - Columns: `id (uuid PK)`, `name_ar (text)`, `name_en (text)`, `sort_order (int)`, `is_active (bool default true)`, `created_at (timestamptz)`, `updated_at (timestamptz)`.
   - Seed initial HNU faculties (Engineering Helwan, Computers & AI, Science, Commerce, Applied Arts, Technology & Education).
   - RLS: Readable by all authenticated users; INSERT/UPDATE/DELETE strictly restricted to Chapter President (`role = 'president'`).
-- [ ] P.2 **Supabase Migration for `profiles` Table Alterations (v4 schema)**:
+- [x] P.2 **Supabase Migration for `profiles` Table Alterations (v4 schema)**: (2026-09-07)
   - File: `supabase/migrations/20260907000016_update_profiles_v4.sql`
   - Add columns: `full_name_ar (text)`, `full_name_en (text)`, `national_id (text unique)`, `whatsapp_number (text)`, `department_major (text)`, `academic_year (smallint 1-5)`, `facebook_url (text)`, `instagram_url (text)`, `linkedin_url (text)`.
   - Data preservation: Copy existing `full_name` data to `full_name_ar` and `full_name_en`; keep `full_name` synchronized/accessible for backward compatibility with existing Phases 0–7.
