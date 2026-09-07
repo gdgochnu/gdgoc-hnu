@@ -1,8 +1,8 @@
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { redirect } from 'next/navigation';
 import { CompleteProfileForm } from '@/components/CompleteProfileForm';
 import { SignInWithGoogleButton } from '@/components/SignInWithGoogleButton';
+import { FacultyOption } from '@/types';
 import Link from 'next/link';
 import { ShieldCheck, UserCheck, Clock, CheckCircle2 } from 'lucide-react';
 
@@ -95,9 +95,9 @@ export default async function CompleteProfilePage() {
             <div style={{ width: '56px', height: '56px', borderRadius: '14px', background: 'rgba(251, 188, 4, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.5rem' }}>
               <Clock size={28} color="var(--google-yellow)" />
             </div>
-            <h1 style={{ fontSize: '1.6rem', fontWeight: 700, marginBottom: '0.75rem' }}>Application Already Submitted</h1>
+            <h1 style={{ fontSize: '1.6rem', fontWeight: 700, marginBottom: '0.75rem' }}>Application Under Review</h1>
             <p style={{ color: 'var(--text-secondary)', fontSize: '0.95rem', lineHeight: 1.6, marginBottom: '2rem' }}>
-              Your application has already been received and is currently under review by Chapter Leadership.
+              Your membership application has been submitted and is currently under review by Chapter Leadership.
             </p>
             <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center', flexWrap: 'wrap' }}>
               <Link href="/onboarding/status" className="btn-primary" style={{ textDecoration: 'none' }}>
@@ -113,43 +113,44 @@ export default async function CompleteProfilePage() {
     );
   }
 
-  // Ensure committees exist; fallback to admin client if needed
+  // 1. Fetch active committees
   let departments: { id: string; code: string; name: string; branch: string }[] = [];
-  const { data: deptList } = await supabase
+  const { data: deptList } = await admin
     .from('departments')
     .select('id, code, name, branch')
     .order('name');
+  if (deptList) departments = deptList;
 
-  if (deptList && deptList.length > 0) {
-    departments = deptList;
-  } else {
-    // Admin fallback to fetch seeded departments
-    const admin = createAdminClient();
-    const { data: adminDeptList } = await admin
-      .from('departments')
-      .select('id, code, name, branch')
-      .order('name');
-    if (adminDeptList) {
-      departments = adminDeptList;
-    }
-  }
+  // 2. Fetch active faculties
+  let faculties: FacultyOption[] = [];
+  const { data: facultyList } = await admin
+    .from('faculty_options')
+    .select('*')
+    .eq('is_active', true)
+    .order('sort_order', { ascending: true });
+  if (facultyList) faculties = facultyList as FacultyOption[];
 
   const initialFullName = profile?.full_name || user.user_metadata?.full_name || user.user_metadata?.name || '';
   const initialAvatarUrl = profile?.avatar_url || user.user_metadata?.avatar_url || user.user_metadata?.picture || null;
 
   const initialProfile = profile ? {
-    phone: profile.phone,
-    universityId: profile.university_id,
-    faculty: profile.faculty,
-    academicYear: profile.academic_year,
-    departmentId: profile.department_id,
-    position: profile.position,
-    skills: profile.skills,
-    portfolioUrl: profile.portfolio_url,
-    motivation: profile.motivation,
-    howHeard: profile.how_heard,
-    availabilityHours: profile.availability_hours,
-    status: profile.status,
+    fullNameAr: profile.full_name_ar || null,
+    fullNameEn: profile.full_name_en || profile.full_name || initialFullName,
+    nationalId: profile.national_id || null,
+    phone: profile.phone || null,
+    whatsappNumber: profile.whatsapp_number || profile.phone || null,
+    faculty: profile.faculty || null,
+    departmentMajor: profile.department_major || null,
+    academicYear: profile.academic_year || 1,
+    facebookUrl: profile.facebook_url || null,
+    instagramUrl: profile.instagram_url || null,
+    linkedinUrl: profile.linkedin_url || null,
+    departmentId: profile.department_id || null,
+    position: profile.position || 'Member',
+    motivation: profile.motivation || null,
+    howHeard: profile.how_heard || 'Social Media',
+    availabilityHours: profile.availability_hours || 8,
+    status: profile.status || 'incomplete',
     changesRequestedNotes: (profile.custom_fields as Record<string, any>)?.changes_requested_notes || null,
     rejectionReason: profile.rejection_reason || null,
   } : null;
@@ -195,7 +196,7 @@ export default async function CompleteProfilePage() {
           <p style={{ color: 'var(--text-secondary)', fontSize: '1.05rem', maxWidth: '600px', margin: '0 auto' }}>
             {profile?.status === 'changes_requested'
               ? 'Please review the leadership instructions below, update the required fields, and resubmit for approval.'
-              : 'Please fill in your academic details and committee preferences. Your application will be sent directly to chapter leadership for review.'}
+              : 'Please fill in your personal, academic, and contact details according to the chapter standards. Your profile will be reviewed by Chapter Leadership.'}
           </p>
         </div>
 
@@ -204,6 +205,7 @@ export default async function CompleteProfilePage() {
           initialFullName={initialFullName}
           initialAvatarUrl={initialAvatarUrl}
           departments={departments}
+          faculties={faculties}
           initialProfile={initialProfile}
         />
       </main>

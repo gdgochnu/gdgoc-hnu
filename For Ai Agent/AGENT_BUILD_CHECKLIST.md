@@ -106,7 +106,7 @@
   - Data preservation: Copy existing `full_name` data to `full_name_ar` and `full_name_en`; keep `full_name` synchronized/accessible for backward compatibility with existing Phases 0–7.
   - Move legacy `skills` and `portfolio_url` into `custom_fields` jsonb.
   - Update `handle_new_user()` trigger to populate both `full_name` and `full_name_en` from OAuth metadata seamlessly.
-- [ ] P.3 **Update Profile Types & "Complete Your Profile" Form**:
+- [x] P.3 **Update Profile Types & "Complete Your Profile" Form**: (2026-09-07)
   - Update `src/types/index.ts` with `FacultyOption` interface and v4 `Profile` properties.
   - Update `/onboarding/complete-profile/actions.ts` with server-side validation: Arabic 4-part name (min 4 words), English 4-part name (min 4 words), National ID (14 digits Egyptian ID), valid Egyptian mobile & WhatsApp, academic year (1st–5th), department/major free text, faculty from active `faculty_options`, optional social links.
   - Update `src/app/onboarding/complete-profile/page.tsx` & `src/components/CompleteProfileForm.tsx`: Clean dark mode layout with Arabic/English inputs, dynamic faculty select, synced WhatsApp field, and validation feedback.

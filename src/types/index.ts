@@ -22,20 +22,38 @@ export type ProfileStatus =
   | 'suspended'
   | 'alumni';
 
+export interface FacultyOption {
+  id: string;
+  name_ar: string;
+  name_en: string;
+  sort_order: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface Profile {
   id: string;
   full_name: string;
+  full_name_ar?: string | null;
+  full_name_en?: string | null;
   email: string;
   avatar_url: string | null;
+  national_id?: string | null;
   phone: string | null;
-  university_id: string | null;
+  whatsapp_number?: string | null;
   faculty: string | null;
-  academic_year: string | null;
+  department_major?: string | null;
+  academic_year: number | null; // 1 to 5
+  facebook_url?: string | null;
+  instagram_url?: string | null;
+  linkedin_url?: string | null;
+  university_id?: string | null; // Legacy v1
   role: UserRole;
   department_id: string | null;
   position: string | null;
-  skills: string[];
-  portfolio_url: string | null;
+  skills?: string[];
+  portfolio_url?: string | null;
   motivation: string | null;
   how_heard: string | null;
   availability_hours: number | null;
