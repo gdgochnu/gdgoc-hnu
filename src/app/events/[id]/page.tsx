@@ -2,6 +2,7 @@ import { AppShell } from '@/components/layout/AppShell';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getUserContext } from '@/lib/auth/get-user-context';
 import { EventTaskList } from '@/components/events/EventTaskList';
+import { CheckinAccessManager } from '@/components/events/CheckinAccessManager';
 import { Event, EventStatus } from '@/types';
 import Link from 'next/link';
 import { 
@@ -131,6 +132,20 @@ export default async function EventDetailPage({ params }: EventDetailPageProps) 
   const isPresidential = context.profile?.role ? ['president', 'co_president'].includes(context.profile.role) : false;
   const isDeptHead = context.profile?.department_id === event.department_id;
   const canManage = isPresidential || isDeptHead;
+
+  // 4. Fetch profiles with Check-in Access (Step 8.3)
+  const checkinProfileIds: string[] = Array.isArray(event.checkin_access_profile_ids)
+    ? event.checkin_access_profile_ids
+    : [];
+
+  let initialCheckinMembers: any[] = [];
+  if (checkinProfileIds.length > 0) {
+    const { data: cMembers } = await admin
+      .from('profiles')
+      .select('id, full_name, full_name_en, email, avatar_url, role, department:department_id(name, code)')
+      .in('id', checkinProfileIds);
+    initialCheckinMembers = cMembers || [];
+  }
 
   const getStatusBadge = (status: EventStatus) => {
     switch (status) {
@@ -346,6 +361,15 @@ export default async function EventDetailPage({ params }: EventDetailPageProps) 
               </div>
             )}
           </div>
+
+          {/* Check-in Access Management (Step 8.3) */}
+          <CheckinAccessManager
+            eventId={event.id}
+            eventTitle={event.title}
+            initialAssignedMembers={initialCheckinMembers}
+            availableMembers={members}
+            canManage={canManage}
+          />
 
           {/* Event Task List (Step 8.2 Highlight) */}
           <div className="glass-panel" style={{ padding: '2rem' }}>

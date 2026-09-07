@@ -19,7 +19,8 @@ import {
   Sparkles,
   Building2,
   Calendar,
-  X
+  X,
+  QrCode
 } from 'lucide-react';
 
 interface DepartmentOption {
@@ -71,6 +72,7 @@ export function EventTaskList({
   const [assigneeId, setAssigneeId] = useState('');
   const [priority, setPriority] = useState<TaskPriority>('medium');
   const [deadline, setDeadline] = useState('');
+  const [isCheckinDuty, setIsCheckinDuty] = useState(false);
 
   const filteredTasks = tasks.filter(t => {
     if (statusFilter === 'all') return true;
@@ -100,6 +102,7 @@ export function EventTaskList({
         assignmentMode,
         priority,
         deadline: deadline || undefined,
+        isCheckinDuty,
       };
 
       const res = await createEventTask(eventId, input);
@@ -112,6 +115,7 @@ export function EventTaskList({
         setTaskDescription('');
         setAssigneeId('');
         setDeadline('');
+        setIsCheckinDuty(false);
       }
     } catch (err: unknown) {
       setActionError(err instanceof Error ? err.message : 'Error creating task.');
@@ -369,6 +373,23 @@ export function EventTaskList({
                         border: '1px solid rgba(168, 85, 247, 0.3)',
                       }}>
                         Broadcast 📢
+                      </span>
+                    )}
+
+                    {Boolean(task.is_checkin_duty || /(attendance|check-?in|حضور|تسجيل حضور)/i.test(task.title)) && (
+                      <span style={{
+                        fontSize: '0.7rem',
+                        fontWeight: 700,
+                        padding: '0.15rem 0.45rem',
+                        borderRadius: '6px',
+                        background: 'rgba(52, 168, 83, 0.15)',
+                        color: 'var(--google-green)',
+                        border: '1px solid rgba(52, 168, 83, 0.3)',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '0.25rem',
+                      }}>
+                        <QrCode size={11} /> QR Check-in Duty
                       </span>
                     )}
                   </div>
@@ -708,6 +729,33 @@ export function EventTaskList({
                   }}
                 />
               </div>
+
+              {/* Attendance Check-in Duty Toggle (Step 8.3) */}
+              <label style={{
+                display: 'flex',
+                alignItems: 'flex-start',
+                gap: '0.65rem',
+                cursor: 'pointer',
+                padding: '0.75rem',
+                background: 'rgba(52, 168, 83, 0.08)',
+                border: '1px solid rgba(52, 168, 83, 0.25)',
+                borderRadius: '8px',
+              }}>
+                <input
+                  type="checkbox"
+                  checked={isCheckinDuty}
+                  onChange={(e) => setIsCheckinDuty(e.target.checked)}
+                  style={{ marginTop: '0.15rem', width: '16px', height: '16px', accentColor: 'var(--google-green)' }}
+                />
+                <div>
+                  <div style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--google-green)', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                    <QrCode size={13} /> Attendance Check-in Duty (Spec §4.3 item 5)
+                  </div>
+                  <div style={{ fontSize: '0.74rem', color: 'var(--text-secondary)', marginTop: '0.15rem', lineHeight: 1.4 }}>
+                    Assignees to this task are automatically granted QR scanner & attendance management access for this event.
+                  </div>
+                </div>
+              </label>
 
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem', marginTop: '0.5rem' }}>
                 <button
