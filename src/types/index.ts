@@ -129,6 +129,53 @@ export type EventStatus =
   | 'completed'
   | 'rejected';
 
+export interface EventRegistrationField {
+  id: string;
+  label: string;
+  field_type: 'text' | 'number' | 'select' | 'checkbox' | 'textarea';
+  options?: string[];
+  required: boolean;
+  placeholder?: string;
+}
+
+export interface EventOwner {
+  profile_id: string;
+  committee_role: string;
+  full_name?: string;
+  email?: string;
+  avatar_url?: string | null;
+}
+
+export interface Event {
+  id: string;
+  title: string;
+  slug: string;
+  description: string | null;
+  venue: string | null;
+  event_date: string;
+  start_time: string | null;
+  end_time: string | null;
+  capacity: number | null;
+  department_id: string;
+  status: EventStatus;
+  registration_fields: EventRegistrationField[];
+  owners: EventOwner[];
+  checkin_access_profile_ids?: string[];
+  approval_instance_id: string | null;
+  qr_secret: string | null;
+  gcal_event_id?: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+  department?: {
+    id: string;
+    name: string;
+    code: string;
+    branch: string;
+  } | null;
+}
+
+
 export type ApprovalWorkflowType =
   | 'task_completion'
   | 'event_publish'
