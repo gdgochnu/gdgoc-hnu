@@ -181,8 +181,9 @@ export async function actOnApprovalStep(params: ActOnApprovalStepParams) {
       }
     }
   } else if (instance.workflow_type === 'event_publish') {
-    let newEventStatus = 'submitted_for_review';
+    let newEventStatus = 'branch_review';
     if (action === 'approved' && isFinal) newEventStatus = 'approved';
+    else if (action === 'approved' && !isFinal) newEventStatus = 'pending_final_approval';
     else if (action === 'changes_requested') newEventStatus = 'draft';
     else if (action === 'rejected') newEventStatus = 'rejected';
 

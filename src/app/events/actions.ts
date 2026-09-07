@@ -4,7 +4,8 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getUserContext } from '@/lib/auth/get-user-context';
 import { revalidatePath } from 'next/cache';
-import { EventRegistrationField, EventOwner, TaskPriority, TaskAssignmentMode } from '@/types';
+import { EventRegistrationField, EventOwner, TaskPriority, TaskAssignmentMode, EventStatus } from '@/types';
+import { createApprovalInstance } from '@/lib/approvals/approval-engine';
 
 export interface EventTaskDraftInput {
   title: string;
@@ -720,4 +721,126 @@ export async function checkUserCheckinAccess(eventId: string, profileId: string)
     };
   }
 }
+
+// ==============================================================================
+// Phase 8 Step 8.4: Submit Event for Review → Approval Engine Integration
+// Spec reference: §4.3 item 2 & §4.2 Part C
+// ==============================================================================
+
+export async function submitEventForReview(eventId: string) {
+  try {
+    const context = await getUserContext();
+    if (!context.user || !context.profile || context.profile.status !== 'active') {
+      return { success: false, error: 'Unauthorized: Active chapter membership required.' };
+    }
+
+    const admin = createAdminClient();
+
+    // 1. Fetch event
+    const { data: event, error: eventErr } = await admin
+      .from('events')
+      .select('*, department:departments(id, name, code, branch)')
+      .eq('id', eventId)
+      .maybeSingle();
+
+    if (eventErr || !event) {
+      return { success: false, error: 'Event not found.' };
+    }
+
+    if (!['draft', 'rejected'].includes(event.status)) {
+      return { success: false, error: `Event cannot be submitted for review while in '${event.status}' status.` };
+    }
+
+    // Role check: Creator, owner, committee head of event, or leadership
+    const isPresidential = ['president', 'co_president'].includes(context.profile.role);
+    const isBranchHead = context.profile.role === 'branch_head';
+    const isDeptHead = context.profile.department_id === event.department_id && ['committee_head', 'committee_co_head'].includes(context.profile.role);
+    const userId = context.user.id;
+    const isCreator = event.created_by === userId;
+    const isOwner = Array.isArray(event.owners) && event.owners.some((o: any) => o.profile_id === userId);
+
+    if (!isPresidential && !isBranchHead && !isDeptHead && !isCreator && !isOwner) {
+      return { success: false, error: 'Forbidden: You do not have permission to submit this event for review.' };
+    }
+
+    // 2. Call createApprovalInstance (workflow_type = 'event_publish')
+    const { instance, computation } = await createApprovalInstance({
+      workflowType: 'event_publish',
+      entityId: event.id,
+      submitterId: userId,
+      departmentId: event.department_id,
+    });
+
+    const isAutoApproved = computation.isAutoApproved;
+    const now = new Date().toISOString();
+    let newStatus: EventStatus = 'branch_review';
+
+    if (isAutoApproved) {
+      newStatus = 'approved';
+    } else {
+      const { data: firstStep } = await admin
+        .from('approval_instance_steps')
+        .select('approver_rule')
+        .eq('instance_id', instance.id)
+        .eq('step_order', 1)
+        .maybeSingle();
+
+      if (firstStep?.approver_rule === 'branch_head') {
+        newStatus = 'branch_review';
+      } else if (firstStep?.approver_rule === 'president_or_co_president') {
+        newStatus = 'pending_final_approval';
+      } else {
+        newStatus = 'submitted_for_review';
+      }
+    }
+
+    // 3. Update event record
+    const { data: updatedEvent, error: updateErr } = await admin
+      .from('events')
+      .update({
+        status: newStatus,
+        approval_instance_id: instance.id,
+        updated_at: now,
+      })
+      .eq('id', eventId)
+      .select('*, department:departments(id, name, code, branch)')
+      .single();
+
+    if (updateErr || !updatedEvent) {
+      return { success: false, error: `Failed to update event: ${updateErr?.message}` };
+    }
+
+    // 4. Audit Log write
+    await admin.from('audit_logs').insert({
+      actor_id: context.user.id,
+      action: 'event_submitted_for_review',
+      entity_type: 'event_publish',
+      entity_id: eventId,
+      metadata: {
+        previous_status: event.status,
+        new_status: newStatus,
+        approval_instance_id: instance.id,
+        is_auto_approved: isAutoApproved,
+      },
+    });
+
+    revalidatePath('/events');
+    revalidatePath(`/events/${eventId}`);
+    revalidatePath(`/events/${eventId}/review`);
+    revalidatePath('/approvals');
+
+    return {
+      success: true,
+      event: updatedEvent,
+      instance,
+      isAutoApproved,
+    };
+  } catch (err: unknown) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : 'Error submitting event for review.',
+    };
+  }
+}
+
 

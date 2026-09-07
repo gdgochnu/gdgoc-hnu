@@ -3,6 +3,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { getUserContext } from '@/lib/auth/get-user-context';
 import { EventTaskList } from '@/components/events/EventTaskList';
 import { CheckinAccessManager } from '@/components/events/CheckinAccessManager';
+import { EventReviewBanner } from '@/components/events/EventReviewBanner';
 import { Event, EventStatus } from '@/types';
 import Link from 'next/link';
 import { 
@@ -201,6 +202,9 @@ export default async function EventDetailPage({ params }: EventDetailPageProps) 
               </Link>
             </div>
           </div>
+
+          {/* Event Review & Approval Banner (Step 8.4) */}
+          <EventReviewBanner event={event} canManage={canManage} />
 
           {/* Event Hero Banner */}
           <div className="glass-panel" style={{
