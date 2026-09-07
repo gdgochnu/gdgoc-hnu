@@ -180,7 +180,7 @@ export function CompleteProfileForm({
   };
 
   return (
-    <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+    <form onSubmit={handleSubmit} suppressHydrationWarning style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
       {/* Revision notes alert if status is changes_requested */}
       {initialProfile?.status === 'changes_requested' && (
         <div style={{

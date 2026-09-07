@@ -42,7 +42,7 @@ export default function RootLayout({
       </head>
       <body suppressHydrationWarning>
         <NavigationProgressBar />
-        <div className="ambient-glow" aria-hidden="true" />
+        <div className="ambient-glow" aria-hidden="true" suppressHydrationWarning />
         {children}
 
         {/* Client Service Worker Registration: Production Only */}

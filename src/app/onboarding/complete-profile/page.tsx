@@ -14,18 +14,18 @@ export default async function CompleteProfilePage() {
 
   if (!user) {
     return (
-      <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
-        <header className="header-nav">
-          <div className="nav-content">
+      <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }} suppressHydrationWarning>
+        <header className="header-nav" suppressHydrationWarning>
+          <div className="nav-content" suppressHydrationWarning>
             <Link href="/" className="brand-badge">
-              <div className="brand-title">GDGoC HNU OS</div>
+              <span className="brand-title">GDGoC HNU OS</span>
             </Link>
           </div>
         </header>
 
-        <main style={{ maxWidth: '600px', margin: '6rem auto 3rem', padding: '0 1.5rem', textAlign: 'center' }}>
-          <div className="glass-panel" style={{ padding: '3rem 2rem' }}>
-            <div style={{ width: '56px', height: '56px', borderRadius: '14px', background: 'rgba(66, 133, 244, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.5rem' }}>
+        <main style={{ maxWidth: '600px', margin: '6rem auto 3rem', padding: '0 1.5rem', textAlign: 'center' }} suppressHydrationWarning>
+          <div className="glass-panel" style={{ padding: '3rem 2rem' }} suppressHydrationWarning>
+            <div style={{ width: '56px', height: '56px', borderRadius: '14px', background: 'rgba(66, 133, 244, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.5rem' }} suppressHydrationWarning>
               <UserCheck size={28} color="var(--google-blue)" />
             </div>
             <h1 style={{ fontSize: '1.6rem', fontWeight: 700, marginBottom: '0.75rem' }}>Sign in to Complete Profile</h1>
@@ -49,24 +49,24 @@ export default async function CompleteProfilePage() {
 
   if (profile?.status === 'active') {
     return (
-      <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
-        <header className="header-nav">
-          <div className="nav-content">
+      <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }} suppressHydrationWarning>
+        <header className="header-nav" suppressHydrationWarning>
+          <div className="nav-content" suppressHydrationWarning>
             <Link href="/" className="brand-badge">
-              <div className="brand-title">GDGoC HNU OS</div>
+              <span className="brand-title">GDGoC HNU OS</span>
             </Link>
           </div>
         </header>
-        <main style={{ maxWidth: '600px', margin: '5rem auto', padding: '0 1.5rem', textAlign: 'center' }}>
-          <div className="glass-panel" style={{ padding: '3rem 2rem', border: '1px solid rgba(52, 168, 83, 0.3)' }}>
-            <div style={{ width: '56px', height: '56px', borderRadius: '14px', background: 'rgba(52, 168, 83, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.5rem' }}>
+        <main style={{ maxWidth: '600px', margin: '5rem auto', padding: '0 1.5rem', textAlign: 'center' }} suppressHydrationWarning>
+          <div className="glass-panel" style={{ padding: '3rem 2rem', border: '1px solid rgba(52, 168, 83, 0.3)' }} suppressHydrationWarning>
+            <div style={{ width: '56px', height: '56px', borderRadius: '14px', background: 'rgba(52, 168, 83, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.5rem' }} suppressHydrationWarning>
               <CheckCircle2 size={28} color="var(--google-green)" />
             </div>
             <h1 style={{ fontSize: '1.6rem', fontWeight: 700, marginBottom: '0.75rem' }}>Profile Already Active</h1>
             <p style={{ color: 'var(--text-secondary)', fontSize: '0.95rem', lineHeight: 1.6, marginBottom: '2rem' }}>
               Your chapter profile is active and verified. You have full access to chapter tools and workspace.
             </p>
-            <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center', flexWrap: 'wrap' }} suppressHydrationWarning>
               <Link href="/" className="btn-primary" style={{ textDecoration: 'none' }}>
                 Go to Home
               </Link>
@@ -82,24 +82,24 @@ export default async function CompleteProfilePage() {
 
   if (profile?.status === 'pending_review') {
     return (
-      <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
-        <header className="header-nav">
-          <div className="nav-content">
+      <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }} suppressHydrationWarning>
+        <header className="header-nav" suppressHydrationWarning>
+          <div className="nav-content" suppressHydrationWarning>
             <Link href="/" className="brand-badge">
-              <div className="brand-title">GDGoC HNU OS</div>
+              <span className="brand-title">GDGoC HNU OS</span>
             </Link>
           </div>
         </header>
-        <main style={{ maxWidth: '600px', margin: '5rem auto', padding: '0 1.5rem', textAlign: 'center' }}>
-          <div className="glass-panel" style={{ padding: '3rem 2rem', border: '1px solid rgba(251, 188, 4, 0.3)' }}>
-            <div style={{ width: '56px', height: '56px', borderRadius: '14px', background: 'rgba(251, 188, 4, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.5rem' }}>
+        <main style={{ maxWidth: '600px', margin: '5rem auto', padding: '0 1.5rem', textAlign: 'center' }} suppressHydrationWarning>
+          <div className="glass-panel" style={{ padding: '3rem 2rem', border: '1px solid rgba(251, 188, 4, 0.3)' }} suppressHydrationWarning>
+            <div style={{ width: '56px', height: '56px', borderRadius: '14px', background: 'rgba(251, 188, 4, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.5rem' }} suppressHydrationWarning>
               <Clock size={28} color="var(--google-yellow)" />
             </div>
             <h1 style={{ fontSize: '1.6rem', fontWeight: 700, marginBottom: '0.75rem' }}>Application Under Review</h1>
             <p style={{ color: 'var(--text-secondary)', fontSize: '0.95rem', lineHeight: 1.6, marginBottom: '2rem' }}>
               Your membership application has been submitted and is currently under review by Chapter Leadership.
             </p>
-            <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center', flexWrap: 'wrap' }} suppressHydrationWarning>
               <Link href="/onboarding/status" className="btn-primary" style={{ textDecoration: 'none' }}>
                 Track Application Status
               </Link>
@@ -162,31 +162,31 @@ export default async function CompleteProfilePage() {
     : 'Profile Incomplete';
 
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }} suppressHydrationWarning>
       {/* Header */}
-      <header className="header-nav">
-        <div className="nav-content">
+      <header className="header-nav" suppressHydrationWarning>
+        <div className="nav-content" suppressHydrationWarning>
           <Link href="/" className="brand-badge">
-            <div className="brand-logo-wrap">
+            <span className="brand-logo-wrap">
               <span style={{ fontWeight: 800, fontSize: '1.1rem', background: 'linear-gradient(135deg, #4285F4, #34A853)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
                 &lt;&gt;
               </span>
-            </div>
-            <div>
-              <div className="brand-title">GDGoC HNU OS</div>
-              <div className="brand-sub">Member Onboarding</div>
-            </div>
+            </span>
+            <span>
+              <span className="brand-title" style={{ display: 'block' }}>GDGoC HNU OS</span>
+              <span className="brand-sub" style={{ display: 'block' }}>Member Onboarding</span>
+            </span>
           </Link>
-          <div className="status-pill" style={{ background: 'rgba(251, 188, 4, 0.12)', color: '#FDE047', border: '1px solid rgba(251, 188, 4, 0.3)' }}>
+          <div className="status-pill" style={{ background: 'rgba(251, 188, 4, 0.12)', color: '#FDE047', border: '1px solid rgba(251, 188, 4, 0.3)' }} suppressHydrationWarning>
             {statusLabel}
           </div>
         </div>
       </header>
 
       {/* Main Body */}
-      <main style={{ maxWidth: '920px', margin: '0 auto', padding: '3rem 1.5rem 4rem', width: '100%' }}>
-        <div style={{ textAlign: 'center', marginBottom: '2.5rem' }}>
-          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.85rem', color: 'var(--text-secondary)', background: 'rgba(255, 255, 255, 0.04)', padding: '0.35rem 0.85rem', borderRadius: '999px', border: '1px solid var(--border-subtle)', marginBottom: '1rem' }}>
+      <main style={{ maxWidth: '920px', margin: '0 auto', padding: '3rem 1.5rem 4rem', width: '100%' }} suppressHydrationWarning>
+        <div style={{ textAlign: 'center', marginBottom: '2.5rem' }} suppressHydrationWarning>
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.85rem', color: 'var(--text-secondary)', background: 'rgba(255, 255, 255, 0.04)', padding: '0.35rem 0.85rem', borderRadius: '999px', border: '1px solid var(--border-subtle)', marginBottom: '1rem' }} suppressHydrationWarning>
             <ShieldCheck size={14} color="var(--google-blue)" />
             <span>Official Chapter Recruitment Application</span>
           </div>
