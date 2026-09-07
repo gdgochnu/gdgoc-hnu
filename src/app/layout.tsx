@@ -39,6 +39,71 @@ export default function RootLayout({
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+
+        {/* Browser Extension Hydration Sanitizer (e.g. Bitdefender TrafficLight bis_skin_checked) */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              (function() {
+                try {
+                  // 1. Remove any pre-existing bis_skin_checked attributes injected by extensions
+                  function cleanNodes(root) {
+                    if (!root) return;
+                    if (root.nodeType === 1 && root.hasAttribute('bis_skin_checked')) {
+                      root.removeAttribute('bis_skin_checked');
+                    }
+                    if (root.querySelectorAll) {
+                      var list = root.querySelectorAll('[bis_skin_checked]');
+                      for (var i = 0; i < list.length; i++) {
+                        list[i].removeAttribute('bis_skin_checked');
+                      }
+                    }
+                  }
+
+                  // 2. Active MutationObserver to strip bis_skin_checked synchronously
+                  var observer = new MutationObserver(function(mutations) {
+                    for (var i = 0; i < mutations.length; i++) {
+                      var m = mutations[i];
+                      if (m.type === 'attributes' && m.attributeName === 'bis_skin_checked') {
+                        m.target.removeAttribute('bis_skin_checked');
+                      } else if (m.type === 'childList') {
+                        for (var j = 0; j < m.addedNodes.length; j++) {
+                          cleanNodes(m.addedNodes[j]);
+                        }
+                      }
+                    }
+                  });
+
+                  observer.observe(document.documentElement, {
+                    attributes: true,
+                    subtree: true,
+                    childList: true,
+                    attributeFilter: ['bis_skin_checked']
+                  });
+
+                  // Clean initial document
+                  if (document.readyState === 'loading') {
+                    document.addEventListener('DOMContentLoaded', function() { cleanNodes(document.body); });
+                  } else {
+                    cleanNodes(document.body);
+                  }
+
+                  // 3. Filter extension mismatch noise from console.error in dev
+                  var origError = console.error;
+                  console.error = function() {
+                    for (var a = 0; a < arguments.length; a++) {
+                      var arg = arguments[a];
+                      if (typeof arg === 'string' && (arg.indexOf('bis_skin_checked') !== -1 || arg.indexOf('bis_skin') !== -1)) {
+                        return;
+                      }
+                    }
+                    origError.apply(console, arguments);
+                  };
+                } catch (e) {}
+              })();
+            `,
+          }}
+        />
       </head>
       <body suppressHydrationWarning>
         <NavigationProgressBar />
