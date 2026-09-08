@@ -312,3 +312,54 @@ export interface EventBudgetSummary {
   categoryBreakdown: Record<EventBudgetCategory, { estimated: number; actual: number; count: number }>;
   items: EventBudgetItem[];
 }
+
+export interface HrDashboardKpis {
+  totalRegistrations: number;
+  totalCheckedIn: number;
+  attendanceRate: number; // percentage (0-100)
+  activeMembers: number;
+  eventsCount: number;
+}
+
+export interface EventAttendanceRecord {
+  registrationId: string;
+  profileId: string | null;
+  fullName: string;
+  email: string;
+  phone: string | null;
+  registrationStatus: 'registered' | 'waitlisted' | 'cancelled';
+  isAttended: boolean;
+  checkInTime: string | null;
+  method: 'qr' | 'manual' | null;
+  checkedInBy: string | null;
+}
+
+export interface EventAttendanceSummary {
+  event: {
+    id: string;
+    title: string;
+    slug: string;
+    event_date: string;
+    status: string;
+    venue: string | null;
+    capacity: number | null;
+  } | null;
+  eventsList: Array<{
+    id: string;
+    title: string;
+    slug: string;
+    event_date: string;
+    status: string;
+  }>;
+  totalRegistered: number;
+  totalAttended: number;
+  totalAbsent: number;
+  attendanceRate: number;
+  attendees: EventAttendanceRecord[];
+  duplicateScans: Array<{
+    id: string;
+    attendeeName: string;
+    attendeeEmail: string;
+    attemptedAt: string;
+  }>;
+}

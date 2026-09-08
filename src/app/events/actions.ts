@@ -1367,6 +1367,21 @@ export async function recordQrCheckin(input: RecordQrCheckinInput) {
       .maybeSingle();
 
     if (existingAttendance) {
+      // Log duplicate scan attempt into audit_logs for HR dashboard visibility (Spec §4.5)
+      await admin.from('audit_logs').insert({
+        actor_id: context.user.id,
+        action: 'qr_checkin_duplicate_prevented',
+        entity_type: 'attendance',
+        entity_id: existingAttendance.id,
+        metadata: {
+          event_id: input.eventId,
+          registration_id: registration.id,
+          attendee_name: registration.full_name,
+          attendee_email: registration.email,
+          attempted_at: new Date().toISOString(),
+        },
+      });
+
       return {
         success: false,
         error: 'Duplicate scan! This attendee has already been checked in.',

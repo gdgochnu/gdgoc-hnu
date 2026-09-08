@@ -146,7 +146,7 @@
 - [x] 9.5 Wire the "actual spend exceeds estimate" flag into the President Command Center's "Needs Attention" feed (built fully in Phase 16). (2026-09-08)
 
 ## Phase 10 — HR Dashboard & Attendance
-- [ ] 10.1 Build the HR dashboard KPI cards + event attendance view + export.
+- [x] 10.1 Build the HR dashboard KPI cards + event attendance view + export. (2026-09-08)
 - [ ] 10.2 Build the org-wide Attendance Rate leaderboard (all roles, including Heads/President/Co-President).
 - [ ] 10.3 Build low-engagement alerts + HR notes/follow-up log.
 - [ ] 10.4 Build the monthly `performance_reviews` computation job.
