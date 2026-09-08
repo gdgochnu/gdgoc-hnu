@@ -7,7 +7,9 @@ import { EventReviewBanner } from '@/components/events/EventReviewBanner';
 import { PublicEventView } from '@/components/events/PublicEventView';
 import { EventFeedbackResultsView } from '@/components/events/EventFeedbackResultsView';
 import { EventBudgetTracker } from '@/components/events/EventBudgetTracker';
+import { EventMediaCoverage } from '@/components/events/EventMediaCoverage';
 import { getEventFeedbackSummary, getEventBudget, canAccessEventBudget } from '@/app/events/actions';
+import { getEventCoverage } from '@/app/events/coverage-actions';
 import { Event, EventStatus } from '@/types';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
@@ -291,14 +293,20 @@ export default async function EventDetailPage({ params, searchParams }: EventDet
 
   const tasks = tasksData || [];
 
-  // 3. Fetch departments & active members for task creation modal, feedback summary, and event budget (Step 9.4)
-  const [deptRes, memberRes, feedbackSummary, budgetSummary, canAccessBudget] = await Promise.all([
+  // 3. Fetch departments & active members for task creation modal, feedback summary, event budget, and media coverage (Step 15.3)
+  const [deptRes, memberRes, feedbackSummary, budgetSummary, canAccessBudget, coverageRes] = await Promise.all([
     admin.from('departments').select('id, name, code, branch').order('name'),
     admin.from('profiles').select('id, full_name, full_name_en, email, avatar_url, department_id').eq('status', 'active').order('full_name'),
     getEventFeedbackSummary(event.id),
     getEventBudget(event.id),
     canAccessEventBudget(event.id),
+    getEventCoverage(event.id),
   ]);
+
+  const coverageSummary = coverageRes?.data || {
+    items: [],
+    stats: { total: 0, completed: 0, percentage: 0, photos: 0, videos: 0, speakerAssets: 0, recaps: 0 },
+  };
 
   const departments = deptRes.data || [];
   const members = (memberRes.data || []).map(m => ({
@@ -607,6 +615,15 @@ export default async function EventDetailPage({ params, searchParams }: EventDet
             summary={feedbackSummary}
             eventSlugOrId={event.slug || event.id}
             isEventCompleted={event.status === 'completed'}
+            canManage={canManage}
+          />
+
+          {/* Event Media Coverage Checklists & Drive Bridge (Step 15.3) */}
+          <EventMediaCoverage
+            eventId={event.id}
+            eventTitle={event.title}
+            initialCoverage={coverageSummary}
+            availableMembers={members}
             canManage={canManage}
           />
 
