@@ -24,6 +24,7 @@ import {
   Users
 } from 'lucide-react';
 import { TaskStatus, TaskPriority, UserRole, TaskAssignmentMode, TaskAssigneeStatus } from '@/types';
+import { AddToCalendarButton } from '@/components/tasks/AddToCalendarButton';
 
 export interface TaskItem {
   id: string;
@@ -669,20 +670,29 @@ export function TasksKanbanClient({
                             </div>
                           )}
 
-                          {/* Deadline */}
+                          {/* Deadline + Add to Calendar */}
                           {deadlineInfo && (
-                            <div
-                              style={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '0.3rem',
-                                fontSize: '0.75rem',
-                                color: deadlineInfo.isUrgent ? '#F87171' : 'var(--text-muted)',
-                                fontWeight: deadlineInfo.isUrgent ? 700 : 500,
-                              }}
-                            >
-                              <Calendar size={13} />
-                              <span>{deadlineInfo.text}</span>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                              <div
+                                style={{
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '0.3rem',
+                                  fontSize: '0.75rem',
+                                  color: deadlineInfo.isUrgent ? '#F87171' : 'var(--text-muted)',
+                                  fontWeight: deadlineInfo.isUrgent ? 700 : 500,
+                                }}
+                              >
+                                <Calendar size={13} />
+                                <span>{deadlineInfo.text}</span>
+                              </div>
+                              <AddToCalendarButton
+                                taskTitle={task.title}
+                                deadline={task.deadline!}
+                                description={task.description || undefined}
+                                variant="icon-only"
+                                style={{ width: '22px', height: '22px', borderRadius: '6px' }}
+                              />
                             </div>
                           )}
                         </div>

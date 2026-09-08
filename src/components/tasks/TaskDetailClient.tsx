@@ -39,6 +39,7 @@ import {
 import { SubmitForReviewModal } from '@/components/tasks/SubmitForReviewModal';
 import { ReviewBroadcastSubmissionsModal } from '@/components/tasks/ReviewBroadcastSubmissionsModal';
 import { DelegateTaskModal } from '@/components/tasks/DelegateTaskModal';
+import { AddToCalendarButton } from '@/components/tasks/AddToCalendarButton';
 import { TaskStatus, TaskPriority, UserRole, TaskAssignmentMode, TaskAssigneeStatus } from '@/types';
 
 export interface TaskAssigneeItem {
@@ -1827,6 +1828,18 @@ export function TaskDetailClient({
                   {formatDate(task.deadline)}
                 </span>
               </div>
+
+              {/* Add deadline to personal Google Calendar (Spec §4.17 Step 14.4) */}
+              {task.deadline && (
+                <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                  <AddToCalendarButton
+                    taskTitle={task.title}
+                    deadline={task.deadline}
+                    description={task.description || undefined}
+                    variant="link"
+                  />
+                </div>
+              )}
 
               {/* Created Date */}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>

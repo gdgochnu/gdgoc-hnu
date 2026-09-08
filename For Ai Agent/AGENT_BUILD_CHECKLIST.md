@@ -173,7 +173,7 @@
 - [x] 14.1 Enable the Google Calendar API on the same Google account/credentials as the Drive bridge; create the shared "GDGoC HNU" calendar. (2026-09-08)
 - [x] 14.2 Wire event publish/unpublish/edit to create/update/remove the corresponding Calendar entry. (2026-09-08)
 - [x] 14.3 Expose the shared calendar's subscribable link on the dashboard. (2026-09-08)
-- [ ] 14.4 Add the "Add to my Google Calendar" one-click action on task deadlines (simple calendar link/.ics, no extra API scope).
+- [x] 14.4 Add the "Add to my Google Calendar" one-click action on task deadlines (simple calendar link/.ics, no extra API scope). (2026-09-08)
 
 ## Phase 15 — Media Workspace & Operations
 - [ ] 15.1 Build the Content Calendar.
