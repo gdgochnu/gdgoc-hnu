@@ -20,8 +20,10 @@ import {
   Clock,
   CheckCircle2,
   AlertCircle,
+  AlertTriangle,
   HelpCircle,
   Users,
+  Calendar,
 } from 'lucide-react';
 
 interface PrPipelineKanbanProps {
@@ -29,6 +31,7 @@ interface PrPipelineKanbanProps {
   onContactUpdated: (contact: PRContact) => void;
   onOpenCreateModal: (stage?: PrPipelineStage) => void;
   onOpenEditModal: (contact: PRContact) => void;
+  onOpenInteractions: (contact: PRContact) => void;
 }
 
 const STAGES: Array<{
@@ -86,6 +89,7 @@ export function PrPipelineKanban({
   onContactUpdated,
   onOpenCreateModal,
   onOpenEditModal,
+  onOpenInteractions,
 }: PrPipelineKanbanProps) {
   const [draggedContactId, setDraggedContactId] = useState<string | null>(null);
   const [dragOverStage, setDragOverStage] = useState<PrPipelineStage | null>(null);
@@ -491,6 +495,92 @@ export function PrPipelineKanban({
                           {contact.notes}
                         </div>
                       )}
+
+                      {/* Follow-up / Interaction Action Bar */}
+                      <div
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          gap: '0.4rem',
+                          marginBottom: '0.65rem',
+                        }}
+                      >
+                        {contact.next_follow_up ? (() => {
+                          const fDate = new Date(contact.next_follow_up);
+                          const diffMs = fDate.getTime() - Date.now();
+                          const isOverdue = diffMs < -1000 * 60 * 60 * 12;
+                          const isSoon = Math.abs(diffMs) <= 1000 * 60 * 60 * 12;
+
+                          return (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onOpenInteractions(contact);
+                              }}
+                              title="Click to view follow-up and interaction details"
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '0.3rem',
+                                fontSize: '0.72rem',
+                                fontWeight: 600,
+                                padding: '0.2rem 0.5rem',
+                                borderRadius: '0.35rem',
+                                border: 'none',
+                                cursor: 'pointer',
+                                backgroundColor: isOverdue
+                                  ? 'rgba(234, 67, 53, 0.15)'
+                                  : isSoon
+                                  ? 'rgba(251, 188, 5, 0.15)'
+                                  : 'rgba(66, 133, 244, 0.12)',
+                                color: isOverdue ? '#f28b82' : isSoon ? '#fdd663' : '#8ab4f8',
+                              }}
+                            >
+                              {isOverdue ? <AlertTriangle size={12} /> : <Calendar size={12} />}
+                              <span>
+                                {isOverdue ? 'Overdue: ' : 'Due: '}
+                                {fDate.toLocaleDateString([], { month: 'short', day: 'numeric' })}
+                              </span>
+                            </button>
+                          );
+                        })() : (
+                          <div />
+                        )}
+
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onOpenInteractions(contact);
+                          }}
+                          title="View interaction logs or record outreach"
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '0.3rem',
+                            fontSize: '0.72rem',
+                            color: '#9aa0a6',
+                            background: 'rgba(255, 255, 255, 0.04)',
+                            border: '1px solid rgba(255, 255, 255, 0.08)',
+                            padding: '0.2rem 0.5rem',
+                            borderRadius: '0.35rem',
+                            cursor: 'pointer',
+                          }}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.color = '#fff';
+                            e.currentTarget.style.background = 'rgba(255, 255, 255, 0.09)';
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.color = '#9aa0a6';
+                            e.currentTarget.style.background = 'rgba(255, 255, 255, 0.04)';
+                          }}
+                        >
+                          <MessageSquare size={12} />
+                          <span>
+                            {contact.interactions_count ? `${contact.interactions_count} logs` : 'Log outreach'}
+                          </span>
+                        </button>
+                      </div>
 
                       {/* Footer: Assignee & Stage shift buttons */}
                       <div

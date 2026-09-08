@@ -16,11 +16,15 @@ import {
   Clock,
   AlertCircle,
   Sparkles,
+  MessageSquare,
+  Calendar,
+  AlertTriangle,
 } from 'lucide-react';
 
 interface PrContactsListViewProps {
   contacts: PRContact[];
   onOpenEditModal: (contact: PRContact) => void;
+  onOpenInteractions: (contact: PRContact) => void;
 }
 
 const STAGE_CONFIG: Record<PrPipelineStage, { label: string; color: string; bg: string; icon: React.ReactNode }> = {
@@ -61,6 +65,7 @@ const TYPE_CONFIG: Record<PrContactType, { label: string; bg: string; color: str
 export function PrContactsListView({
   contacts,
   onOpenEditModal,
+  onOpenInteractions,
 }: PrContactsListViewProps) {
   const exportToCsv = () => {
     if (contacts.length === 0) return;
@@ -164,6 +169,7 @@ export function PrContactsListView({
                 <th style={{ padding: '0.85rem 1rem' }}>Pipeline Stage</th>
                 <th style={{ padding: '0.85rem 1rem' }}>Channels</th>
                 <th style={{ padding: '0.85rem 1rem' }}>Assigned To</th>
+                <th style={{ padding: '0.85rem 1rem' }}>Follow-up</th>
                 <th style={{ padding: '0.85rem 1.25rem', textAlign: 'right' }}>Actions</th>
               </tr>
             </thead>
@@ -329,35 +335,121 @@ export function PrContactsListView({
                       )}
                     </td>
 
+                      {/* Follow-up Status */}
+                    <td style={{ padding: '0.85rem 1rem' }}>
+                      {contact.next_follow_up ? (() => {
+                        const fDate = new Date(contact.next_follow_up);
+                        const diffMs = fDate.getTime() - Date.now();
+                        const isOverdue = diffMs < -1000 * 60 * 60 * 12;
+                        const isSoon = Math.abs(diffMs) <= 1000 * 60 * 60 * 12;
+
+                        return (
+                          <button
+                            onClick={() => onOpenInteractions(contact)}
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '0.3rem',
+                              padding: '0.2rem 0.55rem',
+                              borderRadius: '0.35rem',
+                              fontSize: '0.75rem',
+                              fontWeight: 600,
+                              border: 'none',
+                              cursor: 'pointer',
+                              backgroundColor: isOverdue
+                                ? 'rgba(234, 67, 53, 0.15)'
+                                : isSoon
+                                ? 'rgba(251, 188, 5, 0.15)'
+                                : 'rgba(66, 133, 244, 0.12)',
+                              color: isOverdue ? '#f28b82' : isSoon ? '#fdd663' : '#8ab4f8',
+                            }}
+                          >
+                            {isOverdue ? <AlertTriangle size={12} /> : <Calendar size={12} />}
+                            <span>
+                              {isOverdue ? 'Overdue: ' : ''}
+                              {fDate.toLocaleDateString([], { month: 'short', day: 'numeric' })}
+                            </span>
+                          </button>
+                        );
+                      })() : (
+                        <button
+                          onClick={() => onOpenInteractions(contact)}
+                          style={{
+                            background: 'none',
+                            border: 'none',
+                            color: '#5f6368',
+                            fontSize: '0.78rem',
+                            cursor: 'pointer',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '0.25rem',
+                          }}
+                          onMouseEnter={(e) => (e.currentTarget.style.color = '#8ab4f8')}
+                          onMouseLeave={(e) => (e.currentTarget.style.color = '#5f6368')}
+                        >
+                          <span>+ Set</span>
+                        </button>
+                      )}
+                    </td>
+
                     {/* Actions */}
                     <td style={{ padding: '0.85rem 1.25rem', textAlign: 'right' }}>
-                      <button
-                        onClick={() => onOpenEditModal(contact)}
-                        title="Edit Contact"
-                        style={{
-                          background: 'rgba(255, 255, 255, 0.05)',
-                          border: '1px solid var(--border-subtle, rgba(255, 255, 255, 0.1))',
-                          color: '#9aa0a6',
-                          padding: '0.35rem 0.65rem',
-                          borderRadius: '0.45rem',
-                          cursor: 'pointer',
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: '0.3rem',
-                          fontSize: '0.78rem',
-                        }}
-                        onMouseEnter={(e) => {
-                          e.currentTarget.style.color = '#fff';
-                          e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)';
-                        }}
-                        onMouseLeave={(e) => {
-                          e.currentTarget.style.color = '#9aa0a6';
-                          e.currentTarget.style.background = 'rgba(255, 255, 255, 0.05)';
-                        }}
-                      >
-                        <Edit2 size={13} />
-                        <span>Edit</span>
-                      </button>
+                      <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}>
+                        <button
+                          onClick={() => onOpenInteractions(contact)}
+                          title="View Outreach & History"
+                          style={{
+                            background: 'rgba(66, 133, 244, 0.08)',
+                            border: '1px solid rgba(66, 133, 244, 0.2)',
+                            color: '#8ab4f8',
+                            padding: '0.35rem 0.65rem',
+                            borderRadius: '0.45rem',
+                            cursor: 'pointer',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '0.3rem',
+                            fontSize: '0.78rem',
+                            fontWeight: 600,
+                          }}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.background = 'rgba(66, 133, 244, 0.18)';
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.background = 'rgba(66, 133, 244, 0.08)';
+                          }}
+                        >
+                          <MessageSquare size={13} />
+                          <span>{contact.interactions_count ? `${contact.interactions_count}` : 'Log'}</span>
+                        </button>
+
+                        <button
+                          onClick={() => onOpenEditModal(contact)}
+                          title="Edit Contact"
+                          style={{
+                            background: 'rgba(255, 255, 255, 0.05)',
+                            border: '1px solid var(--border-subtle, rgba(255, 255, 255, 0.1))',
+                            color: '#9aa0a6',
+                            padding: '0.35rem 0.65rem',
+                            borderRadius: '0.45rem',
+                            cursor: 'pointer',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '0.3rem',
+                            fontSize: '0.78rem',
+                          }}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.color = '#fff';
+                            e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)';
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.color = '#9aa0a6';
+                            e.currentTarget.style.background = 'rgba(255, 255, 255, 0.05)';
+                          }}
+                        >
+                          <Edit2 size={13} />
+                          <span>Edit</span>
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 );

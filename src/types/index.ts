@@ -522,6 +522,7 @@ export interface PRContact {
   } | null;
   interactions_count?: number;
   latest_interaction?: PRInteraction | null;
+  next_follow_up?: string | null;
 }
 
 export interface PRInteraction {

@@ -11,6 +11,7 @@ import { PrPipelineKanban } from './PrPipelineKanban';
 import { PrContactsListView } from './PrContactsListView';
 import { CreateContactModal } from './CreateContactModal';
 import { EditContactModal } from './EditContactModal';
+import { ContactInteractionsDrawer } from './ContactInteractionsDrawer';
 import {
   Kanban,
   List,
@@ -55,6 +56,7 @@ export function PrCrmHub({
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [createInitialStage, setCreateInitialStage] = useState<PrPipelineStage>('new');
   const [editingContact, setEditingContact] = useState<PRContact | null>(null);
+  const [interactionsContact, setInteractionsContact] = useState<PRContact | null>(null);
 
   // Filtered contacts
   const filteredContacts = useMemo(() => {
@@ -523,11 +525,13 @@ export function PrCrmHub({
           onContactUpdated={handleContactUpdated}
           onOpenCreateModal={handleOpenCreate}
           onOpenEditModal={(contact) => setEditingContact(contact)}
+          onOpenInteractions={(contact) => setInteractionsContact(contact)}
         />
       ) : (
         <PrContactsListView
           contacts={filteredContacts}
           onOpenEditModal={(contact) => setEditingContact(contact)}
+          onOpenInteractions={(contact) => setInteractionsContact(contact)}
         />
       )}
 
@@ -548,6 +552,14 @@ export function PrCrmHub({
         onContactUpdated={handleContactUpdated}
         onContactDeleted={handleContactDeleted}
         teamMembers={teamMembers}
+      />
+
+      {/* Outreach & Interaction History Drawer */}
+      <ContactInteractionsDrawer
+        isOpen={!!interactionsContact}
+        contact={interactionsContact}
+        onClose={() => setInteractionsContact(null)}
+        onContactUpdated={handleContactUpdated}
       />
     </div>
   );

@@ -7,6 +7,7 @@ import {
   PRContact,
   PrContactType,
   PrPipelineStage,
+  PrInteractionType,
   PRInteraction,
   UserRole,
 } from '@/types';
@@ -154,7 +155,7 @@ export async function getPrContacts(
 
     // 3. Fetch interaction counts & latest interaction per contact
     const contactIds = filteredList.map((c: any) => c.id);
-    const interactionsMap = new Map<string, { count: number; latest?: PRInteraction }>();
+    const interactionsMap = new Map<string, { count: number; latest?: PRInteraction; next_follow_up?: string | null }>();
 
     if (contactIds.length > 0) {
       const { data: interactions } = await admin
@@ -165,10 +166,13 @@ export async function getPrContacts(
 
       if (interactions) {
         interactions.forEach((inter: any) => {
-          const current = interactionsMap.get(inter.contact_id) || { count: 0 };
+          const current = interactionsMap.get(inter.contact_id) || { count: 0, next_follow_up: null };
           current.count += 1;
           if (!current.latest) {
             current.latest = inter;
+          }
+          if (inter.next_follow_up && !current.next_follow_up) {
+            current.next_follow_up = inter.next_follow_up;
           }
           interactionsMap.set(inter.contact_id, current);
         });
@@ -213,6 +217,7 @@ export async function getPrContacts(
           : null,
         interactions_count: interInfo?.count || 0,
         latest_interaction: interInfo?.latest || null,
+        next_follow_up: interInfo?.next_follow_up || null,
       };
     });
 
@@ -498,3 +503,223 @@ export async function deletePrContact(
     return { success: false, error: err.message };
   }
 }
+
+/**
+ * Get all interactions for a specific PR contact
+ */
+export async function getPrInteractions(
+  contactId: string,
+  options?: { skipAuthCheck?: boolean }
+): Promise<{ success: boolean; data: PRInteraction[]; error?: string }> {
+  try {
+    if (!options?.skipAuthCheck) {
+      const access = await canAccessPrCrm();
+      if (!access.hasAccess) {
+        return { success: false, data: [], error: 'Unauthorized' };
+      }
+    }
+
+    const admin = createAdminClient();
+
+    const { data: interactions, error } = await admin
+      .from('pr_interactions')
+      .select('*')
+      .eq('contact_id', contactId)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('[getPrInteractions] DB error:', error);
+      return { success: false, data: [], error: error.message };
+    }
+
+    if (!interactions || interactions.length === 0) {
+      return { success: true, data: [] };
+    }
+
+    // Fetch author profiles
+    const authorIds = Array.from(new Set(interactions.map((i: any) => i.profile_id).filter(Boolean)));
+    const authorMap = new Map<string, any>();
+
+    if (authorIds.length > 0) {
+      const { data: authors } = await admin
+        .from('profiles')
+        .select('id, full_name_en, full_name_ar, avatar_url')
+        .in('id', authorIds);
+
+      if (authors) {
+        authors.forEach((a) => authorMap.set(a.id, a));
+      }
+    }
+
+    const formatted: PRInteraction[] = interactions.map((item: any) => {
+      const author = authorMap.get(item.profile_id);
+      return {
+        id: item.id,
+        contact_id: item.contact_id,
+        profile_id: item.profile_id,
+        interaction_type: item.interaction_type,
+        summary: item.summary,
+        next_follow_up: item.next_follow_up || null,
+        created_at: item.created_at,
+        author: author
+          ? {
+              id: author.id,
+              full_name_en: author.full_name_en,
+              full_name_ar: author.full_name_ar,
+              avatar_url: author.avatar_url,
+            }
+          : null,
+      };
+    });
+
+    return { success: true, data: formatted };
+  } catch (err: any) {
+    console.error('[getPrInteractions] exception:', err);
+    return { success: false, data: [], error: err.message || 'Failed to fetch interactions' };
+  }
+}
+
+/**
+ * Log a new interaction (email, call, meeting, message) for a contact
+ */
+export async function createPrInteraction(
+  data: {
+    contact_id: string;
+    interaction_type: PrInteractionType;
+    summary: string;
+    next_follow_up?: string | null;
+    update_stage?: PrPipelineStage;
+  },
+  options?: { skipAuthCheck?: boolean; authorId?: string }
+): Promise<{ success: boolean; data?: PRInteraction; error?: string }> {
+  try {
+    let authorId = options?.authorId;
+
+    if (!options?.skipAuthCheck) {
+      const access = await canAccessPrCrm();
+      if (!access.hasAccess) {
+        return { success: false, error: 'Unauthorized: PR CRM write access required' };
+      }
+      authorId = access.profileId;
+    }
+
+    if (!data.contact_id) {
+      return { success: false, error: 'Contact ID is required' };
+    }
+    if (!data.summary || data.summary.trim() === '') {
+      return { success: false, error: 'Interaction summary is required' };
+    }
+
+    const admin = createAdminClient();
+
+    // 1. Insert interaction
+    const insertPayload = {
+      contact_id: data.contact_id,
+      profile_id: authorId,
+      interaction_type: data.interaction_type || 'email',
+      summary: data.summary.trim(),
+      next_follow_up: data.next_follow_up ? new Date(data.next_follow_up).toISOString() : null,
+      created_at: new Date().toISOString(),
+    };
+
+    const { data: inserted, error: insertError } = await admin
+      .from('pr_interactions')
+      .insert(insertPayload)
+      .select()
+      .single();
+
+    if (insertError) {
+      console.error('[createPrInteraction] insert error:', insertError);
+      return { success: false, error: insertError.message };
+    }
+
+    // 2. Optionally update stage & always update updated_at on pr_contacts
+    const contactUpdates: Record<string, any> = {
+      updated_at: new Date().toISOString(),
+    };
+    if (data.update_stage) {
+      contactUpdates.pipeline_stage = data.update_stage;
+    }
+
+    await admin
+      .from('pr_contacts')
+      .update(contactUpdates)
+      .eq('id', data.contact_id);
+
+    // Fetch author info for response
+    let authorData = null;
+    if (authorId) {
+      const { data: author } = await admin
+        .from('profiles')
+        .select('id, full_name_en, full_name_ar, avatar_url')
+        .eq('id', authorId)
+        .maybeSingle();
+      if (author) {
+        authorData = {
+          id: author.id,
+          full_name_en: author.full_name_en,
+          full_name_ar: author.full_name_ar,
+          avatar_url: author.avatar_url,
+        };
+      }
+    }
+
+    revalidatePath('/pr');
+    revalidatePath('/workspace/pr');
+
+    return {
+      success: true,
+      data: {
+        id: inserted.id,
+        contact_id: inserted.contact_id,
+        profile_id: inserted.profile_id,
+        interaction_type: inserted.interaction_type,
+        summary: inserted.summary,
+        next_follow_up: inserted.next_follow_up,
+        created_at: inserted.created_at,
+        author: authorData,
+      },
+    };
+  } catch (err: any) {
+    console.error('[createPrInteraction] exception:', err);
+    return { success: false, error: err.message || 'Failed to log interaction' };
+  }
+}
+
+/**
+ * Delete an interaction log
+ */
+export async function deletePrInteraction(
+  interactionId: string,
+  options?: { skipAuthCheck?: boolean }
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    if (!options?.skipAuthCheck) {
+      const access = await canAccessPrCrm();
+      if (!access.hasAccess) {
+        return { success: false, error: 'Unauthorized' };
+      }
+    }
+
+    const admin = createAdminClient();
+
+    const { error } = await admin
+      .from('pr_interactions')
+      .delete()
+      .eq('id', interactionId);
+
+    if (error) {
+      console.error('[deletePrInteraction] delete error:', error);
+      return { success: false, error: error.message };
+    }
+
+    revalidatePath('/pr');
+    revalidatePath('/workspace/pr');
+
+    return { success: true };
+  } catch (err: any) {
+    console.error('[deletePrInteraction] exception:', err);
+    return { success: false, error: err.message };
+  }
+}
+

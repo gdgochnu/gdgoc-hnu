@@ -154,7 +154,7 @@
 
 ## Phase 11 — PR CRM
 - [x] 11.1 Build Contacts + Pipeline (Kanban: new/contacted/negotiating/confirmed). (2026-09-08)
-- [ ] 11.2 Build Follow-up + History (interaction log) per contact.
+- [x] 11.2 Build Follow-up + History (interaction log) per contact. (2026-09-08)
 - [ ] 11.3 Build PR KPI widgets on the PR dashboard.
 
 ## Phase 12 — Global Search (spec §4.19)
