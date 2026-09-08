@@ -134,7 +134,7 @@
 - [x] 8.7 Build the Public Event Page (`/events/[slug]`) with the registration form. (2026-09-08)
 - [x] 8.8 Build the registration confirmation page + QR-code email. (2026-09-08)
 - [x] 8.9 Build the QR check-in screen (`/events/[id]/attendance`) — **gate access** so only profiles in `checkin_access_profile_ids` (plus HR role and President/Co-President) can open it for that specific event. (2026-09-08)
-- [ ] 8.10 Build walk-in manual check-in (search by name/phone/email).
+- [x] 8.10 Build walk-in manual check-in (search by name/phone/email). (2026-09-08)
 - [ ] 8.11 Build the auto/manual transition to `completed` after the event date.
 - [ ] 8.12 Confirm end-to-end: a Media Head with no check-in duty on Event X cannot open `/events/X/attendance`, while the specifically assigned HR member can.
 
