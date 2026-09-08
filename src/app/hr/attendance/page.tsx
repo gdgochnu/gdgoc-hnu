@@ -1,9 +1,8 @@
 import React from 'react';
 import { Metadata } from 'next';
 import { AppShell } from '@/components/layout/AppShell';
-import { canAccessHrDashboard, getHrDashboardKpis, getEventAttendanceDetails } from '@/app/hr/actions';
-import { HrDashboardKpiCards } from '@/components/hr/HrDashboardKpiCards';
-import { EventAttendanceView } from '@/components/hr/EventAttendanceView';
+import { canAccessHrDashboard, getHrDashboardKpis, getEventAttendanceDetails, getAttendanceLeaderboard } from '@/app/hr/actions';
+import { HrAttendanceHub } from '@/components/hr/HrAttendanceHub';
 import { redirect } from 'next/navigation';
 import { ShieldCheck, ShieldAlert, Sparkles, UserCheck } from 'lucide-react';
 import Link from 'next/link';
@@ -54,10 +53,11 @@ export default async function HrAttendancePage() {
     );
   }
 
-  // 2. Fetch Dashboard KPIs & Initial Event Attendance Data in parallel
-  const [kpis, initialAttendance] = await Promise.all([
+  // 2. Fetch Dashboard KPIs, Event Attendance Data, and Attendance Leaderboard in parallel
+  const [kpis, initialAttendance, initialLeaderboard] = await Promise.all([
     getHrDashboardKpis(),
     getEventAttendanceDetails(),
+    getAttendanceLeaderboard(),
   ]);
 
   return (
@@ -130,11 +130,12 @@ export default async function HrAttendancePage() {
           </div>
         </div>
 
-        {/* 1. KPI Cards Grid */}
-        <HrDashboardKpiCards kpis={kpis} />
-
-        {/* 2. Event Attendance Inspector & Export */}
-        <EventAttendanceView initialData={initialAttendance} />
+        {/* HR Attendance Hub: Global KPIs + Tabs for Leaderboard & Event Attendance */}
+        <HrAttendanceHub
+          kpis={kpis}
+          initialAttendance={initialAttendance}
+          initialLeaderboard={initialLeaderboard}
+        />
       </div>
     </AppShell>
   );

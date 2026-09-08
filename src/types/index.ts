@@ -363,3 +363,33 @@ export interface EventAttendanceSummary {
     attemptedAt: string;
   }>;
 }
+
+export interface AttendanceLeaderboardEntry {
+  profileId: string;
+  fullName: string;
+  fullNameAr?: string | null;
+  fullNameEn?: string | null;
+  avatarUrl?: string | null;
+  email: string;
+  role: UserRole;
+  position?: string | null;
+  departmentId?: string | null;
+  departmentName?: string | null;
+  departmentCode?: string | null;
+  branch?: DepartmentBranch | null;
+  attendanceRate: number; // percentage (0-100)
+  eventsAttended: number;
+  eventsEligible: number;
+  rank: number;
+  leaderboardOptIn: boolean;
+  status: ProfileStatus;
+}
+
+export interface AttendanceLeaderboardSummary {
+  entries: AttendanceLeaderboardEntry[];
+  totalProfiles: number;
+  averageAttendanceRate: number;
+  topAttender?: AttendanceLeaderboardEntry | null;
+  departments: Array<{ id: string; name: string; code: string; branch: DepartmentBranch }>;
+}
+
