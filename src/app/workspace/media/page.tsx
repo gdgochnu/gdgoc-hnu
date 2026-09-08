@@ -37,8 +37,16 @@ export default async function MediaLibraryPage() {
   const departments = deptsData || [];
   const deptIds = departments.map((d) => d.id);
 
-  // Load all media files across committees
-  const { files, folderUrl } = await getAllMediaFiles(deptIds);
+  // Fetch all events for event media aggregation
+  const { data: eventsData } = await admin
+    .from('events')
+    .select('id, title, event_date')
+    .order('event_date', { ascending: false });
+  const events = eventsData || [];
+  const eventIds = events.map((e) => e.id);
+
+  // Load all media files across committees AND events
+  const { files, folderUrl } = await getAllMediaFiles(deptIds, eventIds);
 
   return (
     <AppShell>
@@ -48,12 +56,25 @@ export default async function MediaLibraryPage() {
         canUpload={isLeadership}
         canDelete={isLeadership}
         departments={departments.map((d) => ({ id: d.id, name: d.name, code: d.code }))}
-        onUpload={async (file: File, departmentId: string | null, customName?: string) => {
+        events={events.map((e) => ({ id: e.id, title: e.title }))}
+        onUpload={async (
+          file: File,
+          targetId: string | null,
+          customName?: string,
+          targetType?: 'media_library' | 'department' | 'event'
+        ) => {
           'use server';
           const finalName = customName?.trim() || file.name;
           const buffer = Buffer.from(await file.arrayBuffer());
           const base64 = buffer.toString('base64');
-          return uploadMediaFile(finalName, file.type || 'application/octet-stream', base64, departmentId);
+          return uploadMediaFile(
+            finalName,
+            file.type || 'application/octet-stream',
+            base64,
+            targetType === 'department' ? targetId : null,
+            targetType || (targetId ? 'department' : 'media_library'),
+            targetType === 'event' ? targetId : null
+          );
         }}
         onDelete={async (fileId: string) => {
           'use server';
@@ -65,7 +86,7 @@ export default async function MediaLibraryPage() {
         }}
         onRefresh={async () => {
           'use server';
-          const { files: updated } = await getAllMediaFiles(deptIds);
+          const { files: updated } = await getAllMediaFiles(deptIds, eventIds);
           return updated;
         }}
       />

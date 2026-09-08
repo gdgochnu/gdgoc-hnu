@@ -19,7 +19,8 @@ export async function POST(req: NextRequest) {
     const formData = await req.formData();
     const file = formData.get('file') as File | null;
     const customName = (formData.get('fileName') as string | null)?.trim();
-    const departmentId = (formData.get('departmentId') as string | null)?.trim() || null;
+    const targetType = (formData.get('targetType') as string | null)?.trim() || (formData.get('departmentId') ? 'department' : 'media_library');
+    const targetId = (formData.get('targetId') as string | null)?.trim() || (formData.get('departmentId') as string | null)?.trim() || null;
 
     if (!file) {
       return NextResponse.json({ success: false, error: 'No file provided' }, { status: 400 });
@@ -31,10 +32,12 @@ export async function POST(req: NextRequest) {
     const base64Data = buffer.toString('base64');
     const mimeType = file.type || 'application/octet-stream';
 
-    const entityType = departmentId ? 'department' : 'media_library';
+    const entityType = targetType === 'event' ? 'event' : targetType === 'department' ? 'department' : 'media_library';
+    const entityId = targetType === 'media_library' ? null : targetId;
+
     const uploadRes = await uploadEntityFile({
       entityType,
-      entityId: departmentId,
+      entityId,
       fileName: finalFileName,
       mimeType,
       base64Data,
@@ -58,7 +61,7 @@ export async function POST(req: NextRequest) {
         thumbnailUrl: isImg ? `/api/workspace/media/thumbnail?id=${uploadRes.file.fileId}` : undefined,
         dateCreated: new Date().toISOString(),
         entityType,
-        entityId: departmentId,
+        entityId: entityId,
       },
     });
   } catch (err: any) {

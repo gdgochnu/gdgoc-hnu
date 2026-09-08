@@ -72,6 +72,19 @@ function getCategoryColor(cat: string) {
   }
 }
 
+function formatFileSize(bytes: number): string {
+  if (!bytes || bytes === 0) return '—';
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function formatSpeed(bytesPerSec: number): string {
+  if (bytesPerSec < 1024) return `${bytesPerSec.toFixed(0)} B/s`;
+  if (bytesPerSec < 1024 * 1024) return `${(bytesPerSec / 1024).toFixed(1)} KB/s`;
+  return `${(bytesPerSec / (1024 * 1024)).toFixed(2)} MB/s`;
+}
+
 export function EventMediaCoverage({
   eventId,
   eventTitle,
@@ -94,8 +107,16 @@ export function EventMediaCoverage({
   const [newNotes, setNewNotes] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Upload state per item
+  // Upload state & progress per item
   const [uploadingItemId, setUploadingItemId] = useState<string | null>(null);
+  const [uploadProgress, setUploadProgress] = useState<{
+    itemId: string;
+    percent: number;
+    speed: number;
+    transferred: number;
+    total: number;
+    stage: string;
+  } | null>(null);
   const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
@@ -174,29 +195,69 @@ export function EventMediaCoverage({
     if (!file) return;
 
     setUploadingItemId(itemId);
+    setUploadProgress({
+      itemId,
+      percent: 0,
+      speed: 0,
+      transferred: 0,
+      total: file.size,
+      stage: 'Uploading…',
+    });
+
+    const startTime = Date.now();
+
     try {
-      // 1. First attempt: Use multipart FormData API endpoint (no Server Action 1MB limit)
+      // 1. First attempt: Use XMLHttpRequest with multipart FormData for real-time progress & speed
       const formData = new FormData();
       formData.append('file', file);
       formData.append('itemId', itemId);
       formData.append('eventId', eventId);
 
-      const response = await fetch('/api/events/coverage/upload', {
-        method: 'POST',
-        body: formData,
+      const xhr = new XMLHttpRequest();
+
+      xhr.upload.onprogress = (event) => {
+        if (event.lengthComputable) {
+          const percent = Math.round((event.loaded / event.total) * 100);
+          const elapsedSec = (Date.now() - startTime) / 1000;
+          const speed = elapsedSec > 0.1 ? event.loaded / elapsedSec : 0;
+          setUploadProgress({
+            itemId,
+            percent,
+            speed,
+            transferred: event.loaded,
+            total: event.total,
+            stage: percent < 100 ? 'Uploading to Drive…' : 'Finalizing & updating Drive…',
+          });
+        }
+      };
+
+      const result = await new Promise<{ success: boolean; data?: any; error?: string }>((resolve) => {
+        xhr.onload = () => {
+          try {
+            const data = JSON.parse(xhr.responseText);
+            if (xhr.status >= 200 && xhr.status < 300 && data.success) {
+              resolve({ success: true, data });
+            } else {
+              resolve({ success: false, error: data.error || `Server status ${xhr.status}` });
+            }
+          } catch {
+            resolve({ success: false, error: 'Malformed response' });
+          }
+        };
+        xhr.onerror = () => resolve({ success: false, error: 'Network error' });
+        xhr.open('POST', '/api/events/coverage/upload');
+        xhr.send(formData);
       });
 
-      const data = await response.json();
-
-      if (response.ok && data.success) {
+      if (result.success && result.data) {
         setItems((prev) =>
           prev.map((i) =>
             i.id === itemId
               ? {
                   ...i,
                   is_completed: true,
-                  drive_file_url: data.driveFileUrl || null,
-                  thumbnail_url: data.thumbnailUrl || null,
+                  drive_file_url: result.data.driveFileUrl || null,
+                  thumbnail_url: result.data.thumbnailUrl || null,
                 }
               : i
           )
@@ -231,12 +292,15 @@ export function EventMediaCoverage({
         );
         showToast('success', `Uploaded "${file.name}" to Drive /Media-Coverage/!`);
       } else {
-        showToast('error', res.error || data.error || 'Upload to Drive failed');
+        showToast('error', res.error || result.error || 'Upload to Drive failed');
       }
     } catch (err: any) {
       showToast('error', err.message || 'Upload failed');
     } finally {
-      setUploadingItemId(null);
+      setTimeout(() => {
+        setUploadingItemId(null);
+        setUploadProgress(null);
+      }, 1000);
     }
   };
 
@@ -562,6 +626,56 @@ export function EventMediaCoverage({
                       </span>
                     )}
                   </div>
+
+                  {/* Upload Progress Bar & Speed Indicator */}
+                  {uploadProgress?.itemId === item.id && (
+                    <div
+                      style={{
+                        marginTop: '0.5rem',
+                        background: 'rgba(0, 0, 0, 0.4)',
+                        border: '1px solid rgba(66, 133, 244, 0.3)',
+                        borderRadius: '8px',
+                        padding: '0.5rem 0.75rem',
+                      }}
+                    >
+                      <div
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          fontSize: '0.75rem',
+                          color: '#8ab4f8',
+                          marginBottom: '0.35rem',
+                        }}
+                      >
+                        <span style={{ fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                          <RefreshCw size={12} style={{ animation: 'spin 1s linear infinite' }} />
+                          {uploadProgress.stage}
+                        </span>
+                        <span style={{ fontFamily: 'monospace', fontSize: '0.72rem', color: '#34A853' }}>
+                          ⚡ {formatSpeed(uploadProgress.speed)} • {formatFileSize(uploadProgress.transferred)} / {formatFileSize(uploadProgress.total)} ({uploadProgress.percent}%)
+                        </span>
+                      </div>
+                      <div
+                        style={{
+                          width: '100%',
+                          height: '6px',
+                          background: 'rgba(255, 255, 255, 0.08)',
+                          borderRadius: '3px',
+                          overflow: 'hidden',
+                        }}
+                      >
+                        <div
+                          style={{
+                            width: `${uploadProgress.percent}%`,
+                            height: '100%',
+                            background: 'linear-gradient(90deg, #4285F4, #34A853)',
+                            transition: 'width 0.15s ease',
+                          }}
+                        />
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Captured Evidence / Thumbnail */}

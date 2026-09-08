@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getUserContext } from '@/lib/auth/get-user-context';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { uploadEntityFile } from '@/app/drive/actions';
+import { uploadEntityFile, deleteEntityFile } from '@/app/drive/actions';
 
 export const dynamic = 'force-dynamic';
 
@@ -22,6 +22,23 @@ export async function POST(req: NextRequest) {
         { success: false, error: 'Missing required parameters: file, itemId, or eventId' },
         { status: 400 }
       );
+    }
+
+    const admin = createAdminClient();
+
+    // 0. Check if this item already has an existing file attached; delete old file from Drive upon replacement
+    const { data: oldItem } = await admin
+      .from('event_coverage_items')
+      .select('drive_file_id')
+      .eq('id', itemId)
+      .maybeSingle();
+
+    if (oldItem?.drive_file_id) {
+      try {
+        await deleteEntityFile(oldItem.drive_file_id, 'event', eventId);
+      } catch (delErr) {
+        console.warn('[coverage/upload] Failed to clean up replaced file:', delErr);
+      }
     }
 
     const arrayBuffer = await file.arrayBuffer();
@@ -52,7 +69,6 @@ export async function POST(req: NextRequest) {
     const thumb = isImg ? `/api/workspace/media/thumbnail?id=${driveFile.fileId}` : null;
 
     // 2. Update the coverage item in Supabase
-    const admin = createAdminClient();
     const { error: updateErr } = await admin
       .from('event_coverage_items')
       .update({

@@ -15,12 +15,16 @@ import { MediaFile } from '@/components/workspace/MediaLibraryClient';
  * Fetch all media files across all committees for the Central Media Library.
  * Aggregates: media_library (general) + each department's media folder.
  */
-export async function getAllMediaFiles(departmentIds: string[]): Promise<{
+export async function getAllMediaFiles(
+  departmentIds: string[],
+  eventIds: string[] = []
+): Promise<{
   files: MediaFile[];
   folderUrl?: string;
 }> {
   const fileMap = new Map<string, MediaFile>();
   let rootFolderUrl: string | undefined;
+  const admin = createAdminClient();
 
   // 1. General "Media Library" folder
   const generalRes = await listEntityFiles('media_library', null);
@@ -45,12 +49,11 @@ export async function getAllMediaFiles(departmentIds: string[]): Promise<{
     if (!rootFolderUrl) rootFolderUrl = generalRes.folderUrl;
   }
 
-  // 2. Each department's media folder (named "Media" sub-folder)
+  // 2. Each department's media folder
   await Promise.all(
     departmentIds.map(async (deptId) => {
       const res = await listEntityFiles('department', deptId);
       if (res.success && res.files.length > 0) {
-        const admin = createAdminClient();
         const { data: dept } = await admin
           .from('departments')
           .select('name')
@@ -79,6 +82,72 @@ export async function getAllMediaFiles(departmentIds: string[]): Promise<{
     })
   );
 
+  // 3. Each event's media folder (Drive /Events/{EventName}/Media-Coverage/)
+  await Promise.all(
+    eventIds.map(async (eventId) => {
+      const res = await listEntityFiles('event', eventId);
+      const { data: ev } = await admin
+        .from('events')
+        .select('title')
+        .eq('id', eventId)
+        .maybeSingle();
+
+      const eventLabel = ev?.title ? `Event: ${ev.title}` : `Event`;
+
+      if (res.success && res.files.length > 0) {
+        for (const f of res.files) {
+          if (!fileMap.has(f.id)) {
+            const isImg = (f.mimeType || '').startsWith('image/');
+            fileMap.set(f.id, {
+              id: f.id,
+              name: f.name,
+              mimeType: f.mimeType,
+              size: f.size,
+              url: f.url,
+              downloadUrl: f.downloadUrl,
+              thumbnailUrl: f.thumbnailUrl || (isImg ? `/api/workspace/media/thumbnail?id=${f.id}` : undefined),
+              dateCreated: f.dateCreated,
+              entityType: 'event',
+              entityId: eventId,
+              entityLabel: eventLabel,
+            });
+          }
+        }
+      }
+    })
+  );
+
+  // 4. Also fetch any uploaded event coverage checklist items
+  try {
+    const { data: coverageItems } = await admin
+      .from('event_coverage_items')
+      .select('id, event_id, title, drive_file_id, drive_file_url, thumbnail_url, created_at, event:events(id, title)')
+      .not('drive_file_id', 'is', null);
+
+    if (coverageItems) {
+      for (const cov of coverageItems) {
+        if (cov.drive_file_id && !fileMap.has(cov.drive_file_id)) {
+          const evTitle = (cov.event as any)?.title || 'Event';
+          fileMap.set(cov.drive_file_id, {
+            id: cov.drive_file_id,
+            name: `${cov.title}`,
+            mimeType: 'image/jpeg',
+            size: 0,
+            url: cov.drive_file_url || `https://drive.google.com/file/d/${cov.drive_file_id}/view`,
+            downloadUrl: `https://drive.google.com/uc?export=download&id=${cov.drive_file_id}`,
+            thumbnailUrl: cov.thumbnail_url || `/api/workspace/media/thumbnail?id=${cov.drive_file_id}`,
+            dateCreated: cov.created_at,
+            entityType: 'event',
+            entityId: cov.event_id,
+            entityLabel: `Event: ${evTitle}`,
+          });
+        }
+      }
+    }
+  } catch (covErr) {
+    // Non-fatal
+  }
+
   return {
     files: Array.from(fileMap.values()).sort(
       (a, b) => new Date(b.dateCreated || 0).getTime() - new Date(a.dateCreated || 0).getTime()
@@ -88,13 +157,15 @@ export async function getAllMediaFiles(departmentIds: string[]): Promise<{
 }
 
 /**
- * Server Action: Upload a file to the Media Library or a specific committee folder
+ * Server Action: Upload a file to the Media Library, a specific committee, or an event folder
  */
 export async function uploadMediaFile(
   fileName: string,
   mimeType: string,
   base64Data: string,
-  departmentId?: string | null
+  departmentId?: string | null,
+  entityTypeParam?: 'media_library' | 'department' | 'event',
+  eventIdParam?: string | null
 ): Promise<{ success: boolean; error?: string }> {
   try {
     const context = await getUserContext();
@@ -107,10 +178,20 @@ export async function uploadMediaFile(
       return { success: false, error: 'Only leadership can upload to the Media Library' };
     }
 
-    const entityType = departmentId ? 'department' : 'media_library';
+    let entityType: 'media_library' | 'department' | 'event' = 'media_library';
+    let entityId: string | null = null;
+
+    if (entityTypeParam === 'event' && eventIdParam) {
+      entityType = 'event';
+      entityId = eventIdParam;
+    } else if (departmentId) {
+      entityType = 'department';
+      entityId = departmentId;
+    }
+
     const res = await uploadEntityFile({
       entityType,
-      entityId: departmentId || null,
+      entityId,
       fileName,
       mimeType,
       base64Data,

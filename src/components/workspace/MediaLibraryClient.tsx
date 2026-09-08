@@ -49,7 +49,13 @@ interface MediaLibraryClientProps {
   canUpload: boolean;
   canDelete: boolean;
   departments: { id: string; name: string; code: string }[];
-  onUpload?: (file: File, departmentId: string | null, customName?: string) => Promise<{ success: boolean; error?: string }>;
+  events?: { id: string; title: string }[];
+  onUpload?: (
+    file: File,
+    targetId: string | null,
+    customName?: string,
+    targetType?: 'media_library' | 'department' | 'event'
+  ) => Promise<{ success: boolean; error?: string }>;
   onDelete?: (fileId: string) => Promise<{ success: boolean; error?: string }>;
   onRename?: (fileId: string, newName: string, entityType?: string, entityId?: string | null) => Promise<{ success: boolean; error?: string }>;
   onRefresh?: () => Promise<MediaFile[]>;
@@ -208,6 +214,7 @@ export function MediaLibraryClient({
   canUpload,
   canDelete,
   departments,
+  events = [],
   onUpload,
   onDelete,
   onRename,
@@ -289,7 +296,21 @@ export function MediaLibraryClient({
       const formData = new FormData();
       formData.append('file', stagedFile);
       formData.append('fileName', finalName);
-      if (uploadDept) formData.append('departmentId', uploadDept);
+
+      const isEventUpload = uploadDept.startsWith('event:');
+      const targetId = isEventUpload ? uploadDept.replace('event:', '') : uploadDept || null;
+      const targetType = isEventUpload ? 'event' : uploadDept ? 'department' : 'media_library';
+
+      if (targetType === 'event') {
+        formData.append('targetType', 'event');
+        formData.append('targetId', targetId || '');
+      } else if (targetType === 'department') {
+        formData.append('targetType', 'department');
+        formData.append('targetId', targetId || '');
+        formData.append('departmentId', targetId || '');
+      } else {
+        formData.append('targetType', 'media_library');
+      }
 
       const xhr = new XMLHttpRequest();
 
@@ -333,6 +354,10 @@ export function MediaLibraryClient({
 
         // Optimistically add to files
         if (result.file) {
+          const eventItem = isEventUpload ? events.find((e) => e.id === targetId) : null;
+          const deptItem = !isEventUpload && targetId ? departments.find((d) => d.id === targetId) : null;
+          const entityLabel = eventItem ? `Event: ${eventItem.title}` : deptItem ? deptItem.name : 'General';
+
           const newFile: MediaFile = {
             id: result.file.id,
             name: result.file.name,
@@ -342,9 +367,9 @@ export function MediaLibraryClient({
             downloadUrl: result.file.downloadUrl,
             thumbnailUrl: result.file.thumbnailUrl || (result.file.mimeType?.startsWith('image/') ? `/api/workspace/media/thumbnail?id=${result.file.id}` : undefined),
             dateCreated: result.file.dateCreated,
-            entityType: result.file.entityType,
-            entityId: result.file.entityId,
-            entityLabel: uploadDept ? departments.find((d) => d.id === uploadDept)?.name : 'General',
+            entityType: result.file.entityType || targetType,
+            entityId: result.file.entityId || targetId,
+            entityLabel,
           };
           setFiles((prev) => [newFile, ...prev.filter((f) => f.id !== newFile.id)]);
         }
@@ -363,7 +388,7 @@ export function MediaLibraryClient({
       } else {
         // Fallback to server action if API route failed
         if (onUpload) {
-          const actionRes = await onUpload(stagedFile, uploadDept || null, finalName);
+          const actionRes = await onUpload(stagedFile, targetId, finalName, targetType);
           if (actionRes.success) {
             setUploadProgress(100);
             setUploadStatus('success');
@@ -492,7 +517,24 @@ export function MediaLibraryClient({
       f.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       (f.entityLabel || '').toLowerCase().includes(searchQuery.toLowerCase());
     const matchType = filterType === 'all' || getFileType(f.mimeType) === filterType;
-    const matchDept = filterDept === 'all' || f.entityId === filterDept;
+
+    let matchDept = true;
+    if (filterDept === 'all') {
+      matchDept = true;
+    } else if (filterDept === 'all_depts') {
+      matchDept = f.entityType === 'department';
+    } else if (filterDept === 'all_events') {
+      matchDept = f.entityType === 'event';
+    } else if (filterDept.startsWith('dept:')) {
+      const targetDeptId = filterDept.replace('dept:', '');
+      matchDept = f.entityId === targetDeptId;
+    } else if (filterDept.startsWith('event:')) {
+      const targetEventId = filterDept.replace('event:', '');
+      matchDept = f.entityId === targetEventId;
+    } else {
+      matchDept = f.entityId === filterDept;
+    }
+
     return matchSearch && matchType && matchDept;
   });
 
@@ -691,11 +733,22 @@ export function MediaLibraryClient({
                     }}
                   >
                     <option value="">General Media Library</option>
-                    {departments.map((d) => (
-                      <option key={d.id} value={d.id}>
-                        {d.name} Media
-                      </option>
-                    ))}
+                    <optgroup label="Committees">
+                      {departments.map((d) => (
+                        <option key={d.id} value={d.id}>
+                          {d.name} Media
+                        </option>
+                      ))}
+                    </optgroup>
+                    {events.length > 0 && (
+                      <optgroup label="Events (Media Coverage)">
+                        {events.map((e) => (
+                          <option key={e.id} value={`event:${e.id}`}>
+                            {e.title}
+                          </option>
+                        ))}
+                      </optgroup>
+                    )}
                   </select>
                 </div>
 
@@ -978,12 +1031,25 @@ export function MediaLibraryClient({
             cursor: 'pointer',
           }}
         >
-          <option value="all">All Committees</option>
-          {departments.map((d) => (
-            <option key={d.id} value={d.id}>
-              {d.name}
-            </option>
-          ))}
+          <option value="all">All Sources (All Media)</option>
+          <option value="all_depts">All Committees</option>
+          <option value="all_events">All Events (Media Coverage)</option>
+          <optgroup label="Committees">
+            {departments.map((d) => (
+              <option key={d.id} value={`dept:${d.id}`}>
+                {d.name}
+              </option>
+            ))}
+          </optgroup>
+          {events.length > 0 && (
+            <optgroup label="Events">
+              {events.map((e) => (
+                <option key={e.id} value={`event:${e.id}`}>
+                  {e.title}
+                </option>
+              ))}
+            </optgroup>
+          )}
         </select>
 
         <div style={{ marginLeft: 'auto', fontSize: '0.78rem', color: 'var(--text-muted)' }}>
@@ -1079,7 +1145,22 @@ export function MediaLibraryClient({
                     {file.name}
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.72rem', color: 'var(--text-muted)' }}>
-                    <span>{file.entityLabel || 'General'}</span>
+                    <span
+                      style={{
+                        padding: '0.1rem 0.4rem',
+                        borderRadius: '4px',
+                        background: file.entityType === 'event' ? 'rgba(66,133,244,0.12)' : 'rgba(255,255,255,0.05)',
+                        color: file.entityType === 'event' ? '#8ab4f8' : 'var(--text-muted)',
+                        fontWeight: file.entityType === 'event' ? 600 : 400,
+                        maxWidth: '120px',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                      }}
+                      title={file.entityLabel || 'General'}
+                    >
+                      {file.entityLabel || 'General'}
+                    </span>
                     <span>{formatFileSize(file.size)}</span>
                   </div>
                 </div>
@@ -1259,7 +1340,16 @@ export function MediaLibraryClient({
                     {file.name}
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem', marginTop: '0.15rem' }}>
-                    <span style={{ fontSize: '0.73rem', color: 'var(--text-muted)' }}>
+                    <span
+                      style={{
+                        fontSize: '0.73rem',
+                        padding: '0.1rem 0.45rem',
+                        borderRadius: '4px',
+                        background: file.entityType === 'event' ? 'rgba(66,133,244,0.12)' : 'rgba(255,255,255,0.05)',
+                        color: file.entityType === 'event' ? '#8ab4f8' : 'var(--text-muted)',
+                        fontWeight: file.entityType === 'event' ? 600 : 400,
+                      }}
+                    >
                       {file.entityLabel || 'General'}
                     </span>
                     <span style={{ fontSize: '0.73rem', color: 'var(--text-muted)' }}>

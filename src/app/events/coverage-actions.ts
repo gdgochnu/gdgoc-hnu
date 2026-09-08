@@ -2,7 +2,7 @@
 
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getUserContext } from '@/lib/auth/get-user-context';
-import { getOrCreateEntityFolder, uploadEntityFile } from '@/app/drive/actions';
+import { getOrCreateEntityFolder, uploadEntityFile, deleteEntityFile } from '@/app/drive/actions';
 
 export interface CoverageItem {
   id: string;
@@ -284,6 +284,21 @@ export async function uploadCoverageFile(
   try {
     const admin = createAdminClient();
     const context = await getUserContext();
+
+    // 0. Check if this item already has a file attached; delete old file from Drive upon replacement
+    const { data: oldItem } = await admin
+      .from('event_coverage_items')
+      .select('drive_file_id')
+      .eq('id', itemId)
+      .maybeSingle();
+
+    if (oldItem?.drive_file_id) {
+      try {
+        await deleteEntityFile(oldItem.drive_file_id, 'event', eventId);
+      } catch (delErr) {
+        console.warn('[uploadCoverageFile] Failed to clean up replaced file:', delErr);
+      }
+    }
 
     // 1. Upload file into event's Drive folder
     const uploadRes = await uploadEntityFile({
