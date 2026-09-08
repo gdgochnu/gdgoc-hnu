@@ -6,7 +6,8 @@ import { CheckinAccessManager } from '@/components/events/CheckinAccessManager';
 import { EventReviewBanner } from '@/components/events/EventReviewBanner';
 import { PublicEventView } from '@/components/events/PublicEventView';
 import { EventFeedbackResultsView } from '@/components/events/EventFeedbackResultsView';
-import { getEventFeedbackSummary } from '@/app/events/actions';
+import { EventBudgetTracker } from '@/components/events/EventBudgetTracker';
+import { getEventFeedbackSummary, getEventBudget, canAccessEventBudget } from '@/app/events/actions';
 import { Event, EventStatus } from '@/types';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
@@ -25,7 +26,8 @@ import {
   Sparkles,
   Lock,
   Globe,
-  Star
+  Star,
+  Wallet
 } from 'lucide-react';
 
 export const dynamic = 'force-dynamic';
@@ -289,11 +291,13 @@ export default async function EventDetailPage({ params, searchParams }: EventDet
 
   const tasks = tasksData || [];
 
-  // 3. Fetch departments & active members for task creation modal, and event feedback summary (Step 9.3)
-  const [deptRes, memberRes, feedbackSummary] = await Promise.all([
+  // 3. Fetch departments & active members for task creation modal, feedback summary, and event budget (Step 9.4)
+  const [deptRes, memberRes, feedbackSummary, budgetSummary, canAccessBudget] = await Promise.all([
     admin.from('departments').select('id, name, code, branch').order('name'),
     admin.from('profiles').select('id, full_name, full_name_en, email, avatar_url, department_id').eq('status', 'active').order('full_name'),
     getEventFeedbackSummary(event.id),
+    getEventBudget(event.id),
+    canAccessEventBudget(event.id),
   ]);
 
   const departments = deptRes.data || [];
@@ -308,7 +312,10 @@ export default async function EventDetailPage({ params, searchParams }: EventDet
 
   const isPresidential = context.profile?.role ? ['president', 'co_president'].includes(context.profile.role) : false;
   const isDeptHead = context.profile?.department_id === event.department_id;
-  const canManage = isPresidential || isDeptHead;
+  const isOwner = Array.isArray(event.owners) && event.owners.some(
+    (o: any) => o.profile_id === context.profile?.id
+  );
+  const canManage = isPresidential || isDeptHead || isOwner;
 
   // 4. Fetch profiles with Check-in Access (Step 8.3)
   const checkinProfileIds: string[] = Array.isArray(event.checkin_access_profile_ids)
@@ -496,6 +503,23 @@ export default async function EventDetailPage({ params, searchParams }: EventDet
                     </div>
                   </>
                 )}
+
+                {budgetSummary.items.length > 0 && (
+                  <>
+                    <div style={{ width: '1px', background: 'var(--border-subtle)' }} />
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
+                      <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 700 }}>BUDGET</span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontWeight: 700, fontSize: '0.92rem', color: budgetSummary.isOverBudget ? 'var(--google-red)' : '#86EFAC' }}>
+                        <Wallet size={14} />
+                        <span>
+                          {budgetSummary.totalActual > 0
+                            ? `${budgetSummary.totalActual} / ${budgetSummary.totalEstimated} EGP`
+                            : `${budgetSummary.totalEstimated} EGP`}
+                        </span>
+                      </div>
+                    </div>
+                  </>
+                )}
               </div>
             </div>
 
@@ -585,6 +609,15 @@ export default async function EventDetailPage({ params, searchParams }: EventDet
             isEventCompleted={event.status === 'completed'}
             canManage={canManage}
           />
+
+          {/* Event Budget Tracking Tab (Step 9.4 Highlight) */}
+          {(canAccessBudget || canManage) && (
+            <EventBudgetTracker
+              initialSummary={budgetSummary}
+              eventId={event.id}
+              canManage={canManage || canAccessBudget}
+            />
+          )}
         </div>
       </div>
     </AppShell>

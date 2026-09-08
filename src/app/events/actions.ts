@@ -4,7 +4,18 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getUserContext } from '@/lib/auth/get-user-context';
 import { revalidatePath } from 'next/cache';
-import { EventRegistrationField, EventOwner, TaskPriority, TaskAssignmentMode, EventStatus, EventFeedback, EventFeedbackSummary } from '@/types';
+import {
+  EventRegistrationField,
+  EventOwner,
+  TaskPriority,
+  TaskAssignmentMode,
+  EventStatus,
+  EventFeedback,
+  EventFeedbackSummary,
+  EventBudgetItem,
+  EventBudgetCategory,
+  EventBudgetSummary,
+} from '@/types';
 import { createApprovalInstance } from '@/lib/approvals/approval-engine';
 import { sendEventRegistrationEmail, sendEventFeedbackSurveyEmail } from '@/lib/email/service';
 
@@ -2633,9 +2644,433 @@ export async function getEventFeedbackSummary(eventId: string): Promise<EventFee
   }
 }
 
+export interface UpsertEventBudgetItemInput {
+  id?: string;
+  eventId: string;
+  category: EventBudgetCategory;
+  description: string;
+  estimatedCost: number;
+  actualCost?: number | null;
+  paidBy?: string | null;
+  receiptDriveFileId?: string | null;
+  receiptUrl?: string | null;
+}
 
+/**
+ * Validates whether the current authenticated user has permission to view or manage the event budget.
+ * Spec §3.17 & §4.20:
+ * - President & Co-President
+ * - Event Owners
+ * - Operations Committee members
+ */
+export async function canAccessEventBudget(eventId: string): Promise<boolean> {
+  const context = await getUserContext();
+  if (!context.user || !context.profile) return false;
 
+  const role = context.profile.role;
+  if (role === 'president' || role === 'co_president') return true;
 
+  const deptCode = (context.profile.department as any)?.code;
+  if (deptCode === 'OPS' || deptCode === 'OPERATIONS') return true;
 
+  const admin = createAdminClient();
+  const { data: event } = await admin
+    .from('events')
+    .select('owners, department_id')
+    .eq('id', eventId)
+    .single();
 
+  if (!event) return false;
+
+  // Check if current user is an owner of this event
+  const isOwner = Array.isArray(event.owners) && event.owners.some(
+    (o: any) => o.profile_id === context.profile?.id
+  );
+
+  return Boolean(isOwner);
+}
+
+/**
+ * Retrieves all line items for an event budget and computes aggregate metrics
+ * (Total Estimated, Total Actual, Variance, Category Breakdown, Over-Budget Flag).
+ */
+export async function getEventBudget(eventId: string): Promise<EventBudgetSummary> {
+  const admin = createAdminClient();
+
+  const emptyCategories: Record<EventBudgetCategory, { estimated: number; actual: number; count: number }> = {
+    venue: { estimated: 0, actual: 0, count: 0 },
+    catering: { estimated: 0, actual: 0, count: 0 },
+    printing: { estimated: 0, actual: 0, count: 0 },
+    transport: { estimated: 0, actual: 0, count: 0 },
+    other: { estimated: 0, actual: 0, count: 0 },
+  };
+
+  try {
+    const { data: rows, error } = await admin
+      .from('event_budget_items')
+      .select(`
+        id,
+        event_id,
+        category,
+        description,
+        estimated_cost,
+        actual_cost,
+        paid_by,
+        receipt_drive_file_id,
+        receipt_url,
+        created_by,
+        created_at,
+        updated_at,
+        creator:profiles!created_by(id, full_name, avatar_url)
+      `)
+      .eq('event_id', eventId)
+      .order('created_at', { ascending: true });
+
+    if (error || !rows) {
+      return {
+        eventId,
+        totalEstimated: 0,
+        totalActual: 0,
+        variance: 0,
+        isOverBudget: false,
+        overBudgetAmount: 0,
+        categoryBreakdown: emptyCategories,
+        items: [],
+      };
+    }
+
+    let totalEstimated = 0;
+    let totalActual = 0;
+    const breakdown: Record<EventBudgetCategory, { estimated: number; actual: number; count: number }> = {
+      venue: { estimated: 0, actual: 0, count: 0 },
+      catering: { estimated: 0, actual: 0, count: 0 },
+      printing: { estimated: 0, actual: 0, count: 0 },
+      transport: { estimated: 0, actual: 0, count: 0 },
+      other: { estimated: 0, actual: 0, count: 0 },
+    };
+
+    const items: EventBudgetItem[] = rows.map((r: any) => {
+      const est = Number(r.estimated_cost) || 0;
+      const act = r.actual_cost !== null && r.actual_cost !== undefined ? Number(r.actual_cost) : null;
+
+      totalEstimated += est;
+      if (act !== null) {
+        totalActual += act;
+      }
+
+      const cat = (r.category in breakdown ? r.category : 'other') as EventBudgetCategory;
+      if (!breakdown[cat]) {
+        breakdown[cat] = { estimated: 0, actual: 0, count: 0 };
+      }
+      breakdown[cat].estimated += est;
+      if (act !== null) {
+        breakdown[cat].actual += act;
+      }
+      breakdown[cat].count += 1;
+
+      const creatorObj = Array.isArray(r.creator) ? r.creator[0] : r.creator;
+
+      return {
+        id: r.id,
+        event_id: r.event_id,
+        category: cat,
+        description: r.description,
+        estimated_cost: est,
+        actual_cost: act,
+        paid_by: r.paid_by || null,
+        receipt_drive_file_id: r.receipt_drive_file_id || null,
+        receipt_url: r.receipt_url || null,
+        created_by: r.created_by || null,
+        created_at: r.created_at,
+        updated_at: r.updated_at,
+        creator: creatorObj || null,
+      };
+    });
+
+    // Variance = Estimated - Actual. If negative, spend exceeded estimate!
+    const variance = totalEstimated - totalActual;
+    const isOverBudget = totalActual > totalEstimated && totalEstimated > 0;
+    const overBudgetAmount = isOverBudget ? Number((totalActual - totalEstimated).toFixed(2)) : 0;
+
+    return {
+      eventId,
+      totalEstimated: Number(totalEstimated.toFixed(2)),
+      totalActual: Number(totalActual.toFixed(2)),
+      variance: Number(variance.toFixed(2)),
+      isOverBudget,
+      overBudgetAmount,
+      categoryBreakdown: breakdown,
+      items,
+    };
+  } catch (err: unknown) {
+    console.error('getEventBudget error:', err);
+    return {
+      eventId,
+      totalEstimated: 0,
+      totalActual: 0,
+      variance: 0,
+      isOverBudget: false,
+      overBudgetAmount: 0,
+      categoryBreakdown: emptyCategories,
+      items: [],
+    };
+  }
+}
+
+/**
+ * Creates or updates an event budget line item.
+ */
+export async function upsertEventBudgetItem(
+  input: UpsertEventBudgetItemInput
+): Promise<{ success: boolean; item?: EventBudgetItem; error?: string }> {
+  const admin = createAdminClient();
+  const context = await getUserContext();
+
+  if (!context.user || !context.profile) {
+    return { success: false, error: 'Authentication required.' };
+  }
+
+  const hasAccess = await canAccessEventBudget(input.eventId);
+  if (!hasAccess) {
+    return { success: false, error: 'Unauthorized: Only Operations leads, event owners, and President/Co-President can manage the budget.' };
+  }
+
+  if (!input.description || input.description.trim().length === 0) {
+    return { success: false, error: 'Description is required.' };
+  }
+
+  const validCategories: EventBudgetCategory[] = ['venue', 'catering', 'printing', 'transport', 'other'];
+  if (!validCategories.includes(input.category)) {
+    return { success: false, error: 'Invalid budget category.' };
+  }
+
+  const estimatedCost = Number(input.estimatedCost) || 0;
+  if (estimatedCost < 0) {
+    return { success: false, error: 'Estimated cost cannot be negative.' };
+  }
+
+  let actualCost: number | null = null;
+  if (input.actualCost !== undefined && input.actualCost !== null && (input.actualCost as any) !== '') {
+    actualCost = Number(input.actualCost);
+    if (isNaN(actualCost) || actualCost < 0) {
+      return { success: false, error: 'Actual cost must be a valid positive number.' };
+    }
+  }
+
+  try {
+    const payload: any = {
+      event_id: input.eventId,
+      category: input.category,
+      description: input.description.trim(),
+      estimated_cost: estimatedCost,
+      actual_cost: actualCost,
+      paid_by: input.paidBy?.trim() || null,
+      receipt_drive_file_id: input.receiptDriveFileId || null,
+      receipt_url: input.receiptUrl || null,
+      updated_at: new Date().toISOString(),
+    };
+
+    let resultData: any;
+
+    if (input.id) {
+      // Update
+      const { data, error } = await admin
+        .from('event_budget_items')
+        .update(payload)
+        .eq('id', input.id)
+        .select(`
+          id,
+          event_id,
+          category,
+          description,
+          estimated_cost,
+          actual_cost,
+          paid_by,
+          receipt_drive_file_id,
+          receipt_url,
+          created_by,
+          created_at,
+          updated_at,
+          creator:profiles!created_by(id, full_name, avatar_url)
+        `)
+        .single();
+
+      if (error || !data) {
+        return { success: false, error: error?.message || 'Failed to update budget item.' };
+      }
+      resultData = data;
+    } else {
+      // Insert
+      payload.created_by = context.profile.id;
+      const { data, error } = await admin
+        .from('event_budget_items')
+        .insert(payload)
+        .select(`
+          id,
+          event_id,
+          category,
+          description,
+          estimated_cost,
+          actual_cost,
+          paid_by,
+          receipt_drive_file_id,
+          receipt_url,
+          created_by,
+          created_at,
+          updated_at,
+          creator:profiles!created_by(id, full_name, avatar_url)
+        `)
+        .single();
+
+      if (error || !data) {
+        return { success: false, error: error?.message || 'Failed to insert budget item.' };
+      }
+      resultData = data;
+    }
+
+    revalidatePath(`/events/${input.eventId}`);
+    revalidatePath(`/events/${input.eventId}/budget`);
+
+    return {
+      success: true,
+      item: {
+        id: resultData.id,
+        event_id: resultData.event_id,
+        category: resultData.category,
+        description: resultData.description,
+        estimated_cost: Number(resultData.estimated_cost),
+        actual_cost: resultData.actual_cost !== null ? Number(resultData.actual_cost) : null,
+        paid_by: resultData.paid_by,
+        receipt_drive_file_id: resultData.receipt_drive_file_id,
+        receipt_url: resultData.receipt_url,
+        created_by: resultData.created_by,
+        created_at: resultData.created_at,
+        updated_at: resultData.updated_at,
+        creator: Array.isArray(resultData.creator) ? resultData.creator[0] : resultData.creator,
+      },
+    };
+  } catch (err: unknown) {
+    console.error('upsertEventBudgetItem error:', err);
+    return { success: false, error: err instanceof Error ? err.message : 'Unexpected error saving budget item.' };
+  }
+}
+
+/**
+ * Deletes an event budget line item.
+ */
+export async function deleteEventBudgetItem(
+  itemId: string,
+  eventId: string
+): Promise<{ success: boolean; error?: string }> {
+  const admin = createAdminClient();
+  const context = await getUserContext();
+
+  if (!context.user || !context.profile) {
+    return { success: false, error: 'Authentication required.' };
+  }
+
+  const hasAccess = await canAccessEventBudget(eventId);
+  if (!hasAccess) {
+    return { success: false, error: 'Unauthorized: Only Operations leads, event owners, and President/Co-President can delete budget items.' };
+  }
+
+  try {
+    const { error } = await admin
+      .from('event_budget_items')
+      .delete()
+      .eq('id', itemId)
+      .eq('event_id', eventId);
+
+    if (error) {
+      return { success: false, error: error.message };
+    }
+
+    revalidatePath(`/events/${eventId}`);
+    revalidatePath(`/events/${eventId}/budget`);
+    return { success: true };
+  } catch (err: unknown) {
+    console.error('deleteEventBudgetItem error:', err);
+    return { success: false, error: err instanceof Error ? err.message : 'Failed to delete budget item.' };
+  }
+}
+
+/**
+ * Retrieves all events where actual spend exceeds the estimated budget.
+ * Spec §4.20 & Phase 9 Step 9.5:
+ * Wires the "actual spend exceeds estimate" flag into the President Command Center's "Needs Attention" feed (Phase 16).
+ */
+export async function getEventsOverBudgetAlerts(): Promise<Array<{
+  eventId: string;
+  eventTitle: string;
+  eventSlug: string;
+  totalEstimated: number;
+  totalActual: number;
+  overBudgetAmount: number;
+}>> {
+  const admin = createAdminClient();
+
+  try {
+    const { data: budgetItems, error } = await admin
+      .from('event_budget_items')
+      .select('event_id, estimated_cost, actual_cost, event:events!event_id(id, title, slug, status)');
+
+    if (error || !budgetItems) return [];
+
+    const eventMap: Record<string, {
+      eventId: string;
+      eventTitle: string;
+      eventSlug: string;
+      totalEstimated: number;
+      totalActual: number;
+    }> = {};
+
+    for (const item of budgetItems) {
+      const eventObj = Array.isArray(item.event) ? item.event[0] : item.event;
+      if (!eventObj) continue;
+
+      const eventId = item.event_id;
+      if (!eventMap[eventId]) {
+        eventMap[eventId] = {
+          eventId,
+          eventTitle: eventObj.title,
+          eventSlug: eventObj.slug,
+          totalEstimated: 0,
+          totalActual: 0,
+        };
+      }
+
+      eventMap[eventId].totalEstimated += Number(item.estimated_cost) || 0;
+      if (item.actual_cost !== null && item.actual_cost !== undefined) {
+        eventMap[eventId].totalActual += Number(item.actual_cost);
+      }
+    }
+
+    const overBudgetEvents: Array<{
+      eventId: string;
+      eventTitle: string;
+      eventSlug: string;
+      totalEstimated: number;
+      totalActual: number;
+      overBudgetAmount: number;
+    }> = [];
+
+    for (const data of Object.values(eventMap)) {
+      if (data.totalActual > data.totalEstimated && data.totalEstimated > 0) {
+        overBudgetEvents.push({
+          eventId: data.eventId,
+          eventTitle: data.eventTitle,
+          eventSlug: data.eventSlug,
+          totalEstimated: Number(data.totalEstimated.toFixed(2)),
+          totalActual: Number(data.totalActual.toFixed(2)),
+          overBudgetAmount: Number((data.totalActual - data.totalEstimated).toFixed(2)),
+        });
+      }
+    }
+
+    return overBudgetEvents;
+  } catch (err: unknown) {
+    console.error('getEventsOverBudgetAlerts error:', err);
+    return [];
+  }
+}
 

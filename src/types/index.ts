@@ -280,6 +280,35 @@ export interface EventFeedbackSummary {
   feedback: EventFeedback[];
 }
 
+export type EventBudgetCategory = 'venue' | 'catering' | 'printing' | 'transport' | 'other';
 
+export interface EventBudgetItem {
+  id: string;
+  event_id: string;
+  category: EventBudgetCategory;
+  description: string;
+  estimated_cost: number;
+  actual_cost: number | null;
+  paid_by: string | null;
+  receipt_drive_file_id: string | null;
+  receipt_url: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+  creator?: {
+    id: string;
+    full_name: string;
+    avatar_url: string | null;
+  } | null;
+}
 
-
+export interface EventBudgetSummary {
+  eventId: string;
+  totalEstimated: number;
+  totalActual: number;
+  variance: number; // estimated - actual (negative means over budget)
+  isOverBudget: boolean;
+  overBudgetAmount: number;
+  categoryBreakdown: Record<EventBudgetCategory, { estimated: number; actual: number; count: number }>;
+  items: EventBudgetItem[];
+}
