@@ -163,7 +163,7 @@
 - [x] 12.3 Confirm results are correctly scoped by the viewer's existing RLS permissions (no data leaks through search). (2026-09-08)
 
 ## Phase 13 — Google Drive Bridge
-- [ ] 13.1 Create the root Drive folder + the Google Apps Script bound to it.
+- [x] 13.1 Create the root Drive folder + the Google Apps Script bound to it. (2026-09-08)
 - [ ] 13.2 Deploy the Apps Script as a Web App exposing `ensureFolderPath`, `uploadFile`, `listFiles`, `deleteFile`, `getShareableLink`, secured by a shared secret token.
 - [ ] 13.3 Build the server-side API Route/Server Action client that calls the Web App and stores results in `drive_folder_map`.
 - [ ] 13.4 Build `/settings/drive` (President-only) to input/rotate the Web App URL + secret.
