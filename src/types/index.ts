@@ -240,4 +240,29 @@ export interface OnboardingChecklistItem {
   updated_at: string;
 }
 
+export interface EventFeedback {
+  id: string;
+  event_id: string;
+  profile_id?: string | null;
+  registration_id?: string | null;
+  rating: number; // 1-5
+  comment?: string | null;
+  is_anonymous: boolean;
+  created_at: string;
+  // Optional expanded relations
+  profile?: {
+    id: string;
+    full_name: string;
+    full_name_ar?: string | null;
+    full_name_en?: string | null;
+    avatar_url?: string | null;
+  } | null;
+  registration?: {
+    id: string;
+    full_name: string;
+    email: string;
+  } | null;
+}
+
+
 

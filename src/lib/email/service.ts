@@ -476,3 +476,92 @@ export async function sendEventRegistrationEmail(params: {
   });
 }
 
+export interface SendEventFeedbackSurveyParams {
+  to: string;
+  attendeeName?: string;
+  eventId: string;
+  eventTitle: string;
+  eventSlug?: string;
+  eventDate?: string;
+  feedbackUrl?: string;
+  registrationId?: string;
+}
+
+/**
+ * Sends a post-event satisfaction & feedback survey email to attendees.
+ * Spec §4.18: Sent automatically when an event status transitions to 'completed'.
+ */
+export async function sendEventFeedbackSurveyEmail(params: SendEventFeedbackSurveyParams): Promise<EmailResult> {
+  const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000').replace(/\/$/, '');
+  const targetUrl = params.feedbackUrl || `${siteUrl}/events/${params.eventSlug || params.eventId}/feedback`;
+
+  const subject = `⭐ How was ${params.eventTitle}? Share your feedback — GDGoC HNU`;
+  const name = params.attendeeName || 'Attendee';
+
+  const content = `
+    <div style="margin-bottom: 24px;">
+      <span style="display: inline-block; padding: 4px 12px; border-radius: 999px; background-color: rgba(66, 133, 244, 0.15); color: #60A5FA; font-size: 12px; font-weight: 700; text-transform: uppercase;">
+        Event Completed
+      </span>
+      <h1 style="font-size: 24px; font-weight: 800; color: #FFFFFF; margin: 12px 0 8px 0;">
+        Thank You for Attending!
+      </h1>
+      <p style="margin: 0; color: #9CA3AF; font-size: 15px; line-height: 1.6;">
+        Dear <strong>${name}</strong>, thank you for joining us at <strong>${params.eventTitle}</strong>! We hope you enjoyed the sessions and gained valuable insights.
+      </p>
+    </div>
+
+    <!-- Feedback Prompt Card -->
+    <div style="background-color: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 12px; padding: 24px; text-align: center; margin-bottom: 24px;">
+      <div style="font-size: 13px; font-weight: 700; color: #FBBC04; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px;">
+        30-Second Quick Survey
+      </div>
+      <div style="font-size: 18px; font-weight: 800; color: #FFFFFF; margin-bottom: 12px;">
+        Rate Your Experience
+      </div>
+      <div style="font-size: 28px; margin-bottom: 16px; letter-spacing: 6px;">
+        ⭐ ⭐ ⭐ ⭐ ⭐
+      </div>
+      <p style="font-size: 14px; color: #94A3B8; margin: 0 auto 20px auto; max-width: 440px; line-height: 1.5;">
+        Your feedback shapes our future workshops, hackathons, and technical bootcamps. You can choose to submit anonymously or with your name.
+      </p>
+      
+      <!-- CTA Button -->
+      <table border="0" cellspacing="0" cellpadding="0" style="margin: 0 auto;">
+        <tr>
+          <td align="center" style="border-radius: 8px; background: linear-gradient(135deg, #4285F4 0%, #1A73E8 100%);">
+            <a href="${targetUrl}" target="_blank" style="font-size: 15px; font-weight: 700; color: #FFFFFF; text-decoration: none; padding: 14px 32px; display: inline-block; border-radius: 8px;">
+              Complete Quick Survey &rarr;
+            </a>
+          </td>
+        </tr>
+      </table>
+    </div>
+
+    <div style="background-color: rgba(30, 41, 59, 0.5); border-radius: 10px; padding: 14px 18px; margin-bottom: 24px;">
+      <table border="0" cellspacing="0" cellpadding="0" width="100%">
+        <tr>
+          <td style="color: #64748B; font-size: 13px;">🔒 Privacy Note:</td>
+          <td style="color: #94A3B8; font-size: 13px; text-align: right;">Anonymous by default (toggleable)</td>
+        </tr>
+      </table>
+    </div>
+
+    <p style="font-size: 13px; color: #64748B; text-align: center; margin: 0;">
+      Google Developer Groups on Campus — Helwan National University<br/>
+      Building tomorrow's tech community together.
+    </p>
+  `;
+
+  return sendEmail({
+    to: params.to,
+    subject,
+    html: renderEmailLayout(`${params.eventTitle} — Event Feedback Survey`, content),
+    metadata: {
+      type: 'event_feedback_survey',
+      eventId: params.eventId,
+      eventSlug: params.eventSlug,
+      registrationId: params.registrationId,
+    },
+  });
+}

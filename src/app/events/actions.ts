@@ -6,7 +6,7 @@ import { getUserContext } from '@/lib/auth/get-user-context';
 import { revalidatePath } from 'next/cache';
 import { EventRegistrationField, EventOwner, TaskPriority, TaskAssignmentMode, EventStatus } from '@/types';
 import { createApprovalInstance } from '@/lib/approvals/approval-engine';
-import { sendEventRegistrationEmail } from '@/lib/email/service';
+import { sendEventRegistrationEmail, sendEventFeedbackSurveyEmail } from '@/lib/email/service';
 
 export interface EventTaskDraftInput {
   title: string;
@@ -1983,6 +1983,10 @@ export async function completeEvent(input: CompleteEventInput | string) {
       },
     });
 
+    // 6. Auto-send feedback surveys (in-app + email) to all attendees (Spec §4.18)
+    await triggerEventFeedbackSurveys(eventId);
+
+
     revalidatePath('/events');
     revalidatePath(`/events/${eventId}`);
     if (event.slug) revalidatePath(`/events/${event.slug}`);
@@ -2158,6 +2162,11 @@ export async function checkAndAutoTransitionPastEvents() {
 
     await admin.from('audit_logs').insert(auditEntries);
 
+    // Auto-send feedback surveys (in-app + email) to all attendees for transitioned events (Spec §4.18)
+    for (const ev of pastEvents) {
+      await triggerEventFeedbackSurveys(ev.id);
+    }
+
     // Revalidate affected paths
     revalidatePath('/events');
     for (const ev of pastEvents) {
@@ -2180,6 +2189,148 @@ export async function checkAndAutoTransitionPastEvents() {
     };
   }
 }
+
+/**
+ * Automatically triggers in-app notifications and email surveys to all attendees of an event
+ * when the event transitions to 'completed'.
+ * Spec reference: §4.18
+ */
+export async function triggerEventFeedbackSurveys(eventId: string) {
+  const admin = createAdminClient();
+
+  try {
+    // 1. Fetch event details
+    const { data: event, error: eventErr } = await admin
+      .from('events')
+      .select('id, title, slug, venue, event_date, start_time, end_time')
+      .eq('id', eventId)
+      .single();
+
+    if (eventErr || !event) {
+      console.error(`triggerEventFeedbackSurveys: event not found for id ${eventId}`);
+      return { success: false, error: 'Event not found' };
+    }
+
+    // 2. Fetch all attendees from attendance table
+    const { data: attendees, error: attErr } = await admin
+      .from('attendance')
+      .select(`
+        id,
+        profile_id,
+        registration_id,
+        registration:event_registrations!registration_id(id, full_name, email),
+        profile:profiles!profile_id(id, full_name, email)
+      `)
+      .eq('event_id', eventId);
+
+    if (attErr) {
+      console.error(`triggerEventFeedbackSurveys: attendance query error:`, attErr);
+      return { success: false, error: attErr.message };
+    }
+
+    if (!attendees || attendees.length === 0) {
+      console.log(`triggerEventFeedbackSurveys: No attendees found for event ${eventId}`);
+      return { success: true, count: 0, message: 'No attendees to survey' };
+    }
+
+    // 3. Process attendee records and deduplicate by email and profile_id
+    const notifiedProfileIds = new Set<string>();
+    const emailedAddresses = new Set<string>();
+
+    const inAppNotifications: Array<{
+      profile_id: string;
+      type: string;
+      title: string;
+      message: string;
+      related_entity_type: string;
+      related_entity_id: string;
+    }> = [];
+
+    const emailDispatches: Array<Promise<unknown>> = [];
+
+    for (const record of attendees) {
+      const profile = (Array.isArray(record.profile) ? record.profile[0] : record.profile) as { id: string; full_name: string; email: string } | null;
+      const reg = (Array.isArray(record.registration) ? record.registration[0] : record.registration) as { id: string; full_name: string; email: string } | null;
+
+      const profileId = record.profile_id || profile?.id;
+      const email = reg?.email || profile?.email;
+      const name = reg?.full_name || profile?.full_name || 'Attendee';
+
+      // In-app notification for members with a profile
+      if (profileId && !notifiedProfileIds.has(profileId)) {
+        notifiedProfileIds.add(profileId);
+        inAppNotifications.push({
+          profile_id: profileId,
+          type: 'event_feedback_request',
+          title: `Share Your Feedback: ${event.title}`,
+          message: `Thank you for attending ${event.title}! Please take 30 seconds to rate your experience and help us improve.`,
+          related_entity_type: 'event',
+          related_entity_id: eventId,
+        });
+      }
+
+      // Email survey dispatch
+      if (email && !emailedAddresses.has(email.toLowerCase().trim())) {
+        const cleanEmail = email.toLowerCase().trim();
+        emailedAddresses.add(cleanEmail);
+
+        emailDispatches.push(
+          sendEventFeedbackSurveyEmail({
+            to: cleanEmail,
+            attendeeName: name,
+            eventId: event.id,
+            eventTitle: event.title,
+            eventSlug: event.slug || undefined,
+            eventDate: event.event_date,
+            registrationId: record.registration_id || reg?.id,
+          })
+        );
+      }
+    }
+
+    // 4. Batch insert in-app notifications
+    if (inAppNotifications.length > 0) {
+      const { error: notifErr } = await admin.from('notifications').insert(inAppNotifications);
+      if (notifErr) {
+        console.warn('Failed to insert feedback notifications:', notifErr);
+      }
+    }
+
+    // 5. Send all survey emails
+    if (emailDispatches.length > 0) {
+      await Promise.allSettled(emailDispatches);
+    }
+
+    // 6. Record audit log
+    await admin.from('audit_logs').insert({
+      actor_id: null,
+      action: 'event_feedback_surveys_dispatched',
+      entity_type: 'event',
+      entity_id: eventId,
+      metadata: {
+        event_title: event.title,
+        attendee_count: attendees.length,
+        in_app_count: inAppNotifications.length,
+        email_count: emailedAddresses.size,
+        dispatched_at: new Date().toISOString(),
+      },
+    });
+
+    return {
+      success: true,
+      attendeeCount: attendees.length,
+      inAppCount: inAppNotifications.length,
+      emailCount: emailedAddresses.size,
+    };
+  } catch (err: unknown) {
+    console.error('triggerEventFeedbackSurveys unexpected error:', err);
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : 'Unknown survey trigger error',
+    };
+  }
+}
+
 
 
 
