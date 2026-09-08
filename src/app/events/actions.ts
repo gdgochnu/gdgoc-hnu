@@ -1498,4 +1498,371 @@ export async function getEventAttendanceStream(eventId: string) {
   }
 }
 
+// ==============================================================================
+// Phase 8 Step 8.10: Walk-in Manual Check-in (Search & On-site Registration)
+// Spec reference: §4.3 item 6, §4.4
+// ==============================================================================
+
+export interface SearchAttendeesInput {
+  eventId: string;
+  query: string;
+}
+
+export interface ManualCheckinInput {
+  eventId: string;
+  registrationId: string;
+}
+
+export interface RegisterWalkinInput {
+  eventId: string;
+  fullName: string;
+  email: string;
+  phone?: string;
+}
+
+/**
+ * Search registered attendees for an event by name, phone, or email.
+ * Includes current check-in status (timestamp and method if checked in).
+ */
+export async function searchEventAttendees(input: SearchAttendeesInput) {
+  try {
+    const context = await getUserContext();
+    if (!context.user || !context.profile || context.profile.status !== 'active') {
+      return { success: false, error: 'Unauthorized.', results: [] };
+    }
+
+    const accessCheck = await checkUserCheckinAccess(input.eventId, context.user.id);
+    if (!accessCheck.hasAccess) {
+      return { success: false, error: 'Forbidden: Insufficient check-in duty permissions.', results: [] };
+    }
+
+    const admin = createAdminClient();
+    const cleanQuery = (input.query || '').trim();
+
+    if (!cleanQuery || cleanQuery.length < 2) {
+      return { success: true, results: [] };
+    }
+
+    // 1. Query registrations matching name, email, or phone
+    const { data: registrations, error: regErr } = await admin
+      .from('event_registrations')
+      .select('id, full_name, email, phone, status, qr_code, created_at')
+      .eq('event_id', input.eventId)
+      .or(`full_name.ilike.%${cleanQuery}%,email.ilike.%${cleanQuery}%,phone.ilike.%${cleanQuery}%`)
+      .order('full_name')
+      .limit(20);
+
+    if (regErr) {
+      return { success: false, error: regErr.message, results: [] };
+    }
+
+    if (!registrations || registrations.length === 0) {
+      return { success: true, results: [] };
+    }
+
+    // 2. Query attendance for these registrations
+    const regIds = registrations.map(r => r.id);
+    const { data: attendanceRows } = await admin
+      .from('attendance')
+      .select('registration_id, check_in_time, method')
+      .eq('event_id', input.eventId)
+      .in('registration_id', regIds);
+
+    const attendanceMap = new Map<string, { check_in_time: string; method: string }>();
+    if (attendanceRows) {
+      for (const row of attendanceRows) {
+        if (row.registration_id) {
+          attendanceMap.set(row.registration_id, {
+            check_in_time: row.check_in_time,
+            method: row.method,
+          });
+        }
+      }
+    }
+
+    const results = registrations.map(reg => ({
+      ...reg,
+      isCheckedIn: attendanceMap.has(reg.id),
+      checkInTime: attendanceMap.get(reg.id)?.check_in_time || null,
+      checkInMethod: attendanceMap.get(reg.id)?.method || null,
+    }));
+
+    return { success: true, results };
+  } catch (err: unknown) {
+    console.error('searchEventAttendees error:', err);
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : 'Error searching attendees.',
+      results: [],
+    };
+  }
+}
+
+/**
+ * Record manual check-in for an existing pre-registered attendee.
+ * Used when attendee forgot their QR code or phone battery died (§4.4).
+ */
+export async function recordManualCheckin(input: ManualCheckinInput) {
+  try {
+    const context = await getUserContext();
+    if (!context.user || !context.profile || context.profile.status !== 'active') {
+      return { success: false, error: 'Unauthorized: Active membership required.', code: 'UNAUTHORIZED' };
+    }
+
+    // 1. Strict Check-in Duty Access Gating (§4.3 item 5)
+    const accessCheck = await checkUserCheckinAccess(input.eventId, context.user.id);
+    if (!accessCheck.hasAccess) {
+      return {
+        success: false,
+        error: 'Forbidden: You do not have check-in duty assigned for this event.',
+        code: 'DUTY_ACCESS_DENIED',
+      };
+    }
+
+    const admin = createAdminClient();
+
+    // 2. Fetch attendee registration
+    const { data: registration, error: regErr } = await admin
+      .from('event_registrations')
+      .select('id, event_id, profile_id, full_name, email, phone, status, qr_code')
+      .eq('id', input.registrationId)
+      .eq('event_id', input.eventId)
+      .maybeSingle();
+
+    if (regErr || !registration) {
+      return { success: false, error: 'Registration not found for this event.', code: 'NOT_FOUND' };
+    }
+
+    if (registration.status === 'waitlisted') {
+      return {
+        success: false,
+        error: 'Attendee is currently on the waitlist. Registration is not confirmed.',
+        code: 'WAITLISTED',
+        attendee: registration,
+      };
+    }
+
+    // 3. Duplicate scan/check-in prevention (§4.4)
+    const { data: existingAttendance } = await admin
+      .from('attendance')
+      .select('id, check_in_time, checked_in_by, method')
+      .eq('event_id', input.eventId)
+      .eq('registration_id', registration.id)
+      .maybeSingle();
+
+    if (existingAttendance) {
+      return {
+        success: false,
+        error: 'Attendee has already been checked in.',
+        code: 'DUPLICATE_CHECKIN',
+        alreadyCheckedIn: true,
+        checkInTime: existingAttendance.check_in_time,
+        attendee: registration,
+      };
+    }
+
+    // 4. Record attendance with method = 'manual'
+    const now = new Date().toISOString();
+    const { data: newAttendance, error: attErr } = await admin
+      .from('attendance')
+      .insert({
+        event_id: input.eventId,
+        registration_id: registration.id,
+        profile_id: registration.profile_id || null,
+        check_in_time: now,
+        checked_in_by: context.user.id,
+        method: 'manual',
+      })
+      .select()
+      .single();
+
+    if (attErr || !newAttendance) {
+      if (attErr?.code === '23505') {
+        return {
+          success: false,
+          error: 'Duplicate check-in! Already checked in.',
+          code: 'DUPLICATE_CHECKIN',
+          alreadyCheckedIn: true,
+          attendee: registration,
+        };
+      }
+      return { success: false, error: attErr?.message || 'Failed to record manual check-in.' };
+    }
+
+    // 5. Audit log
+    await admin.from('audit_logs').insert({
+      actor_id: context.user.id,
+      action: 'manual_checkin_recorded',
+      entity_type: 'attendance',
+      entity_id: newAttendance.id,
+      metadata: {
+        event_id: input.eventId,
+        registration_id: registration.id,
+        attendee_name: registration.full_name,
+        attendee_email: registration.email,
+        method: 'manual',
+      },
+    });
+
+    revalidatePath(`/events/${input.eventId}/attendance`);
+    return {
+      success: true,
+      attendance: newAttendance,
+      attendee: registration,
+      checkInTime: now,
+    };
+  } catch (err: unknown) {
+    console.error('recordManualCheckin error:', err);
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : 'Error recording manual check-in.',
+    };
+  }
+}
+
+/**
+ * Fast Walk-in Registration + Immediate Check-in on site (§4.4).
+ * Allows check-in officers to register an on-the-spot attendee in under 10 seconds.
+ */
+export async function registerAndCheckInWalkin(input: RegisterWalkinInput) {
+  try {
+    const context = await getUserContext();
+    if (!context.user || !context.profile || context.profile.status !== 'active') {
+      return { success: false, error: 'Unauthorized: Active membership required.', code: 'UNAUTHORIZED' };
+    }
+
+    // 1. Strict Check-in Duty Access Gating (§4.3 item 5)
+    const accessCheck = await checkUserCheckinAccess(input.eventId, context.user.id);
+    if (!accessCheck.hasAccess) {
+      return {
+        success: false,
+        error: 'Forbidden: You do not have check-in duty assigned for this event.',
+        code: 'DUTY_ACCESS_DENIED',
+      };
+    }
+
+    const fullName = (input.fullName || '').trim();
+    const email = (input.email || '').trim().toLowerCase();
+    const phone = (input.phone || '').trim() || null;
+
+    if (!fullName || fullName.length < 2) {
+      return { success: false, error: 'Please enter attendee full name (at least 2 characters).' };
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!email || !emailRegex.test(email)) {
+      return { success: false, error: 'Please enter a valid email address.' };
+    }
+
+    const admin = createAdminClient();
+
+    // 2. Check if attendee already has a registration for this event
+    const { data: existingReg } = await admin
+      .from('event_registrations')
+      .select('id, full_name, email, phone, status, qr_code')
+      .eq('event_id', input.eventId)
+      .eq('email', email)
+      .maybeSingle();
+
+    let targetRegistration = existingReg;
+
+    // If not registered yet, create the walk-in registration row
+    if (!targetRegistration) {
+      const uniqueQr = `GDGOC-REG-WALKIN-${crypto.randomUUID().toUpperCase()}`;
+      const { data: createdReg, error: regErr } = await admin
+        .from('event_registrations')
+        .insert({
+          event_id: input.eventId,
+          profile_id: null,
+          full_name: fullName,
+          email: email,
+          phone: phone,
+          custom_answers: { walk_in: true, registered_by_officer: context.user.id },
+          qr_code: uniqueQr,
+          status: 'registered',
+        })
+        .select()
+        .single();
+
+      if (regErr || !createdReg) {
+        return { success: false, error: regErr?.message || 'Failed to create walk-in registration.' };
+      }
+      targetRegistration = createdReg;
+    }
+
+    if (!targetRegistration) {
+      return { success: false, error: 'Could not find or create registration.' };
+    }
+
+    // 3. Check if already checked in
+    const { data: existingAtt } = await admin
+      .from('attendance')
+      .select('id, check_in_time, method')
+      .eq('event_id', input.eventId)
+      .eq('registration_id', targetRegistration.id)
+      .maybeSingle();
+
+    if (existingAtt) {
+      return {
+        success: false,
+        error: 'Attendee is already checked in.',
+        code: 'DUPLICATE_CHECKIN',
+        alreadyCheckedIn: true,
+        checkInTime: existingAtt.check_in_time,
+        attendee: targetRegistration,
+      };
+    }
+
+    // 4. Record attendance row with method = 'manual'
+    const now = new Date().toISOString();
+    const { data: newAttendance, error: attErr } = await admin
+      .from('attendance')
+      .insert({
+        event_id: input.eventId,
+        registration_id: targetRegistration.id,
+        profile_id: null,
+        check_in_time: now,
+        checked_in_by: context.user.id,
+        method: 'manual',
+      })
+      .select()
+      .single();
+
+    if (attErr || !newAttendance) {
+      return { success: false, error: attErr?.message || 'Failed to record walk-in attendance.' };
+    }
+
+    // 5. Audit log
+    await admin.from('audit_logs').insert({
+      actor_id: context.user.id,
+      action: 'walkin_registered_and_checked_in',
+      entity_type: 'attendance',
+      entity_id: newAttendance.id,
+      metadata: {
+        event_id: input.eventId,
+        registration_id: targetRegistration.id,
+        attendee_name: targetRegistration.full_name,
+        attendee_email: targetRegistration.email,
+        method: 'manual',
+        is_walkin: true,
+      },
+    });
+
+    revalidatePath(`/events/${input.eventId}/attendance`);
+    return {
+      success: true,
+      attendance: newAttendance,
+      attendee: targetRegistration,
+      checkInTime: now,
+    };
+  } catch (err: unknown) {
+    console.error('registerAndCheckInWalkin error:', err);
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : 'Error registering and checking in walk-in.',
+    };
+  }
+}
+
+
 
