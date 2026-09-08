@@ -175,6 +175,37 @@ export function EventMediaCoverage({
 
     setUploadingItemId(itemId);
     try {
+      // 1. First attempt: Use multipart FormData API endpoint (no Server Action 1MB limit)
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('itemId', itemId);
+      formData.append('eventId', eventId);
+
+      const response = await fetch('/api/events/coverage/upload', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        setItems((prev) =>
+          prev.map((i) =>
+            i.id === itemId
+              ? {
+                  ...i,
+                  is_completed: true,
+                  drive_file_url: data.driveFileUrl || null,
+                  thumbnail_url: data.thumbnailUrl || null,
+                }
+              : i
+          )
+        );
+        showToast('success', `Uploaded "${file.name}" to Drive /Media-Coverage/!`);
+        return;
+      }
+
+      // 2. Fallback: Server Action with configured 50MB body size limit
       const arrayBuffer = await file.arrayBuffer();
       const buffer = Buffer.from(arrayBuffer);
       const base64Data = buffer.toString('base64');
@@ -200,7 +231,7 @@ export function EventMediaCoverage({
         );
         showToast('success', `Uploaded "${file.name}" to Drive /Media-Coverage/!`);
       } else {
-        showToast('error', res.error || 'Upload to Drive failed');
+        showToast('error', res.error || data.error || 'Upload to Drive failed');
       }
     } catch (err: any) {
       showToast('error', err.message || 'Upload failed');
