@@ -438,4 +438,34 @@ export interface LowEngagementSummary {
   recentNotes: HrMemberNote[];
 }
 
+export interface PerformanceReview {
+  id: string;
+  profile_id: string;
+  period_month: string; // e.g. '2026-09'
+  task_completion_pct: number;
+  deadline_adherence_pct: number;
+  attendance_pct: number;
+  team_contribution_pct: number;
+  overall_score: number;
+  reviewer_id?: string | null;
+  notes?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PerformanceComputationResult {
+  periodMonth: string;
+  totalProfilesEvaluated: number;
+  reviewsCreatedOrUpdated: number;
+  averageOverallScore: number;
+  topPerformers: Array<{
+    profileId: string;
+    fullName: string;
+    overallScore: number;
+    attendancePct: number;
+    taskCompletionPct: number;
+  }>;
+}
+
+
 

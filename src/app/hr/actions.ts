@@ -13,6 +13,8 @@ import {
   HrNoteStatus,
   LowEngagementAlert,
   LowEngagementSummary,
+  PerformanceReview,
+  PerformanceComputationResult,
 } from '@/types';
 
 /**
@@ -887,5 +889,275 @@ export async function getMemberHrNotes(profileId: string): Promise<HrMemberNote[
     return memoryHrNotes.filter((n) => n.profileId === profileId);
   }
 }
+
+/**
+ * Monthly performance reviews computation job (Spec §3.3, §4.5, §4.6):
+ * - Evaluates all active profiles across:
+ *   1. task_completion_pct (completed tasks / assigned tasks)
+ *   2. deadline_adherence_pct (on-time tasks / deadline tasks)
+ *   3. attendance_pct (attended chapter events / total completed events)
+ *   4. team_contribution_pct (task activity + attendance + comments/initiatives)
+ *   5. overall_score (weighted composite: 35% tasks, 25% deadline, 25% attendance, 15% contribution)
+ * - Ingests HR member notes from Step 10.3 into review notes.
+ * - Upserts rows into `performance_reviews` table.
+ * - Updates cached `profiles.overall_score` and `profiles.attendance_rate`.
+ */
+export async function computeMonthlyPerformanceReviews(
+  targetPeriodMonth?: string,
+  reviewerId?: string | null,
+  skipAuthCheck: boolean = false
+): Promise<PerformanceComputationResult> {
+  if (!skipAuthCheck) {
+    const access = await canAccessHrDashboard();
+    if (!access.hasAccess) {
+      throw new Error('Unauthorized. Access restricted to HR and chapter leadership.');
+    }
+  }
+
+  const periodMonth = targetPeriodMonth || new Date().toISOString().substring(0, 7); // 'YYYY-MM'
+  const admin = createAdminClient();
+
+  // 1. Fetch profiles, events, attendance, registrations, tasks, assignees, comments, and notes
+  const [
+    { data: profilesData },
+    { data: eventsData },
+    { data: attendanceData },
+    { data: registrationsData },
+    { data: tasksData },
+    { data: assigneesData },
+    { data: commentsData },
+    notesRes,
+  ] = await Promise.all([
+    admin
+      .from('profiles')
+      .select('id, full_name_ar, full_name_en, email, attendance_rate, overall_score, status')
+      .eq('status', 'active'),
+    admin
+      .from('events')
+      .select('id, title, event_date, status')
+      .in('status', ['published', 'completed', 'closed']),
+    admin.from('attendance').select('id, event_id, profile_id, registration_id'),
+    admin.from('event_registrations').select('id, event_id, profile_id, email'),
+    admin.from('tasks').select('id, title, status, deadline, assignee_id, updated_at'),
+    admin.from('task_assignees').select('id, task_id, profile_id, status, submitted_at'),
+    admin.from('task_comments').select('id, task_id, author_id'),
+    admin.from('hr_member_notes').select('*'),
+  ]);
+
+  const profiles = profilesData || [];
+  const events = eventsData || [];
+  const totalCompletedEvents = events.length;
+
+  // Build lookup maps
+  const registrationMap = new Map<string, { event_id: string; profile_id?: string; email?: string }>();
+  (registrationsData || []).forEach((reg: any) => {
+    registrationMap.set(reg.id, {
+      event_id: reg.event_id,
+      profile_id: reg.profile_id,
+      email: reg.email?.toLowerCase(),
+    });
+  });
+
+  const profileAttendedEvents = new Map<string, Set<string>>();
+  const emailAttendedEvents = new Map<string, Set<string>>();
+
+  (attendanceData || []).forEach((att: any) => {
+    if (att.profile_id) {
+      if (!profileAttendedEvents.has(att.profile_id)) {
+        profileAttendedEvents.set(att.profile_id, new Set<string>());
+      }
+      profileAttendedEvents.get(att.profile_id)!.add(att.event_id);
+    }
+    if (att.registration_id && registrationMap.has(att.registration_id)) {
+      const reg = registrationMap.get(att.registration_id)!;
+      if (reg.profile_id) {
+        if (!profileAttendedEvents.has(reg.profile_id)) {
+          profileAttendedEvents.set(reg.profile_id, new Set<string>());
+        }
+        profileAttendedEvents.get(reg.profile_id)!.add(att.event_id);
+      }
+      if (reg.email) {
+        if (!emailAttendedEvents.has(reg.email)) {
+          emailAttendedEvents.set(reg.email, new Set<string>());
+        }
+        emailAttendedEvents.get(reg.email)!.add(att.event_id);
+      }
+    }
+  });
+
+  // DB notes + memory fallback
+  let allNotes: HrMemberNote[] = [];
+  if (!notesRes.error && notesRes.data) {
+    allNotes = notesRes.data.map((n: any) => ({
+      id: n.id,
+      profileId: n.profile_id,
+      authorId: n.author_id,
+      authorName: n.author_name || 'HR Team',
+      noteType: n.note_type,
+      note: n.note,
+      actionTaken: n.action_taken,
+      status: n.status,
+      missedEventsCount: n.missed_events_count || 0,
+      createdAt: n.created_at,
+      updatedAt: n.updated_at,
+    }));
+  } else {
+    allNotes = [...memoryHrNotes];
+  }
+
+  const tasks = tasksData || [];
+  const assignees = assigneesData || [];
+  const comments = commentsData || [];
+
+  const reviewsToUpsert: any[] = [];
+  const profileUpdates: Array<{ id: string; overall_score: number; attendance_rate: number }> = [];
+
+  for (const p of profiles) {
+    const emailLower = (p.email || '').toLowerCase();
+
+    // 1. Task Metrics
+    const userSingleTasks = tasks.filter((t: any) => t.assignee_id === p.id);
+    const userBroadcastTasks = assignees.filter((a: any) => a.profile_id === p.id);
+    const totalAssigned = userSingleTasks.length + userBroadcastTasks.length;
+
+    const doneSingle = userSingleTasks.filter((t: any) => t.status === 'done');
+    const doneBroadcast = userBroadcastTasks.filter((a: any) => a.status === 'done' || a.status === 'submitted');
+    const totalDone = doneSingle.length + doneBroadcast.length;
+
+    const task_completion_pct =
+      totalAssigned > 0 ? Math.round((totalDone / totalAssigned) * 100) : 100;
+
+    // Deadline adherence
+    let deadlineCount = 0;
+    let onTimeCount = 0;
+    userSingleTasks.forEach((t: any) => {
+      if (t.deadline) {
+        deadlineCount++;
+        if (t.status === 'done') {
+          const isFinishedOnTime = !t.updated_at || new Date(t.updated_at) <= new Date(t.deadline);
+          if (isFinishedOnTime) onTimeCount++;
+        }
+      }
+    });
+
+    const deadline_adherence_pct =
+      deadlineCount > 0 ? Math.round((onTimeCount / deadlineCount) * 100) : 100;
+
+    // 2. Attendance %
+    const attendedSet = new Set<string>();
+    if (profileAttendedEvents.has(p.id)) {
+      profileAttendedEvents.get(p.id)!.forEach((id) => attendedSet.add(id));
+    }
+    if (emailLower && emailAttendedEvents.has(emailLower)) {
+      emailAttendedEvents.get(emailLower)!.forEach((id) => attendedSet.add(id));
+    }
+
+    const eventsAttended = attendedSet.size;
+    const attendance_pct =
+      totalCompletedEvents > 0
+        ? Math.round((eventsAttended / totalCompletedEvents) * 100)
+        : Number(p.attendance_rate ?? 100);
+
+    // 3. Team Contribution %
+    const userComments = comments.filter((c: any) => c.author_id === p.id).length;
+    const team_contribution_pct = Math.min(
+      100,
+      Math.round(task_completion_pct * 0.5 + attendance_pct * 0.3 + Math.min(20, userComments * 5))
+    );
+
+    // 4. Overall Score (Spec §4.6)
+    const overall_score = Math.min(
+      100,
+      Math.round(
+        task_completion_pct * 0.35 +
+          deadline_adherence_pct * 0.25 +
+          attendance_pct * 0.25 +
+          team_contribution_pct * 0.15
+      )
+    );
+
+    // 5. Ingest HR Notes for this member
+    const memberNotes = allNotes.filter((n) => n.profileId === p.id);
+    const notesSummary =
+      memberNotes.length > 0
+        ? memberNotes
+            .map(
+              (n) =>
+                `[${n.noteType}] ${n.note} (${n.status}${n.actionTaken ? ` - ${n.actionTaken}` : ''})`
+            )
+            .join(' | ')
+        : null;
+
+    reviewsToUpsert.push({
+      profile_id: p.id,
+      period_month: periodMonth,
+      task_completion_pct,
+      deadline_adherence_pct,
+      attendance_pct,
+      team_contribution_pct,
+      overall_score,
+      reviewer_id: reviewerId || null,
+      notes: notesSummary,
+      updated_at: new Date().toISOString(),
+    });
+
+    profileUpdates.push({
+      id: p.id,
+      overall_score,
+      attendance_rate: attendance_pct,
+    });
+  }
+
+  // 2. Upsert into performance_reviews table
+  try {
+    const { error: upsertError } = await admin
+      .from('performance_reviews')
+      .upsert(reviewsToUpsert, { onConflict: 'profile_id, period_month' });
+
+    if (upsertError) {
+      console.warn('Upsert into performance_reviews failed:', upsertError.message);
+    }
+
+    // 3. Sync cached overall_score & attendance_rate on profiles in batches
+    for (const update of profileUpdates) {
+      await admin
+        .from('profiles')
+        .update({
+          overall_score: update.overall_score,
+          attendance_rate: update.attendance_rate,
+        })
+        .eq('id', update.id);
+    }
+  } catch (err: any) {
+    console.error('Error persisting performance reviews:', err?.message);
+  }
+
+  // Sort top performers
+  const sortedReviews = [...reviewsToUpsert].sort((a, b) => b.overall_score - a.overall_score);
+  const totalScore = reviewsToUpsert.reduce((sum, r) => sum + r.overall_score, 0);
+  const averageOverallScore =
+    reviewsToUpsert.length > 0 ? Number((totalScore / reviewsToUpsert.length).toFixed(1)) : 0;
+
+  const profileMap = new Map(profiles.map((p: any) => [p.id, p]));
+  const topPerformers = sortedReviews.slice(0, 5).map((r) => {
+    const prof = profileMap.get(r.profile_id);
+    return {
+      profileId: r.profile_id,
+      fullName: prof?.full_name_en || prof?.full_name_ar || prof?.email || 'GDGoC Member',
+      overallScore: r.overall_score,
+      attendancePct: r.attendance_pct,
+      taskCompletionPct: r.task_completion_pct,
+    };
+  });
+
+  return {
+    periodMonth,
+    totalProfilesEvaluated: profiles.length,
+    reviewsCreatedOrUpdated: reviewsToUpsert.length,
+    averageOverallScore,
+    topPerformers,
+  };
+}
+
 
 
