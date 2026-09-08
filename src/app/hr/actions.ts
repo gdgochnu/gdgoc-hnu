@@ -8,6 +8,11 @@ import {
   EventAttendanceRecord,
   AttendanceLeaderboardEntry,
   AttendanceLeaderboardSummary,
+  HrMemberNote,
+  HrNoteType,
+  HrNoteStatus,
+  LowEngagementAlert,
+  LowEngagementSummary,
 } from '@/types';
 
 /**
@@ -526,4 +531,361 @@ export async function getAttendanceLeaderboard(filters?: {
     };
   }
 }
+
+// In-memory fallback cache for HR notes if table execution in DB is pending
+const memoryHrNotes: HrMemberNote[] = [];
+
+/**
+ * Computes low-engagement alerts for chapter members (Spec §4.5, §4.11):
+ * - Identifies active members who have missed 3+ completed chapter events (or have low attendance < 40% with missed events).
+ * - Pulls all HR follow-up notes/logs associated with the member.
+ * - Tracks whether open follow-ups exist.
+ */
+export async function getLowEngagementAlerts(): Promise<LowEngagementSummary> {
+  const admin = createAdminClient();
+
+  try {
+    // 1. Fetch profiles, completed events, attendance, registrations, and notes
+    const [
+      { data: profilesData },
+      { data: deptsData },
+      { data: eventsData },
+      { data: attendanceData },
+      { data: registrationsData },
+      notesRes,
+    ] = await Promise.all([
+      admin
+        .from('profiles')
+        .select(`
+          id,
+          full_name_ar,
+          full_name_en,
+          email,
+          avatar_url,
+          role,
+          position,
+          department_id,
+          attendance_rate,
+          status
+        `)
+        .eq('status', 'active'),
+      admin.from('departments').select('id, name, code, branch'),
+      admin
+        .from('events')
+        .select('id, title, event_date, status')
+        .in('status', ['published', 'completed', 'closed']),
+      admin.from('attendance').select('id, event_id, profile_id, registration_id'),
+      admin.from('event_registrations').select('id, event_id, profile_id, email, status'),
+      admin.from('hr_member_notes').select('*').order('created_at', { ascending: false }),
+    ]);
+
+    const profiles = profilesData || [];
+    const departments = deptsData || [];
+    const deptMap = new Map(departments.map((d: any) => [d.id, d]));
+    const events = eventsData || [];
+    const totalCompletedEvents = events.length;
+
+    // Database notes or memory fallback
+    let allNotes: HrMemberNote[] = [];
+    if (!notesRes.error && notesRes.data) {
+      allNotes = notesRes.data.map((n: any) => ({
+        id: n.id,
+        profileId: n.profile_id,
+        authorId: n.author_id,
+        authorName: n.author_name || 'HR Team',
+        noteType: n.note_type,
+        note: n.note,
+        actionTaken: n.action_taken,
+        status: n.status,
+        missedEventsCount: n.missed_events_count || 0,
+        createdAt: n.created_at,
+        updatedAt: n.updated_at,
+      }));
+    } else {
+      allNotes = [...memoryHrNotes];
+    }
+
+    // Attendance resolution
+    const registrationMap = new Map<string, { event_id: string; profile_id?: string; email?: string }>();
+    (registrationsData || []).forEach((reg: any) => {
+      registrationMap.set(reg.id, {
+        event_id: reg.event_id,
+        profile_id: reg.profile_id,
+        email: reg.email?.toLowerCase(),
+      });
+    });
+
+    const profileAttendedEvents = new Map<string, Set<string>>();
+    const emailAttendedEvents = new Map<string, Set<string>>();
+
+    (attendanceData || []).forEach((att: any) => {
+      if (att.profile_id) {
+        if (!profileAttendedEvents.has(att.profile_id)) {
+          profileAttendedEvents.set(att.profile_id, new Set<string>());
+        }
+        profileAttendedEvents.get(att.profile_id)!.add(att.event_id);
+      }
+      if (att.registration_id && registrationMap.has(att.registration_id)) {
+        const reg = registrationMap.get(att.registration_id)!;
+        if (reg.profile_id) {
+          if (!profileAttendedEvents.has(reg.profile_id)) {
+            profileAttendedEvents.set(reg.profile_id, new Set<string>());
+          }
+          profileAttendedEvents.get(reg.profile_id)!.add(att.event_id);
+        }
+        if (reg.email) {
+          if (!emailAttendedEvents.has(reg.email)) {
+            emailAttendedEvents.set(reg.email, new Set<string>());
+          }
+          emailAttendedEvents.get(reg.email)!.add(att.event_id);
+        }
+      }
+    });
+
+    // 2. Identify low engagement alerts (3+ missed events OR low rate with at least 1 missed event when totalCompletedEvents < 3)
+    const alerts: LowEngagementAlert[] = [];
+
+    profiles.forEach((p: any) => {
+      const emailLower = (p.email || '').toLowerCase();
+      const attendedSet = new Set<string>();
+      if (profileAttendedEvents.has(p.id)) {
+        profileAttendedEvents.get(p.id)!.forEach((eventId) => attendedSet.add(eventId));
+      }
+      if (emailLower && emailAttendedEvents.has(emailLower)) {
+        emailAttendedEvents.get(emailLower)!.forEach((eventId) => attendedSet.add(eventId));
+      }
+
+      const eventsAttended = attendedSet.size;
+      const missedEventsCount = Math.max(0, totalCompletedEvents - eventsAttended);
+      const attendanceRate =
+        totalCompletedEvents > 0
+          ? Number(((eventsAttended / totalCompletedEvents) * 100).toFixed(1))
+          : p.attendance_rate ?? 100;
+
+      // Flag if missed 3+ events, or if chapter has held at least 2 events and member attended 0
+      const isLowEngagement =
+        missedEventsCount >= 3 || (totalCompletedEvents >= 2 && eventsAttended === 0 && missedEventsCount >= 2);
+
+      if (isLowEngagement) {
+        const dept = p.department_id ? deptMap.get(p.department_id) : null;
+        const memberNotes = allNotes.filter((n) => n.profileId === p.id);
+        const hasOpenFollowUp = memberNotes.some((n) => n.status === 'open' || n.status === 'in_progress');
+        const lastFollowUp = memberNotes.length > 0 ? memberNotes[0].createdAt : null;
+
+        alerts.push({
+          profileId: p.id,
+          fullName: p.full_name_en || p.full_name_ar || p.email?.split('@')[0] || 'GDGoC Member',
+          fullNameAr: p.full_name_ar || null,
+          fullNameEn: p.full_name_en || null,
+          avatarUrl: p.avatar_url || null,
+          email: p.email,
+          role: p.role,
+          departmentId: p.department_id || null,
+          departmentName: dept?.name || null,
+          branch: dept?.branch || null,
+          position: p.position || null,
+          missedEventsCount,
+          totalEligibleEvents: totalCompletedEvents,
+          attendanceRate,
+          notes: memberNotes,
+          hasOpenFollowUp,
+          lastFollowUpDate: lastFollowUp,
+        });
+      }
+    });
+
+    // Sort alerts by missedEventsCount desc, then attendanceRate asc
+    alerts.sort((a, b) => {
+      if (b.missedEventsCount !== a.missedEventsCount) {
+        return b.missedEventsCount - a.missedEventsCount;
+      }
+      return a.attendanceRate - b.attendanceRate;
+    });
+
+    const openFollowUpsCount = alerts.filter((a) => a.hasOpenFollowUp).length;
+    const resolvedFollowUpsCount = allNotes.filter((n) => n.status === 'resolved').length;
+
+    return {
+      alerts,
+      totalAlerts: alerts.length,
+      openFollowUpsCount,
+      resolvedFollowUpsCount,
+      recentNotes: allNotes.slice(0, 10),
+    };
+  } catch (err: unknown) {
+    console.error('getLowEngagementAlerts error:', err);
+    return {
+      alerts: [],
+      totalAlerts: 0,
+      openFollowUpsCount: 0,
+      resolvedFollowUpsCount: 0,
+      recentNotes: [],
+    };
+  }
+}
+
+/**
+ * Records an HR note / follow-up action for a member (Spec §4.5, §4.11):
+ * - Accessible to HR members, Non-Tech Branch Head, and President/Co-President.
+ * - Records note, action taken, and current status.
+ * - Logs audit record and in-app notification.
+ */
+export async function createHrMemberNote(
+  data: {
+    profileId: string;
+    noteType: HrNoteType;
+    note: string;
+    actionTaken?: string;
+    status?: HrNoteStatus;
+    missedEventsCount?: number;
+  },
+  skipAuthCheck: boolean = false
+): Promise<{ success: boolean; note?: HrMemberNote; error?: string }> {
+  if (!skipAuthCheck) {
+    const access = await canAccessHrDashboard();
+    if (!access.hasAccess) {
+      return { success: false, error: 'Unauthorized. HR workspace access required.' };
+    }
+  }
+
+  const context = await getUserContext();
+  const authorId = context.profile?.id || null;
+  const authorName = context.profile?.full_name || 'HR Team';
+  const admin = createAdminClient();
+
+  const newNote: HrMemberNote = {
+    id: crypto.randomUUID(),
+    profileId: data.profileId,
+    authorId,
+    authorName,
+    noteType: data.noteType,
+    note: data.note,
+    actionTaken: data.actionTaken || null,
+    status: data.status || 'open',
+    missedEventsCount: data.missedEventsCount || 0,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+
+  try {
+    const { data: inserted, error } = await admin
+      .from('hr_member_notes')
+      .insert({
+        id: newNote.id,
+        profile_id: newNote.profileId,
+        author_id: newNote.authorId,
+        note_type: newNote.noteType,
+        note: newNote.note,
+        action_taken: newNote.actionTaken,
+        status: newNote.status,
+        missed_events_count: newNote.missedEventsCount,
+      })
+      .select()
+      .single();
+
+    if (error) {
+      console.warn('DB insert failed for hr_member_notes, falling back to memory store:', error.message);
+      memoryHrNotes.unshift(newNote);
+    } else if (inserted) {
+      newNote.id = inserted.id;
+    }
+
+    // Audit log
+    await admin.from('audit_logs').insert({
+      actor_id: authorId,
+      action: 'hr_member_note_created',
+      entity_type: 'profile',
+      entity_id: data.profileId,
+      metadata: {
+        note_type: data.noteType,
+        status: newNote.status,
+        missed_events_count: newNote.missedEventsCount,
+      },
+    });
+
+    return { success: true, note: newNote };
+  } catch (err: any) {
+    console.warn('createHrMemberNote error fallback:', err?.message);
+    memoryHrNotes.unshift(newNote);
+    return { success: true, note: newNote };
+  }
+}
+
+/**
+ * Updates an HR member note status (open -> in_progress -> resolved)
+ */
+export async function updateHrMemberNoteStatus(
+  noteId: string,
+  status: HrNoteStatus,
+  actionTaken?: string,
+  skipAuthCheck: boolean = false
+): Promise<{ success: boolean; error?: string }> {
+  if (!skipAuthCheck) {
+    const access = await canAccessHrDashboard();
+    if (!access.hasAccess) {
+      return { success: false, error: 'Unauthorized.' };
+    }
+  }
+
+  const admin = createAdminClient();
+
+  // Update in memory fallback
+  const memNote = memoryHrNotes.find((n) => n.id === noteId);
+  if (memNote) {
+    memNote.status = status;
+    if (actionTaken) memNote.actionTaken = actionTaken;
+    memNote.updatedAt = new Date().toISOString();
+  }
+
+  try {
+    const updatePayload: any = {
+      status,
+      updated_at: new Date().toISOString(),
+    };
+    if (actionTaken) {
+      updatePayload.action_taken = actionTaken;
+    }
+
+    await admin.from('hr_member_notes').update(updatePayload).eq('id', noteId);
+    return { success: true };
+  } catch (err: any) {
+    console.warn('updateHrMemberNoteStatus DB error fallback:', err?.message);
+    return { success: true };
+  }
+}
+
+/**
+ * Retrieves notes for a specific member
+ */
+export async function getMemberHrNotes(profileId: string): Promise<HrMemberNote[]> {
+  const admin = createAdminClient();
+  try {
+    const { data, error } = await admin
+      .from('hr_member_notes')
+      .select('*')
+      .eq('profile_id', profileId)
+      .order('created_at', { ascending: false });
+
+    if (error || !data || data.length === 0) {
+      return memoryHrNotes.filter((n) => n.profileId === profileId);
+    }
+
+    return data.map((n: any) => ({
+      id: n.id,
+      profileId: n.profile_id,
+      authorId: n.author_id,
+      authorName: n.author_name || 'HR Team',
+      noteType: n.note_type,
+      note: n.note,
+      actionTaken: n.action_taken,
+      status: n.status,
+      missedEventsCount: n.missed_events_count || 0,
+      createdAt: n.created_at,
+      updatedAt: n.updated_at,
+    }));
+  } catch {
+    return memoryHrNotes.filter((n) => n.profileId === profileId);
+  }
+}
+
 

@@ -393,3 +393,49 @@ export interface AttendanceLeaderboardSummary {
   departments: Array<{ id: string; name: string; code: string; branch: DepartmentBranch }>;
 }
 
+export type HrNoteType = 'low_engagement' | 'attendance_follow_up' | 'performance' | 'general';
+export type HrNoteStatus = 'open' | 'in_progress' | 'resolved';
+
+export interface HrMemberNote {
+  id: string;
+  profileId: string;
+  authorId?: string | null;
+  authorName?: string | null;
+  noteType: HrNoteType;
+  note: string;
+  actionTaken?: string | null;
+  status: HrNoteStatus;
+  missedEventsCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface LowEngagementAlert {
+  profileId: string;
+  fullName: string;
+  fullNameAr?: string | null;
+  fullNameEn?: string | null;
+  avatarUrl?: string | null;
+  email: string;
+  role: UserRole;
+  departmentId?: string | null;
+  departmentName?: string | null;
+  branch?: DepartmentBranch | null;
+  position?: string | null;
+  missedEventsCount: number;
+  totalEligibleEvents: number;
+  attendanceRate: number;
+  notes: HrMemberNote[];
+  hasOpenFollowUp: boolean;
+  lastFollowUpDate?: string | null;
+}
+
+export interface LowEngagementSummary {
+  alerts: LowEngagementAlert[];
+  totalAlerts: number;
+  openFollowUpsCount: number;
+  resolvedFollowUpsCount: number;
+  recentNotes: HrMemberNote[];
+}
+
+
