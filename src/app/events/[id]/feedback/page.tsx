@@ -6,7 +6,7 @@ import { getExistingEventFeedback } from '@/app/events/actions';
 import { Event, EventFeedback } from '@/types';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { ArrowLeft, Calendar, MapPin, Sparkles, Building2 } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
 
 export const dynamic = 'force-dynamic';
 
@@ -55,34 +55,82 @@ export default async function EventFeedbackPage({ params, searchParams }: EventF
   }
 
   // 2. Check if this attendee or profile has already submitted feedback
-  const { hasSubmitted, feedback: existingFeedback } = await getExistingEventFeedback(
+  const { feedback: existingFeedback } = await getExistingEventFeedback(
     event.id,
     registrationId
   );
 
   return (
-    <div className="min-h-screen bg-[#0B0F19] text-[#F8FAFC] selection:bg-blue-500/30 selection:text-white">
-      {/* Background Decorative Ambient Lighting */}
-      <div className="fixed inset-0 overflow-hidden pointer-events-none -z-10">
-        <div className="absolute top-0 left-1/4 w-96 h-96 bg-blue-600/10 rounded-full blur-3xl" />
-        <div className="absolute top-1/3 right-1/4 w-96 h-96 bg-amber-500/10 rounded-full blur-3xl" />
-        <div className="absolute bottom-10 left-1/3 w-96 h-96 bg-emerald-500/10 rounded-full blur-3xl" />
-      </div>
+    <div
+      style={{
+        minHeight: '100vh',
+        backgroundColor: 'var(--bg-main)',
+        color: 'var(--text-primary)',
+        position: 'relative',
+        display: 'flex',
+        flexDirection: 'column',
+      }}
+    >
+      {/* Background Ambient Lighting */}
+      <div className="ambient-glow" />
 
       {/* Header Bar */}
-      <header className="border-b border-white/5 bg-[#0B0F19]/80 backdrop-blur-md sticky top-0 z-20">
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
+      <header
+        style={{
+          borderBottom: '1px solid var(--border-subtle)',
+          backgroundColor: 'rgba(11, 15, 25, 0.85)',
+          backdropFilter: 'blur(16px)',
+          position: 'sticky',
+          top: 0,
+          zIndex: 20,
+        }}
+      >
+        <div
+          style={{
+            maxWidth: '1000px',
+            margin: '0 auto',
+            padding: '0 1.5rem',
+            height: '64px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+          }}
+        >
           <Link
             href={`/events/${event.slug || event.id}`}
-            className="inline-flex items-center gap-2 text-xs sm:text-sm font-semibold text-slate-300 hover:text-white transition"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.5rem',
+              fontSize: '0.85rem',
+              fontWeight: 700,
+              color: 'var(--text-secondary)',
+              textDecoration: 'none',
+              transition: 'color 0.2s ease',
+            }}
           >
-            <ArrowLeft className="w-4 h-4" />
-            <span className="hidden sm:inline">Back to</span> Event Details
+            <ArrowLeft size={16} />
+            <span>Back to Event Details</span>
           </Link>
 
-          <div className="flex items-center gap-2">
-            <span className="h-2 w-2 rounded-full bg-blue-500 animate-pulse" />
-            <span className="text-xs font-bold text-slate-300 tracking-wide">
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <span
+              style={{
+                width: '8px',
+                height: '8px',
+                borderRadius: '50%',
+                backgroundColor: 'var(--google-blue)',
+                boxShadow: '0 0 10px var(--google-blue)',
+              }}
+            />
+            <span
+              style={{
+                fontSize: '0.8rem',
+                fontWeight: 800,
+                color: 'var(--text-primary)',
+                letterSpacing: '0.04em',
+              }}
+            >
               GDGoC HNU OS
             </span>
           </div>
@@ -90,7 +138,17 @@ export default async function EventFeedbackPage({ params, searchParams }: EventF
       </header>
 
       {/* Main Content Area */}
-      <main className="max-w-5xl mx-auto px-4 sm:px-6 py-8 sm:py-12">
+      <main
+        style={{
+          flex: 1,
+          maxWidth: '1000px',
+          width: '100%',
+          margin: '0 auto',
+          padding: '2.5rem 1.5rem',
+          position: 'relative',
+          zIndex: 1,
+        }}
+      >
         <EventFeedbackForm
           event={event as Event}
           existingFeedback={existingFeedback as EventFeedback | null}
@@ -101,9 +159,21 @@ export default async function EventFeedbackPage({ params, searchParams }: EventF
       </main>
 
       {/* Footer */}
-      <footer className="border-t border-white/5 py-8 text-center text-xs text-slate-500">
-        <p>Google Developer Groups on Campus — Helwan National University</p>
-        <p className="mt-1 text-[11px] text-slate-600">
+      <footer
+        style={{
+          borderTop: '1px solid var(--border-subtle)',
+          padding: '2rem 1.5rem',
+          textAlign: 'center',
+          fontSize: '0.78rem',
+          color: 'var(--text-muted)',
+          position: 'relative',
+          zIndex: 1,
+        }}
+      >
+        <p style={{ margin: 0, fontWeight: 600 }}>
+          Google Developer Groups on Campus — Helwan National University
+        </p>
+        <p style={{ margin: '0.35rem 0 0', fontSize: '0.72rem', color: '#475569' }}>
           One platform. One source of truth. For people, events, tasks, attendance, growth.
         </p>
       </footer>
