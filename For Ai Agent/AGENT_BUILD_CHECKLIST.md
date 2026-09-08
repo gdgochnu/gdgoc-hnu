@@ -167,7 +167,7 @@
 - [x] 13.2 Deploy the Apps Script as a Web App exposing `ensureFolderPath`, `uploadFile`, `listFiles`, `deleteFile`, `getShareableLink`, secured by a shared secret token. (2026-09-08)
 - [x] 13.3 Build the server-side API Route/Server Action client that calls the Web App and stores results in `drive_folder_map`. (2026-09-08)
 - [x] 13.4 Build `/settings/drive` (President-only) to input/rotate the Web App URL + secret. (2026-09-08)
-- [ ] 13.5 Confirm end-to-end: uploading a file from the app creates it in the correct auto-created Drive subfolder.
+- [x] 13.5 Confirm end-to-end: uploading a file from the app creates it in the correct auto-created Drive subfolder. (2026-09-08)
 
 ## Phase 14 — Google Calendar Integration (spec §4.17)
 - [ ] 14.1 Enable the Google Calendar API on the same Google account/credentials as the Drive bridge; create the shared "GDGoC HNU" calendar.
