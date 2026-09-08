@@ -98,9 +98,10 @@ export function EventTicketView({ registration }: EventTicketViewProps) {
 
   // Google Calendar URL Generator
   const generateGoogleCalendarUrl = () => {
+    const origin = typeof window !== 'undefined' ? window.location.origin : '';
     const title = encodeURIComponent(event.title);
     const details = encodeURIComponent(
-      `${event.description || ''}\n\nMy Registration ID: ${registration.qr_code}\nEvent Page: ${window?.location?.origin || ''}/events/${event.slug}`
+      `${event.description || ''}\n\nMy Registration ID: ${registration.qr_code}\nEvent Page: ${origin}/events/${event.slug}`
     );
     const location = encodeURIComponent(event.venue || 'Helwan National University');
 
