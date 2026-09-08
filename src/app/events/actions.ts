@@ -1266,3 +1266,236 @@ export async function getEventRegistrationById(registrationIdOrQr: string) {
   }
 }
 
+// ==============================================================================
+// Phase 8 Step 8.9: Smart Attendance (QR Check-in) Server Actions
+// Spec reference: §4.3 item 5 & 6, §4.4
+// ==============================================================================
+
+export interface RecordQrCheckinInput {
+  eventId: string;
+  qrCode: string;
+}
+
+/**
+ * Scan and record an attendee check-in via their unique QR pass.
+ * Enforces:
+ * 1. Active caller session.
+ * 2. Strict Check-in Duty Access Gating (assigned in checkin_access_profile_ids, HR, or President/Co-President).
+ * 3. Validates that QR code belongs to this specific event.
+ * 4. Blocks waitlisted attendees.
+ * 5. Strictly blocks duplicate scans on (event_id, registration_id).
+ * 6. Records attendance with check-in timestamp and officer identity.
+ */
+export async function recordQrCheckin(input: RecordQrCheckinInput) {
+  try {
+    const context = await getUserContext();
+    if (!context.user || !context.profile || context.profile.status !== 'active') {
+      return { success: false, error: 'Unauthorized: Active membership required.', code: 'UNAUTHORIZED' };
+    }
+
+    const admin = createAdminClient();
+    const cleanQr = (input.qrCode || '').trim();
+
+    if (!cleanQr) {
+      return { success: false, error: 'QR Code cannot be empty.', code: 'EMPTY_QR' };
+    }
+
+    // 1. Strict Access Gating Check (§4.3 item 5)
+    const accessCheck = await checkUserCheckinAccess(input.eventId, context.user.id);
+    if (!accessCheck.hasAccess) {
+      return {
+        success: false,
+        error: 'Forbidden: You do not have check-in duty assigned for this event. Access restricted to assigned team members, HR, and Leadership.',
+        code: 'DUTY_ACCESS_DENIED',
+      };
+    }
+
+    // 2. Fetch event to verify existence
+    const { data: event, error: eventErr } = await admin
+      .from('events')
+      .select('id, title, status')
+      .eq('id', input.eventId)
+      .maybeSingle();
+
+    if (eventErr || !event) {
+      return { success: false, error: 'Event not found.', code: 'EVENT_NOT_FOUND' };
+    }
+
+    // 3. Look up attendee registration by (event_id, qr_code)
+    const { data: registration, error: regErr } = await admin
+      .from('event_registrations')
+      .select('id, event_id, profile_id, full_name, email, phone, status, qr_code')
+      .eq('event_id', input.eventId)
+      .eq('qr_code', cleanQr)
+      .maybeSingle();
+
+    if (regErr || !registration) {
+      return {
+        success: false,
+        error: 'QR Pass not recognized for this event. Please verify the ticket or check registration.',
+        code: 'INVALID_QR',
+      };
+    }
+
+    // Check if attendee is waitlisted
+    if (registration.status === 'waitlisted') {
+      return {
+        success: false,
+        error: 'Waitlist Notice: This attendee is currently on the waitlist and has not been confirmed.',
+        code: 'WAITLISTED',
+        attendee: registration,
+      };
+    }
+
+    // 4. Duplicate scan check (§4.3 item 6, §4.4)
+    const { data: existingAttendance } = await admin
+      .from('attendance')
+      .select('id, check_in_time, checked_in_by, method')
+      .eq('event_id', input.eventId)
+      .eq('registration_id', registration.id)
+      .maybeSingle();
+
+    if (existingAttendance) {
+      return {
+        success: false,
+        error: 'Duplicate scan! This attendee has already been checked in.',
+        code: 'DUPLICATE_CHECKIN',
+        alreadyCheckedIn: true,
+        checkInTime: existingAttendance.check_in_time,
+        attendee: registration,
+      };
+    }
+
+    // 5. Insert attendance record
+    const now = new Date().toISOString();
+    const { data: newAttendance, error: attErr } = await admin
+      .from('attendance')
+      .insert({
+        event_id: input.eventId,
+        registration_id: registration.id,
+        profile_id: registration.profile_id || null,
+        check_in_time: now,
+        checked_in_by: context.user.id,
+        method: 'qr',
+      })
+      .select()
+      .single();
+
+    if (attErr || !newAttendance) {
+      if (attErr?.code === '23505') {
+        return {
+          success: false,
+          error: 'Duplicate scan! Already checked in.',
+          code: 'DUPLICATE_CHECKIN',
+          alreadyCheckedIn: true,
+          attendee: registration,
+        };
+      }
+      return { success: false, error: attErr?.message || 'Failed to record attendance.', code: 'INSERT_FAILED' };
+    }
+
+    // 6. Record audit log
+    await admin.from('audit_logs').insert({
+      actor_id: context.user.id,
+      action: 'qr_checkin_recorded',
+      entity_type: 'attendance',
+      entity_id: newAttendance.id,
+      metadata: {
+        event_id: input.eventId,
+        registration_id: registration.id,
+        attendee_name: registration.full_name,
+        attendee_email: registration.email,
+        qr_code: registration.qr_code,
+      },
+    });
+
+    revalidatePath(`/events/${input.eventId}/attendance`);
+    return {
+      success: true,
+      attendance: newAttendance,
+      attendee: registration,
+      checkInTime: now,
+    };
+  } catch (err: unknown) {
+    console.error('recordQrCheckin error:', err);
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : 'Error recording QR check-in.',
+      code: 'UNKNOWN_ERROR',
+    };
+  }
+}
+
+/**
+ * Fetch attendance statistics and recent live check-in stream for an event.
+ */
+export async function getEventAttendanceStream(eventId: string) {
+  try {
+    const admin = createAdminClient();
+
+    // 1. Total Registered
+    const { count: regCount } = await admin
+      .from('event_registrations')
+      .select('id', { count: 'exact', head: true })
+      .eq('event_id', eventId)
+      .eq('status', 'registered');
+
+    // 2. Total Checked In
+    const { count: checkinCount } = await admin
+      .from('attendance')
+      .select('id', { count: 'exact', head: true })
+      .eq('event_id', eventId);
+
+    // 3. Recent check-ins stream (last 20)
+    const { data: recentList } = await admin
+      .from('attendance')
+      .select(`
+        id,
+        check_in_time,
+        method,
+        registration:registration_id (id, full_name, email, phone, qr_code),
+        checked_in_by_profile:checked_in_by (id, full_name, role)
+      `)
+      .eq('event_id', eventId)
+      .order('check_in_time', { ascending: false })
+      .limit(20);
+
+    const totalRegistered = regCount ?? 0;
+    const totalCheckedIn = checkinCount ?? 0;
+    const attendanceRate = totalRegistered > 0 ? Math.round((totalCheckedIn / totalRegistered) * 100) : 0;
+
+    const formattedList = (recentList || []).map((item: any) => ({
+      id: item.id as string,
+      check_in_time: item.check_in_time as string,
+      method: item.method as string,
+      registration: (Array.isArray(item.registration) ? item.registration[0] : item.registration) as {
+        id: string;
+        full_name: string;
+        email: string;
+        phone?: string | null;
+        qr_code: string;
+      } | null,
+      checked_in_by_profile: (Array.isArray(item.checked_in_by_profile) ? item.checked_in_by_profile[0] : item.checked_in_by_profile) as {
+        full_name: string;
+        role: string;
+      } | null,
+    }));
+
+    return {
+      totalRegistered,
+      totalCheckedIn,
+      attendanceRate,
+      recentCheckins: formattedList,
+    };
+  } catch (err) {
+    console.error('getEventAttendanceStream error:', err);
+    return {
+      totalRegistered: 0,
+      totalCheckedIn: 0,
+      attendanceRate: 0,
+      recentCheckins: [],
+    };
+  }
+}
+
+
