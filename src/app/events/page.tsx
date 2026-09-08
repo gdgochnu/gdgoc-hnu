@@ -4,6 +4,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { getUserContext } from '@/lib/auth/get-user-context';
 import { EventsListClient } from '@/components/events/EventsListClient';
 import { Event } from '@/types';
+import { checkAndAutoTransitionPastEvents } from '@/app/events/actions';
 import Link from 'next/link';
 import { Calendar, ShieldAlert } from 'lucide-react';
 
@@ -70,8 +71,11 @@ export default async function EventsPage() {
     department_id: m.department_id,
   }));
 
+  // 3. Auto-transition any past due events to 'completed' (§4.3 item 7)
+  await checkAndAutoTransitionPastEvents();
+
   const profile = context.profile;
-  // 3. Fetch events based on role and RLS scope
+  // 4. Fetch events based on role and RLS scope
   const isPresidential = ['president', 'co_president'].includes(profile.role);
   let eventsQuery = admin
     .from('events')
@@ -81,11 +85,11 @@ export default async function EventsPage() {
   if (!isPresidential) {
     if (profile.role === 'branch_head' && profile.department?.branch) {
       const branchDepts = departments.filter(d => d.branch === profile.department?.branch).map(d => d.id);
-      eventsQuery = eventsQuery.or(`department_id.in.(${branchDepts.join(',')}),status.eq.published`);
+      eventsQuery = eventsQuery.or(`department_id.in.(${branchDepts.join(',')}),status.in.(published,closed,completed)`);
     } else if (profile.department_id) {
-      eventsQuery = eventsQuery.or(`department_id.eq.${profile.department_id},status.eq.published`);
+      eventsQuery = eventsQuery.or(`department_id.eq.${profile.department_id},status.in.(published,closed,completed)`);
     } else {
-      eventsQuery = eventsQuery.eq('status', 'published');
+      eventsQuery = eventsQuery.in('status', ['published', 'closed', 'completed']);
     }
   }
 

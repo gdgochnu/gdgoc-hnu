@@ -122,6 +122,32 @@ export default async function EventDetailPage({ params, searchParams }: EventDet
     );
   }
 
+  // Auto-complete if event date has passed (§4.3 item 7)
+  const todayStr = new Date().toISOString().slice(0, 10);
+  if (['published', 'closed'].includes(eventData.status) && eventData.event_date < todayStr) {
+    await admin.from('events').update({
+      status: 'completed',
+      updated_at: new Date().toISOString(),
+    }).eq('id', eventData.id);
+
+    await admin.from('audit_logs').insert({
+      actor_id: null,
+      action: 'event_completed',
+      entity_type: 'event',
+      entity_id: eventData.id,
+      metadata: {
+        mode: 'auto',
+        reason: 'event_date_passed',
+        event_date: eventData.event_date,
+        previous_status: eventData.status,
+        new_status: 'completed',
+        completed_at: new Date().toISOString(),
+      },
+    });
+
+    eventData.status = 'completed';
+  }
+
   const event: Event = {
     ...eventData,
     registration_fields: Array.isArray(eventData.registration_fields) ? eventData.registration_fields : [],
@@ -132,13 +158,13 @@ export default async function EventDetailPage({ params, searchParams }: EventDet
   const isPublicRoute = !isUuid || isPublicViewRequested;
 
   if (isPublicRoute) {
-    // If not published, check if user is allowed to preview
+    // If not public-ready (e.g. draft, in review), check if user is allowed to preview
     const isLeadership = context.profile && ['president', 'co_president', 'branch_head'].includes(context.profile.role);
     const isOwner = Array.isArray(event.owners) && event.owners.some((o: any) => o.profile_id === context.user?.id);
     const isDeptHead = context.profile?.department_id === event.department_id && ['committee_head', 'committee_co_head'].includes(context.profile?.role || '');
     const canPreview = isLeadership || isOwner || isDeptHead || event.created_by === context.user?.id;
 
-    if (event.status !== 'published' && !canPreview) {
+    if (!['published', 'closed', 'completed'].includes(event.status) && !canPreview) {
       return (
         <div style={{
           minHeight: '100vh',

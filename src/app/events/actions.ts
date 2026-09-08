@@ -1864,5 +1864,323 @@ export async function registerAndCheckInWalkin(input: RegisterWalkinInput) {
   }
 }
 
+// ==============================================================================
+// Phase 8 Step 8.11: Event Lifecycle Transition to 'completed' (Auto / Manual)
+// Spec reference: §4.3 item 7, §4.9, §4.18
+// ==============================================================================
+
+export interface CompleteEventInput {
+  eventId: string;
+  notes?: string;
+}
+
+/**
+ * Manual transition of an event to 'completed'.
+ * Authorized for: President, Co-President, Branch Head, Host Committee Head/Co-Head,
+ * Operations Head/Co-Head, or assigned Event Owners/Creator.
+ */
+export async function completeEvent(input: CompleteEventInput | string) {
+  try {
+    const eventId = typeof input === 'string' ? input : input.eventId;
+    const notes = typeof input === 'string' ? undefined : input.notes;
+
+    const context = await getUserContext();
+    if (!context.user || !context.profile || context.profile.status !== 'active') {
+      return { success: false, error: 'Unauthorized: Active membership required.', code: 'UNAUTHORIZED' };
+    }
+
+    const admin = createAdminClient();
+
+    // 1. Fetch event with hosting department
+    const { data: event, error: eventErr } = await admin
+      .from('events')
+      .select('*, department:departments(id, name, code, branch)')
+      .eq('id', eventId)
+      .maybeSingle();
+
+    if (eventErr || !event) {
+      return { success: false, error: 'Event not found.', code: 'NOT_FOUND' };
+    }
+
+    if (event.status === 'completed') {
+      return { success: true, message: 'Event is already marked as completed.', event };
+    }
+
+    // 2. Validate status can transition to completed
+    // Events must be in 'published', 'closed', or 'approved' status to be completed
+    if (!['published', 'closed', 'approved'].includes(event.status)) {
+      return {
+        success: false,
+        error: `Cannot complete event with status '${event.status}'. Event must be approved, published, or closed.`,
+        code: 'INVALID_STATUS',
+      };
+    }
+
+    // 3. Authorization check
+    const userId = context.user.id;
+    const { role, department } = context.profile;
+    const isPresidential = ['president', 'co_president'].includes(role);
+    const isHostDeptHead =
+      ['committee_head', 'committee_co_head'].includes(role) &&
+      department?.id === event.department_id;
+    const isBranchHead =
+      role === 'branch_head' &&
+      department?.branch &&
+      department.branch === (event.department as any)?.branch;
+    const isOperationsHead =
+      ['committee_head', 'committee_co_head'].includes(role) &&
+      (department?.code === 'OPERATIONS' || department?.name?.toLowerCase().includes('operations'));
+    const isCreator = event.created_by === userId;
+    const isOwner =
+      Array.isArray(event.owners) &&
+      event.owners.some((o: any) => o.profile_id === userId);
+
+    const hasPermission =
+      isPresidential ||
+      isHostDeptHead ||
+      isBranchHead ||
+      isOperationsHead ||
+      isCreator ||
+      isOwner;
+
+    if (!hasPermission) {
+      return {
+        success: false,
+        error: 'Forbidden: You do not have permission to mark this event as completed.',
+        code: 'FORBIDDEN',
+      };
+    }
+
+    // 4. Update event status to 'completed'
+    const now = new Date().toISOString();
+    const { data: updatedEvent, error: updateErr } = await admin
+      .from('events')
+      .update({
+        status: 'completed',
+        updated_at: now,
+      })
+      .eq('id', eventId)
+      .select('*, department:departments(id, name, code, branch)')
+      .single();
+
+    if (updateErr || !updatedEvent) {
+      return { success: false, error: updateErr?.message || 'Failed to update event status.' };
+    }
+
+    // 5. Record audit log
+    await admin.from('audit_logs').insert({
+      actor_id: context.user.id,
+      action: 'event_completed',
+      entity_type: 'event',
+      entity_id: eventId,
+      metadata: {
+        mode: 'manual',
+        previous_status: event.status,
+        new_status: 'completed',
+        notes: notes || null,
+        completed_by: context.user.id,
+        completed_at: now,
+      },
+    });
+
+    revalidatePath('/events');
+    revalidatePath(`/events/${eventId}`);
+    if (event.slug) revalidatePath(`/events/${event.slug}`);
+    revalidatePath(`/events/${eventId}/attendance`);
+
+    return {
+      success: true,
+      event: updatedEvent,
+      message: 'Event has been successfully marked as completed.',
+    };
+  } catch (err: unknown) {
+    console.error('completeEvent error:', err);
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : 'Error marking event as completed.',
+    };
+  }
+}
+
+/**
+ * Close public registration for an event (transitions status from 'published' to 'closed').
+ */
+export async function closeEvent(eventId: string) {
+  try {
+    const context = await getUserContext();
+    if (!context.user || !context.profile || context.profile.status !== 'active') {
+      return { success: false, error: 'Unauthorized: Active membership required.', code: 'UNAUTHORIZED' };
+    }
+
+    const admin = createAdminClient();
+    const { data: event, error: eventErr } = await admin
+      .from('events')
+      .select('*, department:departments(id, name, code, branch)')
+      .eq('id', eventId)
+      .maybeSingle();
+
+    if (eventErr || !event) {
+      return { success: false, error: 'Event not found.', code: 'NOT_FOUND' };
+    }
+
+    if (event.status !== 'published') {
+      return {
+        success: false,
+        error: `Cannot close event with status '${event.status}'. Only published events can be closed.`,
+      };
+    }
+
+    // Permission check
+    const userId = context.user.id;
+    const { role, department } = context.profile;
+    const isPresidential = ['president', 'co_president'].includes(role);
+    const isHostDeptHead =
+      ['committee_head', 'committee_co_head'].includes(role) && department?.id === event.department_id;
+    const isBranchHead =
+      role === 'branch_head' && department?.branch === (event.department as any)?.branch;
+    const isOwner =
+      Array.isArray(event.owners) && event.owners.some((o: any) => o.profile_id === userId);
+    const isCreator = event.created_by === userId;
+
+    if (!isPresidential && !isHostDeptHead && !isBranchHead && !isOwner && !isCreator) {
+      return { success: false, error: 'Forbidden: Insufficient permissions to close registration.' };
+    }
+
+    const now = new Date().toISOString();
+    const { data: updatedEvent, error: updateErr } = await admin
+      .from('events')
+      .update({ status: 'closed', updated_at: now })
+      .eq('id', eventId)
+      .select()
+      .single();
+
+    if (updateErr || !updatedEvent) {
+      return { success: false, error: updateErr?.message || 'Failed to close event.' };
+    }
+
+    await admin.from('audit_logs').insert({
+      actor_id: context.user.id,
+      action: 'event_closed',
+      entity_type: 'event',
+      entity_id: eventId,
+      metadata: {
+        previous_status: 'published',
+        new_status: 'closed',
+        closed_by: context.user.id,
+        closed_at: now,
+      },
+    });
+
+    revalidatePath('/events');
+    revalidatePath(`/events/${eventId}`);
+    if (event.slug) revalidatePath(`/events/${event.slug}`);
+
+    return { success: true, event: updatedEvent };
+  } catch (err: unknown) {
+    console.error('closeEvent error:', err);
+    return { success: false, error: err instanceof Error ? err.message : 'Error closing event.' };
+  }
+}
+
+/**
+ * Automatic transition of past events to 'completed' (§4.3 item 7).
+ * Scans all events with status in ('published', 'closed') where event_date < today
+ * (or event_date == today with end_time passed) and flips them to 'completed'.
+ */
+export async function checkAndAutoTransitionPastEvents() {
+  try {
+    const admin = createAdminClient();
+    const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+
+    // Fetch all published or closed events whose event_date is past or today
+    const { data: candidateEvents, error: fetchErr } = await admin
+      .from('events')
+      .select('id, title, slug, status, event_date, end_time')
+      .in('status', ['published', 'closed'])
+      .lte('event_date', today);
+
+    if (fetchErr || !candidateEvents || candidateEvents.length === 0) {
+      return { success: true, transitionedCount: 0, eventIds: [] };
+    }
+
+    const now = new Date();
+    // Compare time for events happening today: if event_date < today, it's definitely past.
+    // If event_date === today, check if end_time exists and is passed.
+    const currentUtcHours = now.getUTCHours() + 2; // Approx Egypt EET
+    const currentTimeStr = `${String(currentUtcHours).padStart(2, '0')}:${String(now.getUTCMinutes()).padStart(2, '0')}`;
+
+    const pastEvents = candidateEvents.filter((ev) => {
+      if (ev.event_date < today) {
+        return true;
+      }
+      if (ev.event_date === today && ev.end_time) {
+        return ev.end_time < currentTimeStr;
+      }
+      return false;
+    });
+
+    if (pastEvents.length === 0) {
+      return { success: true, transitionedCount: 0, eventIds: [] };
+    }
+
+    const targetIds = pastEvents.map((e) => e.id);
+    const timestamp = new Date().toISOString();
+
+    // Batch update events to 'completed'
+    const { error: updateErr } = await admin
+      .from('events')
+      .update({
+        status: 'completed',
+        updated_at: timestamp,
+      })
+      .in('id', targetIds);
+
+    if (updateErr) {
+      console.error('checkAndAutoTransitionPastEvents update error:', updateErr);
+      return { success: false, error: updateErr.message, transitionedCount: 0, eventIds: [] };
+    }
+
+    // Insert audit logs for each transitioned event
+    const auditEntries = pastEvents.map((ev) => ({
+      actor_id: null,
+      action: 'event_completed',
+      entity_type: 'event',
+      entity_id: ev.id,
+      metadata: {
+        mode: 'auto',
+        reason: 'event_date_passed',
+        event_date: ev.event_date,
+        previous_status: ev.status,
+        new_status: 'completed',
+        completed_at: timestamp,
+      },
+    }));
+
+    await admin.from('audit_logs').insert(auditEntries);
+
+    // Revalidate affected paths
+    revalidatePath('/events');
+    for (const ev of pastEvents) {
+      revalidatePath(`/events/${ev.id}`);
+      if (ev.slug) revalidatePath(`/events/${ev.slug}`);
+    }
+
+    return {
+      success: true,
+      transitionedCount: pastEvents.length,
+      eventIds: targetIds,
+    };
+  } catch (err: unknown) {
+    console.error('checkAndAutoTransitionPastEvents error:', err);
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : 'Error auto-transitioning past events.',
+      transitionedCount: 0,
+      eventIds: [],
+    };
+  }
+}
+
+
 
 

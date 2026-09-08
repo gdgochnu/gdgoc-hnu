@@ -747,14 +747,82 @@ export function PublicEventView({
             <div className="glass-panel" style={{
               padding: '2rem',
               borderRadius: '20px',
-              border: '1px solid rgba(66, 133, 244, 0.35)',
+              border: event.status === 'completed'
+                ? '1px solid rgba(168, 85, 247, 0.4)'
+                : event.status === 'closed'
+                ? '1px solid rgba(251, 188, 4, 0.4)'
+                : '1px solid rgba(66, 133, 244, 0.35)',
               background: 'linear-gradient(180deg, rgba(19, 27, 46, 0.95), rgba(11, 15, 25, 0.98))',
               boxShadow: '0 20px 40px -15px rgba(0, 0, 0, 0.7), 0 0 35px -10px rgba(66, 133, 244, 0.25)',
               position: 'sticky',
               top: '5rem',
             }}>
-              {/* Card Header */}
-              <div style={{ marginBottom: '1.5rem', textAlign: 'center' }}>
+              {event.status === 'completed' ? (
+                <div style={{ textAlign: 'center', padding: '1rem 0.5rem' }}>
+                  <div style={{
+                    width: '56px',
+                    height: '56px',
+                    borderRadius: '16px',
+                    background: 'rgba(168, 85, 247, 0.15)',
+                    border: '1px solid rgba(168, 85, 247, 0.4)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    margin: '0 auto 1.25rem',
+                  }}>
+                    <CheckCircle2 size={28} color="#D8B4FE" />
+                  </div>
+                  <h3 style={{ fontSize: '1.3rem', fontWeight: 800, color: '#FFFFFF', marginBottom: '0.5rem' }}>
+                    Event Concluded
+                  </h3>
+                  <p style={{ fontSize: '0.88rem', color: '#CBD5E1', lineHeight: 1.6, marginBottom: '1.75rem' }}>
+                    This event has officially ended. Online registrations are closed. Thank you to everyone who joined us!
+                  </p>
+                  <Link
+                    href="/"
+                    className="btn-secondary"
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '0.5rem',
+                      width: '100%',
+                      padding: '0.75rem 1.25rem',
+                      borderRadius: '10px',
+                      textDecoration: 'none',
+                      fontSize: '0.9rem',
+                      fontWeight: 600,
+                    }}
+                  >
+                    <span>Back to Chapter Home</span>
+                  </Link>
+                </div>
+              ) : event.status === 'closed' ? (
+                <div style={{ textAlign: 'center', padding: '1rem 0.5rem' }}>
+                  <div style={{
+                    width: '56px',
+                    height: '56px',
+                    borderRadius: '16px',
+                    background: 'rgba(251, 188, 4, 0.15)',
+                    border: '1px solid rgba(251, 188, 4, 0.4)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    margin: '0 auto 1.25rem',
+                  }}>
+                    <Clock size={28} color="#FDE047" />
+                  </div>
+                  <h3 style={{ fontSize: '1.3rem', fontWeight: 800, color: '#FFFFFF', marginBottom: '0.5rem' }}>
+                    Registrations Closed
+                  </h3>
+                  <p style={{ fontSize: '0.88rem', color: '#CBD5E1', lineHeight: 1.6, marginBottom: '1.75rem' }}>
+                    Online registrations for this event are currently closed. For inquiries, please reach out to our team.
+                  </p>
+                </div>
+              ) : (
+                <>
+                  {/* Card Header */}
+                  <div style={{ marginBottom: '1.5rem', textAlign: 'center' }}>
                 <div style={{
                   width: '48px',
                   height: '48px',
@@ -1112,8 +1180,10 @@ export function PublicEventView({
                   </div>
                 </form>
               )}
-            </div>
-          </div>
+            </>
+          )}
+        </div>
+      </div>
         </div>
       </main>
 

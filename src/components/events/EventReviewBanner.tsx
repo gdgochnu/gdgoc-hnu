@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { submitEventForReview, publishEvent } from '@/app/events/actions';
+import { submitEventForReview, publishEvent, completeEvent, closeEvent } from '@/app/events/actions';
 import { Event, EventStatus } from '@/types';
 import Link from 'next/link';
 import { 
@@ -18,7 +18,8 @@ import {
   RefreshCw,
   Globe,
   Copy,
-  Check
+  Check,
+  Archive
 } from 'lucide-react';
 
 interface EventReviewBannerProps {
@@ -31,10 +32,13 @@ export function EventReviewBanner({ event, canManage, approvalInstance }: EventR
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
+  const [isCompleting, setIsCompleting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [publishSuccessMsg, setPublishSuccessMsg] = useState<string | null>(null);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [showPublishModal, setShowPublishModal] = useState(false);
+  const [showCompleteModal, setShowCompleteModal] = useState(false);
+  const [completionNotes, setCompletionNotes] = useState('');
   const [copied, setCopied] = useState(false);
 
   const handleSubmitReview = async () => {
@@ -82,12 +86,36 @@ export function EventReviewBanner({ event, canManage, approvalInstance }: EventR
     setTimeout(() => setCopied(false), 2500);
   };
 
+  const handleComplete = async () => {
+    setErrorMsg(null);
+    setIsCompleting(true);
+    try {
+      const res = await completeEvent({
+        eventId: event.id,
+        notes: completionNotes.trim() || undefined,
+      });
+      if (!res.success) {
+        setErrorMsg(res.error || 'Failed to mark event as completed.');
+      } else {
+        setShowCompleteModal(false);
+        setPublishSuccessMsg('Event has been marked as completed successfully!');
+        router.refresh();
+      }
+    } catch (err: unknown) {
+      setErrorMsg(err instanceof Error ? err.message : 'Error completing event.');
+    } finally {
+      setIsCompleting(false);
+    }
+  };
+
   const isDraftOrRejected = event.status === 'draft' || event.status === 'rejected';
   const isInReview = ['submitted_for_review', 'branch_review', 'pending_final_approval'].includes(event.status);
   const isApproved = event.status === 'approved';
   const isPublished = event.status === 'published';
+  const isClosed = event.status === 'closed';
+  const isCompleted = event.status === 'completed';
 
-  if (!isDraftOrRejected && !isInReview && !isApproved && !isPublished) {
+  if (!isDraftOrRejected && !isInReview && !isApproved && !isPublished && !isClosed && !isCompleted) {
     return null;
   }
 
@@ -104,14 +132,22 @@ export function EventReviewBanner({ event, canManage, approvalInstance }: EventR
             ? '1px solid rgba(66, 133, 244, 0.3)'
             : isApproved
             ? '1px solid rgba(52, 168, 83, 0.4)'
-            : '1px solid rgba(52, 168, 83, 0.5)',
+            : isPublished
+            ? '1px solid rgba(52, 168, 83, 0.5)'
+            : isClosed
+            ? '1px solid rgba(251, 188, 4, 0.4)'
+            : '1px solid rgba(168, 85, 247, 0.4)',
           background: isDraftOrRejected
             ? 'linear-gradient(135deg, rgba(251, 188, 4, 0.06), rgba(0, 0, 0, 0.4))'
             : isInReview
             ? 'linear-gradient(135deg, rgba(66, 133, 244, 0.08), rgba(0, 0, 0, 0.4))'
             : isApproved
             ? 'linear-gradient(135deg, rgba(52, 168, 83, 0.12), rgba(0, 0, 0, 0.4))'
-            : 'linear-gradient(135deg, rgba(52, 168, 83, 0.15), rgba(0, 0, 0, 0.5))',
+            : isPublished
+            ? 'linear-gradient(135deg, rgba(52, 168, 83, 0.15), rgba(0, 0, 0, 0.5))'
+            : isClosed
+            ? 'linear-gradient(135deg, rgba(251, 188, 4, 0.1), rgba(0, 0, 0, 0.5))'
+            : 'linear-gradient(135deg, rgba(168, 85, 247, 0.12), rgba(0, 0, 0, 0.5))',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
@@ -132,7 +168,11 @@ export function EventReviewBanner({ event, canManage, approvalInstance }: EventR
               ? 'rgba(66, 133, 244, 0.15)'
               : isApproved
               ? 'rgba(52, 168, 83, 0.2)'
-              : 'rgba(52, 168, 83, 0.25)',
+              : isPublished
+              ? 'rgba(52, 168, 83, 0.25)'
+              : isClosed
+              ? 'rgba(251, 188, 4, 0.2)'
+              : 'rgba(168, 85, 247, 0.2)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -144,8 +184,12 @@ export function EventReviewBanner({ event, canManage, approvalInstance }: EventR
               <ShieldCheck size={22} color="var(--google-blue)" />
             ) : isApproved ? (
               <Sparkles size={22} color="var(--google-green)" />
-            ) : (
+            ) : isPublished ? (
               <Globe size={22} color="var(--google-green)" />
+            ) : isClosed ? (
+              <Clock size={22} color="var(--google-yellow)" />
+            ) : (
+              <CheckCircle2 size={22} color="#D8B4FE" />
             )}
           </div>
 
@@ -158,7 +202,11 @@ export function EventReviewBanner({ event, canManage, approvalInstance }: EventR
                   ? 'Event Under Executive Review'
                   : isApproved
                   ? 'Event Approved — Ready to Publish (Step 8.6)'
-                  : 'Event is Live on Public Portal'}
+                  : isPublished
+                  ? 'Event is Live on Public Portal'
+                  : isClosed
+                  ? 'Event Registrations Closed'
+                  : 'Event Concluded & Completed (Step 8.11)'}
               </h4>
 
               <span style={{
@@ -170,12 +218,20 @@ export function EventReviewBanner({ event, canManage, approvalInstance }: EventR
                   ? 'rgba(251, 188, 4, 0.2)'
                   : isInReview
                   ? 'rgba(66, 133, 244, 0.2)'
-                  : 'rgba(52, 168, 83, 0.25)',
+                  : isPublished || isApproved
+                  ? 'rgba(52, 168, 83, 0.25)'
+                  : isClosed
+                  ? 'rgba(251, 188, 4, 0.25)'
+                  : 'rgba(168, 85, 247, 0.25)',
                 color: isDraftOrRejected
                   ? '#FDE047'
                   : isInReview
                   ? '#93C5FD'
-                  : '#86EFAC',
+                  : isPublished || isApproved
+                  ? '#86EFAC'
+                  : isClosed
+                  ? '#FDE047'
+                  : '#D8B4FE',
                 letterSpacing: '0.04em',
               }}>
                 {event.status === 'draft' ? 'Draft' : event.status.replace(/_/g, ' ').toUpperCase()}
@@ -193,8 +249,12 @@ export function EventReviewBanner({ event, canManage, approvalInstance }: EventR
                 }`
               ) : isApproved ? (
                 'Executive approvals completed! The Publish action is now unlocked (Spec §4.3 item 3).'
-              ) : (
+              ) : isPublished ? (
                 `Accepting attendee registrations at /events/${event.slug}. Share this link on official channels.`
+              ) : isClosed ? (
+                'Public registration has closed. Check-in operations are active or ready to mark as completed.'
+              ) : (
+                'Event lifecycle has concluded. Attendance records finalized, feedback survey unlocked, and certificates ready to issue.'
               )}
             </p>
           </div>
@@ -279,7 +339,7 @@ export function EventReviewBanner({ event, canManage, approvalInstance }: EventR
           )}
 
           {isPublished && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
               <button
                 type="button"
                 onClick={copyPublicLink}
@@ -312,6 +372,105 @@ export function EventReviewBanner({ event, canManage, approvalInstance }: EventR
                 <Globe size={15} />
                 <span>View Public Page</span>
                 <ExternalLink size={13} />
+              </Link>
+
+              {canManage && (
+                <button
+                  type="button"
+                  onClick={() => setShowCompleteModal(true)}
+                  className="btn-secondary"
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '0.4rem',
+                    padding: '0.6rem 0.95rem',
+                    fontSize: '0.84rem',
+                    fontWeight: 600,
+                    background: 'rgba(168, 85, 247, 0.15)',
+                    border: '1px solid rgba(168, 85, 247, 0.4)',
+                    color: '#D8B4FE',
+                  }}
+                >
+                  <CheckCircle2 size={15} color="#D8B4FE" />
+                  <span>Mark as Completed</span>
+                </button>
+              )}
+            </div>
+          )}
+
+          {isClosed && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+              <Link
+                href={`/events/${event.id}/attendance`}
+                className="btn-secondary"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.4rem',
+                  padding: '0.6rem 0.9rem',
+                  fontSize: '0.82rem',
+                }}
+              >
+                <span>Check-in Attendance</span>
+                <ExternalLink size={13} />
+              </Link>
+
+              {canManage && (
+                <button
+                  type="button"
+                  onClick={() => setShowCompleteModal(true)}
+                  className="btn-primary"
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '0.45rem',
+                    padding: '0.6rem 1rem',
+                    fontSize: '0.84rem',
+                    fontWeight: 700,
+                    background: 'linear-gradient(135deg, #7C3AED, #6D28D9)',
+                  }}
+                >
+                  <CheckCircle2 size={15} />
+                  <span>Mark as Completed</span>
+                </button>
+              )}
+            </div>
+          )}
+
+          {isCompleted && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+              <Link
+                href={`/events/${event.id}/attendance`}
+                className="btn-primary"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.45rem',
+                  padding: '0.6rem 1rem',
+                  fontSize: '0.84rem',
+                  fontWeight: 700,
+                  background: 'linear-gradient(135deg, #7C3AED, #6D28D9)',
+                }}
+              >
+                <CheckCircle2 size={15} />
+                <span>Final Attendance Log</span>
+              </Link>
+
+              <Link
+                href={`/events/${event.slug}`}
+                target="_blank"
+                className="btn-secondary"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.4rem',
+                  padding: '0.6rem 0.9rem',
+                  fontSize: '0.82rem',
+                }}
+              >
+                <Globe size={14} />
+                <span>Public Recap Page</span>
+                <ExternalLink size={12} />
               </Link>
             </div>
           )}
@@ -576,6 +735,155 @@ export function EventReviewBanner({ event, canManage, approvalInstance }: EventR
                   <>
                     <Globe size={15} />
                     Confirm & Publish
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Event Completion Confirmation Modal (Step 8.11) */}
+      {showCompleteModal && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          background: 'rgba(0, 0, 0, 0.75)',
+          backdropFilter: 'blur(8px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 9999,
+          padding: '1.5rem',
+        }}>
+          <div className="glass-panel" style={{
+            maxWidth: '520px',
+            width: '100%',
+            padding: '2rem',
+            borderRadius: '20px',
+            border: '1px solid rgba(168, 85, 247, 0.4)',
+            background: 'linear-gradient(180deg, #18132A 0%, #0F0E1A 100%)',
+            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.7), 0 0 30px rgba(168, 85, 247, 0.2)',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.25rem' }}>
+              <div style={{
+                width: '44px',
+                height: '44px',
+                borderRadius: '12px',
+                background: 'rgba(168, 85, 247, 0.2)',
+                border: '1px solid rgba(168, 85, 247, 0.4)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}>
+                <CheckCircle2 size={24} color="#D8B4FE" />
+              </div>
+              <div>
+                <h3 style={{ fontSize: '1.25rem', fontWeight: 800, margin: 0, color: '#FFFFFF' }}>
+                  Conclude &amp; Mark as Completed
+                </h3>
+                <p style={{ fontSize: '0.8rem', color: '#CBD5E1', margin: 0 }}>
+                  Finalize lifecycle for &quot;{event.title}&quot; (§4.3 item 7)
+                </p>
+              </div>
+            </div>
+
+            <div style={{
+              background: 'rgba(0, 0, 0, 0.35)',
+              padding: '1rem 1.25rem',
+              borderRadius: '12px',
+              border: '1px solid rgba(255, 255, 255, 0.08)',
+              marginBottom: '1.25rem',
+              fontSize: '0.84rem',
+              lineHeight: 1.6,
+              color: '#CBD5E1',
+            }}>
+              <p style={{ margin: '0 0 0.5rem', fontWeight: 700, color: '#F1F5F9' }}>
+                Transitioning to &quot;Completed&quot; triggers the following:
+              </p>
+              <ul style={{ margin: 0, paddingLeft: '1.25rem', display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+                <li>Public registrations will be formally closed.</li>
+                <li>Check-in records and final attendance rate will be finalized.</li>
+                <li>Operations post-event &quot;After&quot; checklist reminder is flagged.</li>
+                <li>Bulk certificate generation for attendees is unlocked (§4.14).</li>
+              </ul>
+            </div>
+
+            <div style={{ marginBottom: '1.5rem' }}>
+              <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: '#CBD5E1', marginBottom: '0.4rem' }}>
+                Optional Wrap-up Notes / Summary
+              </label>
+              <textarea
+                value={completionNotes}
+                onChange={(e) => setCompletionNotes(e.target.value)}
+                placeholder="e.g. Turnout was great, 95 attendees attended, all sessions delivered successfully..."
+                rows={3}
+                style={{
+                  width: '100%',
+                  padding: '0.75rem',
+                  borderRadius: '10px',
+                  background: 'rgba(255, 255, 255, 0.05)',
+                  border: '1px solid rgba(255, 255, 255, 0.12)',
+                  color: '#FFFFFF',
+                  fontSize: '0.88rem',
+                  outline: 'none',
+                }}
+              />
+            </div>
+
+            {errorMsg && (
+              <div style={{
+                background: 'rgba(234, 67, 53, 0.12)',
+                border: '1px solid rgba(234, 67, 53, 0.3)',
+                color: '#F28B82',
+                padding: '0.6rem 0.85rem',
+                borderRadius: '8px',
+                fontSize: '0.82rem',
+                marginBottom: '1rem',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+              }}>
+                <AlertCircle size={15} />
+                {errorMsg}
+              </div>
+            )}
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem' }}>
+              <button
+                type="button"
+                onClick={() => setShowCompleteModal(false)}
+                disabled={isCompleting}
+                className="btn-secondary"
+                style={{ padding: '0.6rem 1rem', fontSize: '0.85rem' }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleComplete}
+                disabled={isCompleting}
+                className="btn-primary"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.45rem',
+                  padding: '0.6rem 1.25rem',
+                  fontSize: '0.85rem',
+                  fontWeight: 700,
+                  background: 'linear-gradient(135deg, #7C3AED, #6D28D9)',
+                  boxShadow: '0 4px 12px rgba(124, 58, 237, 0.3)',
+                }}
+              >
+                {isCompleting ? (
+                  <>
+                    <Loader2 size={15} className="spin" />
+                    <span>Finalizing...</span>
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle2 size={16} />
+                    <span>Confirm &amp; Complete</span>
                   </>
                 )}
               </button>
