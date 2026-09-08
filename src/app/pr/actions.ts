@@ -9,6 +9,7 @@ import {
   PrPipelineStage,
   PrInteractionType,
   PRInteraction,
+  PrDashboardMetrics,
   UserRole,
 } from '@/types';
 
@@ -722,4 +723,238 @@ export async function deletePrInteraction(
     return { success: false, error: err.message };
   }
 }
+
+/**
+ * Get comprehensive KPI metrics for the PR CRM Dashboard (Spec §1.2, §4.7)
+ */
+export async function getPrDashboardMetrics(options?: {
+  skipAuthCheck?: boolean;
+}): Promise<{ success: boolean; data?: PrDashboardMetrics; error?: string }> {
+  try {
+    if (!options?.skipAuthCheck) {
+      const access = await canAccessPrCrm();
+      if (!access.hasAccess) {
+        return { success: false, error: 'Unauthorized: PR CRM access required' };
+      }
+    }
+
+    const admin = createAdminClient();
+
+    // 1. Fetch all contacts
+    const { data: contacts, error: contactsError } = await admin
+      .from('pr_contacts')
+      .select('id, name, organization, type, pipeline_stage, assigned_to, created_at');
+
+    if (contactsError) {
+      console.error('[getPrDashboardMetrics] contacts error:', contactsError);
+      return { success: false, error: contactsError.message };
+    }
+
+    const allContacts = contacts || [];
+    const totalContacts = allContacts.length;
+    const confirmedContacts = allContacts.filter((c) => c.pipeline_stage === 'confirmed').length;
+    const activeNegotiations = allContacts.filter((c) => c.pipeline_stage === 'negotiating').length;
+    const conversionRate = totalContacts > 0 ? Math.round((confirmedContacts / totalContacts) * 100) : 0;
+
+    // Contact Type breakdown
+    const typeBreakdown: Record<PrContactType, number> = {
+      speaker: 0,
+      sponsor: 0,
+      partner: 0,
+      venue: 0,
+      other: 0,
+    };
+    allContacts.forEach((c) => {
+      if (typeBreakdown[c.type as PrContactType] !== undefined) {
+        typeBreakdown[c.type as PrContactType] += 1;
+      } else {
+        typeBreakdown.other += 1;
+      }
+    });
+
+    // Pipeline Stage breakdown
+    const stageBreakdown: Record<PrPipelineStage, number> = {
+      new: 0,
+      contacted: 0,
+      negotiating: 0,
+      confirmed: 0,
+    };
+    allContacts.forEach((c) => {
+      if (stageBreakdown[c.pipeline_stage as PrPipelineStage] !== undefined) {
+        stageBreakdown[c.pipeline_stage as PrPipelineStage] += 1;
+      } else {
+        stageBreakdown.new += 1;
+      }
+    });
+
+    // 2. Fetch all interactions
+    const { data: interactions, error: interError } = await admin
+      .from('pr_interactions')
+      .select('id, contact_id, profile_id, interaction_type, next_follow_up, created_at')
+      .order('created_at', { ascending: false });
+
+    if (interError) {
+      console.error('[getPrDashboardMetrics] interactions error:', interError);
+      return { success: false, error: interError.message };
+    }
+
+    const allInteractions = interactions || [];
+
+    // Interaction channels breakdown
+    const interactionChannelBreakdown: Record<PrInteractionType, number> = {
+      email: 0,
+      call: 0,
+      meeting: 0,
+      message: 0,
+    };
+    allInteractions.forEach((i) => {
+      if (interactionChannelBreakdown[i.interaction_type as PrInteractionType] !== undefined) {
+        interactionChannelBreakdown[i.interaction_type as PrInteractionType] += 1;
+      }
+    });
+
+    // 3. Compute follow-ups and urgent follow-ups
+    const now = Date.now();
+    let overdueCount = 0;
+    let upcomingCount = 0;
+
+    // Map contact ID to contact details for fast lookup
+    const contactMap = new Map<string, any>(allContacts.map((c) => [c.id, c]));
+
+    // Fetch team member names for assignee lookup
+    const assigneeIds = Array.from(new Set(allContacts.map((c) => c.assigned_to).filter(Boolean)));
+    const assigneeMap = new Map<string, string>();
+    if (assigneeIds.length > 0) {
+      const { data: assignees } = await admin
+        .from('profiles')
+        .select('id, full_name_en')
+        .in('id', assigneeIds);
+      if (assignees) {
+        assignees.forEach((a) => assigneeMap.set(a.id, a.full_name_en));
+      }
+    }
+
+    // Identify interactions with scheduled next_follow_up
+    const followUpItems: Array<{
+      contactId: string;
+      contactName: string;
+      organization?: string | null;
+      type: PrContactType;
+      stage: PrPipelineStage;
+      nextFollowUp: string;
+      isOverdue: boolean;
+      diffDays: number;
+      assigneeName?: string | null;
+    }> = [];
+
+    allInteractions.forEach((inter) => {
+      if (!inter.next_follow_up) return;
+      const fDate = new Date(inter.next_follow_up);
+      const diffMs = fDate.getTime() - now;
+      const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24));
+      const isOverdue = diffMs < -1000 * 60 * 60 * 12;
+
+      if (isOverdue) {
+        overdueCount += 1;
+      } else {
+        upcomingCount += 1;
+      }
+
+      const contact = contactMap.get(inter.contact_id);
+      if (contact) {
+        followUpItems.push({
+          contactId: contact.id,
+          contactName: contact.name,
+          organization: contact.organization,
+          type: contact.type as PrContactType,
+          stage: contact.pipeline_stage as PrPipelineStage,
+          nextFollowUp: inter.next_follow_up,
+          isOverdue,
+          diffDays,
+          assigneeName: contact.assigned_to ? assigneeMap.get(contact.assigned_to) || null : null,
+        });
+      }
+    });
+
+    // Deduplicate by contactId taking the most recent or overdue
+    const uniqueFollowUpsMap = new Map<string, typeof followUpItems[0]>();
+    followUpItems.forEach((f) => {
+      const existing = uniqueFollowUpsMap.get(f.contactId);
+      if (!existing || (f.isOverdue && !existing.isOverdue)) {
+        uniqueFollowUpsMap.set(f.contactId, f);
+      }
+    });
+
+    const urgentFollowUps = Array.from(uniqueFollowUpsMap.values())
+      .sort((a, b) => {
+        if (a.isOverdue && !b.isOverdue) return -1;
+        if (!a.isOverdue && b.isOverdue) return 1;
+        return new Date(a.nextFollowUp).getTime() - new Date(b.nextFollowUp).getTime();
+      })
+      .slice(0, 8);
+
+    // 4. Team Activity Leaderboard
+    const profileActivityMap = new Map<string, { interactionsCount: number; contactsAssignedCount: number }>();
+
+    allInteractions.forEach((i) => {
+      if (!i.profile_id) return;
+      const cur = profileActivityMap.get(i.profile_id) || { interactionsCount: 0, contactsAssignedCount: 0 };
+      cur.interactionsCount += 1;
+      profileActivityMap.set(i.profile_id, cur);
+    });
+
+    allContacts.forEach((c) => {
+      if (!c.assigned_to) return;
+      const cur = profileActivityMap.get(c.assigned_to) || { interactionsCount: 0, contactsAssignedCount: 0 };
+      cur.contactsAssignedCount += 1;
+      profileActivityMap.set(c.assigned_to, cur);
+    });
+
+    const teamProfileIds = Array.from(profileActivityMap.keys());
+    const teamActivity: PrDashboardMetrics['teamActivity'] = [];
+
+    if (teamProfileIds.length > 0) {
+      const { data: teamProfiles } = await admin
+        .from('profiles')
+        .select('id, full_name_en, avatar_url, role')
+        .in('id', teamProfileIds);
+
+      if (teamProfiles) {
+        teamProfiles.forEach((p) => {
+          const stats = profileActivityMap.get(p.id) || { interactionsCount: 0, contactsAssignedCount: 0 };
+          teamActivity.push({
+            profileId: p.id,
+            name: p.full_name_en || 'Team Member',
+            avatarUrl: p.avatar_url,
+            role: p.role as UserRole,
+            interactionsCount: stats.interactionsCount,
+            contactsAssignedCount: stats.contactsAssignedCount,
+          });
+        });
+      }
+    }
+
+    teamActivity.sort((a, b) => b.interactionsCount + b.contactsAssignedCount - (a.interactionsCount + a.contactsAssignedCount));
+
+    const metricsData: PrDashboardMetrics = {
+      totalContacts,
+      confirmedContacts,
+      conversionRate,
+      activeNegotiations,
+      overdueFollowUpsCount: overdueCount,
+      upcomingFollowUpsCount: upcomingCount,
+      typeBreakdown,
+      stageBreakdown,
+      interactionChannelBreakdown,
+      teamActivity,
+      urgentFollowUps,
+    };
+
+    return { success: true, data: metricsData };
+  } catch (err: any) {
+    console.error('[getPrDashboardMetrics] exception:', err);
+    return { success: false, error: err.message || 'Failed to compute PR metrics' };
+  }
+}
+
 

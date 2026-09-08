@@ -12,6 +12,7 @@ import { PrContactsListView } from './PrContactsListView';
 import { CreateContactModal } from './CreateContactModal';
 import { EditContactModal } from './EditContactModal';
 import { ContactInteractionsDrawer } from './ContactInteractionsDrawer';
+import { PrKpiDashboard } from './PrKpiDashboard';
 import {
   Kanban,
   List,
@@ -24,6 +25,7 @@ import {
   Clock,
   Briefcase,
   Sparkles,
+  BarChart3,
 } from 'lucide-react';
 
 interface PrCrmHubProps {
@@ -46,7 +48,7 @@ export function PrCrmHub({
   isPresidential,
 }: PrCrmHubProps) {
   const [contacts, setContacts] = useState<PRContact[]>(initialContacts);
-  const [viewMode, setViewMode] = useState<'kanban' | 'list'>('kanban');
+  const [viewMode, setViewMode] = useState<'kanban' | 'list' | 'analytics'>('kanban');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedType, setSelectedType] = useState<string>('all');
   const [selectedStage, setSelectedStage] = useState<string>('all');
@@ -249,6 +251,26 @@ export function PrCrmHub({
                 <List size={15} />
                 <span>Table</span>
               </button>
+              <button
+                onClick={() => setViewMode('analytics')}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.4rem',
+                  padding: '0.45rem 0.85rem',
+                  borderRadius: '0.5rem',
+                  border: 'none',
+                  backgroundColor: viewMode === 'analytics' ? 'var(--google-blue, #4285F4)' : 'transparent',
+                  color: viewMode === 'analytics' ? '#fff' : '#9aa0a6',
+                  fontSize: '0.82rem',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease',
+                }}
+              >
+                <BarChart3 size={15} />
+                <span>Analytics</span>
+              </button>
             </div>
 
             {/* Primary Add Contact CTA */}
@@ -380,20 +402,21 @@ export function PrCrmHub({
         </div>
       </div>
 
-      {/* Filter and Search Bar */}
-      <div
-        className="glass-panel"
-        style={{
-          backgroundColor: 'var(--bg-card, #13151b)',
-          border: '1px solid var(--border-subtle, rgba(255, 255, 255, 0.08))',
-          borderRadius: '1rem',
-          padding: '1rem',
-          display: 'flex',
-          flexWrap: 'wrap',
-          alignItems: 'center',
-          gap: '0.85rem',
-        }}
-      >
+      {/* Filter and Search Bar (Active for Kanban and Table views) */}
+      {viewMode !== 'analytics' && (
+        <div
+          className="glass-panel"
+          style={{
+            backgroundColor: 'var(--bg-card, #13151b)',
+            border: '1px solid var(--border-subtle, rgba(255, 255, 255, 0.08))',
+            borderRadius: '1rem',
+            padding: '1rem',
+            display: 'flex',
+            flexWrap: 'wrap',
+            alignItems: 'center',
+            gap: '0.85rem',
+          }}
+        >
         {/* Search input */}
         <div style={{ position: 'relative', flex: '1 1 240px', minWidth: '220px' }}>
           <Search
@@ -517,8 +540,9 @@ export function PrCrmHub({
           </button>
         )}
       </div>
+      )}
 
-      {/* Main View: Kanban vs List */}
+      {/* Main View: Kanban vs List vs Analytics */}
       {viewMode === 'kanban' ? (
         <PrPipelineKanban
           contacts={filteredContacts}
@@ -527,11 +551,19 @@ export function PrCrmHub({
           onOpenEditModal={(contact) => setEditingContact(contact)}
           onOpenInteractions={(contact) => setInteractionsContact(contact)}
         />
-      ) : (
+      ) : viewMode === 'list' ? (
         <PrContactsListView
           contacts={filteredContacts}
           onOpenEditModal={(contact) => setEditingContact(contact)}
           onOpenInteractions={(contact) => setInteractionsContact(contact)}
+        />
+      ) : (
+        <PrKpiDashboard
+          contacts={contacts}
+          onOpenInteractions={(contactId) => {
+            const c = contacts.find((x) => x.id === contactId);
+            if (c) setInteractionsContact(c);
+          }}
         />
       )}
 

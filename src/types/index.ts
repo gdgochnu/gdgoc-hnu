@@ -541,6 +541,38 @@ export interface PRInteraction {
   } | null;
 }
 
+export interface PrDashboardMetrics {
+  totalContacts: number;
+  confirmedContacts: number;
+  conversionRate: number;
+  activeNegotiations: number;
+  overdueFollowUpsCount: number;
+  upcomingFollowUpsCount: number;
+  typeBreakdown: Record<PrContactType, number>;
+  stageBreakdown: Record<PrPipelineStage, number>;
+  interactionChannelBreakdown: Record<PrInteractionType, number>;
+  teamActivity: Array<{
+    profileId: string;
+    name: string;
+    avatarUrl?: string | null;
+    role: UserRole;
+    interactionsCount: number;
+    contactsAssignedCount: number;
+  }>;
+  urgentFollowUps: Array<{
+    contactId: string;
+    contactName: string;
+    organization?: string | null;
+    type: PrContactType;
+    stage: PrPipelineStage;
+    nextFollowUp: string;
+    isOverdue: boolean;
+    diffDays: number;
+    assigneeName?: string | null;
+  }>;
+}
+
+
 
 
 
