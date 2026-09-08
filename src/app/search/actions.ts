@@ -19,6 +19,12 @@ export async function performGlobalSearch(
     type?: SearchEntityType | 'all';
     skipAuthCheck?: boolean;
     userId?: string;
+    testViewerRole?: {
+      role: string;
+      department_id?: string | null;
+      departmentCode?: string;
+      branch?: 'tech' | 'non_tech';
+    };
   }
 ): Promise<{
   success: boolean;
@@ -41,7 +47,17 @@ export async function performGlobalSearch(
     let isPrAuthorized = false;
     let userDeptId: string | null = null;
 
-    if (!options?.skipAuthCheck) {
+    if (options?.testViewerRole) {
+      const tv = options.testViewerRole;
+      isPresidential = tv.role === 'president' || tv.role === 'co_president';
+      userDeptId = tv.department_id || null;
+      const deptCode = tv.departmentCode;
+      isPrAuthorized =
+        isPresidential ||
+        deptCode === 'PR' ||
+        deptCode === 'PUBLIC_RELATIONS' ||
+        (tv.role === 'branch_head' && tv.branch === 'non_tech');
+    } else if (!options?.skipAuthCheck) {
       const context = await getUserContext();
       if (!context.user || !context.profile || context.profile.status !== 'active') {
         return { success: false, data: [], totalMatches: 0, error: 'Unauthorized' };
@@ -72,10 +88,30 @@ export async function performGlobalSearch(
       });
 
       if (!rpcError && Array.isArray(rpcData) && rpcData.length > 0) {
-        // Filter out PR contacts if caller is not authorized for PR
+        // Strict Scoping Filters:
         let filteredRpc = rpcData;
+
+        // 1. PR Contacts scoping:
         if (!isPrAuthorized) {
           filteredRpc = filteredRpc.filter((item: any) => item.entity_type !== 'pr_contact');
+        }
+
+        // 2. Tasks scoping: non-presidential can only see own department tasks
+        if (!isPresidential && userDeptId) {
+          filteredRpc = filteredRpc.filter((item: any) => {
+            if (item.entity_type !== 'task') return true;
+            return item.metadata?.department_id === userDeptId;
+          });
+        }
+
+        // 3. Events scoping: non-presidential cannot see draft events of other departments
+        if (!isPresidential) {
+          filteredRpc = filteredRpc.filter((item: any) => {
+            if (item.entity_type !== 'event') return true;
+            const isPublished = item.metadata?.status === 'published';
+            const isOwnDept = userDeptId && item.metadata?.department_id === userDeptId;
+            return isPublished || isOwnDept;
+          });
         }
 
         if (filterType !== 'all') {
