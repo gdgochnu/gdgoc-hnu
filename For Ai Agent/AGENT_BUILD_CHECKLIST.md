@@ -164,7 +164,7 @@
 
 ## Phase 13 — Google Drive Bridge
 - [x] 13.1 Create the root Drive folder + the Google Apps Script bound to it. (2026-09-08)
-- [ ] 13.2 Deploy the Apps Script as a Web App exposing `ensureFolderPath`, `uploadFile`, `listFiles`, `deleteFile`, `getShareableLink`, secured by a shared secret token.
+- [x] 13.2 Deploy the Apps Script as a Web App exposing `ensureFolderPath`, `uploadFile`, `listFiles`, `deleteFile`, `getShareableLink`, secured by a shared secret token. (2026-09-08)
 - [ ] 13.3 Build the server-side API Route/Server Action client that calls the Web App and stores results in `drive_folder_map`.
 - [ ] 13.4 Build `/settings/drive` (President-only) to input/rotate the Web App URL + secret.
 - [ ] 13.5 Confirm end-to-end: uploading a file from the app creates it in the correct auto-created Drive subfolder.
