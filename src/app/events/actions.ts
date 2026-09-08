@@ -2331,6 +2331,203 @@ export async function triggerEventFeedbackSurveys(eventId: string) {
   }
 }
 
+export interface SubmitEventFeedbackInput {
+  eventId: string;
+  rating: number; // 1 to 5
+  comment?: string | null;
+  isAnonymous?: boolean; // default true
+  registrationId?: string | null;
+}
+
+/**
+ * Submits feedback (1-5 rating, comment, anonymous toggle) for an event.
+ * Spec §4.18, §3.11, Step 9.2
+ */
+export async function submitEventFeedback(input: SubmitEventFeedbackInput) {
+  const admin = createAdminClient();
+  const context = await getUserContext();
+
+  try {
+    const { eventId, rating, comment, isAnonymous = true, registrationId } = input;
+
+    // 1. Validation: rating must be integer 1 to 5
+    if (!Number.isInteger(rating) || rating < 1 || rating > 5) {
+      return {
+        success: false,
+        error: 'Rating must be a whole number between 1 and 5.',
+        code: 'INVALID_RATING',
+      };
+    }
+
+    // 2. Validation: comment length
+    const cleanComment = comment ? comment.trim() : null;
+    if (cleanComment && cleanComment.length > 1000) {
+      return {
+        success: false,
+        error: 'Comment cannot exceed 1000 characters.',
+        code: 'COMMENT_TOO_LONG',
+      };
+    }
+
+    // 3. Verify event exists
+    const { data: event, error: eventErr } = await admin
+      .from('events')
+      .select('id, title, slug, status')
+      .eq('id', eventId)
+      .single();
+
+    if (eventErr || !event) {
+      return {
+        success: false,
+        error: 'Event not found.',
+        code: 'EVENT_NOT_FOUND',
+      };
+    }
+
+    // Determine submitter identity
+    const profileId = context.profile?.id || null;
+
+    if (!profileId && !registrationId) {
+      return {
+        success: false,
+        error: 'Authentication or registration pass is required to submit feedback.',
+        code: 'UNAUTHORIZED',
+      };
+    }
+
+    // 4. Duplicate prevention
+    if (profileId) {
+      const { data: existingProfileFeedback } = await admin
+        .from('event_feedback')
+        .select('id')
+        .eq('event_id', eventId)
+        .eq('profile_id', profileId)
+        .maybeSingle();
+
+      if (existingProfileFeedback) {
+        return {
+          success: false,
+          error: 'You have already submitted feedback for this event.',
+          code: 'DUPLICATE_SUBMISSION',
+        };
+      }
+    }
+
+    if (registrationId) {
+      const { data: existingRegFeedback } = await admin
+        .from('event_feedback')
+        .select('id')
+        .eq('event_id', eventId)
+        .eq('registration_id', registrationId)
+        .maybeSingle();
+
+      if (existingRegFeedback) {
+        return {
+          success: false,
+          error: 'Feedback has already been submitted for this registration ticket.',
+          code: 'DUPLICATE_SUBMISSION',
+        };
+      }
+    }
+
+    // 5. Insert feedback record
+    const { data: feedback, error: insertErr } = await admin
+      .from('event_feedback')
+      .insert({
+        event_id: eventId,
+        profile_id: profileId,
+        registration_id: registrationId || null,
+        rating,
+        comment: cleanComment,
+        is_anonymous: Boolean(isAnonymous),
+      })
+      .select()
+      .single();
+
+    if (insertErr || !feedback) {
+      console.error('submitEventFeedback insert error:', insertErr);
+      return {
+        success: false,
+        error: insertErr?.message || 'Failed to record feedback.',
+      };
+    }
+
+    // 6. Record audit log
+    await admin.from('audit_logs').insert({
+      actor_id: profileId,
+      action: 'event_feedback_submitted',
+      entity_type: 'event_feedback',
+      entity_id: feedback.id,
+      metadata: {
+        event_id: eventId,
+        event_title: event.title,
+        rating,
+        is_anonymous: Boolean(isAnonymous),
+        has_comment: Boolean(cleanComment),
+        submitted_at: new Date().toISOString(),
+      },
+    });
+
+    // 7. Revalidate paths
+    revalidatePath(`/events/${event.id}`);
+    if (event.slug) revalidatePath(`/events/${event.slug}`);
+    revalidatePath(`/events/${event.id}/feedback`);
+    if (event.slug) revalidatePath(`/events/${event.slug}/feedback`);
+
+    return {
+      success: true,
+      feedback,
+      message: 'Thank you! Your feedback has been submitted successfully.',
+    };
+  } catch (err: unknown) {
+    console.error('submitEventFeedback error:', err);
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : 'An error occurred while submitting feedback.',
+    };
+  }
+}
+
+/**
+ * Retrieves existing feedback submitted by the current user or registration for an event.
+ */
+export async function getExistingEventFeedback(eventId: string, registrationId?: string | null) {
+  const admin = createAdminClient();
+  const context = await getUserContext();
+
+  try {
+    const profileId = context.profile?.id || null;
+
+    if (profileId) {
+      const { data } = await admin
+        .from('event_feedback')
+        .select('*')
+        .eq('event_id', eventId)
+        .eq('profile_id', profileId)
+        .maybeSingle();
+
+      if (data) return { hasSubmitted: true, feedback: data };
+    }
+
+    if (registrationId) {
+      const { data } = await admin
+        .from('event_feedback')
+        .select('*')
+        .eq('event_id', eventId)
+        .eq('registration_id', registrationId)
+        .maybeSingle();
+
+      if (data) return { hasSubmitted: true, feedback: data };
+    }
+
+    return { hasSubmitted: false, feedback: null };
+  } catch (err: unknown) {
+    console.error('getExistingEventFeedback error:', err);
+    return { hasSubmitted: false, feedback: null };
+  }
+}
+
+
 
 
 
