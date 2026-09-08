@@ -572,6 +572,20 @@ export interface PrDashboardMetrics {
   }>;
 }
 
+export type SearchEntityType = 'task' | 'member' | 'event' | 'pr_contact';
+
+export interface GlobalSearchResult {
+  id: string;
+  entity_type: SearchEntityType;
+  title: string;
+  subtitle: string;
+  description: string;
+  url: string;
+  metadata: Record<string, any>;
+  rank: number;
+}
+
+
 
 
 
