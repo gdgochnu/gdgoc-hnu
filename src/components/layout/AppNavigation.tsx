@@ -173,6 +173,15 @@ export function AppNavigation({
       });
     }
 
+    // Content Calendar — visible to all leadership + MEDIA
+    if (isLeadership || deptCode === 'MEDIA') {
+      workspaceItems.push({
+        label: 'Content Calendar',
+        href: '/workspace/content-calendar',
+        icon: Calendar,
+      });
+    }
+
     if (workspaceItems.length > 0) {
       groups.push({
         groupTitle: 'Specialized Workspaces',

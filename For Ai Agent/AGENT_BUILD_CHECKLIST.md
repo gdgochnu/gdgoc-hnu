@@ -176,7 +176,7 @@
 - [x] 14.4 Add the "Add to my Google Calendar" one-click action on task deadlines (simple calendar link/.ics, no extra API scope). (2026-09-08)
 
 ## Phase 15 — Media Workspace & Operations
-- [ ] 15.1 Build the Content Calendar.
+- [x] 15.1 Build the Content Calendar. (2026-09-08)
 - [ ] 15.2 Build the Central Media Library UI backed by the Drive bridge (browse/search/filter by committee/event/type).
 - [ ] 15.3 Build Event Coverage checklists tied to the Drive `/Media-Coverage/` folder per event.
 - [ ] 15.4 Build Operations checklists (Before/During/After) per event.
