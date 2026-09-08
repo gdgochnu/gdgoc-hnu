@@ -231,17 +231,12 @@ export function GlobalSearchBar() {
       {/* Instant Dropdown Preview */}
       {isOpen && query.trim().length >= 2 && (
         <div
-          className="glass-panel"
+          className="glass-panel dropdown-menu"
           style={{
             position: 'absolute',
             top: 'calc(100% + 0.5rem)',
             left: 0,
             right: 0,
-            backgroundColor: 'var(--bg-card, #13151b)',
-            border: '1px solid var(--border-subtle, rgba(255, 255, 255, 0.12))',
-            borderRadius: '0.85rem',
-            boxShadow: '0 20px 40px -8px rgba(0, 0, 0, 0.6)',
-            padding: '0.5rem',
             zIndex: 999,
             maxHeight: '400px',
             overflowY: 'auto',

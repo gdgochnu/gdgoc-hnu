@@ -269,9 +269,177 @@ html, body {
   background: rgba(255, 255, 255, 0.07);
 }
 
-.input-field option {
-  background: #131722;
-  color: #F8F9FA;
+/* ============================================================
+   Unified Dropdown & Select Design System (Global)
+   ============================================================ */
+
+select,
+select.input-field,
+.select-field,
+.custom-select {
+  appearance: none !important;
+  -webkit-appearance: none !important;
+  -moz-appearance: none !important;
+  background-color: rgba(19, 27, 46, 0.8) !important;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%238ab4f8' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") !important;
+  background-repeat: no-repeat !important;
+  background-position: right 0.85rem center !important;
+  background-size: 14px 14px !important;
+  padding-top: 0.55rem !important;
+  padding-bottom: 0.55rem !important;
+  padding-left: 0.9rem !important;
+  padding-right: 2.5rem !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  border-radius: 10px !important;
+  color: #F8FAFC !important;
+  font-family: inherit !important;
+  font-size: 0.86rem !important;
+  font-weight: 500 !important;
+  line-height: 1.4 !important;
+  cursor: pointer !important;
+  backdrop-filter: blur(12px) !important;
+  -webkit-backdrop-filter: blur(12px) !important;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25) !important;
+  outline: none !important;
+}
+
+/* Select Hover State */
+select:hover:not(:disabled),
+select.input-field:hover:not(:disabled),
+.select-field:hover:not(:disabled),
+.custom-select:hover:not(:disabled) {
+  border-color: rgba(66, 133, 244, 0.5) !important;
+  background-color: rgba(26, 37, 62, 0.92) !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35), 0 0 12px rgba(66, 133, 244, 0.22) !important;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%234285F4' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") !important;
+  transform: translateY(-1px);
+}
+
+/* Select Focus State */
+select:focus,
+select.input-field:focus,
+.select-field:focus,
+.custom-select:focus {
+  border-color: var(--google-blue) !important;
+  background-color: rgba(20, 29, 50, 0.98) !important;
+  box-shadow: 0 0 0 3px rgba(66, 133, 244, 0.28), 0 8px 24px rgba(0, 0, 0, 0.45) !important;
+  outline: none !important;
+}
+
+/* Select Disabled State */
+select:disabled,
+select.input-field:disabled,
+.select-field:disabled,
+.custom-select:disabled {
+  opacity: 0.5 !important;
+  cursor: not-allowed !important;
+  background-color: rgba(255, 255, 255, 0.03) !important;
+  border-color: rgba(255, 255, 255, 0.06) !important;
+  box-shadow: none !important;
+  transform: none !important;
+}
+
+/* Select Options Popup */
+select option {
+  background-color: #0E1626 !important;
+  color: #F8FAFC !important;
+  padding: 0.7rem 1rem !important;
+  font-size: 0.88rem !important;
+  font-family: inherit !important;
+}
+
+select option:hover,
+select option:focus,
+select option:checked {
+  background-color: #1A2744 !important;
+  color: #8AB4F8 !important;
+}
+
+/* Select Optgroup Headers */
+select optgroup {
+  background-color: #080D18 !important;
+  color: #8AB4F8 !important;
+  font-weight: 700 !important;
+  font-size: 0.74rem !important;
+  letter-spacing: 0.06em !important;
+  text-transform: uppercase !important;
+  padding: 0.6rem 0.6rem 0.3rem !important;
+}
+
+/* Arabic / RTL Select Layout */
+[dir="rtl"] select,
+html[dir="rtl"] select,
+body[dir="rtl"] select,
+[dir="rtl"] .select-field,
+[dir="rtl"] select.input-field {
+  background-position: left 0.85rem center !important;
+  padding-left: 2.5rem !important;
+  padding-right: 0.9rem !important;
+}
+
+/* Custom Dropdown Menus & Popovers */
+.dropdown-menu,
+.dropdown-popover {
+  background: rgba(14, 22, 38, 0.96) !important;
+  backdrop-filter: blur(20px) !important;
+  -webkit-backdrop-filter: blur(20px) !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  border-radius: 12px !important;
+  box-shadow: 0 16px 40px -8px rgba(0, 0, 0, 0.65), 0 0 20px rgba(66, 133, 244, 0.15) !important;
+  padding: 0.45rem !important;
+  z-index: 1000 !important;
+  animation: dropdownFadeIn 0.18s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+.dropdown-item {
+  display: flex !important;
+  align-items: center !important;
+  gap: 0.65rem !important;
+  padding: 0.55rem 0.85rem !important;
+  border-radius: 8px !important;
+  color: var(--text-primary) !important;
+  font-size: 0.85rem !important;
+  font-weight: 500 !important;
+  text-decoration: none !important;
+  cursor: pointer !important;
+  transition: all 0.15s ease !important;
+  border: none !important;
+  background: transparent !important;
+  width: 100% !important;
+  text-align: left !important;
+}
+
+.dropdown-item:hover {
+  background: rgba(66, 133, 244, 0.14) !important;
+  color: #8AB4F8 !important;
+  transform: translateX(2px) !important;
+}
+
+.dropdown-header {
+  font-size: 0.72rem !important;
+  font-weight: 700 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.05em !important;
+  color: var(--text-muted) !important;
+  padding: 0.5rem 0.85rem 0.25rem !important;
+}
+
+.dropdown-divider {
+  height: 1px !important;
+  background: rgba(255, 255, 255, 0.08) !important;
+  margin: 0.35rem 0 !important;
+}
+
+@keyframes dropdownFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
 /* ============================================================
