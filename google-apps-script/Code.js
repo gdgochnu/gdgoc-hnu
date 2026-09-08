@@ -88,10 +88,22 @@ function doPost(e) {
       case 'getShareableLink':
         return handleGetShareableLink(payload);
 
+      case 'getSharedCalendar':
+        return handleGetSharedCalendar(payload);
+
+      case 'createCalendarEvent':
+        return handleCreateCalendarEvent(payload);
+
+      case 'updateCalendarEvent':
+        return handleUpdateCalendarEvent(payload);
+
+      case 'deleteCalendarEvent':
+        return handleDeleteCalendarEvent(payload);
+
       default:
         return jsonResponse({
           success: false,
-          error: 'Unknown action: ' + action + '. Valid actions: ping, ensureFolderPath, uploadFile, listFiles, deleteFile, getShareableLink'
+          error: 'Unknown action: ' + action + '. Valid actions: ping, ensureFolderPath, uploadFile, listFiles, deleteFile, getShareableLink, getSharedCalendar, createCalendarEvent, updateCalendarEvent, deleteCalendarEvent'
         }, 400);
     }
   } catch (err) {
@@ -385,6 +397,132 @@ function handleGetShareableLink(payload) {
 }
 
 /**
+ * ==============================================================================
+ * Google Calendar Integration Handlers (Phase 14 — Spec §4.17)
+ * ==============================================================================
+ */
+var PROP_CALENDAR_ID = 'SHARED_CALENDAR_ID';
+
+function getOrCreateSharedCalendar() {
+  var properties = PropertiesService.getScriptProperties();
+  var calId = properties.getProperty(PROP_CALENDAR_ID);
+
+  if (calId) {
+    try {
+      var cal = CalendarApp.getCalendarById(calId);
+      if (cal) return cal;
+    } catch (e) {}
+  }
+
+  var cals = CalendarApp.getCalendarsByName('GDGoC HNU');
+  if (cals.length > 0) {
+    properties.setProperty(PROP_CALENDAR_ID, cals[0].getId());
+    return cals[0];
+  }
+
+  var newCal = CalendarApp.createCalendar('GDGoC HNU', {
+    timeZone: 'Africa/Cairo',
+    summary: 'Official Google Developer Groups on Campus - Helwan National University Shared Calendar'
+  });
+  properties.setProperty(PROP_CALENDAR_ID, newCal.getId());
+  return newCal;
+}
+
+function handleGetSharedCalendar(payload) {
+  var cal = getOrCreateSharedCalendar();
+  var calId = cal.getId();
+  var subscribableLink = 'https://calendar.google.com/calendar/render?cid=' + encodeURIComponent(calId);
+  var icalUrl = 'https://calendar.google.com/calendar/ical/' + encodeURIComponent(calId) + '/public/basic.ics';
+
+  return jsonResponse({
+    success: true,
+    action: 'getSharedCalendar',
+    calendarId: calId,
+    calendarName: cal.getName(),
+    timeZone: cal.getTimeZone(),
+    subscribableLink: subscribableLink,
+    icalUrl: icalUrl
+  });
+}
+
+function handleCreateCalendarEvent(payload) {
+  if (!payload.title || !payload.startTime) {
+    return jsonResponse({ success: false, error: 'Missing title or startTime for calendar event' }, 400);
+  }
+
+  var cal = getOrCreateSharedCalendar();
+  var start = new Date(payload.startTime);
+  var end = payload.endTime ? new Date(payload.endTime) : new Date(start.getTime() + 60 * 60 * 1000);
+
+  var options = {
+    description: payload.description || '',
+    location: payload.location || ''
+  };
+
+  var event;
+  if (payload.isAllDay) {
+    event = cal.createAllDayEvent(payload.title, start, options);
+  } else {
+    event = cal.createEvent(payload.title, start, end, options);
+  }
+
+  return jsonResponse({
+    success: true,
+    action: 'createCalendarEvent',
+    eventId: event.getId(),
+    title: event.getTitle(),
+    startTime: event.getStartTime().toISOString(),
+    endTime: event.getEndTime().toISOString(),
+    htmlLink: 'https://calendar.google.com/calendar/event?eid=' + Utilities.base64Encode(event.getId())
+  });
+}
+
+function handleUpdateCalendarEvent(payload) {
+  if (!payload.eventId) {
+    return jsonResponse({ success: false, error: 'Missing eventId' }, 400);
+  }
+
+  var cal = getOrCreateSharedCalendar();
+  var event = cal.getEventById(payload.eventId);
+  if (!event) {
+    return jsonResponse({ success: false, error: 'Calendar event not found' }, 404);
+  }
+
+  if (payload.title) event.setTitle(payload.title);
+  if (payload.description !== undefined) event.setDescription(payload.description);
+  if (payload.location !== undefined) event.setLocation(payload.location);
+  if (payload.startTime && payload.endTime) {
+    event.setTime(new Date(payload.startTime), new Date(payload.endTime));
+  }
+
+  return jsonResponse({
+    success: true,
+    action: 'updateCalendarEvent',
+    eventId: event.getId(),
+    title: event.getTitle()
+  });
+}
+
+function handleDeleteCalendarEvent(payload) {
+  if (!payload.eventId) {
+    return jsonResponse({ success: false, error: 'Missing eventId' }, 400);
+  }
+
+  var cal = getOrCreateSharedCalendar();
+  var event = cal.getEventById(payload.eventId);
+  if (event) {
+    event.deleteEvent();
+  }
+
+  return jsonResponse({
+    success: true,
+    action: 'deleteCalendarEvent',
+    eventId: payload.eventId,
+    message: 'Event deleted from calendar successfully'
+  });
+}
+
+/**
  * Helper: Output JSON HTTP response
  */
 function jsonResponse(data, statusCode) {
@@ -392,3 +530,4 @@ function jsonResponse(data, statusCode) {
   output.setMimeType(ContentService.MimeType.JSON);
   return output;
 }
+

@@ -170,7 +170,7 @@
 - [x] 13.5 Confirm end-to-end: uploading a file from the app creates it in the correct auto-created Drive subfolder. (2026-09-08)
 
 ## Phase 14 — Google Calendar Integration (spec §4.17)
-- [ ] 14.1 Enable the Google Calendar API on the same Google account/credentials as the Drive bridge; create the shared "GDGoC HNU" calendar.
+- [x] 14.1 Enable the Google Calendar API on the same Google account/credentials as the Drive bridge; create the shared "GDGoC HNU" calendar. (2026-09-08)
 - [ ] 14.2 Wire event publish/unpublish/edit to create/update/remove the corresponding Calendar entry.
 - [ ] 14.3 Expose the shared calendar's subscribable link on the dashboard.
 - [ ] 14.4 Add the "Add to my Google Calendar" one-click action on task deadlines (simple calendar link/.ics, no extra API scope).

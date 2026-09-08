@@ -1,22 +1,14 @@
 /**
  * ==============================================================================
- * GDGoC HNU OS — Google Drive Bridge (Google Apps Script)
- * Phase 13 — Steps 13.1 & 13.2
+ * GDGoC HNU OS — Google Drive & Calendar Bridge (Google Apps Script)
+ * Phase 13 (Drive) & Phase 14 (Calendar — Spec §4.17)
  * ==============================================================================
- * This script runs inside Google Apps Script under the chapter's Google Account.
- * It exposes a secure Web App endpoint for GDGoC HNU OS to manage Drive folders,
- * upload files, retrieve shareable links, and list directory contents.
- *
- * Security:
- * - Every request must include the shared secret token set in Script Properties:
- *   DRIVE_BRIDGE_SECRET
- * - Optional ROOT_FOLDER_ID in Script Properties to specify root workspace folder.
- *   If not set, a root folder "GDGoC HNU OS Workspace" is automatically created.
  */
 
 // Configuration Keys in Script Properties
 var PROP_SECRET = 'DRIVE_BRIDGE_SECRET';
 var PROP_ROOT_FOLDER_ID = 'ROOT_FOLDER_ID';
+var PROP_CALENDAR_ID = 'SHARED_CALENDAR_ID';
 
 /**
  * Handle HTTP GET (Health check / Ping)
@@ -31,7 +23,7 @@ function doGet(e) {
     var rootFolder = getRootFolder();
     return jsonResponse({
       success: true,
-      message: 'GDGoC HNU OS Drive Bridge is active',
+      message: 'GDGoC HNU OS Drive & Calendar Bridge is active',
       timestamp: new Date().toISOString(),
       rootFolderId: rootFolder.getId(),
       rootFolderName: rootFolder.getName(),
@@ -88,14 +80,26 @@ function doPost(e) {
       case 'getShareableLink':
         return handleGetShareableLink(payload);
 
+      case 'getSharedCalendar':
+        return handleGetSharedCalendar(payload);
+
+      case 'createCalendarEvent':
+        return handleCreateCalendarEvent(payload);
+
+      case 'updateCalendarEvent':
+        return handleUpdateCalendarEvent(payload);
+
+      case 'deleteCalendarEvent':
+        return handleDeleteCalendarEvent(payload);
+
       default:
         return jsonResponse({
           success: false,
-          error: 'Unknown action: ' + action + '. Valid actions: ping, ensureFolderPath, uploadFile, listFiles, deleteFile, getShareableLink'
+          error: 'Unknown action: ' + action + '. Valid actions: ping, ensureFolderPath, uploadFile, listFiles, deleteFile, getShareableLink, getSharedCalendar, createCalendarEvent, updateCalendarEvent, deleteCalendarEvent'
         }, 400);
     }
   } catch (err) {
-    return jsonResponse({ success: false, error: 'Exception in Drive Bridge: ' + err.toString() }, 500);
+    return jsonResponse({ success: false, error: 'Exception in Bridge: ' + err.toString() }, 500);
   }
 }
 
@@ -106,7 +110,6 @@ function verifyAuth(e, payload) {
   var properties = PropertiesService.getScriptProperties();
   var configuredSecret = properties.getProperty(PROP_SECRET);
 
-  // If secret not configured in script properties yet, warn and block
   if (!configuredSecret) {
     return 'Server configuration error: DRIVE_BRIDGE_SECRET property is not set in Script Properties.';
   }
@@ -135,12 +138,9 @@ function getRootFolder() {
   if (rootId) {
     try {
       return DriveApp.getFolderById(rootId);
-    } catch (e) {
-      // Folder may have been deleted or invalid ID; fall through to recreation
-    }
+    } catch (e) {}
   }
 
-  // Look for existing folder with standard chapter name
   var folderName = 'GDGoC HNU OS Workspace';
   var folders = DriveApp.getFoldersByName(folderName);
   if (folders.hasNext()) {
@@ -149,7 +149,6 @@ function getRootFolder() {
     return existingFolder;
   }
 
-  // Create new root folder
   var newRoot = DriveApp.createFolder(folderName);
   properties.setProperty(PROP_ROOT_FOLDER_ID, newRoot.getId());
   return newRoot;
@@ -173,8 +172,6 @@ function handlePing() {
 
 /**
  * Action: ensureFolderPath
- * Creates or retrieves nested folder hierarchy starting from root.
- * Accepts payload: { pathSegments: ["Events", "2026", "Orientation"] } OR path: "Events/2026/Orientation"
  */
 function handleEnsureFolderPath(payload) {
   var rawPath = payload.pathSegments || payload.path;
@@ -224,13 +221,6 @@ function handleEnsureFolderPath(payload) {
 
 /**
  * Action: uploadFile
- * Accepts payload: {
- *   folderId: string (optional, defaults to root),
- *   fileName: string,
- *   mimeType: string,
- *   base64Data: string,
- *   makePublic: boolean (optional, default true)
- * }
  */
 function handleUploadFile(payload) {
   if (!payload.fileName || !payload.base64Data) {
@@ -254,13 +244,10 @@ function handleUploadFile(payload) {
 
   var createdFile = targetFolder.createFile(blob);
 
-  // Set sharing: Anyone with link can view (default true)
   if (payload.makePublic !== false) {
     try {
       createdFile.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
-    } catch (shareErr) {
-      // Non-fatal if domain policies restrict external sharing
-    }
+    } catch (shareErr) {}
   }
 
   return jsonResponse({
@@ -279,7 +266,6 @@ function handleUploadFile(payload) {
 
 /**
  * Action: listFiles
- * Accepts payload: { folderId: string (optional), limit: number }
  */
 function handleListFiles(payload) {
   var targetFolder;
@@ -338,7 +324,6 @@ function handleListFiles(payload) {
 
 /**
  * Action: deleteFile
- * Accepts payload: { fileId: string }
  */
 function handleDeleteFile(payload) {
   if (!payload.fileId) {
@@ -361,7 +346,6 @@ function handleDeleteFile(payload) {
 
 /**
  * Action: getShareableLink
- * Accepts payload: { fileId: string }
  */
 function handleGetShareableLink(payload) {
   if (!payload.fileId) {
@@ -382,6 +366,130 @@ function handleGetShareableLink(payload) {
   } catch (e) {
     return jsonResponse({ success: false, error: 'Could not retrieve shareable link: ' + e.toString() }, 404);
   }
+}
+
+/**
+ * ==============================================================================
+ * Google Calendar Integration Handlers (Phase 14 — Spec §4.17)
+ * ==============================================================================
+ */
+function getOrCreateSharedCalendar() {
+  var properties = PropertiesService.getScriptProperties();
+  var calId = properties.getProperty(PROP_CALENDAR_ID);
+
+  if (calId) {
+    try {
+      var cal = CalendarApp.getCalendarById(calId);
+      if (cal) return cal;
+    } catch (e) {}
+  }
+
+  var cals = CalendarApp.getCalendarsByName('GDGoC HNU');
+  if (cals.length > 0) {
+    properties.setProperty(PROP_CALENDAR_ID, cals[0].getId());
+    return cals[0];
+  }
+
+  var newCal = CalendarApp.createCalendar('GDGoC HNU', {
+    timeZone: 'Africa/Cairo',
+    summary: 'Official Google Developer Groups on Campus - Helwan National University Shared Calendar'
+  });
+  properties.setProperty(PROP_CALENDAR_ID, newCal.getId());
+  return newCal;
+}
+
+function handleGetSharedCalendar(payload) {
+  var cal = getOrCreateSharedCalendar();
+  var calId = cal.getId();
+  var subscribableLink = 'https://calendar.google.com/calendar/render?cid=' + encodeURIComponent(calId);
+  var icalUrl = 'https://calendar.google.com/calendar/ical/' + encodeURIComponent(calId) + '/public/basic.ics';
+
+  return jsonResponse({
+    success: true,
+    action: 'getSharedCalendar',
+    calendarId: calId,
+    calendarName: cal.getName(),
+    timeZone: cal.getTimeZone(),
+    subscribableLink: subscribableLink,
+    icalUrl: icalUrl
+  });
+}
+
+function handleCreateCalendarEvent(payload) {
+  if (!payload.title || !payload.startTime) {
+    return jsonResponse({ success: false, error: 'Missing title or startTime for calendar event' }, 400);
+  }
+
+  var cal = getOrCreateSharedCalendar();
+  var start = new Date(payload.startTime);
+  var end = payload.endTime ? new Date(payload.endTime) : new Date(start.getTime() + 60 * 60 * 1000);
+
+  var options = {
+    description: payload.description || '',
+    location: payload.location || ''
+  };
+
+  var event;
+  if (payload.isAllDay) {
+    event = cal.createAllDayEvent(payload.title, start, options);
+  } else {
+    event = cal.createEvent(payload.title, start, end, options);
+  }
+
+  return jsonResponse({
+    success: true,
+    action: 'createCalendarEvent',
+    eventId: event.getId(),
+    title: event.getTitle(),
+    startTime: event.getStartTime().toISOString(),
+    endTime: event.getEndTime().toISOString(),
+    htmlLink: 'https://calendar.google.com/calendar/event?eid=' + Utilities.base64Encode(event.getId())
+  });
+}
+
+function handleUpdateCalendarEvent(payload) {
+  if (!payload.eventId) {
+    return jsonResponse({ success: false, error: 'Missing eventId' }, 400);
+  }
+
+  var cal = getOrCreateSharedCalendar();
+  var event = cal.getEventById(payload.eventId);
+  if (!event) {
+    return jsonResponse({ success: false, error: 'Calendar event not found' }, 404);
+  }
+
+  if (payload.title) event.setTitle(payload.title);
+  if (payload.description !== undefined) event.setDescription(payload.description);
+  if (payload.location !== undefined) event.setLocation(payload.location);
+  if (payload.startTime && payload.endTime) {
+    event.setTime(new Date(payload.startTime), new Date(payload.endTime));
+  }
+
+  return jsonResponse({
+    success: true,
+    action: 'updateCalendarEvent',
+    eventId: event.getId(),
+    title: event.getTitle()
+  });
+}
+
+function handleDeleteCalendarEvent(payload) {
+  if (!payload.eventId) {
+    return jsonResponse({ success: false, error: 'Missing eventId' }, 400);
+  }
+
+  var cal = getOrCreateSharedCalendar();
+  var event = cal.getEventById(payload.eventId);
+  if (event) {
+    event.deleteEvent();
+  }
+
+  return jsonResponse({
+    success: true,
+    action: 'deleteCalendarEvent',
+    eventId: payload.eventId,
+    message: 'Event deleted from calendar successfully'
+  });
 }
 
 /**
