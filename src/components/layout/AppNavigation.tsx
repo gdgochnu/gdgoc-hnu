@@ -28,6 +28,7 @@ import {
   Sparkles,
   ExternalLink
 } from 'lucide-react';
+import { GlobalSearchBar } from './GlobalSearchBar';
 
 interface NavItem {
   label: string;
@@ -568,6 +569,11 @@ export function AppNavigation({
                 <span style={{ opacity: 0.6, fontSize: '0.75rem' }}>• {profile.department.branch === 'tech' ? 'Tech' : 'Non-Tech'}</span>
               </div>
             ) : null}
+          </div>
+
+          {/* Center: Global Search Bar with Hotkey */}
+          <div style={{ flex: '1', maxWidth: '420px', margin: '0 1.25rem' }}>
+            <GlobalSearchBar />
           </div>
 
           {/* Right Controls: Notifications & Quick Access */}

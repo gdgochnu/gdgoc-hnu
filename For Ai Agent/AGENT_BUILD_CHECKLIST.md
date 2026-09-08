@@ -159,7 +159,7 @@
 
 ## Phase 12 — Global Search (spec §4.19)
 - [x] 12.1 Build the Postgres full-text search RPC across Tasks, Members, Events, and PR Contacts. (2026-09-08)
-- [ ] 12.2 Build the search bar in the app header + the `/search` results page.
+- [x] 12.2 Build the search bar in the app header + the `/search` results page. (2026-09-08)
 - [ ] 12.3 Confirm results are correctly scoped by the viewer's existing RLS permissions (no data leaks through search).
 
 ## Phase 13 — Google Drive Bridge
