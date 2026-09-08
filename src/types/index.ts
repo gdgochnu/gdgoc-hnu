@@ -467,5 +467,28 @@ export interface PerformanceComputationResult {
   }>;
 }
 
+export interface Certificate {
+  id: string;
+  template_id?: string | null;
+  recipient_profile_id?: string | null;
+  recipient_name: string;
+  recipient_email: string;
+  event_id?: string | null;
+  title: string;
+  issue_date: string;
+  certificate_number: string;
+  verification_code: string;
+  pdf_drive_file_id?: string | null;
+  pdf_drive_url?: string | null;
+  issued_by?: string | null;
+  created_at: string;
+  event?: {
+    id: string;
+    title: string;
+    slug: string;
+  } | null;
+}
+
+
 
 

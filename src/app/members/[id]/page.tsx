@@ -118,6 +118,48 @@ export default async function MemberProfilePage({ params }: MemberProfilePagePro
     department,
   };
 
+  // 4. Fetch performance reviews, certificates, and live attendance metrics in parallel (Spec §4.6 & Step 10.5)
+  const [
+    { data: performanceReviewsData },
+    { data: certificatesData },
+    { data: attendanceRowsData },
+    { count: totalEventsCount },
+  ] = await Promise.all([
+    supabase
+      .from('performance_reviews')
+      .select('*')
+      .eq('profile_id', id)
+      .order('period_month', { ascending: true }),
+    supabase
+      .from('certificates')
+      .select(`
+        id,
+        template_id,
+        recipient_profile_id,
+        recipient_name,
+        recipient_email,
+        event_id,
+        title,
+        issue_date,
+        certificate_number,
+        verification_code,
+        pdf_drive_file_id,
+        pdf_drive_url,
+        issued_by,
+        created_at
+      `)
+      .or(`recipient_profile_id.eq.${id},recipient_email.eq.${profile.email}`)
+      .order('created_at', { ascending: false }),
+    supabase
+      .from('attendance')
+      .select('id, event_id')
+      .eq('profile_id', id),
+    supabase
+      .from('events')
+      .select('id', { count: 'exact', head: true })
+      .in('status', ['published', 'completed', 'closed']),
+  ]);
+
   return (
     <AppShell>
       <div style={{ padding: '2.5rem 2rem 5rem', maxWidth: '1100px', margin: '0 auto' }} suppressHydrationWarning>
@@ -126,6 +168,10 @@ export default async function MemberProfilePage({ params }: MemberProfilePagePro
           callerRole={context.profile?.role}
           callerId={context.user?.id}
           canViewNationalId={canViewNationalId}
+          performanceReviews={performanceReviewsData || []}
+          certificates={certificatesData || []}
+          eventsAttendedCount={attendanceRowsData?.length || 0}
+          totalCompletedEventsCount={totalEventsCount || 0}
         />
       </div>
     </AppShell>

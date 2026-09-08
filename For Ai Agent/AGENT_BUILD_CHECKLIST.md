@@ -150,7 +150,7 @@
 - [x] 10.2 Build the org-wide Attendance Rate leaderboard (all roles, including Heads/President/Co-President). (2026-09-08)
 - [x] 10.3 Build low-engagement alerts + HR notes/follow-up log. (2026-09-08)
 - [x] 10.4 Build the monthly `performance_reviews` computation job. (2026-09-08)
-- [ ] 10.5 Add the performance trend chart + attendance rate + certificates tab to every profile page.
+- [x] 10.5 Add the performance trend chart + attendance rate + certificates tab to every profile page. (2026-09-08)
 
 ## Phase 11 — PR CRM
 - [ ] 11.1 Build Contacts + Pipeline (Kanban: new/contacted/negotiating/confirmed).

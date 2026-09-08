@@ -2,7 +2,9 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { UserRole, ProfileStatus } from '@/types';
+import { UserRole, ProfileStatus, PerformanceReview, Certificate } from '@/types';
+import { MemberPerformanceTab } from '@/components/profile/MemberPerformanceTab';
+import { MemberCertificatesTab } from '@/components/profile/MemberCertificatesTab';
 import { 
   ArrowLeft, 
   Mail, 
@@ -70,6 +72,10 @@ interface MemberProfileViewProps {
   callerRole?: string;
   callerId?: string;
   canViewNationalId?: boolean;
+  performanceReviews?: PerformanceReview[];
+  certificates?: Certificate[];
+  eventsAttendedCount?: number;
+  totalCompletedEventsCount?: number;
 }
 
 export function MemberProfileView({
@@ -77,6 +83,10 @@ export function MemberProfileView({
   callerRole,
   callerId,
   canViewNationalId = false,
+  performanceReviews = [],
+  certificates = [],
+  eventsAttendedCount = 0,
+  totalCompletedEventsCount = 0,
 }: MemberProfileViewProps) {
   const [activeTab, setActiveTab] = useState<'overview' | 'skills' | 'performance' | 'certificates'>('overview');
 
@@ -833,38 +843,22 @@ export function MemberProfileView({
         </div>
       ) : null}
 
-      {/* Tab 3: Performance & Attendance (Prepared for Phase 10 & Spec §7.5) */}
+      {/* Tab 3: Performance & Attendance (Spec §4.6 - Trend Chart + Attendance Rate) */}
       {activeTab === 'performance' ? (
-        <div className="glass-panel" style={{ padding: '3.5rem 2rem', textAlign: 'center' }}>
-          <div style={{ width: '56px', height: '56px', borderRadius: '14px', background: 'rgba(251, 188, 4, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.25rem' }}>
-            <BarChart3 size={28} color="var(--google-yellow)" />
-          </div>
-          <h3 style={{ fontSize: '1.3rem', fontWeight: 800, marginBottom: '0.5rem' }}>Performance & Attendance Hub</h3>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '0.95rem', maxWidth: '520px', margin: '0 auto 1.5rem', lineHeight: 1.6 }}>
-            Monthly performance reviews, deadline adherence metrics, and event check-in attendance rates will be tracked and displayed here as committee events and tasks progress.
-          </p>
-          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', padding: '0.4rem 0.85rem', borderRadius: '999px', background: 'rgba(251, 188, 4, 0.1)', color: '#FDE047', fontSize: '0.82rem', fontWeight: 700 }}>
-            <Sparkles size={14} />
-            <span>Coming in Phase 10 (Spec §4.10)</span>
-          </div>
-        </div>
+        <MemberPerformanceTab
+          member={member}
+          reviews={performanceReviews}
+          eventsAttendedCount={eventsAttendedCount}
+          totalCompletedEventsCount={totalCompletedEventsCount}
+        />
       ) : null}
 
-      {/* Tab 4: Certificates (Prepared for Spec §3.14) */}
+      {/* Tab 4: Certificates (Spec §4.6 & §4.14 - Verifiable Certificates Tab) */}
       {activeTab === 'certificates' ? (
-        <div className="glass-panel" style={{ padding: '3.5rem 2rem', textAlign: 'center' }}>
-          <div style={{ width: '56px', height: '56px', borderRadius: '14px', background: 'rgba(234, 67, 53, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.25rem' }}>
-            <Award size={28} color="var(--google-red)" />
-          </div>
-          <h3 style={{ fontSize: '1.3rem', fontWeight: 800, marginBottom: '0.5rem' }}>Verified Credentials & Certificates</h3>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '0.95rem', maxWidth: '520px', margin: '0 auto 1.5rem', lineHeight: 1.6 }}>
-            Official cryptographically verifiable certificates for workshop attendance, hackathons, and leadership tenures will be issued and viewable here once the certificate issuance engine is active.
-          </p>
-          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', padding: '0.4rem 0.85rem', borderRadius: '999px', background: 'rgba(234, 67, 53, 0.1)', color: '#FCA5A5', fontSize: '0.82rem', fontWeight: 700 }}>
-            <Award size={14} />
-            <span>Coming with Certificate Engine (Spec §3.14)</span>
-          </div>
-        </div>
+        <MemberCertificatesTab
+          certificates={certificates}
+          memberName={primaryName}
+        />
       ) : null}
     </div>
   );
