@@ -5,6 +5,8 @@ import { EventTaskList } from '@/components/events/EventTaskList';
 import { CheckinAccessManager } from '@/components/events/CheckinAccessManager';
 import { EventReviewBanner } from '@/components/events/EventReviewBanner';
 import { PublicEventView } from '@/components/events/PublicEventView';
+import { EventFeedbackResultsView } from '@/components/events/EventFeedbackResultsView';
+import { getEventFeedbackSummary } from '@/app/events/actions';
 import { Event, EventStatus } from '@/types';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
@@ -22,7 +24,8 @@ import {
   ExternalLink,
   Sparkles,
   Lock,
-  Globe
+  Globe,
+  Star
 } from 'lucide-react';
 
 export const dynamic = 'force-dynamic';
@@ -286,10 +289,11 @@ export default async function EventDetailPage({ params, searchParams }: EventDet
 
   const tasks = tasksData || [];
 
-  // 3. Fetch departments & active members for task creation modal
-  const [deptRes, memberRes] = await Promise.all([
+  // 3. Fetch departments & active members for task creation modal, and event feedback summary (Step 9.3)
+  const [deptRes, memberRes, feedbackSummary] = await Promise.all([
     admin.from('departments').select('id, name, code, branch').order('name'),
     admin.from('profiles').select('id, full_name, full_name_en, email, avatar_url, department_id').eq('status', 'active').order('full_name'),
+    getEventFeedbackSummary(event.id),
   ]);
 
   const departments = deptRes.data || [];
@@ -479,8 +483,22 @@ export default async function EventDetailPage({ params, searchParams }: EventDet
                     <span>{event.capacity || 'Unlimited'}</span>
                   </div>
                 </div>
+
+                {feedbackSummary.totalCount > 0 && (
+                  <>
+                    <div style={{ width: '1px', background: 'var(--border-subtle)' }} />
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
+                      <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 700 }}>RATING</span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontWeight: 700, fontSize: '0.92rem', color: '#FBBF24' }}>
+                        <Star size={14} className="fill-amber-400 text-amber-400" />
+                        <span>{feedbackSummary.averageRating.toFixed(1)} <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>({feedbackSummary.totalCount})</span></span>
+                      </div>
+                    </div>
+                  </>
+                )}
               </div>
             </div>
+
 
             {/* Logistics Grid */}
             <div style={{
@@ -559,8 +577,17 @@ export default async function EventDetailPage({ params, searchParams }: EventDet
               canManage={canManage}
             />
           </div>
+
+          {/* Event Feedback Results & Satisfaction Metrics (Step 9.3 Highlight) */}
+          <EventFeedbackResultsView
+            summary={feedbackSummary}
+            eventSlugOrId={event.slug || event.id}
+            isEventCompleted={event.status === 'completed'}
+            canManage={canManage}
+          />
         </div>
       </div>
     </AppShell>
+
   );
 }

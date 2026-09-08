@@ -264,5 +264,22 @@ export interface EventFeedback {
   } | null;
 }
 
+export interface EventFeedbackSummary {
+  eventId: string;
+  totalCount: number;
+  averageRating: number;
+  distribution: {
+    5: number;
+    4: number;
+    3: number;
+    2: number;
+    1: number;
+  };
+  commentsCount: number;
+  anonymousCount: number;
+  feedback: EventFeedback[];
+}
+
+
 
 

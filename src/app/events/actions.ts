@@ -4,7 +4,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getUserContext } from '@/lib/auth/get-user-context';
 import { revalidatePath } from 'next/cache';
-import { EventRegistrationField, EventOwner, TaskPriority, TaskAssignmentMode, EventStatus } from '@/types';
+import { EventRegistrationField, EventOwner, TaskPriority, TaskAssignmentMode, EventStatus, EventFeedback, EventFeedbackSummary } from '@/types';
 import { createApprovalInstance } from '@/lib/approvals/approval-engine';
 import { sendEventRegistrationEmail, sendEventFeedbackSurveyEmail } from '@/lib/email/service';
 
@@ -2526,6 +2526,113 @@ export async function getExistingEventFeedback(eventId: string, registrationId?:
     return { hasSubmitted: false, feedback: null };
   }
 }
+
+/**
+ * Retrieves aggregate feedback statistics, distribution, and comment highlights for an event.
+ * Enforces Spec §3.17 & §4.18:
+ * - Anonymous submissions mask submitter details from organizers.
+ * - Submitter can always see their own submission.
+ */
+export async function getEventFeedbackSummary(eventId: string): Promise<EventFeedbackSummary> {
+  const admin = createAdminClient();
+  const context = await getUserContext();
+  const viewerProfileId = context.profile?.id || null;
+
+  try {
+    const { data: rows, error } = await admin
+      .from('event_feedback')
+      .select(`
+        id,
+        event_id,
+        profile_id,
+        registration_id,
+        rating,
+        comment,
+        is_anonymous,
+        created_at,
+        profile:profiles!profile_id(id, full_name, avatar_url),
+        registration:event_registrations!registration_id(id, full_name)
+      `)
+      .eq('event_id', eventId)
+      .order('created_at', { ascending: false });
+
+    if (error || !rows) {
+      console.warn('getEventFeedbackSummary query notice:', error?.message);
+      return {
+        eventId,
+        totalCount: 0,
+        averageRating: 0,
+        distribution: { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 },
+        commentsCount: 0,
+        anonymousCount: 0,
+        feedback: [],
+      };
+    }
+
+    const totalCount = rows.length;
+    const distribution = { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 };
+    let ratingSum = 0;
+    let commentsCount = 0;
+    let anonymousCount = 0;
+
+    const sanitizedFeedback: EventFeedback[] = rows.map((r: any) => {
+      const clampedRating = Math.min(5, Math.max(1, r.rating)) as 1 | 2 | 3 | 4 | 5;
+      distribution[clampedRating] = (distribution[clampedRating] || 0) + 1;
+      ratingSum += clampedRating;
+
+      if (r.comment && r.comment.trim().length > 0) {
+        commentsCount++;
+      }
+
+      if (r.is_anonymous) {
+        anonymousCount++;
+      }
+
+      const isOwnSubmission = Boolean(viewerProfileId && r.profile_id === viewerProfileId);
+      const shouldMask = r.is_anonymous && !isOwnSubmission;
+
+      const profileObj = Array.isArray(r.profile) ? r.profile[0] : r.profile;
+      const regObj = Array.isArray(r.registration) ? r.registration[0] : r.registration;
+
+      return {
+        id: r.id,
+        event_id: r.event_id,
+        profile_id: shouldMask ? null : r.profile_id,
+        registration_id: shouldMask ? null : r.registration_id,
+        rating: r.rating,
+        comment: r.comment,
+        is_anonymous: r.is_anonymous,
+        created_at: r.created_at,
+        profile: shouldMask ? null : profileObj,
+        registration: shouldMask ? null : regObj,
+      };
+    });
+
+    const averageRating = totalCount > 0 ? Number((ratingSum / totalCount).toFixed(1)) : 0;
+
+    return {
+      eventId,
+      totalCount,
+      averageRating,
+      distribution,
+      commentsCount,
+      anonymousCount,
+      feedback: sanitizedFeedback,
+    };
+  } catch (err: unknown) {
+    console.error('getEventFeedbackSummary error:', err);
+    return {
+      eventId,
+      totalCount: 0,
+      averageRating: 0,
+      distribution: { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 },
+      commentsCount: 0,
+      anonymousCount: 0,
+      feedback: [],
+    };
+  }
+}
+
 
 
 
