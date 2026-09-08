@@ -19,14 +19,16 @@ import {
 } from 'lucide-react';
 import { OnboardingChecklistWidget } from '@/components/dashboard/OnboardingChecklistWidget';
 import { getProfileOnboardingProgress, generateOnboardingChecklistForProfile } from '@/lib/onboarding/checklist';
+import { SharedCalendarSubscribeBanner } from '@/components/dashboard/SharedCalendarSubscribeBanner';
+import { getSharedCalendarInfo } from '@/lib/calendar/calendar-client';
 
 export const dynamic = 'force-dynamic';
 
 export default async function DashboardPage() {
   const admin = createAdminClient();
 
-  // Run stats and context in parallel
-  const [context, { count: memberCount }, { count: deptCount }] = await Promise.all([
+  // Run stats, context, and calendar info in parallel
+  const [context, { count: memberCount }, { count: deptCount }, calendarInfo] = await Promise.all([
     getUserContext(),
     admin
       .from('profiles')
@@ -35,6 +37,7 @@ export default async function DashboardPage() {
     admin
       .from('departments')
       .select('id', { count: 'exact', head: true }),
+    getSharedCalendarInfo().catch(() => null),
   ]);
 
   const role = context.profile?.role || 'member';
@@ -149,6 +152,21 @@ export default async function DashboardPage() {
             profileId={context.profile?.id}
           />
         )}
+
+        {/* Shared Calendar Subscribe Banner (Spec §4.17) */}
+        <SharedCalendarSubscribeBanner
+          calendarInfo={
+            calendarInfo && calendarInfo.calendarId
+              ? {
+                  calendarId: calendarInfo.calendarId,
+                  calendarName: calendarInfo.calendarName,
+                  timeZone: calendarInfo.timeZone,
+                  subscribableLink: calendarInfo.subscribableLink,
+                  icalUrl: calendarInfo.icalUrl,
+                }
+              : null
+          }
+        />
 
         {/* Role-Specific Metric Cards */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1.25rem' }}>
