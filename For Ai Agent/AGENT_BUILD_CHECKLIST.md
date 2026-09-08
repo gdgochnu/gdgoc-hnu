@@ -153,7 +153,7 @@
 - [x] 10.5 Add the performance trend chart + attendance rate + certificates tab to every profile page. (2026-09-08)
 
 ## Phase 11 — PR CRM
-- [ ] 11.1 Build Contacts + Pipeline (Kanban: new/contacted/negotiating/confirmed).
+- [x] 11.1 Build Contacts + Pipeline (Kanban: new/contacted/negotiating/confirmed). (2026-09-08)
 - [ ] 11.2 Build Follow-up + History (interaction log) per contact.
 - [ ] 11.3 Build PR KPI widgets on the PR dashboard.
 

@@ -489,6 +489,58 @@ export interface Certificate {
   } | null;
 }
 
+export type PrContactType = 'speaker' | 'partner' | 'sponsor' | 'venue' | 'other';
+export type PrPipelineStage = 'new' | 'contacted' | 'negotiating' | 'confirmed';
+export type PrInteractionType = 'email' | 'call' | 'meeting' | 'message';
+
+export interface PRContact {
+  id: string;
+  name: string;
+  organization?: string | null;
+  role_title?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  type: PrContactType;
+  pipeline_stage: PrPipelineStage;
+  notes?: string | null;
+  assigned_to?: string | null;
+  created_by?: string | null;
+  created_at: string;
+  updated_at: string;
+  // Joined fields
+  assignee?: {
+    id: string;
+    full_name_en?: string | null;
+    full_name_ar?: string | null;
+    avatar_url?: string | null;
+    role?: UserRole;
+  } | null;
+  creator?: {
+    id: string;
+    full_name_en?: string | null;
+    full_name_ar?: string | null;
+  } | null;
+  interactions_count?: number;
+  latest_interaction?: PRInteraction | null;
+}
+
+export interface PRInteraction {
+  id: string;
+  contact_id: string;
+  profile_id: string;
+  interaction_type: PrInteractionType;
+  summary: string;
+  next_follow_up?: string | null;
+  created_at: string;
+  author?: {
+    id: string;
+    full_name_en?: string | null;
+    full_name_ar?: string | null;
+    avatar_url?: string | null;
+  } | null;
+}
+
+
 
 
 
