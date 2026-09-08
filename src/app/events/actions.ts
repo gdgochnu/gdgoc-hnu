@@ -843,4 +843,159 @@ export async function submitEventForReview(eventId: string) {
   }
 }
 
+// ==============================================================================
+// Phase 8 Step 8.6: Publish Action (Gated strictly by status = 'approved')
+// Spec reference: §4.3 item 3 & §4.3 item 4
+// ==============================================================================
+
+export async function publishEvent(eventId: string) {
+  try {
+    const context = await getUserContext();
+    if (!context.user || !context.profile || context.profile.status !== 'active') {
+      return { success: false, error: 'Unauthorized: Active membership required.' };
+    }
+
+    const admin = createAdminClient();
+
+    // 1. Fetch event
+    const { data: event, error: eventErr } = await admin
+      .from('events')
+      .select('*, department:departments(id, name, code, branch)')
+      .eq('id', eventId)
+      .maybeSingle();
+
+    if (eventErr || !event) {
+      return { success: false, error: 'Event not found.' };
+    }
+
+    // Strict Gate: ONLY enabled once status = 'approved' (Spec §4.3 item 3)
+    if (event.status !== 'approved') {
+      return {
+        success: false,
+        error: `Event cannot be published until all executive approvals are completed. (Current status: '${event.status}', required: 'approved').`,
+      };
+    }
+
+    // Check authorization: Creator, owners, host committee head, or Chapter Leadership
+    const isPresidential = ['president', 'co_president'].includes(context.profile.role);
+    const isBranchHead = context.profile.role === 'branch_head';
+    const isDeptHead = context.profile.department_id === event.department_id && ['committee_head', 'committee_co_head'].includes(context.profile.role);
+    const userId = context.user.id;
+    const isCreator = event.created_by === userId;
+    const isOwner = Array.isArray(event.owners) && event.owners.some((o: any) => o.profile_id === userId);
+
+    if (!isPresidential && !isBranchHead && !isDeptHead && !isCreator && !isOwner) {
+      return { success: false, error: 'Forbidden: You do not have permission to publish this event.' };
+    }
+
+    const now = new Date().toISOString();
+
+    // 2. Update event status to 'published'
+    const { data: publishedEvent, error: updateErr } = await admin
+      .from('events')
+      .update({
+        status: 'published',
+        updated_at: now,
+      })
+      .eq('id', eventId)
+      .select('*, department:departments(id, name, code, branch)')
+      .single();
+
+    if (updateErr || !publishedEvent) {
+      return { success: false, error: `Failed to publish event: ${updateErr?.message}` };
+    }
+
+    // 3. Write Audit Log
+    await admin.from('audit_logs').insert({
+      actor_id: userId,
+      action: 'event_published',
+      entity_type: 'event',
+      entity_id: eventId,
+      metadata: {
+        previous_status: 'approved',
+        new_status: 'published',
+        slug: publishedEvent.slug,
+        title: publishedEvent.title,
+      },
+    });
+
+    revalidatePath('/events');
+    revalidatePath(`/events/${eventId}`);
+    revalidatePath(`/events/${eventId}/review`);
+    revalidatePath(`/events/${publishedEvent.slug}`);
+
+    return {
+      success: true,
+      event: publishedEvent,
+      publicUrl: `/events/${publishedEvent.slug}`,
+    };
+  } catch (err: unknown) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : 'Error publishing event.',
+    };
+  }
+}
+
+export async function unpublishEvent(eventId: string) {
+  try {
+    const context = await getUserContext();
+    if (!context.user || !context.profile || context.profile.status !== 'active') {
+      return { success: false, error: 'Unauthorized.' };
+    }
+
+    const admin = createAdminClient();
+    const { data: event, error: eventErr } = await admin
+      .from('events')
+      .select('id, status, slug, title')
+      .eq('id', eventId)
+      .maybeSingle();
+
+    if (eventErr || !event) {
+      return { success: false, error: 'Event not found.' };
+    }
+
+    const isPresidential = ['president', 'co_president'].includes(context.profile.role);
+    if (!isPresidential) {
+      return { success: false, error: 'Forbidden: Only Chapter Leadership can unpublish an event.' };
+    }
+
+    const now = new Date().toISOString();
+    const { data: revertedEvent, error: updateErr } = await admin
+      .from('events')
+      .update({
+        status: 'approved',
+        updated_at: now,
+      })
+      .eq('id', eventId)
+      .select()
+      .single();
+
+    if (updateErr) {
+      return { success: false, error: updateErr.message };
+    }
+
+    await admin.from('audit_logs').insert({
+      actor_id: context.user.id,
+      action: 'event_unpublished',
+      entity_type: 'event',
+      entity_id: eventId,
+      metadata: { previous_status: event.status, new_status: 'approved' },
+    });
+
+    revalidatePath('/events');
+    revalidatePath(`/events/${eventId}`);
+    revalidatePath(`/events/${eventId}/review`);
+    revalidatePath(`/events/${event.slug}`);
+
+    return { success: true, event: revertedEvent };
+  } catch (err: unknown) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : 'Error unpublishing event.',
+    };
+  }
+}
+
+
 
