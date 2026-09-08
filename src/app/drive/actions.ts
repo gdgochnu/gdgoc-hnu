@@ -7,6 +7,7 @@ import {
   uploadFileToDrive,
   listFilesInDrive,
   deleteFileFromDrive,
+  renameFileInDrive,
   getShareableLink,
   DriveFolderResult,
   DriveFileResult,
@@ -329,6 +330,7 @@ export async function listEntityFiles(
     size: number;
     url: string;
     downloadUrl: string;
+    thumbnailUrl?: string;
     dateCreated?: string;
   }>;
   error?: string;
@@ -390,6 +392,42 @@ export async function deleteEntityFile(
         entity_type: entityType || 'media_library',
         entity_id: entityId || null,
         metadata: { fileId },
+      });
+    } catch (auditErr) {
+      // Non-fatal
+    }
+
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err.message };
+  }
+}
+
+/**
+ * Rename a file in Drive and append audit log
+ */
+export async function renameEntityFile(
+  fileId: string,
+  newName: string,
+  entityType?: DriveEntityType,
+  entityId?: string | null
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const admin = createAdminClient();
+    const context = await getUserContext();
+
+    const renameRes = await renameFileInDrive(fileId, newName);
+    if (!renameRes.success) {
+      return { success: false, error: renameRes.error };
+    }
+
+    try {
+      await admin.from('audit_logs').insert({
+        actor_id: context.profile?.id || context.user?.id || null,
+        action: 'drive_file_renamed',
+        entity_type: entityType || 'media_library',
+        entity_id: entityId || null,
+        metadata: { fileId, newName },
       });
     } catch (auditErr) {
       // Non-fatal

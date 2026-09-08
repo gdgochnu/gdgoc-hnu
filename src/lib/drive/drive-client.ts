@@ -29,6 +29,7 @@ export interface DriveFileResult {
   size: number;
   fileUrl: string;
   downloadUrl: string;
+  thumbnailUrl?: string;
   folderId?: string;
   folderName?: string;
 }
@@ -45,6 +46,7 @@ export interface DriveListResult {
     size: number;
     url: string;
     downloadUrl: string;
+    thumbnailUrl?: string;
     dateCreated: string;
     lastUpdated: string;
   }>;
@@ -58,7 +60,7 @@ export interface DriveListResult {
 // In-memory mock storage for sandbox testing when real Web App URL is not yet connected
 const mockDriveStore = {
   folders: new Map<string, { id: string; name: string; url: string; path: string }>(),
-  files: new Map<string, DriveFileResult & { dateCreated: string; lastUpdated: string }>(),
+  files: new Map<string, DriveFileResult & { dateCreated: string; lastUpdated: string; base64Data?: string }>(),
 };
 
 // Seed root folder in mock store
@@ -246,18 +248,21 @@ function executeMockAction<T>(
       const fileId = `file_${Math.random().toString(36).substring(2, 12)}`;
       const targetFolderId = payload.folderId || 'mock-root-folder-id';
       const folder = mockDriveStore.folders.get(targetFolderId);
+      const isImg = (payload.mimeType || '').startsWith('image/');
 
-      const fileData: DriveFileResult & { dateCreated: string; lastUpdated: string } = {
+      const fileData: DriveFileResult & { dateCreated: string; lastUpdated: string; base64Data?: string } = {
         fileId,
         fileName: payload.fileName,
         mimeType: payload.mimeType || 'application/octet-stream',
         size: Math.round(payload.base64Data.length * 0.75),
         fileUrl: `https://drive.google.com/file/d/${fileId}/view`,
         downloadUrl: `https://drive.google.com/uc?export=download&id=${fileId}`,
+        thumbnailUrl: isImg ? `/api/workspace/media/thumbnail?id=${fileId}` : undefined,
         folderId: targetFolderId,
         folderName: folder?.name || 'GDGoC HNU OS Workspace',
         dateCreated: new Date().toISOString(),
         lastUpdated: new Date().toISOString(),
+        base64Data: payload.base64Data,
       };
 
       mockDriveStore.files.set(fileId, fileData);
@@ -296,6 +301,7 @@ function executeMockAction<T>(
           size: f.size,
           url: f.fileUrl,
           downloadUrl: f.downloadUrl,
+          thumbnailUrl: f.thumbnailUrl || (f.mimeType?.startsWith('image/') ? `/api/workspace/media/thumbnail?id=${f.fileId}` : undefined),
           dateCreated: f.dateCreated,
           lastUpdated: f.lastUpdated,
         })),
@@ -319,6 +325,26 @@ function executeMockAction<T>(
         action: 'deleteFile',
         fileId: payload.fileId,
         message: existed ? 'File moved to trash successfully' : 'File not found in store',
+        isMockMode: true,
+      };
+    }
+
+    case 'renameFile': {
+      if (!payload.fileId || !payload.newName) {
+        return { success: false, error: 'Missing required parameters: fileId and newName' };
+      }
+
+      const file = mockDriveStore.files.get(payload.fileId);
+      if (file) {
+        file.fileName = payload.newName;
+        file.lastUpdated = new Date().toISOString();
+      }
+
+      return {
+        success: true,
+        action: 'renameFile',
+        fileId: payload.fileId,
+        newName: payload.newName,
         isMockMode: true,
       };
     }
@@ -432,6 +458,14 @@ export async function deleteFileFromDrive(fileId: string): Promise<DriveBridgeRe
   return callDriveBridge('deleteFile', { fileId });
 }
 
+export async function renameFileInDrive(fileId: string, newName: string): Promise<DriveBridgeResponse> {
+  return callDriveBridge('renameFile', { fileId, newName });
+}
+
 export async function getShareableLink(fileId: string): Promise<DriveBridgeResponse> {
   return callDriveBridge('getShareableLink', { fileId });
+}
+
+export function getMockFile(fileId: string) {
+  return mockDriveStore.files.get(fileId);
 }

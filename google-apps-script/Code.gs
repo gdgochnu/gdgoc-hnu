@@ -77,6 +77,9 @@ function doPost(e) {
       case 'deleteFile':
         return handleDeleteFile(payload);
 
+      case 'renameFile':
+        return handleRenameFile(payload);
+
       case 'getShareableLink':
         return handleGetShareableLink(payload);
 
@@ -95,7 +98,7 @@ function doPost(e) {
       default:
         return jsonResponse({
           success: false,
-          error: 'Unknown action: ' + action + '. Valid actions: ping, ensureFolderPath, uploadFile, listFiles, deleteFile, getShareableLink, getSharedCalendar, createCalendarEvent, updateCalendarEvent, deleteCalendarEvent'
+          error: 'Unknown action: ' + action + '. Valid actions: ping, ensureFolderPath, uploadFile, listFiles, deleteFile, renameFile, getShareableLink, getSharedCalendar, createCalendarEvent, updateCalendarEvent, deleteCalendarEvent'
         }, 400);
     }
   } catch (err) {
@@ -259,6 +262,7 @@ function handleUploadFile(payload) {
     size: createdFile.getSize(),
     fileUrl: createdFile.getUrl(),
     downloadUrl: 'https://drive.google.com/uc?export=download&id=' + createdFile.getId(),
+    thumbnailUrl: 'https://drive.google.com/thumbnail?id=' + createdFile.getId() + '&sz=w800',
     folderId: targetFolder.getId(),
     folderName: targetFolder.getName(),
   });
@@ -293,6 +297,7 @@ function handleListFiles(payload) {
       size: f.getSize(),
       url: f.getUrl(),
       downloadUrl: 'https://drive.google.com/uc?export=download&id=' + f.getId(),
+      thumbnailUrl: 'https://drive.google.com/thumbnail?id=' + f.getId() + '&sz=w800',
       dateCreated: f.getDateCreated().toISOString(),
       lastUpdated: f.getLastUpdated().toISOString(),
     });
@@ -341,6 +346,31 @@ function handleDeleteFile(payload) {
     });
   } catch (e) {
     return jsonResponse({ success: false, error: 'Could not delete file: ' + e.toString() }, 404);
+  }
+}
+
+/**
+ * Action: renameFile
+ */
+function handleRenameFile(payload) {
+  if (!payload.fileId || !payload.newName) {
+    return jsonResponse({ success: false, error: 'Missing required parameters: fileId and newName' }, 400);
+  }
+
+  try {
+    var file = DriveApp.getFileById(payload.fileId);
+    file.setName(payload.newName);
+    return jsonResponse({
+      success: true,
+      action: 'renameFile',
+      fileId: file.getId(),
+      newName: file.getName(),
+      url: file.getUrl(),
+      downloadUrl: 'https://drive.google.com/uc?export=download&id=' + file.getId(),
+      thumbnailUrl: 'https://drive.google.com/thumbnail?id=' + file.getId() + '&sz=w800',
+    });
+  } catch (e) {
+    return jsonResponse({ success: false, error: 'Could not rename file: ' + e.toString() }, 500);
   }
 }
 

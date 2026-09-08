@@ -2,7 +2,7 @@ import { AppShell } from '@/components/layout/AppShell';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getUserContext } from '@/lib/auth/get-user-context';
 import { MediaLibraryClient } from '@/components/workspace/MediaLibraryClient';
-import { getAllMediaFiles, uploadMediaFile, deleteMediaFile } from '@/app/workspace/media/actions';
+import { getAllMediaFiles, uploadMediaFile, deleteMediaFile, renameMediaFile } from '@/app/workspace/media/actions';
 import Link from 'next/link';
 import { ShieldAlert } from 'lucide-react';
 
@@ -48,16 +48,20 @@ export default async function MediaLibraryPage() {
         canUpload={isLeadership}
         canDelete={isLeadership}
         departments={departments.map((d) => ({ id: d.id, name: d.name, code: d.code }))}
-        onUpload={async (file: File, departmentId: string | null) => {
+        onUpload={async (file: File, departmentId: string | null, customName?: string) => {
           'use server';
-          // Read file as base64
+          const finalName = customName?.trim() || file.name;
           const buffer = Buffer.from(await file.arrayBuffer());
           const base64 = buffer.toString('base64');
-          return uploadMediaFile(file.name, file.type || 'application/octet-stream', base64, departmentId);
+          return uploadMediaFile(finalName, file.type || 'application/octet-stream', base64, departmentId);
         }}
         onDelete={async (fileId: string) => {
           'use server';
           return deleteMediaFile(fileId);
+        }}
+        onRename={async (fileId: string, newName: string, entityType?: string, entityId?: string | null) => {
+          'use server';
+          return renameMediaFile(fileId, newName, (entityType as any) || 'media_library', entityId);
         }}
         onRefresh={async () => {
           'use server';

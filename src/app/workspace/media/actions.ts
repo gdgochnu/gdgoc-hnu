@@ -7,6 +7,7 @@ import {
   uploadEntityFile,
   listEntityFiles,
   deleteEntityFile,
+  renameEntityFile,
 } from '@/app/drive/actions';
 import { MediaFile } from '@/components/workspace/MediaLibraryClient';
 
@@ -26,6 +27,7 @@ export async function getAllMediaFiles(departmentIds: string[]): Promise<{
   if (generalRes.success && generalRes.files.length > 0) {
     rootFolderUrl = generalRes.folderUrl;
     for (const f of generalRes.files) {
+      const isImg = (f.mimeType || '').startsWith('image/');
       fileMap.set(f.id, {
         id: f.id,
         name: f.name,
@@ -33,6 +35,7 @@ export async function getAllMediaFiles(departmentIds: string[]): Promise<{
         size: f.size,
         url: f.url,
         downloadUrl: f.downloadUrl,
+        thumbnailUrl: f.thumbnailUrl || (isImg ? `/api/workspace/media/thumbnail?id=${f.id}` : undefined),
         dateCreated: f.dateCreated,
         entityType: 'media_library',
         entityId: null,
@@ -56,6 +59,7 @@ export async function getAllMediaFiles(departmentIds: string[]): Promise<{
 
         for (const f of res.files) {
           if (!fileMap.has(f.id)) {
+            const isImg = (f.mimeType || '').startsWith('image/');
             fileMap.set(f.id, {
               id: f.id,
               name: f.name,
@@ -63,6 +67,7 @@ export async function getAllMediaFiles(departmentIds: string[]): Promise<{
               size: f.size,
               url: f.url,
               downloadUrl: f.downloadUrl,
+              thumbnailUrl: f.thumbnailUrl || (isImg ? `/api/workspace/media/thumbnail?id=${f.id}` : undefined),
               dateCreated: f.dateCreated,
               entityType: 'department',
               entityId: deptId,
@@ -137,6 +142,32 @@ export async function deleteMediaFile(
     }
 
     return await deleteEntityFile(fileId, 'media_library', entityId || null);
+  } catch (err: any) {
+    return { success: false, error: err.message };
+  }
+}
+
+/**
+ * Server Action: Rename a media file in Drive
+ */
+export async function renameMediaFile(
+  fileId: string,
+  newName: string,
+  entityType: 'department' | 'media_library' = 'media_library',
+  entityId?: string | null
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const context = await getUserContext();
+    if (!context.user || !context.profile) {
+      return { success: false, error: 'Unauthorized' };
+    }
+
+    const isLeadership = ['president', 'co_president', 'branch_head', 'committee_head', 'committee_co_head'].includes(context.profile.role);
+    if (!isLeadership) {
+      return { success: false, error: 'Only leadership can rename media files' };
+    }
+
+    return await renameEntityFile(fileId, newName, entityType, entityId || null);
   } catch (err: any) {
     return { success: false, error: err.message };
   }
