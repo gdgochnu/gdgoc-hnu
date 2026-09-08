@@ -131,7 +131,7 @@
 - [x] 8.4 Wire "Submit for Review" → approval engine (Branch Head → President/Co-President stages). (2026-09-07)
 - [x] 8.5 Build the event review/approval screen (`/events/[id]/review`). (2026-09-07)
 - [x] 8.6 Build the "Publish" action (only enabled once `status = approved`). (2026-09-08)
-- [ ] 8.7 Build the Public Event Page (`/events/[slug]`) with the registration form.
+- [x] 8.7 Build the Public Event Page (`/events/[slug]`) with the registration form. (2026-09-08)
 - [ ] 8.8 Build the registration confirmation page + QR-code email.
 - [ ] 8.9 Build the QR check-in screen (`/events/[id]/attendance`) — **gate access** so only profiles in `checkin_access_profile_ids` (plus HR role and President/Co-President) can open it for that specific event.
 - [ ] 8.10 Build walk-in manual check-in (search by name/phone/email).
