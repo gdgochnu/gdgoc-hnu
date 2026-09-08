@@ -18,6 +18,11 @@ import {
 } from '@/types';
 import { createApprovalInstance } from '@/lib/approvals/approval-engine';
 import { sendEventRegistrationEmail, sendEventFeedbackSurveyEmail } from '@/lib/email/service';
+import {
+  createCalendarEvent,
+  updateCalendarEvent,
+  deleteCalendarEvent,
+} from '@/lib/calendar/calendar-client';
 
 export interface EventTaskDraftInput {
   title: string;
@@ -917,6 +922,45 @@ export async function publishEvent(eventId: string) {
       return { success: false, error: `Failed to publish event: ${updateErr?.message}` };
     }
 
+    // 2b. Sync to Shared "GDGoC HNU" Google Calendar (Spec §4.17 - Step 14.2)
+    try {
+      const startTimeIso = publishedEvent.event_date + (publishedEvent.start_time ? `T${publishedEvent.start_time}` : 'T10:00:00');
+      const endTimeIso = publishedEvent.event_date + (publishedEvent.end_time ? `T${publishedEvent.end_time}` : 'T12:00:00');
+
+      let calRes;
+      if (publishedEvent.google_calendar_event_id) {
+        calRes = await updateCalendarEvent(publishedEvent.google_calendar_event_id, {
+          title: publishedEvent.title,
+          description: publishedEvent.description || `GDGoC HNU Event: ${publishedEvent.title}`,
+          location: publishedEvent.venue || 'Helwan National University Campus',
+          startTime: startTimeIso,
+          endTime: endTimeIso,
+          isAllDay: !publishedEvent.start_time,
+        });
+      } else {
+        calRes = await createCalendarEvent({
+          title: publishedEvent.title,
+          description: publishedEvent.description || `GDGoC HNU Event: ${publishedEvent.title}`,
+          location: publishedEvent.venue || 'Helwan National University Campus',
+          startTime: startTimeIso,
+          endTime: endTimeIso,
+          isAllDay: !publishedEvent.start_time,
+        });
+      }
+
+      if (calRes.success && (calRes as any).eventId) {
+        await admin
+          .from('events')
+          .update({
+            google_calendar_event_id: (calRes as any).eventId,
+            google_calendar_link: (calRes as any).htmlLink || null,
+          })
+          .eq('id', eventId);
+      }
+    } catch (calErr) {
+      console.warn('[publishEvent] Calendar sync warning:', calErr);
+    }
+
     // 3. Write Audit Log
     await admin.from('audit_logs').insert({
       actor_id: userId,
@@ -987,6 +1031,23 @@ export async function unpublishEvent(eventId: string) {
       return { success: false, error: updateErr.message };
     }
 
+    // 2b. Remove corresponding Google Calendar entry (Spec §4.17 - Step 14.2)
+    const calEventId = (event as any).google_calendar_event_id;
+    if (calEventId) {
+      try {
+        await deleteCalendarEvent(calEventId);
+        await admin
+          .from('events')
+          .update({
+            google_calendar_event_id: null,
+            google_calendar_link: null,
+          })
+          .eq('id', eventId);
+      } catch (calErr) {
+        console.warn('[unpublishEvent] Calendar removal warning:', calErr);
+      }
+    }
+
     await admin.from('audit_logs').insert({
       actor_id: context.user.id,
       action: 'event_unpublished',
@@ -1006,6 +1067,106 @@ export async function unpublishEvent(eventId: string) {
       success: false,
       error: err instanceof Error ? err.message : 'Error unpublishing event.',
     };
+  }
+}
+
+/**
+ * Update event details and sync changes to Google Calendar if published (Spec §4.17 - Step 14.2)
+ */
+export async function updateEventDetails(
+  eventId: string,
+  input: Partial<CreateEventDraftInput>,
+  options?: { skipAuthCheck?: boolean }
+) {
+  try {
+    const admin = createAdminClient();
+
+    if (!options?.skipAuthCheck) {
+      const context = await getUserContext();
+      if (!context.user || !context.profile || context.profile.status !== 'active') {
+        return { success: false, error: 'Unauthorized.' };
+      }
+    }
+
+    const { data: event, error: fetchErr } = await admin
+      .from('events')
+      .select('*')
+      .eq('id', eventId)
+      .maybeSingle();
+
+    if (fetchErr || !event) {
+      return { success: false, error: 'Event not found.' };
+    }
+
+    const updatePayload: Record<string, any> = {
+      updated_at: new Date().toISOString(),
+    };
+
+    if (input.title !== undefined) updatePayload.title = input.title.trim();
+    if (input.description !== undefined) updatePayload.description = input.description;
+    if (input.venue !== undefined) updatePayload.venue = input.venue;
+    if (input.eventDate !== undefined) updatePayload.event_date = input.eventDate;
+    if (input.startTime !== undefined) updatePayload.start_time = input.startTime;
+    if (input.endTime !== undefined) updatePayload.end_time = input.endTime;
+    if (input.capacity !== undefined) updatePayload.capacity = input.capacity;
+
+    const { data: updatedEvent, error: updateErr } = await admin
+      .from('events')
+      .update(updatePayload)
+      .eq('id', eventId)
+      .select('*')
+      .single();
+
+    if (updateErr || !updatedEvent) {
+      return { success: false, error: updateErr?.message || 'Update failed' };
+    }
+
+    // Sync to Google Calendar if currently published
+    if (updatedEvent.status === 'published') {
+      try {
+        const startTimeIso = updatedEvent.event_date + (updatedEvent.start_time ? `T${updatedEvent.start_time}` : 'T10:00:00');
+        const endTimeIso = updatedEvent.event_date + (updatedEvent.end_time ? `T${updatedEvent.end_time}` : 'T12:00:00');
+
+        if (updatedEvent.google_calendar_event_id) {
+          await updateCalendarEvent(updatedEvent.google_calendar_event_id, {
+            title: updatedEvent.title,
+            description: updatedEvent.description || undefined,
+            location: updatedEvent.venue || undefined,
+            startTime: startTimeIso,
+            endTime: endTimeIso,
+          });
+        } else {
+          const calRes = await createCalendarEvent({
+            title: updatedEvent.title,
+            description: updatedEvent.description || undefined,
+            location: updatedEvent.venue || undefined,
+            startTime: startTimeIso,
+            endTime: endTimeIso,
+            isAllDay: !updatedEvent.start_time,
+          });
+
+          if (calRes.success && (calRes as any).eventId) {
+            await admin
+              .from('events')
+              .update({
+                google_calendar_event_id: (calRes as any).eventId,
+                google_calendar_link: (calRes as any).htmlLink || null,
+              })
+              .eq('id', eventId);
+          }
+        }
+      } catch (calErr) {
+        console.warn('[updateEventDetails] Calendar sync warning:', calErr);
+      }
+    }
+
+    revalidatePath('/events');
+    revalidatePath(`/events/${eventId}`);
+    if (updatedEvent.slug) revalidatePath(`/events/${updatedEvent.slug}`);
+
+    return { success: true, event: updatedEvent };
+  } catch (err: any) {
+    return { success: false, error: err.message || 'Error updating event details.' };
   }
 }
 
