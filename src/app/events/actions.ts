@@ -6,6 +6,7 @@ import { getUserContext } from '@/lib/auth/get-user-context';
 import { revalidatePath } from 'next/cache';
 import { EventRegistrationField, EventOwner, TaskPriority, TaskAssignmentMode, EventStatus } from '@/types';
 import { createApprovalInstance } from '@/lib/approvals/approval-engine';
+import { sendEventRegistrationEmail } from '@/lib/email/service';
 
 export interface EventTaskDraftInput {
   title: string;
@@ -1100,7 +1101,7 @@ export async function registerForEvent(input: RegisterForEventInput) {
     // 2. Fetch event
     const { data: event, error: eventErr } = await admin
       .from('events')
-      .select('id, title, slug, status, capacity, registration_fields')
+      .select('id, title, slug, status, capacity, registration_fields, event_date, start_time, end_time, venue')
       .eq('id', input.eventId)
       .maybeSingle();
 
@@ -1202,8 +1203,28 @@ export async function registerForEvent(input: RegisterForEventInput) {
       };
     }
 
+    // Trigger confirmation & QR email (non-blocking for registration success)
+    try {
+      await sendEventRegistrationEmail({
+        to: newReg.email,
+        fullName: newReg.full_name,
+        eventTitle: event.title,
+        eventSlug: event.slug,
+        eventDate: event.event_date,
+        startTime: event.start_time,
+        endTime: event.end_time,
+        venue: event.venue,
+        qrCode: newReg.qr_code,
+        status: newReg.status,
+        registrationId: newReg.id,
+      });
+    } catch (emailErr) {
+      console.warn('Failed to send event registration email:', emailErr);
+    }
+
     // Revalidate public & internal pages
     revalidatePath(`/events/${event.slug}`);
+    revalidatePath(`/events/${event.slug}/confirmation`);
     revalidatePath(`/events/${event.id}`);
 
     return {
@@ -1220,3 +1241,28 @@ export async function registerForEvent(input: RegisterForEventInput) {
     };
   }
 }
+
+/**
+ * Fetch event registration details by registration ID or QR code.
+ */
+export async function getEventRegistrationById(registrationIdOrQr: string) {
+  try {
+    const admin = createAdminClient();
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(registrationIdOrQr);
+
+    const query = admin
+      .from('event_registrations')
+      .select('*, event:events(*, department:departments(id, name, code, branch))');
+
+    const { data: reg, error } = isUuid
+      ? await query.eq('id', registrationIdOrQr).maybeSingle()
+      : await query.eq('qr_code', registrationIdOrQr).maybeSingle();
+
+    if (error || !reg) return null;
+    return reg;
+  } catch (err) {
+    console.error('getEventRegistrationById error:', err);
+    return null;
+  }
+}
+

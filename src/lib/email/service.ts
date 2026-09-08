@@ -351,3 +351,128 @@ export async function sendRejectionEmail(params: {
     },
   });
 }
+
+/**
+ * 4. Send Event Registration Confirmation & QR Ticket Email
+ * Spec reference: §4.3 item 4 & Phase 8 Step 8.8
+ */
+export async function sendEventRegistrationEmail(params: {
+  to: string;
+  fullName: string;
+  eventTitle: string;
+  eventSlug: string;
+  eventDate: string;
+  startTime?: string | null;
+  endTime?: string | null;
+  venue?: string | null;
+  qrCode: string;
+  status: 'registered' | 'waitlisted';
+  registrationId: string;
+  confirmationUrl?: string;
+}): Promise<EmailResult> {
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+  const confirmationUrl = params.confirmationUrl || `${appUrl}/events/${params.eventSlug}/confirmation?reg=${params.registrationId}`;
+  const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=${encodeURIComponent(params.qrCode)}&margin=10`;
+
+  const isWaitlist = params.status === 'waitlisted';
+  const subject = isWaitlist
+    ? `Waitlist Confirmation: ${params.eventTitle} — GDGoC HNU`
+    : `🎟️ Your Entry Pass: ${params.eventTitle} — GDGoC HNU`;
+
+  const statusBadgeColor = isWaitlist ? '#FBBC04' : '#34A853';
+  const statusBadgeBg = isWaitlist ? 'rgba(251, 188, 4, 0.15)' : 'rgba(52, 168, 83, 0.15)';
+  const statusLabel = isWaitlist ? 'Waitlisted Attendee' : 'Confirmed Entry Pass';
+
+  const content = `
+    <div style="margin-bottom: 24px;">
+      <span style="display: inline-block; padding: 4px 12px; border-radius: 999px; background-color: ${statusBadgeBg}; color: ${statusBadgeColor}; font-size: 12px; font-weight: 700; text-transform: uppercase;">
+        ${statusLabel}
+      </span>
+      <h1 style="font-size: 24px; font-weight: 800; color: #FFFFFF; margin: 12px 0 8px 0;">
+        ${isWaitlist ? "You're on the Waitlist!" : "You're Registered!"}
+      </h1>
+      <p style="margin: 0; color: #9CA3AF; font-size: 15px;">
+        Dear <strong>${params.fullName}</strong>, thank you for registering with Google Developer Groups on Campus — Helwan National University.
+      </p>
+    </div>
+
+    <!-- Event Summary Card -->
+    <div style="background-color: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 12px; padding: 20px; margin-bottom: 24px;">
+      <div style="font-size: 18px; font-weight: 800; color: #60A5FA; margin-bottom: 12px;">
+        ${params.eventTitle}
+      </div>
+      <table border="0" cellspacing="0" cellpadding="0" width="100%">
+        <tr>
+          <td style="padding: 6px 0; color: #9CA3AF; font-size: 14px; width: 100px;">📅 Date:</td>
+          <td style="padding: 6px 0; color: #FFFFFF; font-size: 14px; font-weight: 600;">${params.eventDate}</td>
+        </tr>
+        <tr>
+          <td style="padding: 6px 0; color: #9CA3AF; font-size: 14px;">⏰ Time:</td>
+          <td style="padding: 6px 0; color: #FFFFFF; font-size: 14px; font-weight: 600;">${params.startTime || '10:00'} ${params.endTime ? `– ${params.endTime}` : ''} (EET)</td>
+        </tr>
+        <tr>
+          <td style="padding: 6px 0; color: #9CA3AF; font-size: 14px;">📍 Venue:</td>
+          <td style="padding: 6px 0; color: #FFFFFF; font-size: 14px; font-weight: 600;">${params.venue || 'Helwan National University'}</td>
+        </tr>
+      </table>
+    </div>
+
+    ${!isWaitlist ? `
+    <!-- QR Code Pass Section -->
+    <div style="background-color: #000000; border: 1px solid rgba(66, 133, 244, 0.35); border-radius: 16px; padding: 24px; text-align: center; margin-bottom: 24px;">
+      <div style="font-size: 12px; font-weight: 700; color: #9CA3AF; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 12px;">
+        OFFICIAL CAMPUS CHECK-IN PASS
+      </div>
+      <div style="display: inline-block; background-color: #FFFFFF; padding: 12px; border-radius: 12px; margin-bottom: 12px;">
+        <img src="${qrImageUrl}" alt="Event Check-in QR Pass" width="200" height="200" style="display: block; margin: 0 auto;" />
+      </div>
+      <div style="font-size: 12px; color: #94A3B8; margin-bottom: 4px;">Ticket Pass Code:</div>
+      <div style="font-family: monospace; font-size: 14px; color: #60A5FA; font-weight: 700; word-break: break-all;">
+        ${params.qrCode}
+      </div>
+      <p style="color: #CBD5E1; font-size: 13px; line-height: 1.5; margin-top: 14px; margin-bottom: 0;">
+        💡 <strong>Fast Check-in:</strong> Please have this QR code ready on your phone when arriving at the event desk for swift verification.
+      </p>
+    </div>
+    ` : `
+    <!-- Waitlist Notice -->
+    <div style="background-color: rgba(251, 188, 4, 0.08); border: 1px solid rgba(251, 188, 4, 0.3); border-radius: 12px; padding: 18px; margin-bottom: 24px;">
+      <div style="font-size: 13px; font-weight: 700; color: #FDE047; margin-bottom: 6px;">
+        Waitlist Status Notice:
+      </div>
+      <div style="font-size: 14px; color: #FFFBEB; line-height: 1.5;">
+        Due to high demand, this event has reached capacity. You have been placed on the priority waitlist. If an attendee cancels or additional seating opens up, your ticket will automatically be activated and we will email you your check-in QR pass.
+      </div>
+    </div>
+    `}
+
+    <!-- Action Button -->
+    <table border="0" cellspacing="0" cellpadding="0" style="margin-bottom: 24px; width: 100%;">
+      <tr>
+        <td align="center" style="border-radius: 8px; background: linear-gradient(135deg, #4285F4 0%, #1A73E8 100%);">
+          <a href="${confirmationUrl}" target="_blank" style="font-size: 15px; font-weight: 700; color: #FFFFFF; text-decoration: none; padding: 14px 28px; display: inline-block; border-radius: 8px;">
+            View Digital Pass &amp; Details &rarr;
+          </a>
+        </td>
+      </tr>
+    </table>
+
+    <p style="font-size: 13px; color: #64748B; text-align: center; margin: 0;">
+      Need to make changes or have questions? Reach out to the GDGoC HNU organizing team.
+    </p>
+  `;
+
+  return sendEmail({
+    to: params.to,
+    subject,
+    html: renderEmailLayout(`${params.eventTitle} — Pass Confirmation`, content),
+    metadata: {
+      type: 'event_registration',
+      registrationId: params.registrationId,
+      qrCode: params.qrCode,
+      eventSlug: params.eventSlug,
+      status: params.status,
+    },
+  });
+}
+
