@@ -4,8 +4,10 @@ import { getUserContext } from '@/lib/auth/get-user-context';
 import { EventTaskList } from '@/components/events/EventTaskList';
 import { CheckinAccessManager } from '@/components/events/CheckinAccessManager';
 import { EventReviewBanner } from '@/components/events/EventReviewBanner';
+import { PublicEventView } from '@/components/events/PublicEventView';
 import { Event, EventStatus } from '@/types';
 import Link from 'next/link';
+import { redirect } from 'next/navigation';
 import { 
   Calendar, 
   Clock, 
@@ -18,28 +20,77 @@ import {
   ShieldAlert, 
   ChevronRight,
   ExternalLink,
-  Sparkles
+  Sparkles,
+  Lock,
+  Globe
 } from 'lucide-react';
 
 export const dynamic = 'force-dynamic';
 
 interface EventDetailPageProps {
   params: Promise<{ id: string }>;
+  searchParams?: Promise<{ [key: string]: string | string[] | undefined }>;
 }
 
-export default async function EventDetailPage({ params }: EventDetailPageProps) {
+export default async function EventDetailPage({ params, searchParams }: EventDetailPageProps) {
   const { id } = await params;
+  const sParams = searchParams ? await searchParams : {};
+  const isPublicViewRequested = sParams.view === 'public';
   const context = await getUserContext();
   const admin = createAdminClient();
 
-  // 1. Fetch Event Details
-  const { data: eventData, error: eventErr } = await admin
+  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+
+  // 1. Fetch Event Details (by UUID or slug)
+  const query = admin
     .from('events')
-    .select('*, department:departments(id, name, code, branch)')
-    .eq('id', id)
-    .maybeSingle();
+    .select('*, department:departments(id, name, code, branch)');
+
+  const { data: eventData, error: eventErr } = isUuid
+    ? await query.eq('id', id).maybeSingle()
+    : await query.eq('slug', id).maybeSingle();
 
   if (eventErr || !eventData) {
+    if (!isUuid || !context.profile) {
+      // Public 404
+      return (
+        <div style={{
+          minHeight: '100vh',
+          background: '#0B0F19',
+          color: '#F8FAFC',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '2rem 1.5rem',
+          textAlign: 'center',
+        }}>
+          <div className="glass-panel" style={{ maxWidth: '520px', width: '100%', padding: '3.5rem 2rem', borderRadius: '16px' }}>
+            <div style={{
+              width: '56px',
+              height: '56px',
+              borderRadius: '14px',
+              background: 'rgba(234, 67, 53, 0.15)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              margin: '0 auto 1.5rem',
+            }}>
+              <ShieldAlert size={28} color="var(--google-red)" />
+            </div>
+            <h1 style={{ fontSize: '1.5rem', fontWeight: 800, marginBottom: '0.75rem' }}>
+              Event Not Found
+            </h1>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '0.92rem', lineHeight: 1.6, marginBottom: '2rem' }}>
+              The event you are looking for does not exist or registration is not open yet.
+            </p>
+            <Link href="/" className="btn-primary" style={{ textDecoration: 'none', display: 'inline-flex', padding: '0.75rem 1.5rem', borderRadius: '8px' }}>
+              Back to Home
+            </Link>
+          </div>
+        </div>
+      );
+    }
+
     return (
       <AppShell>
         <div style={{ maxWidth: '600px', margin: '4rem auto', padding: '0 1.5rem', textAlign: 'center' }} suppressHydrationWarning>
@@ -76,6 +127,101 @@ export default async function EventDetailPage({ params }: EventDetailPageProps) 
     registration_fields: Array.isArray(eventData.registration_fields) ? eventData.registration_fields : [],
     owners: Array.isArray(eventData.owners) ? eventData.owners : [],
   };
+
+  // Determine whether to display the Public Event Page or the Internal Management Console
+  const isPublicRoute = !isUuid || isPublicViewRequested;
+
+  if (isPublicRoute) {
+    // If not published, check if user is allowed to preview
+    const isLeadership = context.profile && ['president', 'co_president', 'branch_head'].includes(context.profile.role);
+    const isOwner = Array.isArray(event.owners) && event.owners.some((o: any) => o.profile_id === context.user?.id);
+    const isDeptHead = context.profile?.department_id === event.department_id && ['committee_head', 'committee_co_head'].includes(context.profile?.role || '');
+    const canPreview = isLeadership || isOwner || isDeptHead || event.created_by === context.user?.id;
+
+    if (event.status !== 'published' && !canPreview) {
+      return (
+        <div style={{
+          minHeight: '100vh',
+          background: '#0B0F19',
+          color: '#F8FAFC',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '2rem 1.5rem',
+          textAlign: 'center',
+        }}>
+          <div className="glass-panel" style={{ maxWidth: '520px', width: '100%', padding: '3.5rem 2rem', borderRadius: '16px' }}>
+            <div style={{
+              width: '56px',
+              height: '56px',
+              borderRadius: '14px',
+              background: 'rgba(251, 188, 4, 0.15)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              margin: '0 auto 1.5rem',
+            }}>
+              <Lock size={28} color="#FBBC04" />
+            </div>
+            <h1 style={{ fontSize: '1.5rem', fontWeight: 800, marginBottom: '0.75rem' }}>
+              Registration Not Open
+            </h1>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '0.92rem', lineHeight: 1.6, marginBottom: '2rem' }}>
+              Registration for <strong>{event.title}</strong> is currently not available to the public. Please stay tuned on our official channels.
+            </p>
+            <Link href="/" className="btn-primary" style={{ textDecoration: 'none', display: 'inline-flex', padding: '0.75rem 1.5rem', borderRadius: '8px' }}>
+              Back to Home
+            </Link>
+          </div>
+        </div>
+      );
+    }
+
+    // Fetch live registration counts for public page
+    const { count: regCount } = await admin
+      .from('event_registrations')
+      .select('id', { count: 'exact', head: true })
+      .eq('event_id', event.id)
+      .eq('status', 'registered');
+
+    const { count: waitCount } = await admin
+      .from('event_registrations')
+      .select('id', { count: 'exact', head: true })
+      .eq('event_id', event.id)
+      .eq('status', 'waitlisted');
+
+    const totalRegistered = regCount ?? 0;
+    const totalWaitlisted = waitCount ?? 0;
+    const capacity = event.capacity;
+    const isCapacityFull = capacity !== null && capacity > 0 && totalRegistered >= capacity;
+    const spotsRemaining = capacity !== null && capacity > 0 ? Math.max(0, capacity - totalRegistered) : null;
+
+    return (
+      <PublicEventView
+        event={event}
+        registeredCount={totalRegistered}
+        waitlistCount={totalWaitlisted}
+        isCapacityFull={isCapacityFull}
+        spotsRemaining={spotsRemaining}
+        isPreview={event.status !== 'published'}
+        userContext={{
+          isLoggedIn: !!context.profile,
+          fullName: context.profile?.full_name,
+          email: context.user?.email,
+          role: context.profile?.role,
+        }}
+      />
+    );
+  }
+
+  // Internal Workspace Guard: If accessed by UUID without public view flag, require login
+  if (!context.profile) {
+    if (event.status === 'published') {
+      redirect(`/events/${event.slug}`);
+    } else {
+      redirect(`/auth/login?redirect=/events/${id}`);
+    }
+  }
 
   // 2. Fetch all tasks tied to this event (Step 8.2)
   const { data: tasksData } = await admin

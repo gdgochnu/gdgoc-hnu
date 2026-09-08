@@ -175,6 +175,28 @@ export interface Event {
   } | null;
 }
 
+export type RegistrationStatus = 'registered' | 'waitlisted' | 'cancelled';
+
+export interface EventRegistration {
+  id: string;
+  event_id: string;
+  profile_id: string | null;
+  full_name: string;
+  email: string;
+  phone: string | null;
+  custom_answers: Record<string, any>;
+  qr_code: string;
+  status: RegistrationStatus;
+  created_at: string;
+  updated_at: string;
+  profile?: {
+    id: string;
+    full_name: string;
+    email: string;
+    avatar_url: string | null;
+  } | null;
+}
+
 
 export type ApprovalWorkflowType =
   | 'task_completion'

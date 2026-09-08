@@ -997,5 +997,226 @@ export async function unpublishEvent(eventId: string) {
   }
 }
 
+// ==============================================================================
+// Phase 8 Step 8.7: Public Event Page & Registration Actions
+// Spec reference: §4.3 item 4 & §6 (/events/[slug])
+// ==============================================================================
 
+export interface RegisterForEventInput {
+  eventId: string;
+  fullName: string;
+  email: string;
+  phone?: string;
+  customAnswers?: Record<string, any>;
+}
 
+/**
+ * Fetch public event data by slug or UUID.
+ * Includes registration counts and capacity status.
+ */
+export async function getPublicEventBySlug(slugOrId: string) {
+  try {
+    const admin = createAdminClient();
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(slugOrId);
+
+    const query = admin
+      .from('events')
+      .select('*, department:departments(id, name, code, branch)');
+
+    const { data: eventData, error: eventErr } = isUuid
+      ? await query.eq('id', slugOrId).maybeSingle()
+      : await query.eq('slug', slugOrId).maybeSingle();
+
+    if (eventErr || !eventData) {
+      return null;
+    }
+
+    // Fetch registration statistics
+    const { count: registeredCount } = await admin
+      .from('event_registrations')
+      .select('id', { count: 'exact', head: true })
+      .eq('event_id', eventData.id)
+      .eq('status', 'registered');
+
+    const { count: waitlistCount } = await admin
+      .from('event_registrations')
+      .select('id', { count: 'exact', head: true })
+      .eq('event_id', eventData.id)
+      .eq('status', 'waitlisted');
+
+    const totalRegistered = registeredCount ?? 0;
+    const totalWaitlisted = waitlistCount ?? 0;
+    const capacity = eventData.capacity;
+    const isCapacityFull = capacity !== null && capacity > 0 && totalRegistered >= capacity;
+    const spotsRemaining = capacity !== null && capacity > 0 ? Math.max(0, capacity - totalRegistered) : null;
+
+    return {
+      event: {
+        ...eventData,
+        registration_fields: Array.isArray(eventData.registration_fields) ? eventData.registration_fields : [],
+        owners: Array.isArray(eventData.owners) ? eventData.owners : [],
+      },
+      registeredCount: totalRegistered,
+      waitlistCount: totalWaitlisted,
+      isCapacityFull,
+      spotsRemaining,
+    };
+  } catch (err) {
+    console.error('getPublicEventBySlug error:', err);
+    return null;
+  }
+}
+
+/**
+ * Register a attendee (public student or authenticated member) for a published event.
+ * Enforces:
+ * 1. Event must exist and be published (or preview bypass for admins).
+ * 2. Full name & valid email required.
+ * 3. Required custom fields must be filled.
+ * 4. Duplicate registration prevention by (event_id, email).
+ * 5. Automatic waitlist if capacity is reached.
+ * 6. Generates unique secure QR code string.
+ */
+export async function registerForEvent(input: RegisterForEventInput) {
+  try {
+    const admin = createAdminClient();
+    const context = await getUserContext();
+
+    const fullName = (input.fullName || '').trim();
+    const email = (input.email || '').trim().toLowerCase();
+    const phone = (input.phone || '').trim() || null;
+    const customAnswers = input.customAnswers || {};
+
+    // 1. Basic validation
+    if (!fullName || fullName.length < 2) {
+      return { success: false, error: 'Please enter your full name (at least 2 characters).' };
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!email || !emailRegex.test(email)) {
+      return { success: false, error: 'Please enter a valid email address.' };
+    }
+
+    // 2. Fetch event
+    const { data: event, error: eventErr } = await admin
+      .from('events')
+      .select('id, title, slug, status, capacity, registration_fields')
+      .eq('id', input.eventId)
+      .maybeSingle();
+
+    if (eventErr || !event) {
+      return { success: false, error: 'Event not found.' };
+    }
+
+    // Check if event is open for registration
+    const isPresidential = context.profile && ['president', 'co_president'].includes(context.profile.role);
+    if (event.status !== 'published' && !isPresidential) {
+      return {
+        success: false,
+        error: `Registration is not open for this event (current status: ${event.status}).`,
+      };
+    }
+
+    // 3. Check for existing registration
+    const { data: existingReg } = await admin
+      .from('event_registrations')
+      .select('id, full_name, email, qr_code, status, created_at')
+      .eq('event_id', event.id)
+      .eq('email', email)
+      .maybeSingle();
+
+    if (existingReg) {
+      return {
+        success: false,
+        code: 'ALREADY_REGISTERED',
+        error: 'You are already registered for this event with this email address.',
+        registration: existingReg,
+        eventSlug: event.slug,
+      };
+    }
+
+    // 4. Validate required custom registration questions
+    const registrationFields: EventRegistrationField[] = Array.isArray(event.registration_fields)
+      ? event.registration_fields
+      : [];
+
+    for (const field of registrationFields) {
+      if (field.required) {
+        const val = customAnswers[field.id];
+        if (val === undefined || val === null || (typeof val === 'string' && val.trim() === '')) {
+          return {
+            success: false,
+            error: `Please answer the required question: "${field.label}"`,
+          };
+        }
+      }
+    }
+
+    // 5. Capacity Check
+    let registrationStatus: 'registered' | 'waitlisted' = 'registered';
+    if (event.capacity && event.capacity > 0) {
+      const { count: currentRegistered } = await admin
+        .from('event_registrations')
+        .select('id', { count: 'exact', head: true })
+        .eq('event_id', event.id)
+        .eq('status', 'registered');
+
+      if ((currentRegistered ?? 0) >= event.capacity) {
+        registrationStatus = 'waitlisted';
+      }
+    }
+
+    // 6. Generate Unique QR Code
+    // Format: GDGOC-REG-{randomHex}-{randomHex}
+    const uniqueQr = `GDGOC-REG-${crypto.randomUUID().toUpperCase()}`;
+
+    // 7. Insert registration
+    const { data: newReg, error: insertErr } = await admin
+      .from('event_registrations')
+      .insert({
+        event_id: event.id,
+        profile_id: context.user?.id || null,
+        full_name: fullName,
+        email: email,
+        phone: phone,
+        custom_answers: customAnswers,
+        qr_code: uniqueQr,
+        status: registrationStatus,
+      })
+      .select()
+      .single();
+
+    if (insertErr || !newReg) {
+      if (insertErr?.code === '23505') {
+        // Unique violation fallback
+        return {
+          success: false,
+          code: 'ALREADY_REGISTERED',
+          error: 'You are already registered for this event.',
+          eventSlug: event.slug,
+        };
+      }
+      return {
+        success: false,
+        error: insertErr?.message || 'Failed to submit registration. Please try again.',
+      };
+    }
+
+    // Revalidate public & internal pages
+    revalidatePath(`/events/${event.slug}`);
+    revalidatePath(`/events/${event.id}`);
+
+    return {
+      success: true,
+      registration: newReg,
+      eventSlug: event.slug,
+      isWaitlisted: registrationStatus === 'waitlisted',
+    };
+  } catch (err: unknown) {
+    console.error('registerForEvent error:', err);
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : 'An unexpected error occurred during registration.',
+    };
+  }
+}
