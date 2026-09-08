@@ -179,7 +179,7 @@
 - [x] 15.1 Build the Content Calendar. (2026-09-08)
 - [x] 15.2 Build the Central Media Library UI backed by the Drive bridge (browse/search/filter by committee/event/type). (2026-09-08)
 - [x] 15.3 Build Event Coverage checklists tied to the Drive `/Media-Coverage/` folder per event. (2026-09-08)
-- [ ] 15.4 Build Operations checklists (Before/During/After) per event.
+- [x] 15.4 Build Operations checklists (Before/During/After) per event. (2026-09-08)
 
 ## Phase 16 — President Command Center
 - [ ] 16.1 Build committee health scorecards.

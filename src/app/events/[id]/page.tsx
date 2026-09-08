@@ -8,8 +8,10 @@ import { PublicEventView } from '@/components/events/PublicEventView';
 import { EventFeedbackResultsView } from '@/components/events/EventFeedbackResultsView';
 import { EventBudgetTracker } from '@/components/events/EventBudgetTracker';
 import { EventMediaCoverage } from '@/components/events/EventMediaCoverage';
+import { EventOperationsChecklist } from '@/components/events/EventOperationsChecklist';
 import { getEventFeedbackSummary, getEventBudget, canAccessEventBudget } from '@/app/events/actions';
 import { getEventCoverage } from '@/app/events/coverage-actions';
+import { getEventOperationsChecklist } from '@/app/events/operations-actions';
 import { Event, EventStatus } from '@/types';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
@@ -293,14 +295,15 @@ export default async function EventDetailPage({ params, searchParams }: EventDet
 
   const tasks = tasksData || [];
 
-  // 3. Fetch departments & active members for task creation modal, feedback summary, event budget, and media coverage (Step 15.3)
-  const [deptRes, memberRes, feedbackSummary, budgetSummary, canAccessBudget, coverageRes] = await Promise.all([
+  // 3. Fetch departments & active members for task creation modal, feedback summary, event budget, media coverage, and operations checklists (Step 15.4)
+  const [deptRes, memberRes, feedbackSummary, budgetSummary, canAccessBudget, coverageRes, operationsSummary] = await Promise.all([
     admin.from('departments').select('id, name, code, branch').order('name'),
     admin.from('profiles').select('id, full_name, full_name_en, email, avatar_url, department_id').eq('status', 'active').order('full_name'),
     getEventFeedbackSummary(event.id),
     getEventBudget(event.id),
     canAccessEventBudget(event.id),
     getEventCoverage(event.id),
+    getEventOperationsChecklist(event.id),
   ]);
 
   const coverageSummary = coverageRes?.data || {
@@ -623,6 +626,15 @@ export default async function EventDetailPage({ params, searchParams }: EventDet
             eventId={event.id}
             eventTitle={event.title}
             initialCoverage={coverageSummary}
+            availableMembers={members}
+            canManage={canManage}
+          />
+
+          {/* Operations Event Control Checklists (Before/During/After) (Step 15.4) */}
+          <EventOperationsChecklist
+            eventId={event.id}
+            eventTitle={event.title}
+            initialSummary={operationsSummary}
             availableMembers={members}
             canManage={canManage}
           />
