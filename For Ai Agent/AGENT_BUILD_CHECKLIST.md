@@ -139,7 +139,7 @@
 - [x] 8.12 Confirm end-to-end: a Media Head with no check-in duty on Event X cannot open `/events/X/attendance`, while the specifically assigned HR member can. (2026-09-08)
 
 ## Phase 9 — Event Feedback & Budget (spec §4.18, §4.20)
-- [ ] 9.1 Create the `event_feedback` table; auto-send the survey (in-app + email) to all attendees when an event flips to `completed`.
+- [x] 9.1 Create the `event_feedback` table; auto-send the survey (in-app + email) to all attendees when an event flips to `completed`. (2026-09-08)
 - [ ] 9.2 Build the feedback submission form (1–5 rating + comment, anonymous-by-default toggle).
 - [ ] 9.3 Build the feedback results view on the event detail page (average score + comment highlights).
 - [ ] 9.4 Create the `event_budget_items` table + the event budget tab (line items, estimated vs actual, receipt upload).
