@@ -209,27 +209,25 @@ export function MemberCertificatesTab({
                   paddingTop: '1rem',
                 }}
               >
-                {cert.pdf_drive_url ? (
-                  <a
-                    href={cert.pdf_drive_url}
-                    target="_blank"
-                    rel="noreferrer"
-                    style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '0.4rem',
-                      padding: '0.55rem 1rem',
-                      borderRadius: '8px',
-                      background: 'linear-gradient(135deg, var(--google-blue), #2563EB)',
-                      color: '#FFFFFF',
-                      fontSize: '0.82rem',
-                      fontWeight: 700,
-                      textDecoration: 'none',
-                    }}
-                  >
-                    <Download size={14} /> Download PDF
-                  </a>
-                ) : null}
+                <a
+                  href={cert.pdf_drive_url && cert.pdf_drive_url.startsWith('http') ? cert.pdf_drive_url : `/api/certificates/${cert.id}/download`}
+                  target="_blank"
+                  rel="noreferrer"
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '0.4rem',
+                    padding: '0.55rem 1rem',
+                    borderRadius: '8px',
+                    background: 'linear-gradient(135deg, var(--google-blue), #2563EB)',
+                    color: '#FFFFFF',
+                    fontSize: '0.82rem',
+                    fontWeight: 700,
+                    textDecoration: 'none',
+                  }}
+                >
+                  <Download size={14} /> Download PDF
+                </a>
 
                 <Link
                   href={`/verify/${cert.verification_code}`}

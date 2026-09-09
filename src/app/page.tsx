@@ -132,6 +132,22 @@ export default async function HomePage(props: HomePageProps) {
           </Link>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+            <Link
+              href="/stats"
+              style={{
+                color: 'var(--text-secondary)',
+                textDecoration: 'none',
+                fontSize: '0.85rem',
+                fontWeight: 600,
+                padding: '0.4rem 0.8rem',
+                borderRadius: '8px',
+                background: 'rgba(255, 255, 255, 0.04)',
+                border: '1px solid rgba(255, 255, 255, 0.08)',
+              }}
+            >
+              Public Stats
+            </Link>
+
             {currentUser ? (
               <UserAuthStatus
                 email={currentUser.email || ''}
@@ -323,6 +339,7 @@ export default async function HomePage(props: HomePageProps) {
           </div>
           <div style={{ display: 'flex', gap: '1.5rem', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
             <Link href="/" style={{ color: 'inherit', textDecoration: 'none' }}>Home</Link>
+            <Link href="/stats" style={{ color: 'inherit', textDecoration: 'none' }}>Chapter Stats</Link>
             <Link href="/api/db-verify" style={{ color: 'inherit', textDecoration: 'none' }}>System Health</Link>
             <Link href="/manifest.webmanifest" style={{ color: 'inherit', textDecoration: 'none' }}>PWA Manifest</Link>
           </div>

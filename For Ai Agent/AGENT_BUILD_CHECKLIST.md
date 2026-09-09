@@ -211,14 +211,14 @@
 
 ## Phase 20 — Certificates
 - [x] 20.1 Build the Template Builder (upload background, place field markers, save). (2026-09-09)
-- [ ] 20.2 Build the recipient-selection flow (manual search + "bulk from event attendance ≥ X%").
-- [ ] 20.3 Build the PDF generation API Route (template + data + verification QR) and Drive upload.
-- [ ] 20.4 Build the recipient notification (in-app + email) and the profile Certificates tab.
-- [ ] 20.5 Build the public `/verify/[code]` page.
+- [x] 20.2 Build the recipient-selection flow (manual search + "bulk from event attendance ≥ X%"). (2026-09-09)
+- [x] 20.3 Build the PDF generation API Route (template + data + verification QR) and Drive upload. (2026-09-09)
+- [x] 20.4 Build the recipient notification (in-app + email) and the profile Certificates tab. (2026-09-09)
+- [x] 20.5 Build the public `/verify/[code]` page. (2026-09-09)
 
 ## Phase 21 — Public Chapter Stats Page (spec §4.21)
-- [ ] 21.1 Build the public aggregate-only RPC (member count, events held, total attendance, certificates issued, standout achievement).
-- [ ] 21.2 Build the public `/stats` page, linked from the landing page.
+- [x] 21.1 Build the public aggregate-only RPC (member count, events held, total attendance, certificates issued, standout achievement). (2026-09-09)
+- [x] 21.2 Build the public `/stats` page, linked from the landing page. (2026-09-09)
 
 ## Phase 22 — Scheduled Jobs (Vercel Cron)
 - [ ] 22.1 Build the protected cron API route + `vercel.json` schedule for monthly `performance_reviews` computation.
