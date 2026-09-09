@@ -44,6 +44,7 @@ export async function issueBatchAction(
   const result = await issueCertificatesBatch(input, context.profile.id);
   revalidatePath('/certificates');
   revalidatePath('/profile');
+  revalidatePath('/stats');
   return result;
 }
 
@@ -83,4 +84,45 @@ export async function fetchIssuedCertificatesAction(query?: string) {
   }
 
   return { success: true, data: data || [] };
+}
+
+/**
+ * Server action to delete an issued certificate (Leadership gated)
+ */
+export async function deleteIssuedCertificateAction(certificateId: string): Promise<{
+  success: boolean;
+  error?: string;
+}> {
+  try {
+    const context = await getUserContext();
+    if (!context.user || !context.profile) {
+      return { success: false, error: 'Unauthorized. Please sign in.' };
+    }
+
+    const isLeadership = [
+      'president',
+      'co_president',
+      'branch_head',
+      'committee_head',
+      'committee_co_head',
+    ].includes(context.profile.role);
+
+    if (!isLeadership) {
+      return { success: false, error: 'Insufficient permissions to delete certificates.' };
+    }
+
+    const admin = createAdminClient();
+    const { error } = await admin.from('certificates').delete().eq('id', certificateId);
+
+    if (error) throw error;
+
+    revalidatePath('/certificates');
+    revalidatePath('/profile');
+    revalidatePath('/stats');
+
+    return { success: true };
+  } catch (err: any) {
+    console.error('deleteIssuedCertificateAction error:', err);
+    return { success: false, error: err.message || 'Failed to delete certificate' };
+  }
 }

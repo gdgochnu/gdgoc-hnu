@@ -15,10 +15,14 @@ import {
   Send,
   Loader2,
   Shield,
+  Plus,
+  Trash2,
+  Layers,
 } from 'lucide-react';
 import { RecipientSelector } from '@/components/certificates/RecipientSelector';
 import { TemplateBuilder } from '@/components/certificates/TemplateBuilder';
-import { issueBatchAction } from './actions';
+import { issueBatchAction, deleteIssuedCertificateAction } from './actions';
+import { deleteCertificateTemplateAction } from '@/lib/certificates/template-actions';
 import type { CertificateRecipientInput, CertificateTemplate } from '@/types/certificates';
 
 interface CertificateRecord {
@@ -61,6 +65,37 @@ export function CertificatesClient({
   const [activeTab, setActiveTab] = useState<'issued' | 'issue' | 'templates'>('issued');
   const [searchQuery, setSearchQuery] = useState('');
   const [certificates, setCertificates] = useState<CertificateRecord[]>(initialCertificates);
+  const [deletingCertId, setDeletingCertId] = useState<string | null>(null);
+
+  const handleDeleteCertificate = async (certId: string, recipientName: string) => {
+    if (
+      !confirm(
+        `Are you sure you want to delete the certificate for "${recipientName}"? This action cannot be undone.`
+      )
+    ) {
+      return;
+    }
+    setDeletingCertId(certId);
+    try {
+      const res = await deleteIssuedCertificateAction(certId);
+      if (res.success) {
+        setCertificates((prev) => prev.filter((c) => c.id !== certId));
+      } else {
+        alert(res.error || 'Failed to delete certificate');
+      }
+    } catch (err: any) {
+      alert(err?.message || 'Error deleting certificate');
+    } finally {
+      setDeletingCertId(null);
+    }
+  };
+
+  // Template Management State
+  const [templateList, setTemplateList] = useState<CertificateTemplate[]>(templates);
+  const [editingTemplateId, setEditingTemplateId] = useState<string | null>(
+    templates[0]?.id || null
+  );
+  const [isDeletingTemplate, setIsDeletingTemplate] = useState(false);
 
   // Issue Batch Form State
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>(
@@ -144,6 +179,45 @@ export function CertificatesClient({
       }
     });
   };
+
+  const handleTemplateSaved = (savedTmpl: CertificateTemplate) => {
+    setTemplateList((prev) => {
+      const exists = prev.some((t) => t.id === savedTmpl.id);
+      if (exists) {
+        return prev.map((t) => (t.id === savedTmpl.id ? savedTmpl : t));
+      } else {
+        return [savedTmpl, ...prev];
+      }
+    });
+    setEditingTemplateId(savedTmpl.id);
+    if (!selectedTemplateId) {
+      setSelectedTemplateId(savedTmpl.id);
+    }
+  };
+
+  const handleDeleteTemplate = async (templateId: string) => {
+    if (!confirm('Are you sure you want to delete this template?')) return;
+    setIsDeletingTemplate(true);
+    try {
+      const res = await deleteCertificateTemplateAction(templateId);
+      if (res.success) {
+        const nextList = templateList.filter((t) => t.id !== templateId);
+        setTemplateList(nextList);
+        setEditingTemplateId(nextList[0]?.id || null);
+        if (selectedTemplateId === templateId) {
+          setSelectedTemplateId(nextList[0]?.id || '');
+        }
+      } else {
+        alert(res.error || 'Failed to delete template');
+      }
+    } catch (e: any) {
+      alert(e.message || 'Failed to delete');
+    } finally {
+      setIsDeletingTemplate(false);
+    }
+  };
+
+  const currentEditingTemplate = templateList.find((t) => t.id === editingTemplateId);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem', width: '100%' }}>
@@ -320,7 +394,7 @@ export function CertificatesClient({
               }}
             >
               <Palette size={16} color={activeTab === 'templates' ? '#a855f7' : 'currentColor'} />
-              <span>Template Builder</span>
+              <span>Template Builder ({templateList.length})</span>
             </button>
           </>
         )}
@@ -497,6 +571,32 @@ export function CertificatesClient({
                     >
                       <Shield size={15} />
                     </a>
+
+                    {isLeadership && (
+                      <button
+                        onClick={() => handleDeleteCertificate(cert.id, cert.recipient_name)}
+                        disabled={deletingCertId === cert.id}
+                        title="Delete Certificate"
+                        style={{
+                          padding: '0.45rem',
+                          borderRadius: '8px',
+                          background: 'rgba(234, 67, 53, 0.15)',
+                          border: '1px solid rgba(234, 67, 53, 0.3)',
+                          color: 'var(--google-red)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          cursor: deletingCertId === cert.id ? 'not-allowed' : 'pointer',
+                          opacity: deletingCertId === cert.id ? 0.6 : 1,
+                        }}
+                      >
+                        {deletingCertId === cert.id ? (
+                          <Loader2 size={15} className="animate-spin" />
+                        ) : (
+                          <Trash2 size={15} />
+                        )}
+                      </button>
+                    )}
                   </div>
                 </div>
               ))
@@ -543,10 +643,10 @@ export function CertificatesClient({
                     outline: 'none',
                   }}
                 >
-                  {templates.length === 0 && (
+                  {templateList.length === 0 && (
                     <option value="" style={{ background: '#1a1d2e' }}>No templates saved — using default</option>
                   )}
-                  {templates.map((t) => (
+                  {templateList.map((t) => (
                     <option key={t.id} value={t.id} style={{ background: '#1a1d2e' }}>
                       {t.name}
                     </option>
@@ -708,14 +808,112 @@ export function CertificatesClient({
         </div>
       )}
 
-      {/* TAB 3: TEMPLATE BUILDER */}
+      {/* TAB 3: TEMPLATE BUILDER & TEMPLATE MANAGER */}
       {activeTab === 'templates' && isLeadership && (
-        <TemplateBuilder
-          initialTemplate={templates[0]}
-          onSaved={(savedTmpl) => {
-            alert(`Template "${savedTmpl.name}" saved successfully!`);
-          }}
-        />
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+          {/* Template Switcher Bar */}
+          <div
+            className="glass-panel"
+            style={{
+              padding: '1rem 1.5rem',
+              borderRadius: '18px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              flexWrap: 'wrap',
+              gap: '1rem',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flex: 1, minWidth: '280px' }}>
+              <Layers size={20} color="#a855f7" />
+              <div style={{ flex: 1 }}>
+                <span style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+                  Select Template to Edit
+                </span>
+                <select
+                  value={editingTemplateId || ''}
+                  onChange={(e) => setEditingTemplateId(e.target.value || null)}
+                  style={{
+                    width: '100%',
+                    maxWidth: '360px',
+                    padding: '0.45rem 0.75rem',
+                    borderRadius: '8px',
+                    border: '1px solid rgba(255, 255, 255, 0.15)',
+                    background: '#1a1d2e',
+                    color: '#fff',
+                    fontSize: '0.85rem',
+                    fontWeight: 600,
+                    marginTop: '0.2rem',
+                    outline: 'none',
+                  }}
+                >
+                  {templateList.map((tmpl) => (
+                    <option key={tmpl.id} value={tmpl.id} style={{ background: '#1a1d2e' }}>
+                      {tmpl.name}
+                    </option>
+                  ))}
+                  <option value="" style={{ background: '#1a1d2e' }}>
+                    + [Create New Blank Template]
+                  </option>
+                </select>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+              <button
+                onClick={() => setEditingTemplateId(null)}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.4rem',
+                  padding: '0.55rem 1rem',
+                  borderRadius: '10px',
+                  background: !editingTemplateId ? 'var(--google-blue)' : 'rgba(255, 255, 255, 0.08)',
+                  color: '#fff',
+                  fontSize: '0.82rem',
+                  fontWeight: 700,
+                  border: 'none',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s',
+                }}
+              >
+                <Plus size={15} />
+                <span>New Template</span>
+              </button>
+
+              {editingTemplateId && (
+                <button
+                  onClick={() => handleDeleteTemplate(editingTemplateId)}
+                  disabled={isDeletingTemplate}
+                  title="Delete this template"
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '0.4rem',
+                    padding: '0.55rem 0.9rem',
+                    borderRadius: '10px',
+                    background: 'rgba(234, 67, 53, 0.15)',
+                    border: '1px solid rgba(234, 67, 53, 0.3)',
+                    color: 'var(--google-red)',
+                    fontSize: '0.82rem',
+                    fontWeight: 700,
+                    cursor: isDeletingTemplate ? 'not-allowed' : 'pointer',
+                  }}
+                >
+                  <Trash2 size={15} />
+                  <span>{isDeletingTemplate ? 'Deleting...' : 'Delete Template'}</span>
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Template Builder Instance */}
+          <TemplateBuilder
+            key={editingTemplateId || 'new'}
+            initialTemplate={currentEditingTemplate}
+            onSaved={handleTemplateSaved}
+          />
+        </div>
       )}
     </div>
   );

@@ -1,7 +1,7 @@
 import React from 'react';
 import { Metadata } from 'next';
 import Link from 'next/link';
-import { notFound } from 'next/navigation';
+import QRCode from 'qrcode';
 import { createAdminClient } from '@/lib/supabase/admin';
 import {
   ShieldCheck,
@@ -15,7 +15,11 @@ import {
   CheckCircle2,
   AlertTriangle,
   ArrowLeft,
+  QrCode as QrCodeIcon,
+  Sparkles,
 } from 'lucide-react';
+import type { CertificateFieldLayout } from '@/types/certificates';
+import { CertificatePreviewCanvas } from '@/components/certificates/CertificatePreviewCanvas';
 
 interface VerifyPageProps {
   params: Promise<{ code: string }>;
@@ -36,7 +40,7 @@ export default async function CertificateVerificationPage({ params }: VerifyPage
   const admin = createAdminClient();
 
   // Query certificate by verification_code
-  const { data: cert, error } = await admin
+  const { data: cert } = await admin
     .from('certificates')
     .select(`
       id,
@@ -46,6 +50,7 @@ export default async function CertificateVerificationPage({ params }: VerifyPage
       issue_date,
       recipient_name,
       pdf_drive_url,
+      template_id,
       event_id,
       issued_by
     `)
@@ -65,6 +70,7 @@ export default async function CertificateVerificationPage({ params }: VerifyPage
         issue_date,
         recipient_name,
         pdf_drive_url,
+        template_id,
         event_id,
         issued_by
       `)
@@ -73,11 +79,30 @@ export default async function CertificateVerificationPage({ params }: VerifyPage
     certificate = byNum;
   }
 
-  // Fetch optional event and issuer info without exposing PII
+  // Fetch optional event, template, and issuer info without exposing PII
   let eventTitle: string | null = null;
   let issuerName: string | null = null;
+  let templateBg: string | null = null;
+  let fieldLayout: CertificateFieldLayout | null = null;
+  let qrCodeDataUrl = '';
+
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
 
   if (certificate) {
+    const verifyUrl = `${baseUrl}/verify/${certificate.verification_code}`;
+    try {
+      qrCodeDataUrl = await QRCode.toDataURL(verifyUrl, {
+        width: 180,
+        margin: 1,
+        color: {
+          dark: '#0f172a',
+          light: '#ffffff',
+        },
+      });
+    } catch (e) {
+      console.warn('QR generation fallback:', e);
+    }
+
     if (certificate.event_id) {
       const { data: eventData } = await admin
         .from('events')
@@ -85,6 +110,38 @@ export default async function CertificateVerificationPage({ params }: VerifyPage
         .eq('id', certificate.event_id)
         .maybeSingle();
       if (eventData) eventTitle = eventData.title;
+    }
+
+    if (certificate.template_id) {
+      const { data: tmplData } = await admin
+        .from('certificate_templates')
+        .select('background_image_drive_file_id, field_layout')
+        .eq('id', certificate.template_id)
+        .maybeSingle();
+      if (tmplData?.background_image_drive_file_id) {
+        templateBg = tmplData.background_image_drive_file_id;
+      }
+      if (tmplData?.field_layout) {
+        fieldLayout = tmplData.field_layout as CertificateFieldLayout;
+      }
+    }
+
+    // Fallback if no template linked to certificate: check active/latest template
+    if (!fieldLayout) {
+      const { data: defaultTmpl } = await admin
+        .from('certificate_templates')
+        .select('background_image_drive_file_id, field_layout')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (defaultTmpl) {
+        if (!templateBg && defaultTmpl.background_image_drive_file_id) {
+          templateBg = defaultTmpl.background_image_drive_file_id;
+        }
+        if (defaultTmpl.field_layout) {
+          fieldLayout = defaultTmpl.field_layout as CertificateFieldLayout;
+        }
+      }
     }
 
     if (certificate.issued_by) {
@@ -123,7 +180,7 @@ export default async function CertificateVerificationPage({ params }: VerifyPage
       <header
         style={{
           width: '100%',
-          maxWidth: '720px',
+          maxWidth: '860px',
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
@@ -174,28 +231,48 @@ export default async function CertificateVerificationPage({ params }: VerifyPage
           </div>
         </Link>
 
-        <Link
-          href="/"
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '0.4rem',
-            fontSize: '0.82rem',
-            color: '#94a3b8',
-            textDecoration: 'none',
-            padding: '0.4rem 0.8rem',
-            borderRadius: '8px',
-            background: 'rgba(255, 255, 255, 0.05)',
-            border: '1px solid rgba(255, 255, 255, 0.1)',
-          }}
-        >
-          <ArrowLeft size={14} />
-          <span>Home</span>
-        </Link>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+          <Link
+            href="/stats"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.4rem',
+              fontSize: '0.82rem',
+              color: '#94a3b8',
+              textDecoration: 'none',
+              padding: '0.4rem 0.8rem',
+              borderRadius: '8px',
+              background: 'rgba(255, 255, 255, 0.05)',
+              border: '1px solid rgba(255, 255, 255, 0.1)',
+            }}
+          >
+            <span>Chapter Stats</span>
+          </Link>
+
+          <Link
+            href="/"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.4rem',
+              fontSize: '0.82rem',
+              color: '#94a3b8',
+              textDecoration: 'none',
+              padding: '0.4rem 0.8rem',
+              borderRadius: '8px',
+              background: 'rgba(255, 255, 255, 0.05)',
+              border: '1px solid rgba(255, 255, 255, 0.1)',
+            }}
+          >
+            <ArrowLeft size={14} />
+            <span>Home</span>
+          </Link>
+        </div>
       </header>
 
       {/* Main Verification Container */}
-      <main style={{ width: '100%', maxWidth: '720px' }}>
+      <main style={{ width: '100%', maxWidth: '860px' }}>
         {certificate ? (
           <div
             className="glass-panel"
@@ -207,7 +284,7 @@ export default async function CertificateVerificationPage({ params }: VerifyPage
               boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
               display: 'flex',
               flexDirection: 'column',
-              gap: '1.75rem',
+              gap: '2rem',
             }}
           >
             {/* Google 4-Color Accent Strip */}
@@ -272,44 +349,35 @@ export default async function CertificateVerificationPage({ params }: VerifyPage
               </div>
             </div>
 
-            {/* Certificate Core Information */}
-            <div style={{ textAlign: 'center', padding: '1rem 0' }}>
-              <div
-                style={{
-                  fontSize: '0.8rem',
-                  fontWeight: 700,
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.08em',
-                  color: '#38bdf8',
-                  marginBottom: '0.5rem',
-                }}
-              >
-                Certificate of Achievement
+            {/* VISUAL CERTIFICATE PREVIEW CANVAS (Live Rendered) */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                  Visual Certificate Preview (A4 Landscape)
+                </span>
+                <span style={{ fontSize: '0.72rem', color: '#93c5fd' }}>
+                  High-Resolution Render
+                </span>
               </div>
-              <h1
-                style={{
-                  fontSize: '2rem',
-                  fontWeight: 900,
-                  color: '#ffffff',
-                  margin: '0 0 0.5rem 0',
-                  letterSpacing: '-0.02em',
-                }}
-              >
-                {certificate.title}
-              </h1>
-              <div style={{ fontSize: '1.1rem', color: '#94a3b8' }}>
-                Conferred upon{' '}
-                <strong style={{ color: '#ffffff', fontWeight: 800, fontSize: '1.25rem' }}>
-                  {certificate.recipient_name}
-                </strong>
-              </div>
+
+              <CertificatePreviewCanvas
+                recipientName={certificate.recipient_name}
+                title={certificate.title}
+                formattedDate={formattedDate}
+                certificateNumber={certificate.certificate_number}
+                issuerName={issuerName ? issuerName.split('(')[0] : ''}
+                eventTitle={eventTitle}
+                fieldLayout={fieldLayout}
+                templateBg={templateBg}
+                qrCodeDataUrl={qrCodeDataUrl}
+              />
             </div>
 
             {/* Credentials Meta Grid */}
             <div
               style={{
                 display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
                 gap: '1rem',
                 padding: '1.25rem',
                 background: 'rgba(255, 255, 255, 0.03)',

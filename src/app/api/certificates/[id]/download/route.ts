@@ -16,7 +16,7 @@ export async function GET(
     const { id } = await params;
     const admin = createAdminClient();
 
-    // 1. Fetch certificate record with template
+    // 1. Fetch certificate record
     const { data: cert, error: certErr } = await admin
       .from('certificates')
       .select(`
@@ -27,7 +27,7 @@ export async function GET(
         issue_date,
         certificate_number,
         verification_code,
-        template:certificate_templates(id, name, background_image_drive_file_id, field_layout)
+        template_id
       `)
       .eq('id', id)
       .single();
@@ -36,7 +36,26 @@ export async function GET(
       return NextResponse.json({ error: 'Certificate not found' }, { status: 404 });
     }
 
-    const template = cert.template as any;
+    let template: any = null;
+    if (cert.template_id) {
+      const { data: tmpl } = await admin
+        .from('certificate_templates')
+        .select('id, name, background_image_drive_file_id, field_layout')
+        .eq('id', cert.template_id)
+        .maybeSingle();
+      template = tmpl;
+    }
+
+    // Fallback: if cert has no template_id or template not found, use latest template
+    if (!template) {
+      const { data: defaultTmpl } = await admin
+        .from('certificate_templates')
+        .select('id, name, background_image_drive_file_id, field_layout')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      template = defaultTmpl;
+    }
 
     // 2. Render PDF buffer
     const { buffer } = await renderCertificatePDFBuffer({

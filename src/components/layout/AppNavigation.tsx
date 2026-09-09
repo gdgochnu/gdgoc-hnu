@@ -150,6 +150,11 @@ export function AppNavigation({
         label: 'Certificates',
         href: '/certificates',
         icon: GraduationCap,
+      },
+      {
+        label: 'Chapter Stats',
+        href: '/stats',
+        icon: BarChart3,
       }
     );
 
@@ -613,6 +618,22 @@ export function AppNavigation({
               initialUnreadCount={unreadNotificationsCount}
               profileId={profile.id}
             />
+
+            {/* Quick Visit Public Stats */}
+            <Link
+              href="/stats"
+              className="btn-secondary"
+              style={{
+                fontSize: '0.8rem',
+                padding: '0.4rem 0.8rem',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.4rem',
+              }}
+            >
+              <span>Public Stats</span>
+              <BarChart3 size={13} />
+            </Link>
 
             {/* Quick Visit Public Site */}
             <Link

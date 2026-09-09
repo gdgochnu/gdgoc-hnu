@@ -23,6 +23,7 @@ export interface CertificateFieldLayout {
   qr_code: FieldPosition;
   issuer_name?: FieldPosition;
   signature_image?: FieldPosition;
+  [key: string]: FieldPosition | undefined;
 }
 
 export const DEFAULT_FIELD_LAYOUT: CertificateFieldLayout = {
