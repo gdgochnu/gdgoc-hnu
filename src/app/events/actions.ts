@@ -28,6 +28,7 @@ import {
   notifyEventBudgetExceeded,
   notifyEventNearingCapacity,
 } from '@/lib/notifications/triggers';
+import { awardPoints } from '@/lib/gamification/points-engine';
 
 export interface EventTaskDraftInput {
   title: string;
@@ -1611,6 +1612,21 @@ export async function recordQrCheckin(input: RecordQrCheckinInput) {
       return { success: false, error: attErr?.message || 'Failed to record attendance.', code: 'INSERT_FAILED' };
     }
 
+    // 5.1 Award points to member if linked to profile (§4.13)
+    if (registration.profile_id) {
+      try {
+        await awardPoints({
+          profileId: registration.profile_id,
+          actionKey: 'event_attended',
+          relatedEntityId: input.eventId,
+          preventDuplicate: true,
+          awardedBy: context.user.id,
+        });
+      } catch (pErr) {
+        console.error('[checkInAttendee] points error:', pErr);
+      }
+    }
+
     // 6. Record audit log
     await admin.from('audit_logs').insert({
       actor_id: context.user.id,
@@ -1904,6 +1920,21 @@ export async function recordManualCheckin(input: ManualCheckinInput) {
         };
       }
       return { success: false, error: attErr?.message || 'Failed to record manual check-in.' };
+    }
+
+    // 4.1 Award points to member if linked to profile (§4.13)
+    if (registration.profile_id) {
+      try {
+        await awardPoints({
+          profileId: registration.profile_id,
+          actionKey: 'event_attended',
+          relatedEntityId: input.eventId,
+          preventDuplicate: true,
+          awardedBy: context.user.id,
+        });
+      } catch (pErr) {
+        console.error('[checkInAttendeeManual] points error:', pErr);
+      }
     }
 
     // 5. Audit log

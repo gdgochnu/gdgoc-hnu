@@ -8,6 +8,7 @@ import {
   notifyEventReviewStage, 
   notifyEventApproved 
 } from '@/lib/notifications/triggers';
+import { awardPoints } from '@/lib/gamification/points-engine';
 
 export interface ActOnApprovalStepParams {
   instanceId: string;
@@ -169,11 +170,36 @@ export async function actOnApprovalStep(params: ActOnApprovalStepParams) {
     if (action === 'approved' && isFinal) {
       const { data: currentTask } = await admin
         .from('tasks')
-        .select('id, title, evidence_url, parent_task_id')
+        .select('id, title, due_date, evidence_url, parent_task_id')
         .eq('id', instance.entity_id)
         .maybeSingle();
 
       if (currentTask) {
+        // Gamification (§4.13): Award points to assignees
+        try {
+          const { data: assignees } = await admin
+            .from('task_assignees')
+            .select('profile_id')
+            .eq('task_id', currentTask.id);
+
+          const isOnTime = currentTask.due_date ? new Date() <= new Date(currentTask.due_date) : true;
+          const actionKey = isOnTime ? 'task_completed_on_time' : 'task_completed';
+
+          if (assignees && assignees.length > 0) {
+            for (const a of assignees) {
+              await awardPoints({
+                profileId: a.profile_id,
+                actionKey,
+                relatedEntityId: currentTask.id,
+                preventDuplicate: true,
+                awardedBy: caller.id,
+              });
+            }
+          }
+        } catch (ptsErr) {
+          console.error('[actOnApprovalStep] task points error:', ptsErr);
+        }
+
         if (currentTask.parent_task_id) {
           await propagateDelegationUpwardOnSubmit({
             childTaskId: currentTask.id,

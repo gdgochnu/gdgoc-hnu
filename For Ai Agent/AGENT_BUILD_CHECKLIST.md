@@ -201,16 +201,16 @@
 - [x] 18.4 Build Excel export. (2026-09-09)
 
 ## Phase 19 — Gamification
-- [ ] 19.1 Build the `point_rules`-driven points engine (award points on the defined actions).
-- [ ] 19.2 Build levels/tiers + streak tracking.
-- [ ] 19.3 Build the badge system incl. the initial badge set from spec §4.13 (add an "Onboarded" badge from Phase 7).
-- [ ] 19.4 Build the seasonal leaderboard + reset job, and the all-time Hall of Fame.
-- [ ] 19.5 Build the committee leaderboard.
-- [ ] 19.6 Build the "How Points & Levels Work" transparency page.
-- [ ] 19.7 Build the recognition wall / live feed widget.
+- [x] 19.1 Build the `point_rules`-driven points engine (award points on the defined actions). (2026-09-09)
+- [x] 19.2 Build levels/tiers + streak tracking. (2026-09-09)
+- [x] 19.3 Build the badge system incl. the initial badge set from spec §4.13 (add an "Onboarded" badge from Phase 7). (2026-09-09)
+- [x] 19.4 Build the seasonal leaderboard + reset job, and the all-time Hall of Fame. (2026-09-09)
+- [x] 19.5 Build the committee leaderboard. (2026-09-09)
+- [x] 19.6 Build the "How Points & Levels Work" transparency page. (2026-09-09)
+- [x] 19.7 Build the recognition wall / live feed widget. (2026-09-09)
 
 ## Phase 20 — Certificates
-- [ ] 20.1 Build the Template Builder (upload background, place field markers, save).
+- [x] 20.1 Build the Template Builder (upload background, place field markers, save). (2026-09-09)
 - [ ] 20.2 Build the recipient-selection flow (manual search + "bulk from event attendance ≥ X%").
 - [ ] 20.3 Build the PDF generation API Route (template + data + verification QR) and Drive upload.
 - [ ] 20.4 Build the recipient notification (in-app + email) and the profile Certificates tab.

@@ -1,5 +1,6 @@
 import { createAdminClient } from '@/lib/supabase/admin';
 import { OnboardingChecklistItem } from '@/types';
+import { awardPoints } from '@/lib/gamification/points-engine';
 
 export const DEFAULT_CHECKLIST_TEMPLATES = [
   { item: 'Read the code of conduct', sort_order: 1 },
@@ -176,13 +177,13 @@ export async function toggleChecklistItem(params: {
         });
         badgeAwarded = true;
 
-        // Award points in points_log
-        await admin.from('points_log').insert({
-          profile_id: profileId,
-          action_key: 'onboarding_completed',
-          points: 10,
-          reason: 'Awarded for completing the new-member onboarding checklist.',
-          season: '2026-Fall',
+        // Award points via dynamic points engine
+        await awardPoints({
+          profileId,
+          actionKey: 'onboarding_completed',
+          customReason: 'Awarded for completing the new-member onboarding checklist.',
+          preventDuplicate: true,
+          relatedEntityId: 'onboarding',
         });
 
         // Send celebration notification
