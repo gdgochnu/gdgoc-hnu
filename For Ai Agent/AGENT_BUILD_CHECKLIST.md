@@ -182,10 +182,10 @@
 - [x] 15.4 Build Operations checklists (Before/During/After) per event. (2026-09-08)
 
 ## Phase 16 — President Command Center
-- [ ] 16.1 Build committee health scorecards.
-- [ ] 16.2 Build the "Needs Attention" feed (overdue tasks, stalled approvals/delegations, PR follow-ups, inactive members, events over budget).
-- [ ] 16.3 Build the "Upcoming" feed (synced with Google Calendar).
-- [ ] 16.4 Build the weekly 5-question review widget for Heads + the feed of answers for the President.
+- [x] 16.1 Build committee health scorecards. (2026-09-09)
+- [x] 16.2 Build the "Needs Attention" feed (overdue tasks, stalled approvals/delegations, PR follow-ups, inactive members, events over budget). (2026-09-09)
+- [x] 16.3 Build the "Upcoming" feed (synced with Google Calendar). (2026-09-09)
+- [x] 16.4 Build the weekly 5-question review widget for Heads + the feed of answers for the President. (2026-09-09)
 - [ ] 16.5 Build the unified pending-approvals queue (accounts + tasks + events).
 - [ ] 16.6 Build the new-member onboarding progress overview + average event satisfaction trend widgets.
 
