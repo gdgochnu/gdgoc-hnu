@@ -258,7 +258,7 @@ export function OperationsWorkspaceClient({
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(360px, 1fr))', gap: '1.4rem' }}>
           {filteredEvents.map((evt) => {
             const hasTasks = evt.stats.total > 0;
-            const linkHref = `/events/${evt.slug || evt.id}`;
+            const linkHref = `/events/${evt.id}`;
 
             return (
               <div

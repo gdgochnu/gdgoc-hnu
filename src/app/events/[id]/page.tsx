@@ -45,6 +45,7 @@ export default async function EventDetailPage({ params, searchParams }: EventDet
   const { id } = await params;
   const sParams = searchParams ? await searchParams : {};
   const isPublicViewRequested = sParams.view === 'public';
+  const isManageRequested = sParams.view === 'manage' || sParams.manage === 'true';
   const context = await getUserContext();
   const admin = createAdminClient();
 
@@ -164,7 +165,7 @@ export default async function EventDetailPage({ params, searchParams }: EventDet
   };
 
   // Determine whether to display the Public Event Page or the Internal Management Console
-  const isPublicRoute = !isUuid || isPublicViewRequested;
+  const isPublicRoute = (!isUuid || isPublicViewRequested) && !isManageRequested;
 
   if (isPublicRoute) {
     // If not public-ready (e.g. draft, in review), check if user is allowed to preview
