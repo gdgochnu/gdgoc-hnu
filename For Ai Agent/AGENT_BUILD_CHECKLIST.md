@@ -190,7 +190,7 @@
 - [x] 16.6 Build the new-member onboarding progress overview + average event satisfaction trend widgets. (2026-09-09)
 
 ## Phase 17 — Notifications
-- [ ] 17.1 Build the in-app notification center (bell + unread badge).
+- [x] 17.1 Build the in-app notification center (bell + unread badge). (2026-09-09)
 - [ ] 17.2 Wire every trigger from spec §4.11's table (incl. delegation, broadcast assignment, check-in duty, onboarding checklist, feedback survey, budget alerts, alumni archived) to create a `notifications` row.
 - [ ] 17.3 Wire email delivery via the chosen provider for the same triggers.
 

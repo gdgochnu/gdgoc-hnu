@@ -27,9 +27,10 @@ import {
   Bell, 
   Sparkles,
   ExternalLink,
-  Activity
+  Activity,
 } from 'lucide-react';
 import { GlobalSearchBar } from './GlobalSearchBar';
+import { NotificationCenter } from '@/components/notifications/NotificationCenter';
 
 interface NavItem {
   label: string;
@@ -597,47 +598,11 @@ export function AppNavigation({
 
           {/* Right Controls: Notifications & Quick Access */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-            {/* Notifications Bell */}
-            <div style={{ position: 'relative' }}>
-              <button
-                style={{
-                  background: 'rgba(255, 255, 255, 0.05)',
-                  border: '1px solid rgba(255, 255, 255, 0.08)',
-                  borderRadius: '10px',
-                  padding: '0.5rem',
-                  color: 'var(--text-secondary)',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}
-                title="Notifications"
-              >
-                <Bell size={18} />
-              </button>
-              {unreadNotificationsCount > 0 ? (
-                <span
-                  style={{
-                    position: 'absolute',
-                    top: '-4px',
-                    right: '-4px',
-                    width: '18px',
-                    height: '18px',
-                    borderRadius: '50%',
-                    background: 'var(--google-red)',
-                    color: '#FFFFFF',
-                    fontSize: '0.65rem',
-                    fontWeight: 800,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    border: '2px solid #0B0F19',
-                  }}
-                >
-                  {unreadNotificationsCount}
-                </span>
-              ) : null}
-            </div>
+            {/* In-App Notification Center */}
+            <NotificationCenter
+              initialUnreadCount={unreadNotificationsCount}
+              profileId={profile.id}
+            />
 
             {/* Quick Visit Public Site */}
             <Link
