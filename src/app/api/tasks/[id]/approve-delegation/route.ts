@@ -2,6 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { propagateDelegationUpwardOnSubmit, closeDelegationChain } from '@/lib/approvals/approval-actions';
+import { 
+  notifyTaskSubmittedUpward, 
+  notifyTaskApproved, 
+  notifyTaskRejectedOrChanges 
+} from '@/lib/notifications/triggers';
 
 export const dynamic = 'force-dynamic';
 
@@ -151,6 +156,16 @@ export async function POST(
         },
       });
 
+      // In-App Notification upward (Spec §4.11)
+      if (parentResult?.delegated_by_id || parentResult?.assignee_id) {
+        await notifyTaskSubmittedUpward({
+          taskId: parentResult.id,
+          taskTitle: parentResult.title,
+          submitterName: callerProfile.full_name || 'Team member',
+          delegatorId: parentResult.delegated_by_id || parentResult.assignee_id,
+        }).catch((err) => console.warn('Upward submission notification warning:', err));
+      }
+
       return NextResponse.json({
         status: 'ok',
         message: 'Deliverable endorsed and submitted upward to parent task.',
@@ -196,6 +211,16 @@ export async function POST(
         },
       });
 
+      // In-App Notification to Assignee (Spec §4.11)
+      if (task.assignee_id) {
+        await notifyTaskApproved({
+          taskId: task.id,
+          taskTitle: task.title,
+          recipientId: task.assignee_id,
+          approverName: callerProfile.full_name || 'President',
+        }).catch((err) => console.warn('Final signoff notification warning:', err));
+      }
+
       return NextResponse.json({
         status: 'ok',
         message: 'Final executive approval granted! The entire delegation chain is now closed as Done.',
@@ -237,14 +262,14 @@ export async function POST(
           });
 
           if (child.assignee_id) {
-            await admin.from('notifications').insert({
-              profile_id: child.assignee_id,
-              type: 'task_review',
-              title: 'Revisions Requested on Deliverable ⚠️',
-              message: `${callerProfile.full_name} requested revisions on "${child.title}". Check feedback and re-submit.`,
-              related_entity_type: 'task',
-              related_entity_id: child.id,
-            });
+            await notifyTaskRejectedOrChanges({
+              taskId: child.id,
+              taskTitle: child.title,
+              recipientId: child.assignee_id,
+              reviewerName: callerProfile.full_name,
+              action: 'changes_requested',
+              notes,
+            }).catch((err) => console.warn('Revisions requested notification warning:', err));
           }
         }
       }

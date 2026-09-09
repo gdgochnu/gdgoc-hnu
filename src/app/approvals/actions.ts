@@ -10,6 +10,10 @@ import {
   sendRejectionEmail 
 } from '@/lib/email/service';
 import { generateOnboardingChecklistForProfile } from '@/lib/onboarding/checklist';
+import { 
+  notifyOnboardingChecklistReady, 
+  notifyMemberArchivedToAlumni 
+} from '@/lib/notifications/triggers';
 
 
 // Verify caller is President or Co-President
@@ -128,17 +132,25 @@ export async function approveAccount(
       is_read: false,
     });
 
-    // 5. Auto-generate personalized onboarding checklist (Spec §4.15)
+    // 5. Auto-generate personalized onboarding checklist (Spec §4.15 & §4.11)
     await generateOnboardingChecklistForProfile(profileId, departmentId).catch((err) =>
       console.warn('Failed to auto-generate onboarding checklist:', err)
     );
 
-    // 6. Send Welcome Email notification
+    // 6. Notify new member & their Committee Head (Spec §4.11)
     const { data: targetProfile } = await admin
       .from('profiles')
       .select('email, full_name')
       .eq('id', profileId)
       .maybeSingle();
+
+    await notifyOnboardingChecklistReady({
+      memberId: profileId,
+      memberName: targetProfile?.full_name || 'Member',
+      departmentId,
+    }).catch((err) => console.warn('Onboarding notification warning:', err));
+
+    // 7. Send Welcome Email notification
 
     if (targetProfile?.email) {
       let deptName = 'General Chapter';
@@ -635,15 +647,12 @@ export async function moveToAlumni(profileId: string, reason?: string) {
       },
     });
 
-    // In-app notification to member
-    await admin.from('notifications').insert({
-      profile_id: profileId,
-      type: 'alumni_transition',
-      title: 'Chapter Alumni Status 🎓',
-      message: `Your GDGoC HNU membership has transitioned to Alumni status. Thank you for your service and dedication to the chapter! Reason: ${leaveReason}`,
-      related_entity_type: 'profile',
-      related_entity_id: profileId,
-      is_read: false,
+    // In-app notification to member (+ former Head per Spec §4.11)
+    await notifyMemberArchivedToAlumni({
+      memberId: profileId,
+      memberName: target.full_name || 'Member',
+      departmentId: target.department_id,
+      leaveReason,
     });
 
     revalidatePath('/approvals');

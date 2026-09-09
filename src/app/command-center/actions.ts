@@ -30,6 +30,7 @@ import {
   getSharedCalendarInfo,
 } from '@/lib/calendar/calendar-client';
 import { revalidatePath } from 'next/cache';
+import { notifySlaEscalation } from '@/lib/notifications/triggers';
 
 /**
  * Access check for President Command Center (Spec §1.1, §1.3, §4.10, §5.1):
@@ -2125,6 +2126,41 @@ export async function getEventSatisfactionTrend(options?: {
     };
   }
 }
+
+/**
+ * Spec §4.11: Task/Event stuck past SLA -> Notify Current approver + President
+ */
+export async function escalatePastSlaReminders(options?: {
+  bypassAuthForAdminTest?: boolean;
+}): Promise<{
+  success: boolean;
+  escalatedCount: number;
+  error?: string;
+}> {
+  try {
+    const feed = await getNeedsAttentionFeed({ bypassAuthForAdminTest: options?.bypassAuthForAdminTest });
+    let count = 0;
+
+    for (const item of feed.summary.items) {
+      if (item.category === 'stalled_approval' || item.category === 'overdue_task') {
+        const entityType = item.category === 'stalled_approval' ? 'approval' : 'task';
+        await notifySlaEscalation({
+          entityType,
+          entityId: item.id,
+          title: item.title,
+          hoursPastSla: 48,
+        });
+        count++;
+      }
+    }
+
+    return { success: true, escalatedCount: count };
+  } catch (err: any) {
+    console.error('escalatePastSlaReminders error:', err);
+    return { success: false, escalatedCount: 0, error: err.message };
+  }
+}
+
 
 
 

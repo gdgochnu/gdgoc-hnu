@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { TaskAssignmentMode, TaskPriority } from '@/types';
+import { notifyTaskDelegated } from '@/lib/notifications/triggers';
 
 export const dynamic = 'force-dynamic';
 
@@ -215,6 +216,7 @@ export async function POST(
 
     // 6. If Broadcast, populate task_assignees rows
     let broadcastCount = 0;
+    const broadcastMemberIds: string[] = [];
     if (recipientMode === 'broadcast') {
       const { data: activeMembers } = await admin
         .from('profiles')
@@ -223,6 +225,7 @@ export async function POST(
         .eq('status', 'active');
 
       if (activeMembers && activeMembers.length > 0) {
+        broadcastMemberIds.push(...activeMembers.map((m) => m.id));
         const assigneesPayload = activeMembers.map((m) => ({
           task_id: childTask.id,
           profile_id: m.id,
@@ -281,6 +284,24 @@ export async function POST(
         delegation_notes: delegationNotes || null,
       },
     });
+
+    // 11. In-App Notifications (Spec §4.11)
+    const delegateRecipients: string[] = [];
+    if (recipientMode === 'broadcast') {
+      delegateRecipients.push(...broadcastMemberIds);
+    } else if (targetAssigneeId) {
+      delegateRecipients.push(targetAssigneeId);
+    }
+
+    if (delegateRecipients.length > 0) {
+      await notifyTaskDelegated({
+        taskId: childTask.id,
+        taskTitle: childTask.title,
+        delegatorName: callerProfile.full_name || 'Leadership',
+        recipientProfileIds: delegateRecipients,
+        isBroadcast: recipientMode === 'broadcast',
+      }).catch((err) => console.warn('Delegation notification dispatch warning:', err));
+    }
 
     return NextResponse.json({
       status: 'ok',

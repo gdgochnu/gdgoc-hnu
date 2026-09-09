@@ -1,6 +1,13 @@
 import { createAdminClient } from '@/lib/supabase/admin';
 import { canUserApproveCurrentStep } from '@/lib/approvals/approval-engine';
 import { UserRole, ApprovalStepStatus, ApprovalInstanceStatus } from '@/types';
+import { 
+  notifyTaskReviewStage, 
+  notifyTaskApproved, 
+  notifyTaskRejectedOrChanges, 
+  notifyEventReviewStage, 
+  notifyEventApproved 
+} from '@/lib/notifications/triggers';
 
 export interface ActOnApprovalStepParams {
   instanceId: string;
@@ -211,6 +218,131 @@ export async function actOnApprovalStep(params: ActOnApprovalStepParams) {
       new_status: newInstanceStatus,
     },
   });
+
+  // 10. In-App Notifications (Spec §4.11)
+  try {
+    if (action === 'approved' && !isFinal) {
+      // Step advanced to nextStepOrder
+      const nextStep = steps.find((s) => s.step_order === nextStepOrder);
+      if (nextStep) {
+        let approverIds: string[] = [];
+        if (nextStep.approver_rule === 'branch_head') {
+          const { data: bHeads } = await admin
+            .from('profiles')
+            .select('id')
+            .eq('role', 'branch_head')
+            .eq('status', 'active');
+          if (bHeads) approverIds = bHeads.map((b) => b.id);
+        } else if (
+          nextStep.approver_rule === 'president' ||
+          nextStep.approver_rule === 'president_or_co_president'
+        ) {
+          const { data: pres } = await admin
+            .from('profiles')
+            .select('id')
+            .in('role', ['president', 'co_president'])
+            .eq('status', 'active');
+          if (pres) approverIds = pres.map((p) => p.id);
+        }
+
+        if (approverIds.length > 0) {
+          if (instance.workflow_type === 'task_completion') {
+            const { data: task } = await admin
+              .from('tasks')
+              .select('title')
+              .eq('id', instance.entity_id)
+              .maybeSingle();
+            await notifyTaskReviewStage({
+              taskId: instance.entity_id,
+              taskTitle: task?.title || 'Task',
+              submitterName: caller.full_name || 'Leadership',
+              stageOrder: nextStepOrder,
+              approverIds,
+            });
+          } else if (instance.workflow_type === 'event_publish') {
+            const { data: event } = await admin
+              .from('events')
+              .select('title')
+              .eq('id', instance.entity_id)
+              .maybeSingle();
+            await notifyEventReviewStage({
+              eventId: instance.entity_id,
+              eventTitle: event?.title || 'Event',
+              submitterName: caller.full_name || 'Leadership',
+              stageOrder: nextStepOrder,
+              approverIds,
+            });
+          }
+        }
+      }
+    } else if (action === 'approved' && isFinal) {
+      if (instance.workflow_type === 'task_completion') {
+        const { data: task } = await admin
+          .from('tasks')
+          .select('title, assignee_id')
+          .eq('id', instance.entity_id)
+          .maybeSingle();
+        if (task?.assignee_id) {
+          await notifyTaskApproved({
+            taskId: instance.entity_id,
+            taskTitle: task.title,
+            recipientId: task.assignee_id,
+            approverName: caller.full_name || 'Executive Leadership',
+          });
+        }
+      } else if (instance.workflow_type === 'event_publish') {
+        const { data: event } = await admin
+          .from('events')
+          .select('title, created_by')
+          .eq('id', instance.entity_id)
+          .maybeSingle();
+        if (event?.created_by) {
+          await notifyEventApproved({
+            eventId: instance.entity_id,
+            eventTitle: event.title,
+            creatorId: event.created_by,
+            approverName: caller.full_name || 'Executive Leadership',
+          });
+        }
+      }
+    } else if (action === 'rejected' || action === 'changes_requested') {
+      if (instance.workflow_type === 'task_completion') {
+        const { data: task } = await admin
+          .from('tasks')
+          .select('title, assignee_id')
+          .eq('id', instance.entity_id)
+          .maybeSingle();
+        if (task?.assignee_id) {
+          await notifyTaskRejectedOrChanges({
+            taskId: instance.entity_id,
+            taskTitle: task.title,
+            recipientId: task.assignee_id,
+            reviewerName: caller.full_name || 'Reviewer',
+            action,
+            notes,
+          });
+        }
+      } else if (instance.workflow_type === 'event_publish') {
+        const { data: event } = await admin
+          .from('events')
+          .select('title, created_by')
+          .eq('id', instance.entity_id)
+          .maybeSingle();
+        if (event?.created_by) {
+          await notifyTaskRejectedOrChanges({
+            taskId: instance.entity_id,
+            taskTitle: event.title,
+            recipientId: event.created_by,
+            reviewerName: caller.full_name || 'Reviewer',
+            action,
+            notes,
+          });
+        }
+      }
+    }
+  } catch (notifErr) {
+    console.warn('[actOnApprovalStep] notification warning:', notifErr);
+  }
 
   return {
     instance: updatedInstance,

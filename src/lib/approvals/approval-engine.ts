@@ -6,6 +6,10 @@ import {
   ApprovalInstanceStatus,
   ApprovalStepStatus 
 } from '@/types';
+import { 
+  notifyTaskReviewStage, 
+  notifyEventReviewStage 
+} from '@/lib/notifications/triggers';
 
 export interface GenerateApprovalStepsParams {
   workflowType: ApprovalWorkflowType;
@@ -265,6 +269,42 @@ export async function createApprovalInstance(params: {
       is_auto_approved: computation.isAutoApproved,
     },
   });
+
+  // 8. In-App Notification to Stage 1 Approvers (Spec §4.11)
+  if (!computation.isAutoApproved && computation.steps.length > 0) {
+    const step1 = computation.steps[0];
+    if (step1.candidateApproverIds && step1.candidateApproverIds.length > 0) {
+      if (workflowType === 'task_completion') {
+        const { data: task } = await admin
+          .from('tasks')
+          .select('title')
+          .eq('id', entityId)
+          .maybeSingle();
+
+        await notifyTaskReviewStage({
+          taskId: entityId,
+          taskTitle: task?.title || 'Task',
+          submitterName: submitter.full_name || 'Team member',
+          stageOrder: step1.stepOrder,
+          approverIds: step1.candidateApproverIds,
+        }).catch((err) => console.warn('Stage 1 task notification warning:', err));
+      } else if (workflowType === 'event_publish') {
+        const { data: event } = await admin
+          .from('events')
+          .select('title')
+          .eq('id', entityId)
+          .maybeSingle();
+
+        await notifyEventReviewStage({
+          eventId: entityId,
+          eventTitle: event?.title || 'Event',
+          submitterName: submitter.full_name || 'Host Committee',
+          stageOrder: step1.stepOrder,
+          approverIds: step1.candidateApproverIds,
+        }).catch((err) => console.warn('Stage 1 event notification warning:', err));
+      }
+    }
+  }
 
   return {
     instance,

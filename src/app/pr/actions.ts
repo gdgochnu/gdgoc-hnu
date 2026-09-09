@@ -3,6 +3,7 @@
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getUserContext } from '@/lib/auth/get-user-context';
 import { revalidatePath } from 'next/cache';
+import { notifySpeakerConfirmed } from '@/lib/notifications/triggers';
 import {
   PRContact,
   PrContactType,
@@ -404,6 +405,23 @@ export async function updatePrContactStage(
     if (error) {
       console.error('[updatePrContactStage] update error:', error);
       return { success: false, error: error.message };
+    }
+
+    // In-App Notification: Speaker Confirmed (Spec §4.11)
+    if (newStage === 'confirmed') {
+      const { data: contact } = await admin
+        .from('pr_contacts')
+        .select('name, organization, type')
+        .eq('id', contactId)
+        .maybeSingle();
+
+      if (contact && (contact.type === 'speaker' || contact.type === 'sponsor')) {
+        await notifySpeakerConfirmed({
+          contactId,
+          speakerName: contact.name,
+          organization: contact.organization,
+        }).catch((err) => console.warn('Speaker confirmed notification warning:', err));
+      }
     }
 
     revalidatePath('/pr');

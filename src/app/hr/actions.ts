@@ -2,6 +2,7 @@
 
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getUserContext } from '@/lib/auth/get-user-context';
+import { notifyMemberMissedEvents } from '@/lib/notifications/triggers';
 import {
   HrDashboardKpis,
   EventAttendanceSummary,
@@ -1157,6 +1158,36 @@ export async function computeMonthlyPerformanceReviews(
     averageOverallScore,
     topPerformers,
   };
+}
+
+/**
+ * Spec §4.11: Member missed 3+ events -> Notify HR Committee
+ */
+export async function syncLowEngagementNotifications(): Promise<{
+  success: boolean;
+  notifiedCount: number;
+  error?: string;
+}> {
+  try {
+    const summary = await getLowEngagementAlerts();
+    let count = 0;
+
+    for (const alert of summary.alerts) {
+      if (alert.missedEventsCount >= 3) {
+        await notifyMemberMissedEvents({
+          memberId: alert.profileId,
+          memberName: alert.fullName,
+          missedEventsCount: alert.missedEventsCount,
+        });
+        count++;
+      }
+    }
+
+    return { success: true, notifiedCount: count };
+  } catch (err: any) {
+    console.error('syncLowEngagementNotifications error:', err);
+    return { success: false, notifiedCount: 0, error: err.message };
+  }
 }
 
 

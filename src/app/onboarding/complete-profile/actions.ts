@@ -3,6 +3,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { revalidatePath } from 'next/cache';
+import { notifyNewAccountPending } from '@/lib/notifications/triggers';
 
 export interface ProfileFormData {
   fullNameAr: string;
@@ -215,24 +216,13 @@ export async function submitProfileCompletion(formData: ProfileFormData) {
       },
     });
 
-    // 4. Notify Chapter Leadership (President & Co-President)
-    const { data: leadership } = await admin
-      .from('profiles')
-      .select('id')
-      .in('role', ['president', 'co_president'])
-      .eq('status', 'active');
-
-    if (leadership && leadership.length > 0) {
-      const notifs = leadership.map((leader) => ({
-        profile_id: leader.id,
-        type: 'account_approval',
-        title: 'New Member Application Pending',
-        message: `${nameEnTrimmed} (${nameArTrimmed}) applied for ${formData.position || 'Member'} and is awaiting review.`,
-        related_entity_type: 'profile',
-        related_entity_id: user.id,
-      }));
-      await admin.from('notifications').insert(notifs);
-    }
+    // 4. Notify Chapter Leadership (President, Co-President & Committee Head per Spec §4.11)
+    await notifyNewAccountPending({
+      applicantId: user.id,
+      applicantName: `${nameEnTrimmed} (${nameArTrimmed})`,
+      departmentId: formData.departmentId,
+      position: formData.position || 'Member',
+    });
 
     revalidatePath('/', 'layout');
     revalidatePath('/onboarding/complete-profile');

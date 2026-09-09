@@ -23,6 +23,11 @@ import {
   updateCalendarEvent,
   deleteCalendarEvent,
 } from '@/lib/calendar/calendar-client';
+import {
+  notifyCheckinDutyAssigned,
+  notifyEventBudgetExceeded,
+  notifyEventNearingCapacity,
+} from '@/lib/notifications/triggers';
 
 export interface EventTaskDraftInput {
   title: string;
@@ -565,6 +570,16 @@ export async function assignCheckinAccess(eventId: string, profileIds: string[])
           isCheckinDuty: true,
         });
       }
+    }
+
+    // In-App Notification for Check-in Duty (Spec §4.11)
+    const newlyAssigned = profileIds.filter((pid) => !existing.includes(pid));
+    if (newlyAssigned.length > 0) {
+      await notifyCheckinDutyAssigned({
+        eventId,
+        eventTitle: event.title,
+        assignedProfileIds: newlyAssigned,
+      }).catch((err) => console.warn('Checkin duty notification warning:', err));
     }
 
     revalidatePath(`/events/${eventId}`);
@@ -1327,14 +1342,16 @@ export async function registerForEvent(input: RegisterForEventInput) {
 
     // 5. Capacity Check
     let registrationStatus: 'registered' | 'waitlisted' = 'registered';
+    let currentRegisteredCount = 0;
     if (event.capacity && event.capacity > 0) {
-      const { count: currentRegistered } = await admin
+      const { count } = await admin
         .from('event_registrations')
         .select('id', { count: 'exact', head: true })
         .eq('event_id', event.id)
         .eq('status', 'registered');
 
-      if ((currentRegistered ?? 0) >= event.capacity) {
+      currentRegisteredCount = count ?? 0;
+      if (currentRegisteredCount >= event.capacity) {
         registrationStatus = 'waitlisted';
       }
     }
@@ -1392,6 +1409,19 @@ export async function registerForEvent(input: RegisterForEventInput) {
       });
     } catch (emailErr) {
       console.warn('Failed to send event registration email:', emailErr);
+    }
+
+    // 8. Event Nearing Capacity Alert (Spec §4.11)
+    if (event.capacity && event.capacity > 0 && registrationStatus === 'registered') {
+      const updatedCount = currentRegisteredCount + 1;
+      if (updatedCount / event.capacity >= 0.9) {
+        await notifyEventNearingCapacity({
+          eventId: event.id,
+          eventTitle: event.title,
+          currentRegistrations: updatedCount,
+          capacity: event.capacity,
+        }).catch((err) => console.warn('Nearing capacity notification warning:', err));
+      }
     }
 
     // Revalidate public & internal pages
@@ -3102,6 +3132,24 @@ export async function upsertEventBudgetItem(
         return { success: false, error: error?.message || 'Failed to insert budget item.' };
       }
       resultData = data;
+    }
+
+    // In-App Notification for Budget Exceeded (Spec §4.11)
+    const estimated = Number(resultData.estimated_cost);
+    const actual = resultData.actual_cost !== null ? Number(resultData.actual_cost) : null;
+    if (actual !== null && actual > estimated) {
+      const { data: ev } = await admin
+        .from('events')
+        .select('title')
+        .eq('id', input.eventId)
+        .maybeSingle();
+
+      await notifyEventBudgetExceeded({
+        eventId: input.eventId,
+        eventTitle: ev?.title || 'Event',
+        estimatedCost: estimated,
+        actualCost: actual,
+      }).catch((err) => console.warn('Budget exceed notification warning:', err));
     }
 
     revalidatePath(`/events/${input.eventId}`);
