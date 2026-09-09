@@ -188,3 +188,68 @@ export interface SubmitWeeklyReviewInput {
   q4SupportNeeded?: string;
   q5MoraleRating: number;
 }
+
+// ==========================================
+// 16.5 Unified Pending-Approvals Queue Types
+// ==========================================
+
+export type UnifiedApprovalType = 'account' | 'task' | 'event';
+export type UnifiedApprovalAction = 'approve' | 'reject' | 'changes_requested';
+
+export interface UnifiedApprovalItem {
+  id: string; // e.g. "account-{id}", "task-{id}", "event-{id}"
+  type: UnifiedApprovalType;
+  entityId: string;
+  title: string;
+  subtitle: string;
+  submitterName: string;
+  submitterEmail?: string | null;
+  submitterAvatar?: string | null;
+  submitterRole?: string | null;
+  departmentId?: string | null;
+  departmentName?: string | null;
+  departmentCode?: string | null;
+  submittedAt: string;
+  urgency: 'urgent' | 'normal' | 'low';
+  hoursPending: number;
+  actionUrl: string;
+  details: {
+    // Account details
+    position?: string | null;
+    faculty?: string | null;
+    universityId?: string | null;
+    phone?: string | null;
+    // Task details
+    taskPriority?: string | null;
+    taskDeadline?: string | null;
+    taskDescription?: string | null;
+    completionNotes?: string | null;
+    // Event details
+    eventDate?: string | null;
+    eventVenue?: string | null;
+    eventCapacity?: number | null;
+    eventDescription?: string | null;
+    [key: string]: any;
+  };
+  approvalInstanceId?: string | null;
+  currentStepOrder?: number | null;
+}
+
+export interface UnifiedApprovalsSummary {
+  totalPending: number;
+  accountsCount: number;
+  tasksCount: number;
+  eventsCount: number;
+  urgentCount: number; // pending > 48 hours
+  items: UnifiedApprovalItem[];
+}
+
+export interface ActOnUnifiedApprovalInput {
+  type: UnifiedApprovalType;
+  entityId: string;
+  action: UnifiedApprovalAction;
+  notes?: string;
+  assignedDepartmentId?: string;
+  assignedRole?: string;
+}
+

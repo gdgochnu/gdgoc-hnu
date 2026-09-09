@@ -1,10 +1,11 @@
 import { AppShell } from '@/components/layout/AppShell';
 import { getUserContext } from '@/lib/auth/get-user-context';
-import { canAccessCommandCenter, getCommitteeHealthScorecards, getNeedsAttentionFeed, getUpcomingLeadershipFeed, getWeeklyReviewsFeed } from './actions';
+import { canAccessCommandCenter, getCommitteeHealthScorecards, getNeedsAttentionFeed, getUpcomingLeadershipFeed, getWeeklyReviewsFeed, getUnifiedApprovalsQueue } from './actions';
 import { CommitteeHealthGrid } from '@/components/command-center/CommitteeHealthGrid';
 import { NeedsAttentionFeed } from '@/components/command-center/NeedsAttentionFeed';
 import { UpcomingTimeline } from '@/components/command-center/UpcomingTimeline';
 import { WeeklyReviewsWidget } from '@/components/command-center/WeeklyReviewsWidget';
+import { UnifiedApprovalsQueue } from '@/components/command-center/UnifiedApprovalsQueue';
 import { redirect } from 'next/navigation';
 import { ShieldCheck, Activity, Compass, AlertCircle, MessageSquareQuote } from 'lucide-react';
 import Link from 'next/link';
@@ -89,12 +90,13 @@ export default async function CommandCenterPage() {
     );
   }
 
-  // Fetch committee health scorecards (Step 16.1), Needs Attention feed (Step 16.2), Upcoming feed (Step 16.3), & Weekly Reviews (Step 16.4)
-  const [scorecardsRes, needsAttentionRes, upcomingRes, weeklyReviewsRes] = await Promise.all([
+  // Fetch committee health scorecards (16.1), Needs Attention (16.2), Upcoming feed (16.3), Weekly Reviews (16.4), & Unified Approvals (16.5)
+  const [scorecardsRes, needsAttentionRes, upcomingRes, weeklyReviewsRes, unifiedApprovalsRes] = await Promise.all([
     getCommitteeHealthScorecards(),
     getNeedsAttentionFeed(),
     getUpcomingLeadershipFeed(),
     getWeeklyReviewsFeed(),
+    getUnifiedApprovalsQueue(),
   ]);
 
   const isPresident = context.profile.role === 'president';
@@ -261,6 +263,11 @@ export default async function CommandCenterPage() {
         {/* Urgent Needs Attention Feed (Step 16.2) */}
         <section style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
           <NeedsAttentionFeed initialSummary={needsAttentionRes.summary} />
+        </section>
+
+        {/* Unified Pending-Approvals Queue (Step 16.5) */}
+        <section style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+          <UnifiedApprovalsQueue initialSummary={unifiedApprovalsRes.summary} />
         </section>
 
         {/* Committee Health Scorecards Grid (Step 16.1) */}

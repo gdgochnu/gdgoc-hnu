@@ -186,7 +186,7 @@
 - [x] 16.2 Build the "Needs Attention" feed (overdue tasks, stalled approvals/delegations, PR follow-ups, inactive members, events over budget). (2026-09-09)
 - [x] 16.3 Build the "Upcoming" feed (synced with Google Calendar). (2026-09-09)
 - [x] 16.4 Build the weekly 5-question review widget for Heads + the feed of answers for the President. (2026-09-09)
-- [ ] 16.5 Build the unified pending-approvals queue (accounts + tasks + events).
+- [x] 16.5 Build the unified pending-approvals queue (accounts + tasks + events). (2026-09-09)
 - [ ] 16.6 Build the new-member onboarding progress overview + average event satisfaction trend widgets.
 
 ## Phase 17 — Notifications

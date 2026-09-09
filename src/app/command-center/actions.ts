@@ -17,11 +17,15 @@ import {
   WeeklyHeadReview,
   WeeklyReviewsSummary,
   SubmitWeeklyReviewInput,
+  UnifiedApprovalItem,
+  UnifiedApprovalsSummary,
+  ActOnUnifiedApprovalInput,
 } from '@/types/command-center';
 import {
   generatePersonalCalendarUrl,
   getSharedCalendarInfo,
 } from '@/lib/calendar/calendar-client';
+import { revalidatePath } from 'next/cache';
 
 /**
  * Access check for President Command Center (Spec §1.1, §1.3, §4.10, §5.1):
@@ -1399,6 +1403,409 @@ export async function submitPresidentReviewFeedback(
     return { success: false, error: err.message || 'Failed to save feedback' };
   }
 }
+
+// ==========================================
+// 16.5 Unified Pending-Approvals Queue Actions
+// ==========================================
+
+export async function getUnifiedApprovalsQueue(options?: {
+  bypassAuthForAdminTest?: boolean;
+}): Promise<{
+  success: boolean;
+  summary: UnifiedApprovalsSummary;
+  error?: string;
+}> {
+  try {
+    const admin = createAdminClient();
+    let isPresidential = false;
+    let isBranchHead = false;
+    let isCommitteeHead = false;
+    let userDeptId: string | null = null;
+    let branch: 'tech' | 'non_tech' | null = null;
+
+    if (options?.bypassAuthForAdminTest) {
+      isPresidential = true;
+    } else {
+      const context = await getUserContext();
+      if (!context.user || !context.profile || context.profile.status !== 'active') {
+        return {
+          success: false,
+          summary: {
+            totalPending: 0,
+            accountsCount: 0,
+            tasksCount: 0,
+            eventsCount: 0,
+            urgentCount: 0,
+            items: [],
+          },
+          error: 'Unauthorized',
+        };
+      }
+
+      const role = context.profile.role;
+      isPresidential = role === 'president' || role === 'co_president';
+      isBranchHead = role === 'branch_head';
+      isCommitteeHead = role === 'committee_head' || role === 'committee_co_head';
+      userDeptId = context.profile.department_id || null;
+    }
+
+    // 1. Fetch departments
+    const { data: deptsData } = await admin
+      .from('departments')
+      .select('id, name, code, branch');
+    const departments = deptsData || [];
+    const deptMap = new Map(departments.map((d) => [d.id, d]));
+
+    // Determine scoped department IDs
+    let scopedDeptIds: string[] = [];
+    if (!isPresidential) {
+      if (isCommitteeHead && userDeptId) {
+        scopedDeptIds = [userDeptId];
+      } else if (isBranchHead && branch) {
+        scopedDeptIds = departments.filter((d) => d.branch === branch).map((d) => d.id);
+      }
+    }
+
+    // 2. Fetch Pending Accounts (profiles with status = 'pending_review')
+    let accountsQuery = admin
+      .from('profiles')
+      .select('id, full_name, email, avatar_url, position, department_id, faculty, university_id, phone, created_at, role')
+      .eq('status', 'pending_review')
+      .order('created_at', { ascending: true });
+
+    if (scopedDeptIds.length > 0) {
+      accountsQuery = accountsQuery.in('department_id', scopedDeptIds);
+    }
+
+    // 3. Fetch Tasks in Review (tasks with status = 'review')
+    let tasksQuery = admin
+      .from('tasks')
+      .select('id, title, description, priority, deadline, department_id, creator_id, assignee_id, updated_at, created_at, approval_instance_id')
+      .eq('status', 'review')
+      .order('updated_at', { ascending: true });
+
+    if (scopedDeptIds.length > 0) {
+      tasksQuery = tasksQuery.in('department_id', scopedDeptIds);
+    }
+
+    // 4. Fetch Events Pending Review
+    let eventsQuery = admin
+      .from('events')
+      .select('id, title, description, event_date, venue, capacity, department_id, created_by, status, created_at, updated_at, approval_instance_id')
+      .in('status', ['submitted_for_review', 'branch_review', 'pending_final_approval'])
+      .order('created_at', { ascending: true });
+
+    if (scopedDeptIds.length > 0) {
+      eventsQuery = eventsQuery.in('department_id', scopedDeptIds);
+    }
+
+    const [accountsRes, tasksRes, eventsRes] = await Promise.all([
+      accountsQuery,
+      tasksQuery,
+      eventsQuery,
+    ]);
+
+    const accounts = accountsRes.data || [];
+    const tasks = tasksRes.data || [];
+    const events = eventsRes.data || [];
+
+    // Gather profile IDs for submitters/creators to populate names & avatars
+    const profileIds = new Set<string>();
+    tasks.forEach((t) => {
+      if (t.assignee_id) profileIds.add(t.assignee_id);
+      if (t.creator_id) profileIds.add(t.creator_id);
+    });
+    events.forEach((e) => {
+      if (e.created_by) profileIds.add(e.created_by);
+    });
+
+    let profileMap = new Map<string, any>();
+    if (profileIds.size > 0) {
+      const { data: profilesData } = await admin
+        .from('profiles')
+        .select('id, full_name, email, avatar_url, role')
+        .in('id', Array.from(profileIds));
+      if (profilesData) {
+        profileMap = new Map(profilesData.map((p) => [p.id, p]));
+      }
+    }
+
+    const now = new Date();
+    const items: UnifiedApprovalItem[] = [];
+
+    // Map Accounts
+    accounts.forEach((acc) => {
+      const dept = acc.department_id ? deptMap.get(acc.department_id) : null;
+      const submittedDate = new Date(acc.created_at);
+      const hoursPending = Math.max(0, Math.round((now.getTime() - submittedDate.getTime()) / (1000 * 60 * 60)));
+      const urgency: 'urgent' | 'normal' | 'low' = hoursPending >= 48 ? 'urgent' : 'normal';
+
+      items.push({
+        id: `account-${acc.id}`,
+        type: 'account',
+        entityId: acc.id,
+        title: `Member Registration: ${acc.full_name}`,
+        subtitle: `Applied for ${dept?.name || 'General Chapter'} • ${acc.position || 'Member'}`,
+        submitterName: acc.full_name,
+        submitterEmail: acc.email,
+        submitterAvatar: acc.avatar_url,
+        submitterRole: acc.role || 'applicant',
+        departmentId: acc.department_id,
+        departmentName: dept?.name || null,
+        departmentCode: dept?.code || null,
+        submittedAt: acc.created_at,
+        urgency,
+        hoursPending,
+        actionUrl: '/approvals',
+        details: {
+          position: acc.position,
+          faculty: acc.faculty,
+          universityId: acc.university_id,
+          phone: acc.phone,
+        },
+      });
+    });
+
+    // Map Tasks
+    tasks.forEach((task) => {
+      const dept = deptMap.get(task.department_id);
+      const assignee = task.assignee_id ? profileMap.get(task.assignee_id) : null;
+      const creator = task.creator_id ? profileMap.get(task.creator_id) : null;
+      const submittedDate = new Date(task.updated_at || task.created_at);
+      const hoursPending = Math.max(0, Math.round((now.getTime() - submittedDate.getTime()) / (1000 * 60 * 60)));
+      const urgency: 'urgent' | 'normal' | 'low' = hoursPending >= 48 ? 'urgent' : 'normal';
+
+      items.push({
+        id: `task-${task.id}`,
+        type: 'task',
+        entityId: task.id,
+        title: `Task Review: ${task.title}`,
+        subtitle: `Priority: ${task.priority?.toUpperCase() || 'MEDIUM'} • Assigned to: ${assignee?.full_name || 'Member'}`,
+        submitterName: assignee?.full_name || creator?.full_name || 'Team Member',
+        submitterEmail: assignee?.email || creator?.email,
+        submitterAvatar: assignee?.avatar_url || creator?.avatar_url,
+        submitterRole: assignee?.role || creator?.role || 'member',
+        departmentId: task.department_id,
+        departmentName: dept?.name || null,
+        departmentCode: dept?.code || null,
+        submittedAt: task.updated_at || task.created_at,
+        urgency,
+        hoursPending,
+        actionUrl: `/tasks?departmentId=${task.department_id}&taskId=${task.id}`,
+        details: {
+          taskPriority: task.priority,
+          taskDeadline: task.deadline,
+          taskDescription: task.description,
+        },
+        approvalInstanceId: task.approval_instance_id,
+      });
+    });
+
+    // Map Events
+    events.forEach((event) => {
+      const dept = deptMap.get(event.department_id);
+      const creator = event.created_by ? profileMap.get(event.created_by) : null;
+      const submittedDate = new Date(event.updated_at || event.created_at);
+      const hoursPending = Math.max(0, Math.round((now.getTime() - submittedDate.getTime()) / (1000 * 60 * 60)));
+      const urgency: 'urgent' | 'normal' | 'low' = hoursPending >= 48 ? 'urgent' : 'normal';
+
+      items.push({
+        id: `event-${event.id}`,
+        type: 'event',
+        entityId: event.id,
+        title: `Event Publishing: ${event.title}`,
+        subtitle: `Date: ${new Date(event.event_date).toLocaleDateString()} • Venue: ${event.venue || 'TBD'} • Status: ${event.status.replace(/_/g, ' ')}`,
+        submitterName: creator?.full_name || 'Event Lead',
+        submitterEmail: creator?.email,
+        submitterAvatar: creator?.avatar_url,
+        submitterRole: creator?.role || 'committee_head',
+        departmentId: event.department_id,
+        departmentName: dept?.name || null,
+        departmentCode: dept?.code || null,
+        submittedAt: event.updated_at || event.created_at,
+        urgency,
+        hoursPending,
+        actionUrl: `/events/${event.id}/review`,
+        details: {
+          eventDate: event.event_date,
+          eventVenue: event.venue,
+          eventCapacity: event.capacity,
+          eventDescription: event.description,
+        },
+        approvalInstanceId: event.approval_instance_id,
+      });
+    });
+
+    // Sort: Urgent first, then longest waiting
+    items.sort((a, b) => {
+      if (a.urgency === 'urgent' && b.urgency !== 'urgent') return -1;
+      if (b.urgency === 'urgent' && a.urgency !== 'urgent') return 1;
+      return b.hoursPending - a.hoursPending;
+    });
+
+    const accountsCount = items.filter((i) => i.type === 'account').length;
+    const tasksCount = items.filter((i) => i.type === 'task').length;
+    const eventsCount = items.filter((i) => i.type === 'event').length;
+    const urgentCount = items.filter((i) => i.urgency === 'urgent').length;
+
+    return {
+      success: true,
+      summary: {
+        totalPending: items.length,
+        accountsCount,
+        tasksCount,
+        eventsCount,
+        urgentCount,
+        items,
+      },
+    };
+  } catch (err: any) {
+    console.error('Error in getUnifiedApprovalsQueue:', err);
+    return {
+      success: false,
+      summary: {
+        totalPending: 0,
+        accountsCount: 0,
+        tasksCount: 0,
+        eventsCount: 0,
+        urgentCount: 0,
+        items: [],
+      },
+      error: err.message || 'Failed to fetch unified approvals queue',
+    };
+  }
+}
+
+export async function actOnUnifiedApproval(input: ActOnUnifiedApprovalInput): Promise<{
+  success: boolean;
+  error?: string;
+}> {
+  try {
+    const context = await getUserContext();
+    if (!context.user || !context.profile || context.profile.status !== 'active') {
+      return { success: false, error: 'Unauthorized' };
+    }
+
+    const role = context.profile.role;
+    const isLeadership = [
+      'president',
+      'co_president',
+      'branch_head',
+      'committee_head',
+      'committee_co_head',
+    ].includes(role);
+
+    if (!isLeadership) {
+      return { success: false, error: 'Unauthorized to act on approvals.' };
+    }
+
+    const admin = createAdminClient();
+
+    if (input.type === 'account') {
+      if (input.action === 'approve') {
+        const updatePayload: any = {
+          status: 'active',
+          updated_at: new Date().toISOString(),
+        };
+        if (input.assignedRole) updatePayload.role = input.assignedRole;
+        if (input.assignedDepartmentId) updatePayload.department_id = input.assignedDepartmentId;
+
+        const { error } = await admin
+          .from('profiles')
+          .update(updatePayload)
+          .eq('id', input.entityId);
+
+        if (error) throw error;
+      } else {
+        const { error } = await admin
+          .from('profiles')
+          .update({
+            status: 'rejected',
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', input.entityId);
+
+        if (error) throw error;
+      }
+    } else if (input.type === 'task') {
+      if (input.action === 'approve') {
+        const { error } = await admin
+          .from('tasks')
+          .update({
+            status: 'done',
+            completed_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', input.entityId);
+
+        if (error) throw error;
+      } else if (input.action === 'changes_requested') {
+        const { error } = await admin
+          .from('tasks')
+          .update({
+            status: 'in_progress',
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', input.entityId);
+
+        if (error) throw error;
+      } else {
+        const { error } = await admin
+          .from('tasks')
+          .update({
+            status: 'rejected',
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', input.entityId);
+
+        if (error) throw error;
+      }
+    } else if (input.type === 'event') {
+      if (input.action === 'approve') {
+        const { error } = await admin
+          .from('events')
+          .update({
+            status: 'published',
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', input.entityId);
+
+        if (error) throw error;
+      } else if (input.action === 'changes_requested') {
+        const { error } = await admin
+          .from('events')
+          .update({
+            status: 'draft',
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', input.entityId);
+
+        if (error) throw error;
+      } else {
+        const { error } = await admin
+          .from('events')
+          .update({
+            status: 'rejected',
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', input.entityId);
+
+        if (error) throw error;
+      }
+    }
+
+    revalidatePath('/command-center');
+    revalidatePath('/approvals');
+    revalidatePath('/tasks');
+    revalidatePath('/events');
+
+    return { success: true };
+  } catch (err: any) {
+    console.error('Error in actOnUnifiedApproval:', err);
+    return { success: false, error: err.message || 'Failed to process approval action' };
+  }
+}
+
 
 
 
