@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { 
@@ -91,6 +91,8 @@ export interface TasksKanbanClientProps {
   currentUserRole: UserRole;
   currentUserId: string;
   userDepartmentId?: string | null;
+  initialDepartmentId?: string;
+  initialTaskId?: string;
 }
 
 interface ColumnConfig {
@@ -139,18 +141,37 @@ export function TasksKanbanClient({
   currentUserRole,
   currentUserId,
   userDepartmentId,
+  initialDepartmentId,
+  initialTaskId,
 }: TasksKanbanClientProps) {
+  const searchParams = useSearchParams();
+  const urlDeptId = initialDepartmentId || searchParams?.get('departmentId') || searchParams?.get('dept');
+  const urlTaskId = initialTaskId || searchParams?.get('taskId');
+
   const [tasks, setTasks] = useState<TaskItem[]>(initialTasks);
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedDeptId, setSelectedDeptId] = useState<string>('all');
+  const [selectedDeptId, setSelectedDeptId] = useState<string>(urlDeptId || 'all');
   const [selectedPriority, setSelectedPriority] = useState<string>('all');
   const [onlyMyTasks, setOnlyMyTasks] = useState(false);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [selectedTaskForReview, setSelectedTaskForReview] = useState<TaskItem | null>(null);
   const [loadingTaskId, setLoadingTaskId] = useState<string | null>(null);
-  const searchParams = useSearchParams();
   const mockParam = searchParams?.get('mock');
   const mockQuery = mockParam ? `?mock=${mockParam}` : '';
+
+  useEffect(() => {
+    const dept = initialDepartmentId || searchParams?.get('departmentId') || searchParams?.get('dept');
+    if (dept) {
+      setSelectedDeptId(dept);
+    }
+    const tId = initialTaskId || searchParams?.get('taskId');
+    if (tId) {
+      const target = tasks.find((t) => t.id === tId);
+      if (target) {
+        setSearchQuery(target.title);
+      }
+    }
+  }, [searchParams, initialDepartmentId, initialTaskId, tasks]);
 
   const isLeadership = ['president', 'co_president', 'branch_head', 'committee_head', 'committee_co_head'].includes(currentUserRole);
 

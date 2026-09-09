@@ -586,8 +586,5 @@ export interface GlobalSearchResult {
 }
 
 
-
-
-
-
+export * from './command-center';
 

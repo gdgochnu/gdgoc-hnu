@@ -26,7 +26,8 @@ import {
   ChevronRight, 
   Bell, 
   Sparkles,
-  ExternalLink
+  ExternalLink,
+  Activity
 } from 'lucide-react';
 import { GlobalSearchBar } from './GlobalSearchBar';
 
@@ -92,6 +93,15 @@ export function AppNavigation({
         icon: LayoutGrid,
       },
     ];
+
+    // Command Center for leadership roles (Spec §4.10 & §5.1)
+    if (isLeadership) {
+      coreItems.push({
+        label: isPresident || isCoPresident ? 'Command Center' : 'Committee Health',
+        href: '/command-center',
+        icon: Activity,
+      });
+    }
 
     // Approvals queue for leadership roles
     if (isLeadership) {

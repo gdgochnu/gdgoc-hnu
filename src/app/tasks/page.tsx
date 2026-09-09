@@ -7,11 +7,23 @@ import { CheckSquare, Plus, Sparkles } from 'lucide-react';
 
 export const dynamic = 'force-dynamic';
 
-export default async function TasksPage() {
-  const [context, supabase] = await Promise.all([
+interface TasksPageProps {
+  searchParams?: Promise<{
+    departmentId?: string;
+    dept?: string;
+    taskId?: string;
+  }>;
+}
+
+export default async function TasksPage(props: TasksPageProps) {
+  const [context, supabase, searchParams] = await Promise.all([
     getUserContext(),
     createClient(),
+    props.searchParams,
   ]);
+
+  const initialDepartmentId = searchParams?.departmentId || searchParams?.dept;
+  const initialTaskId = searchParams?.taskId;
 
   const admin = createAdminClient();
   const profile = context.profile;
@@ -199,6 +211,8 @@ export default async function TasksPage() {
           currentUserRole={role as any}
           currentUserId={profile?.id || ''}
           userDepartmentId={profile?.department_id}
+          initialDepartmentId={initialDepartmentId}
+          initialTaskId={initialTaskId}
         />
       </div>
     </AppShell>
