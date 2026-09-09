@@ -1,13 +1,24 @@
 import { AppShell } from '@/components/layout/AppShell';
 import { getUserContext } from '@/lib/auth/get-user-context';
-import { canAccessCommandCenter, getCommitteeHealthScorecards, getNeedsAttentionFeed, getUpcomingLeadershipFeed, getWeeklyReviewsFeed, getUnifiedApprovalsQueue } from './actions';
+import {
+  canAccessCommandCenter,
+  getCommitteeHealthScorecards,
+  getNeedsAttentionFeed,
+  getUpcomingLeadershipFeed,
+  getWeeklyReviewsFeed,
+  getUnifiedApprovalsQueue,
+  getNewMemberOnboardingOverview,
+  getEventSatisfactionTrend,
+} from './actions';
 import { CommitteeHealthGrid } from '@/components/command-center/CommitteeHealthGrid';
 import { NeedsAttentionFeed } from '@/components/command-center/NeedsAttentionFeed';
 import { UpcomingTimeline } from '@/components/command-center/UpcomingTimeline';
 import { WeeklyReviewsWidget } from '@/components/command-center/WeeklyReviewsWidget';
 import { UnifiedApprovalsQueue } from '@/components/command-center/UnifiedApprovalsQueue';
+import { NewMemberOnboardingWidget } from '@/components/command-center/NewMemberOnboardingWidget';
+import { EventSatisfactionWidget } from '@/components/command-center/EventSatisfactionWidget';
 import { redirect } from 'next/navigation';
-import { ShieldCheck, Activity, Compass, AlertCircle, MessageSquareQuote } from 'lucide-react';
+import { ShieldCheck, Activity, Compass, AlertCircle, MessageSquareQuote, Star, UserCheck } from 'lucide-react';
 import Link from 'next/link';
 
 export const dynamic = 'force-dynamic';
@@ -90,13 +101,23 @@ export default async function CommandCenterPage() {
     );
   }
 
-  // Fetch committee health scorecards (16.1), Needs Attention (16.2), Upcoming feed (16.3), Weekly Reviews (16.4), & Unified Approvals (16.5)
-  const [scorecardsRes, needsAttentionRes, upcomingRes, weeklyReviewsRes, unifiedApprovalsRes] = await Promise.all([
+  // Fetch committee health scorecards (16.1), Needs Attention (16.2), Upcoming feed (16.3), Weekly Reviews (16.4), Unified Approvals (16.5), Onboarding & Event Satisfaction (16.6)
+  const [
+    scorecardsRes,
+    needsAttentionRes,
+    upcomingRes,
+    weeklyReviewsRes,
+    unifiedApprovalsRes,
+    onboardingRes,
+    eventSatisfactionRes,
+  ] = await Promise.all([
     getCommitteeHealthScorecards(),
     getNeedsAttentionFeed(),
     getUpcomingLeadershipFeed(),
     getWeeklyReviewsFeed(),
     getUnifiedApprovalsQueue(),
+    getNewMemberOnboardingOverview(),
+    getEventSatisfactionTrend(),
   ]);
 
   const isPresident = context.profile.role === 'president';
@@ -300,6 +321,18 @@ export default async function CommandCenterPage() {
         {/* Weekly 5-Question Reviews Pulse (Step 16.4) */}
         <section style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
           <WeeklyReviewsWidget initialSummary={weeklyReviewsRes.summary} />
+        </section>
+
+        {/* Onboarding Overview & Event Satisfaction Trends (Step 16.6) */}
+        <section
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(420px, 1fr))',
+            gap: '1.5rem',
+          }}
+        >
+          <NewMemberOnboardingWidget initialSummary={onboardingRes.summary} />
+          <EventSatisfactionWidget initialSummary={eventSatisfactionRes.summary} />
         </section>
 
         {/* Upcoming Events & Task Deadlines Timeline (Step 16.3) */}

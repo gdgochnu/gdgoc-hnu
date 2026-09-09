@@ -20,6 +20,10 @@ import {
   UnifiedApprovalItem,
   UnifiedApprovalsSummary,
   ActOnUnifiedApprovalInput,
+  MemberOnboardingProgress,
+  OnboardingOverviewSummary,
+  EventSatisfactionItem,
+  EventSatisfactionSummary,
 } from '@/types/command-center';
 import {
   generatePersonalCalendarUrl,
@@ -1805,6 +1809,323 @@ export async function actOnUnifiedApproval(input: ActOnUnifiedApprovalInput): Pr
     return { success: false, error: err.message || 'Failed to process approval action' };
   }
 }
+
+// ==========================================
+// 16.6 Onboarding Overview & Event Satisfaction Actions
+// ==========================================
+
+export async function getNewMemberOnboardingOverview(options?: {
+  bypassAuthForAdminTest?: boolean;
+}): Promise<{
+  success: boolean;
+  summary: OnboardingOverviewSummary;
+  error?: string;
+}> {
+  try {
+    const admin = createAdminClient();
+    let isPresidential = false;
+    let isBranchHead = false;
+    let isCommitteeHead = false;
+    let userDeptId: string | null = null;
+    let branch: 'tech' | 'non_tech' | null = null;
+
+    if (options?.bypassAuthForAdminTest) {
+      isPresidential = true;
+    } else {
+      const context = await getUserContext();
+      if (!context.user || !context.profile || context.profile.status !== 'active') {
+        return {
+          success: false,
+          summary: {
+            totalInOnboarding: 0,
+            fullyCompletedCount: 0,
+            inProgressCount: 0,
+            averageProgressPercentage: 0,
+            members: [],
+          },
+          error: 'Unauthorized',
+        };
+      }
+
+      const role = context.profile.role;
+      isPresidential = role === 'president' || role === 'co_president';
+      isBranchHead = role === 'branch_head';
+      isCommitteeHead = role === 'committee_head' || role === 'committee_co_head';
+      userDeptId = context.profile.department_id || null;
+    }
+
+    // 1. Fetch departments
+    const { data: deptsData } = await admin
+      .from('departments')
+      .select('id, name, code, branch');
+    const departments = deptsData || [];
+    const deptMap = new Map(departments.map((d) => [d.id, d]));
+
+    let scopedDeptIds: string[] = [];
+    if (!isPresidential) {
+      if (isCommitteeHead && userDeptId) {
+        scopedDeptIds = [userDeptId];
+      } else if (isBranchHead && branch) {
+        scopedDeptIds = departments.filter((d) => d.branch === branch).map((d) => d.id);
+      }
+    }
+
+    // 2. Fetch recent active members
+    let query = admin
+      .from('profiles')
+      .select('id, full_name, email, avatar_url, role, department_id, created_at, status')
+      .eq('status', 'active')
+      .order('created_at', { ascending: false })
+      .limit(50);
+
+    if (scopedDeptIds.length > 0) {
+      query = query.in('department_id', scopedDeptIds);
+    }
+
+    const { data: profiles, error: profErr } = await query;
+    if (profErr) {
+      throw profErr;
+    }
+
+    const profileList = profiles || [];
+    const profileIds = profileList.map((p) => p.id);
+
+    // 3. Fetch checklist items for these profiles
+    let checklistItems: Array<{ id: string; profile_id: string; is_done: boolean }> = [];
+    if (profileIds.length > 0) {
+      const { data: items, error: itemsErr } = await admin
+        .from('onboarding_checklist_items')
+        .select('id, profile_id, is_done')
+        .in('profile_id', profileIds);
+
+      if (itemsErr) {
+        console.warn('[getNewMemberOnboardingOverview] checklist items notice:', itemsErr.message);
+      } else if (items) {
+        checklistItems = items;
+      }
+    }
+
+    // Map items by profile_id
+    const itemsByProfile = new Map<string, Array<{ id: string; is_done: boolean }>>();
+    checklistItems.forEach((it) => {
+      const arr = itemsByProfile.get(it.profile_id) || [];
+      arr.push(it);
+      itemsByProfile.set(it.profile_id, arr);
+    });
+
+    const members: MemberOnboardingProgress[] = [];
+
+    profileList.forEach((p) => {
+      const pItems = itemsByProfile.get(p.id) || [];
+      const totalChecklistItems = pItems.length;
+      const completedChecklistItems = pItems.filter((i) => i.is_done).length;
+      const progressPercentage =
+        totalChecklistItems > 0
+          ? Math.round((completedChecklistItems / totalChecklistItems) * 100)
+          : 0;
+
+      const dept = p.department_id ? deptMap.get(p.department_id) : null;
+
+      members.push({
+        profileId: p.id,
+        fullName: p.full_name,
+        email: p.email,
+        avatarUrl: p.avatar_url,
+        role: p.role,
+        departmentId: p.department_id,
+        departmentName: dept?.name || null,
+        departmentCode: dept?.code || null,
+        joinedAt: p.created_at,
+        totalChecklistItems,
+        completedChecklistItems,
+        progressPercentage,
+        isFullyOnboarded: totalChecklistItems > 0 && completedChecklistItems === totalChecklistItems,
+      });
+    });
+
+    // Sort by progress ascending (members needing onboarding attention first)
+    members.sort((a, b) => a.progressPercentage - b.progressPercentage);
+
+    const totalInOnboarding = members.filter((m) => m.totalChecklistItems > 0).length;
+    const fullyCompletedCount = members.filter((m) => m.isFullyOnboarded).length;
+    const inProgressCount = totalInOnboarding - fullyCompletedCount;
+    const avgSum = members.reduce((sum, m) => sum + m.progressPercentage, 0);
+    const averageProgressPercentage = members.length > 0 ? Math.round(avgSum / members.length) : 0;
+
+    return {
+      success: true,
+      summary: {
+        totalInOnboarding: totalInOnboarding > 0 ? totalInOnboarding : members.length,
+        fullyCompletedCount,
+        inProgressCount: inProgressCount > 0 ? inProgressCount : members.length - fullyCompletedCount,
+        averageProgressPercentage,
+        members: members.slice(0, 15),
+      },
+    };
+  } catch (err: any) {
+    console.error('Error in getNewMemberOnboardingOverview:', err);
+    return {
+      success: false,
+      summary: {
+        totalInOnboarding: 0,
+        fullyCompletedCount: 0,
+        inProgressCount: 0,
+        averageProgressPercentage: 0,
+        members: [],
+      },
+      error: err.message || 'Failed to fetch onboarding overview',
+    };
+  }
+}
+
+export async function getEventSatisfactionTrend(options?: {
+  bypassAuthForAdminTest?: boolean;
+}): Promise<{
+  success: boolean;
+  summary: EventSatisfactionSummary;
+  error?: string;
+}> {
+  try {
+    const admin = createAdminClient();
+
+    if (!options?.bypassAuthForAdminTest) {
+      const context = await getUserContext();
+      if (!context.user || !context.profile || context.profile.status !== 'active') {
+        return {
+          success: false,
+          summary: {
+            overallAverageRating: 0,
+            totalFeedbackCount: 0,
+            eventsEvaluatedCount: 0,
+            satisfactionPercentage: 0,
+            events: [],
+          },
+          error: 'Unauthorized',
+        };
+      }
+    }
+
+    // 1. Fetch departments
+    const { data: deptsData } = await admin
+      .from('departments')
+      .select('id, name, code');
+    const deptMap = new Map((deptsData || []).map((d) => [d.id, d]));
+
+    // 2. Fetch recent events
+    const { data: eventsData, error: evErr } = await admin
+      .from('events')
+      .select('id, title, event_date, department_id, status')
+      .order('event_date', { ascending: false })
+      .limit(12);
+
+    if (evErr) throw evErr;
+
+    const events = eventsData || [];
+    const eventIds = events.map((e) => e.id);
+
+    // 3. Fetch feedback rows for these events
+    let feedbackRows: Array<{
+      id: string;
+      event_id: string;
+      rating: number;
+      comment: string | null;
+      created_at: string;
+    }> = [];
+
+    if (eventIds.length > 0) {
+      const { data: fbData, error: fbErr } = await admin
+        .from('event_feedback')
+        .select('id, event_id, rating, comment, created_at')
+        .in('event_id', eventIds);
+
+      if (fbErr) {
+        console.warn('[getEventSatisfactionTrend] Feedback query notice:', fbErr.message);
+      } else if (fbData) {
+        feedbackRows = fbData;
+      }
+    }
+
+    // Group feedback by event_id
+    const feedbackByEvent = new Map<string, Array<{ rating: number; comment: string | null }>>();
+    feedbackRows.forEach((r) => {
+      const arr = feedbackByEvent.get(r.event_id) || [];
+      arr.push(r);
+      feedbackByEvent.set(r.event_id, arr);
+    });
+
+    const evaluatedEvents: EventSatisfactionItem[] = [];
+    let allRatingsSum = 0;
+    let allRatingsCount = 0;
+
+    events.forEach((ev) => {
+      const fbList = feedbackByEvent.get(ev.id) || [];
+      const totalResponses = fbList.length;
+
+      const distribution = { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 };
+      let sum = 0;
+      const sampleComments: string[] = [];
+
+      fbList.forEach((fb) => {
+        sum += fb.rating;
+        allRatingsSum += fb.rating;
+        allRatingsCount++;
+
+        const r = Math.min(5, Math.max(1, fb.rating)) as 1 | 2 | 3 | 4 | 5;
+        distribution[r] = (distribution[r] || 0) + 1;
+
+        if (fb.comment && fb.comment.trim()) {
+          sampleComments.push(fb.comment.trim());
+        }
+      });
+
+      const averageRating = totalResponses > 0 ? Number((sum / totalResponses).toFixed(1)) : 0;
+      const dept = ev.department_id ? deptMap.get(ev.department_id) : null;
+
+      evaluatedEvents.push({
+        eventId: ev.id,
+        eventTitle: ev.title,
+        eventDate: ev.event_date,
+        departmentName: dept?.name || null,
+        departmentCode: dept?.code || null,
+        averageRating,
+        totalResponses,
+        ratingDistribution: distribution,
+        sampleComments: sampleComments.slice(0, 3),
+      });
+    });
+
+    const overallAverageRating =
+      allRatingsCount > 0 ? Number((allRatingsSum / allRatingsCount).toFixed(1)) : 0;
+    const satisfactionPercentage =
+      overallAverageRating > 0 ? Math.round((overallAverageRating / 5) * 100) : 0;
+    const eventsEvaluatedCount = evaluatedEvents.filter((e) => e.totalResponses > 0).length;
+
+    return {
+      success: true,
+      summary: {
+        overallAverageRating,
+        totalFeedbackCount: allRatingsCount,
+        eventsEvaluatedCount,
+        satisfactionPercentage,
+        events: evaluatedEvents,
+      },
+    };
+  } catch (err: any) {
+    console.error('Error in getEventSatisfactionTrend:', err);
+    return {
+      success: false,
+      summary: {
+        overallAverageRating: 0,
+        totalFeedbackCount: 0,
+        eventsEvaluatedCount: 0,
+        satisfactionPercentage: 0,
+        events: [],
+      },
+      error: err.message || 'Failed to fetch event satisfaction trend',
+    };
+  }
+}
+
 
 
 

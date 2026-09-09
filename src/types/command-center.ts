@@ -253,3 +253,58 @@ export interface ActOnUnifiedApprovalInput {
   assignedRole?: string;
 }
 
+// ==========================================
+// 16.6 Onboarding Progress & Event Satisfaction Types
+// ==========================================
+
+export interface MemberOnboardingProgress {
+  profileId: string;
+  fullName: string;
+  email: string;
+  avatarUrl?: string | null;
+  role: string;
+  departmentId?: string | null;
+  departmentName?: string | null;
+  departmentCode?: string | null;
+  joinedAt: string;
+  totalChecklistItems: number;
+  completedChecklistItems: number;
+  progressPercentage: number; // 0 - 100
+  isFullyOnboarded: boolean;
+}
+
+export interface OnboardingOverviewSummary {
+  totalInOnboarding: number;
+  fullyCompletedCount: number;
+  inProgressCount: number;
+  averageProgressPercentage: number;
+  members: MemberOnboardingProgress[];
+}
+
+export interface EventSatisfactionItem {
+  eventId: string;
+  eventTitle: string;
+  eventDate: string;
+  departmentName?: string | null;
+  departmentCode?: string | null;
+  averageRating: number; // 1.0 - 5.0
+  totalResponses: number;
+  ratingDistribution: {
+    5: number;
+    4: number;
+    3: number;
+    2: number;
+    1: number;
+  };
+  sampleComments: string[];
+}
+
+export interface EventSatisfactionSummary {
+  overallAverageRating: number; // 1.0 - 5.0
+  totalFeedbackCount: number;
+  eventsEvaluatedCount: number;
+  satisfactionPercentage: number; // % (e.g. (avg / 5) * 100)
+  events: EventSatisfactionItem[];
+}
+
+
