@@ -28,6 +28,7 @@ import {
   Sparkles,
   ExternalLink,
   Activity,
+  BarChart3,
 } from 'lucide-react';
 import { GlobalSearchBar } from './GlobalSearchBar';
 import { NotificationCenter } from '@/components/notifications/NotificationCenter';
@@ -112,6 +113,15 @@ export function AppNavigation({
         icon: ShieldCheck,
         badge: pendingApprovalsCount > 0 ? pendingApprovalsCount : undefined,
         badgeColor: 'var(--google-yellow)',
+      });
+    }
+
+    // Reports & Analytics for leadership roles (Spec §4.12)
+    if (isLeadership) {
+      coreItems.push({
+        label: 'Reports & Analytics',
+        href: '/reports',
+        icon: BarChart3,
       });
     }
 

@@ -195,10 +195,10 @@
 - [x] 17.3 Wire email delivery via the chosen provider for the same triggers. (2026-09-09)
 
 ## Phase 18 — Reports
-- [ ] 18.1 Build the weekly/monthly committee report generator.
-- [ ] 18.2 Build event performance + attendance analytics reports (incl. feedback scores + budget summary).
-- [ ] 18.3 Build PDF export.
-- [ ] 18.4 Build Excel export.
+- [x] 18.1 Build the weekly/monthly committee report generator. (2026-09-09)
+- [x] 18.2 Build event performance + attendance analytics reports (incl. feedback scores + budget summary). (2026-09-09)
+- [x] 18.3 Build PDF export. (2026-09-09)
+- [x] 18.4 Build Excel export. (2026-09-09)
 
 ## Phase 19 — Gamification
 - [ ] 19.1 Build the `point_rules`-driven points engine (award points on the defined actions).
