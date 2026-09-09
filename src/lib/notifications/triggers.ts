@@ -1,4 +1,27 @@
 import { createAdminClient } from '@/lib/supabase/admin';
+import {
+  sendTaskDelegatedEmail,
+  sendTaskReviewRequestEmail,
+  sendEventReviewRequestEmail,
+  sendCheckinDutyAssignedEmail,
+  sendEventApprovedEmail,
+  sendBudgetAlertEmail,
+  sendSpeakerConfirmedEmail,
+  sendAlumniTransitionEmail,
+} from '@/lib/email/service';
+
+async function fetchProfilesByIds(
+  ids: string[]
+): Promise<Array<{ id: string; email: string; full_name: string }>> {
+  if (!ids || ids.length === 0) return [];
+  const admin = createAdminClient();
+  const { data } = await admin
+    .from('profiles')
+    .select('id, email, full_name')
+    .in('id', ids)
+    .not('email', 'is', null);
+  return data || [];
+}
 
 /**
  * Spec §4.11 Notification Triggers Module
@@ -127,7 +150,27 @@ export async function notifyTaskDelegated(params: {
     relatedEntityId: taskId,
   }));
 
-  return dispatchNotificationsSafely(payloads);
+  const dispatched = await dispatchNotificationsSafely(payloads);
+
+  // Email delivery (Spec §4.11 / Step 17.3)
+  fetchProfilesByIds(recipientProfileIds)
+    .then((profiles) => {
+      profiles.forEach((p) => {
+        if (p.email) {
+          sendTaskDelegatedEmail({
+            to: p.email,
+            recipientName: p.full_name || 'Member',
+            taskTitle,
+            delegatorName,
+            taskId,
+            isBroadcast,
+          }).catch((err) => console.warn('Task delegated email warning:', err));
+        }
+      });
+    })
+    .catch(() => null);
+
+  return dispatched;
 }
 
 /**
@@ -183,7 +226,27 @@ export async function notifyTaskReviewStage(params: {
     relatedEntityId: params.taskId,
   }));
 
-  return dispatchNotificationsSafely(payloads);
+  const dispatched = await dispatchNotificationsSafely(payloads);
+
+  // Email delivery (Spec §4.11 / Step 17.3)
+  fetchProfilesByIds(params.approverIds)
+    .then((profiles) => {
+      profiles.forEach((p) => {
+        if (p.email) {
+          sendTaskReviewRequestEmail({
+            to: p.email,
+            reviewerName: p.full_name || 'Reviewer',
+            taskTitle: params.taskTitle,
+            submitterName: params.submitterName,
+            stageName,
+            taskId: params.taskId,
+          }).catch((err) => console.warn('Task review email warning:', err));
+        }
+      });
+    })
+    .catch(() => null);
+
+  return dispatched;
 }
 
 /**
@@ -262,7 +325,27 @@ export async function notifyEventReviewStage(params: {
     relatedEntityId: params.eventId,
   }));
 
-  return dispatchNotificationsSafely(payloads);
+  const dispatched = await dispatchNotificationsSafely(payloads);
+
+  // Email delivery (Spec §4.11 / Step 17.3)
+  fetchProfilesByIds(params.approverIds)
+    .then((profiles) => {
+      profiles.forEach((p) => {
+        if (p.email) {
+          sendEventReviewRequestEmail({
+            to: p.email,
+            reviewerName: p.full_name || 'Reviewer',
+            eventTitle: params.eventTitle,
+            submitterName: params.submitterName,
+            stageName,
+            eventId: params.eventId,
+          }).catch((err) => console.warn('Event review email warning:', err));
+        }
+      });
+    })
+    .catch(() => null);
+
+  return dispatched;
 }
 
 /**
@@ -275,7 +358,7 @@ export async function notifyEventApproved(params: {
   creatorId: string;
   approverName: string;
 }) {
-  return dispatchNotificationsSafely([
+  const dispatched = await dispatchNotificationsSafely([
     {
       profileId: params.creatorId,
       type: 'event_approved',
@@ -285,6 +368,23 @@ export async function notifyEventApproved(params: {
       relatedEntityId: params.eventId,
     },
   ]);
+
+  // Email delivery (Spec §4.11 / Step 17.3)
+  fetchProfilesByIds([params.creatorId])
+    .then(([creator]) => {
+      if (creator?.email) {
+        sendEventApprovedEmail({
+          to: creator.email,
+          creatorName: creator.full_name || 'Creator',
+          eventTitle: params.eventTitle,
+          approverName: params.approverName,
+          eventId: params.eventId,
+        }).catch((err) => console.warn('Event approved email warning:', err));
+      }
+    })
+    .catch(() => null);
+
+  return dispatched;
 }
 
 /**
@@ -354,7 +454,25 @@ export async function notifyCheckinDutyAssigned(params: {
     relatedEntityId: params.eventId,
   }));
 
-  return dispatchNotificationsSafely(payloads);
+  const dispatched = await dispatchNotificationsSafely(payloads);
+
+  // Email delivery (Spec §4.11 / Step 17.3)
+  fetchProfilesByIds(params.assignedProfileIds)
+    .then((profiles) => {
+      profiles.forEach((p) => {
+        if (p.email) {
+          sendCheckinDutyAssignedEmail({
+            to: p.email,
+            recipientName: p.full_name || 'Member',
+            eventTitle: params.eventTitle,
+            eventId: params.eventId,
+          }).catch((err) => console.warn('Checkin duty email warning:', err));
+        }
+      });
+    })
+    .catch(() => null);
+
+  return dispatched;
 }
 
 /**
@@ -447,7 +565,26 @@ export async function notifySpeakerConfirmed(params: {
     relatedEntityId: params.contactId,
   }));
 
-  return dispatchNotificationsSafely(payloads);
+  const dispatched = await dispatchNotificationsSafely(payloads);
+
+  // Email delivery (Spec §4.11 / Step 17.3)
+  fetchProfilesByIds(targetIds)
+    .then((profiles) => {
+      profiles.forEach((p) => {
+        if (p.email) {
+          sendSpeakerConfirmedEmail({
+            to: p.email,
+            recipientName: p.full_name || 'Leadership',
+            speakerName: params.speakerName,
+            organization: params.organization,
+            contactId: params.contactId,
+          }).catch((err) => console.warn('Speaker confirmed email warning:', err));
+        }
+      });
+    })
+    .catch(() => null);
+
+  return dispatched;
 }
 
 /**
@@ -590,7 +727,27 @@ export async function notifyEventBudgetExceeded(params: {
     relatedEntityId: params.eventId,
   }));
 
-  return dispatchNotificationsSafely(payloads);
+  const dispatched = await dispatchNotificationsSafely(payloads);
+
+  // Email delivery (Spec §4.11 / Step 17.3)
+  fetchProfilesByIds(targetIds)
+    .then((profiles) => {
+      profiles.forEach((p) => {
+        if (p.email) {
+          sendBudgetAlertEmail({
+            to: p.email,
+            recipientName: p.full_name || 'Leadership',
+            eventTitle: params.eventTitle,
+            estimatedCost: params.estimatedCost,
+            actualCost: params.actualCost,
+            eventId: params.eventId,
+          }).catch((err) => console.warn('Budget alert email warning:', err));
+        }
+      });
+    })
+    .catch(() => null);
+
+  return dispatched;
 }
 
 /**
@@ -636,7 +793,22 @@ export async function notifyMemberArchivedToAlumni(params: {
     }
   }
 
-  return dispatchNotificationsSafely(payloads);
+  const dispatched = await dispatchNotificationsSafely(payloads);
+
+  // Email delivery (Spec §4.11 / Step 17.3)
+  fetchProfilesByIds([params.memberId])
+    .then(([member]) => {
+      if (member?.email) {
+        sendAlumniTransitionEmail({
+          to: member.email,
+          recipientName: member.full_name || params.memberName,
+          reason: params.leaveReason,
+        }).catch((err) => console.warn('Alumni transition email warning:', err));
+      }
+    })
+    .catch(() => null);
+
+  return dispatched;
 }
 
 /**

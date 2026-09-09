@@ -192,7 +192,7 @@
 ## Phase 17 — Notifications
 - [x] 17.1 Build the in-app notification center (bell + unread badge). (2026-09-09)
 - [x] 17.2 Wire every trigger from spec §4.11's table (incl. delegation, broadcast assignment, check-in duty, onboarding checklist, feedback survey, budget alerts, alumni archived) to create a `notifications` row. (2026-09-09)
-- [ ] 17.3 Wire email delivery via the chosen provider for the same triggers.
+- [x] 17.3 Wire email delivery via the chosen provider for the same triggers. (2026-09-09)
 
 ## Phase 18 — Reports
 - [ ] 18.1 Build the weekly/monthly committee report generator.
