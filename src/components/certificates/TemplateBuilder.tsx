@@ -27,6 +27,7 @@ import {
   DEFAULT_FIELD_LAYOUT,
 } from '@/types/certificates';
 import { saveCertificateTemplateAction } from '@/lib/certificates/template-actions';
+import { generateStyledQRDataURL } from '@/lib/certificates/qr-generator';
 
 interface TemplateBuilderProps {
   initialTemplate?: CertificateTemplate;
@@ -68,7 +69,14 @@ export function TemplateBuilder({
   // Dragging state
   const [isDragging, setIsDragging] = useState(false);
   const [draggedFieldKey, setDraggedFieldKey] = useState<string | null>(null);
+  const [sampleQrUrl, setSampleQrUrl] = useState<string | null>(null);
   const canvasRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    generateStyledQRDataURL('https://gdgoc-hnu.app/verify/SAMPLE-PREVIEW', 180)
+      .then((url) => setSampleQrUrl(url))
+      .catch(() => setSampleQrUrl(null));
+  }, []);
 
   // New Custom Element modal/input state
   const [isAddingField, setIsAddingField] = useState(false);
@@ -542,10 +550,21 @@ export function TemplateBuilder({
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        color: '#000000',
+                        overflow: 'hidden',
+                        padding: '2px',
+                        boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
                       }}
                     >
-                      <QrCode size={Math.floor((field.fontSize || 54) * 0.75)} />
+                      {sampleQrUrl ? (
+                        <img
+                          src={sampleQrUrl}
+                          alt="QR Code"
+                          style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+                          draggable={false}
+                        />
+                      ) : (
+                        <QrCode size={Math.floor((field.fontSize || 54) * 0.75)} color="#1e293b" />
+                      )}
                     </div>
                   ) : (
                     <span
@@ -768,15 +787,35 @@ export function TemplateBuilder({
 
             {/* Font / Box Size */}
             <div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
                 <span>{selectedField === 'qr_code' ? 'QR Code Size' : 'Font Size'}</span>
-                <strong style={{ color: '#fff' }}>{currentField?.fontSize || 16}px</strong>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                  <input
+                    type="number"
+                    min="10"
+                    max={selectedField === 'qr_code' ? 120 : 72}
+                    value={currentField?.fontSize || (selectedField === 'qr_code' ? 60 : 16)}
+                    onChange={(e) => handleFieldChange(selectedField, { fontSize: Math.max(10, Math.min(selectedField === 'qr_code' ? 120 : 72, Number(e.target.value) || 16)) })}
+                    style={{
+                      width: '54px',
+                      padding: '0.15rem 0.35rem',
+                      borderRadius: '4px',
+                      border: '1px solid rgba(255, 255, 255, 0.15)',
+                      background: '#1a1d2e',
+                      color: '#fff',
+                      fontSize: '0.75rem',
+                      fontWeight: 700,
+                      textAlign: 'center',
+                    }}
+                  />
+                  <span style={{ color: '#fff', fontWeight: 700 }}>px</span>
+                </div>
               </div>
               <input
                 type="range"
                 min="10"
-                max="72"
-                value={currentField?.fontSize || 16}
+                max={selectedField === 'qr_code' ? 120 : 72}
+                value={currentField?.fontSize || (selectedField === 'qr_code' ? 60 : 16)}
                 onChange={(e) => handleFieldChange(selectedField, { fontSize: Number(e.target.value) })}
                 style={{ width: '100%', accentColor: 'var(--google-blue)', marginTop: '0.3rem' }}
               />

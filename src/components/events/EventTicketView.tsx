@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState, useRef } from 'react';
 import QRCode from 'qrcode';
+import { generateStyledQRDataURL } from '@/lib/certificates/qr-generator';
 import Link from 'next/link';
 import { Event, EventRegistration } from '@/types';
 import {
@@ -44,22 +45,23 @@ export function EventTicketView({ registration }: EventTicketViewProps) {
 
   const isWaitlisted = registration.status === 'waitlisted';
 
-  // Generate QR Code data URL using client-side qrcode
+  // Generate branded QR Code data URL with Google corners & center logo
   useEffect(() => {
-    QRCode.toDataURL(registration.qr_code, {
-      width: 260,
-      margin: 2,
-      color: {
-        dark: '#000000',
-        light: '#FFFFFF',
-      },
-      errorCorrectionLevel: 'H',
-    })
+    generateStyledQRDataURL(registration.qr_code, 260)
       .then((url) => setQrDataUrl(url))
       .catch((err) => {
         console.error('QR generation error:', err);
-        // Fallback to QR server
-        setQrDataUrl(`https://api.qrserver.com/v1/create-qr-code/?size=260x260&data=${encodeURIComponent(registration.qr_code)}&margin=10`);
+        // Fallback to basic QRCode or QR server
+        QRCode.toDataURL(registration.qr_code, {
+          width: 260,
+          margin: 2,
+          color: { dark: '#000000', light: '#FFFFFF' },
+          errorCorrectionLevel: 'H',
+        })
+          .then((url) => setQrDataUrl(url))
+          .catch(() => {
+            setQrDataUrl(`https://api.qrserver.com/v1/create-qr-code/?size=260x260&data=${encodeURIComponent(registration.qr_code)}&margin=10`);
+          });
       });
   }, [registration.qr_code]);
 

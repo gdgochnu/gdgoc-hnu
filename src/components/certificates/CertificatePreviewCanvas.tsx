@@ -59,7 +59,7 @@ export function CertificatePreviewCanvas({
     pdfPxToScreenPx(pdfSize ?? fallback, canvasWidth);
 
   // QR size in screen pixels
-  const qrPdfSize = fieldLayout?.qr_code?.fontSize ?? 60;
+  const qrPdfSize = fieldLayout?.qr_code?.fontSize ?? 85;
   const qrScreenSize = Math.max(36, (qrPdfSize / PDF_WIDTH) * canvasWidth);
 
   return (
@@ -235,18 +235,16 @@ export function CertificatePreviewCanvas({
             gap: '2px',
           }}
         >
-          <div
+          <img
+            src={qrCodeDataUrl}
+            alt="Verify QR"
             style={{
               width: `${qrScreenSize}px`,
               height: `${qrScreenSize}px`,
-              background: '#ffffff',
-              borderRadius: '6px',
-              padding: '3px',
-              boxShadow: '0 4px 12px rgba(0, 0, 0, 0.5)',
+              display: 'block',
+              filter: 'drop-shadow(0 4px 12px rgba(0,0,0,0.5))',
             }}
-          >
-            <img src={qrCodeDataUrl} alt="Verify QR" style={{ width: '100%', height: '100%' }} />
-          </div>
+          />
           <span style={{ fontSize: `${fs(6)}px`, color: '#94a3b8', fontWeight: 600 }}>
             Scan to Verify
           </span>

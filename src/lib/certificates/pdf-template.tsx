@@ -177,8 +177,8 @@ export function CertificatePDFDocument({ data }: { data: CertificateData }) {
   const { fieldLayout } = data;
 
   // QR Code coordinates
-  const qrField = fieldLayout.qr_code || { x: 82, y: 76, fontSize: 60 };
-  const qrSize = Math.max(48, qrField.fontSize || 60);
+  const qrField = fieldLayout.qr_code || { x: 82, y: 76, fontSize: 85 };
+  const qrSize = Math.max(48, qrField.fontSize || 85);
   const qrLeft = (qrField.x / 100) * PAGE_WIDTH - qrSize / 2;
   const qrTop = (qrField.y / 100) * PAGE_HEIGHT - qrSize / 2;
 
@@ -252,11 +252,6 @@ export function CertificatePDFDocument({ data }: { data: CertificateData }) {
               top: qrTop,
               width: qrSize,
               height: qrSize,
-              backgroundColor: '#ffffff',
-              padding: 4,
-              borderWidth: 1,
-              borderColor: '#e2e8f0',
-              borderRadius: 6,
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
@@ -265,12 +260,9 @@ export function CertificatePDFDocument({ data }: { data: CertificateData }) {
             {data.qrCodeDataUrl ? (
               <Image
                 src={data.qrCodeDataUrl}
-                style={{ width: qrSize - 10, height: qrSize - 10 }}
+                style={{ width: qrSize, height: qrSize }}
               />
             ) : null}
-            <Text style={{ fontSize: 5, color: '#94a3b8', marginTop: 1, textAlign: 'center' }}>
-              Scan to Verify
-            </Text>
           </View>
         )}
 

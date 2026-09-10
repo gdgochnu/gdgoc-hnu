@@ -70,7 +70,7 @@ export const DEFAULT_FIELD_LAYOUT: CertificateFieldLayout = {
   qr_code: {
     x: 82,
     y: 76,
-    fontSize: 60,
+    fontSize: 85,
     color: '#1a1d2e',
     align: 'center',
     visible: true,

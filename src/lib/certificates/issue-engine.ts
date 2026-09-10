@@ -1,10 +1,10 @@
 import React from 'react';
 import { renderToBuffer } from '@react-pdf/renderer';
-import QRCode from 'qrcode';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { uploadFileToDrive } from '@/lib/drive/drive-client';
 import { notifyCertificateIssued } from '@/lib/notifications/triggers';
 import { CertificatePDFDocument, CertificateData } from './pdf-template';
+import { generateStyledQRDataURL } from './qr-generator';
 import { DEFAULT_FIELD_LAYOUT } from '@/types/certificates';
 import type {
   CertificateTemplate,
@@ -36,15 +36,9 @@ export async function renderCertificatePDFBuffer(
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
   const verifyUrl = `${baseUrl}/verify/${input.verificationCode}`;
 
-  // Generate QR code data url
-  const qrCodeDataUrl = await QRCode.toDataURL(verifyUrl, {
-    width: 240,
-    margin: 1,
-    color: {
-      dark: '#1e293b',
-      light: '#ffffff',
-    },
-  });
+  // Generate styled QR code with GDGoC logo & brand colors
+  const qrCodeDataUrl = await generateStyledQRDataURL(verifyUrl, 240);
+
 
   const certData: CertificateData = {
     recipientName: input.recipientName,

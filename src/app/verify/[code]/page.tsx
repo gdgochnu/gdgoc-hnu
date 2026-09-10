@@ -1,7 +1,7 @@
 import React from 'react';
 import { Metadata } from 'next';
 import Link from 'next/link';
-import QRCode from 'qrcode';
+import { generateStyledQRDataURL } from '@/lib/certificates/qr-generator';
 import { createAdminClient } from '@/lib/supabase/admin';
 import {
   ShieldCheck,
@@ -91,14 +91,7 @@ export default async function CertificateVerificationPage({ params }: VerifyPage
   if (certificate) {
     const verifyUrl = `${baseUrl}/verify/${certificate.verification_code}`;
     try {
-      qrCodeDataUrl = await QRCode.toDataURL(verifyUrl, {
-        width: 180,
-        margin: 1,
-        color: {
-          dark: '#0f172a',
-          light: '#ffffff',
-        },
-      });
+      qrCodeDataUrl = await generateStyledQRDataURL(verifyUrl, 200);
     } catch (e) {
       console.warn('QR generation fallback:', e);
     }
