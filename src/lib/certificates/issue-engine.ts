@@ -36,8 +36,8 @@ export async function renderCertificatePDFBuffer(
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
   const verifyUrl = `${baseUrl}/verify/${input.verificationCode}`;
 
-  // Generate styled QR code with GDGoC logo & brand colors
-  const qrCodeDataUrl = await generateStyledQRDataURL(verifyUrl, 240);
+  // PNG so @react-pdf/renderer paints the center icon.svg mark
+  const qrCodeDataUrl = await generateStyledQRDataURL(verifyUrl, 240, { forPdf: true });
 
 
   const certData: CertificateData = {

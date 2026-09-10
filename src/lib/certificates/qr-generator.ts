@@ -2,17 +2,19 @@ import QRCode from 'qrcode';
 
 /**
  * GDGoC HNU OS — Styled QR Code Generator
- * Produces a branded SVG QR code with:
- *  - Colored Google-brand finder patterns (Blue / Red / Green corners)
- *  - GDGoC four-color arc logo in the center badge
+ * Transparent branded QR with official icon.svg mark in the center (no circle badge).
  */
 
-const BLUE   = '#4285F4';
-const RED    = '#EA4335';
-const YELLOW = '#FBBC04';
-const GREEN  = '#34A853';
+const BLUE  = '#4285F4';
+const RED   = '#EA4335';
+const GREEN = '#34A853';
 
-/** Draw one colored finder pattern at (x, y) with outer + inner color. */
+/** Official logo aspect from public/icons/icon.svg */
+const LOGO_VB_W = 2626;
+const LOGO_VB_H = 1438;
+const LOGO_ASPECT = LOGO_VB_H / LOGO_VB_W;
+
+/** Draw one colored finder pattern at (x, y). */
 function finderSVG(
   x: number,
   y: number,
@@ -28,24 +30,17 @@ function finderSVG(
   ].join('\n');
 }
 
-/** 
- * Build the centered GDGoC official brackets logo badge matching public/icons/icon.svg (< >).
- * Uses <g transform> instead of nested <svg> so react-pdf/renderer renders it correctly.
+/**
+ * Center mark = public/icons/icon.svg content (no circle / badge).
+ * Paths copied from icon.svg so the mark stays identical to the brand asset.
  */
-function logoBadge(cx: number, cy: number, r: number): string {
-  // icon.svg viewBox is "0 0 2626 1438" — content is offset by the outer matrix transform
-  // We render using g transform to avoid nested <svg> which react-pdf doesn't support
-  const badgeW = r * 1.5;
-  const badgeH = badgeW * (1438 / 2626);
-  const s = badgeW / 2626;          // scale so 2626 units maps to badgeW px
-  const tx = cx - badgeW / 2;       // translate so it's centered on (cx, cy)
-  const ty = cy - badgeH / 2;
+function logoMark(cx: number, cy: number, logoW: number): string {
+  const logoH = logoW * LOGO_ASPECT;
+  const s = logoW / LOGO_VB_W;
+  const tx = cx - logoW / 2;
+  const ty = cy - logoH / 2;
 
   return [
-    // White badge circle + subtle ring
-    `<circle cx="${cx.toFixed(2)}" cy="${cy.toFixed(2)}" r="${r.toFixed(2)}" fill="#ffffff"/>`,
-    `<circle cx="${cx.toFixed(2)}" cy="${cy.toFixed(2)}" r="${r.toFixed(2)}" fill="none" stroke="#e2e8f0" stroke-width="${(r * 0.08).toFixed(2)}"/>`,
-    // Logo group — no nested <svg>, only <g> with transforms (react-pdf compatible)
     `<g transform="translate(${tx.toFixed(2)},${ty.toFixed(2)}) scale(${s.toFixed(6)})">`,
     `  <g transform="matrix(1,0,0,1,-187.080987,-447.09468)">`,
     `    <g transform="matrix(11.035293,0,0,11.035293,101.933164,479.696637)">`,
@@ -71,10 +66,17 @@ function logoBadge(cx: number, cy: number, r: number): string {
   ].join('\n');
 }
 
+export type StyledQROptions = {
+  /**
+   * Rasterize to PNG (needed for @react-pdf/renderer so the logo paints).
+   * Keep false for web preview — SVG is crisp and avoids sharp's Node JSON-import warning.
+   */
+  forPdf?: boolean;
+};
+
 /**
  * Generate a styled GDGoC-branded QR code as an SVG string.
- * Uses errorCorrectionLevel H so the ~20% logo overlay stays scannable.
- * Renders modules directly from the QR bit-matrix for pixel-perfect coordinates.
+ * Transparent canvas; official icon.svg mark centered (no circle).
  */
 export async function generateStyledQRSVG(url: string, size = 240): Promise<string> {
   const qr = QRCode.create(url, { errorCorrectionLevel: 'H' });
@@ -85,21 +87,25 @@ export async function generateStyledQRSVG(url: string, size = 240): Promise<stri
 
   const rects: string[] = [];
   const center = count / 2;
-  // Center logo radius in module units (~20% of area)
-  const logoRadiusModules = Math.min(count * 0.16, 5.2);
+
+  // Quiet zone for logo (~34% of QR width) — rectangular to match icon.svg aspect
+  const logoWModules = Math.min(count * 0.34, 11);
+  const logoHModules = logoWModules * LOGO_ASPECT;
+  const clearPad = 0.55; // modules of padding around the mark
 
   for (let r = 0; r < count; r++) {
     for (let c = 0; c < count; c++) {
       if (qr.modules.get(c, r)) {
-        // Skip default 7x7 corner finder patterns
         const isTL = c < 7 && r < 7;
         const isTR = c >= count - 7 && r < 7;
         const isBL = c < 7 && r >= count - 7;
-        // Skip center circle area reserved for GDGoC logo
-        const dist = Math.sqrt((c - center + 0.5) ** 2 + (r - center + 0.5) ** 2);
-        const isCenter = dist < logoRadiusModules;
 
-        if (!isTL && !isTR && !isBL && !isCenter) {
+        const dx = Math.abs(c - center + 0.5);
+        const dy = Math.abs(r - center + 0.5);
+        const isLogoZone =
+          dx < logoWModules / 2 + clearPad && dy < logoHModules / 2 + clearPad;
+
+        if (!isTL && !isTR && !isBL && !isLogoZone) {
           const x = (c + margin) * m;
           const y = (r + margin) * m;
           rects.push(
@@ -110,7 +116,6 @@ export async function generateStyledQRSVG(url: string, size = 240): Promise<stri
     }
   }
 
-  // Finder pattern positions
   const tlX = margin * m;
   const tlY = margin * m;
   const trX = (count - 7 + margin) * m;
@@ -118,39 +123,99 @@ export async function generateStyledQRSVG(url: string, size = 240): Promise<stri
   const blX = margin * m;
   const blY = (count - 7 + margin) * m;
 
-  // Center logo
   const cx = size / 2;
   const cy = size / 2;
-  const logoRadius = (logoRadiusModules + 0.35) * m;
+  const logoW = logoWModules * m;
 
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${size} ${size}" width="${size}" height="${size}" shape-rendering="crispEdges">
-  <!-- Base white background -->
-  <rect width="${size}" height="${size}" fill="#ffffff" rx="${(m * 1.5).toFixed(2)}"/>
-
-  <!-- QR data modules -->
   ${rects.join('\n  ')}
-
-  <!-- Branded finder patterns: Blue TL · Red TR · Green BL -->
   ${finderSVG(tlX, tlY, BLUE, BLUE, m)}
   ${finderSVG(trX, trY, RED, RED, m)}
   ${finderSVG(blX, blY, GREEN, GREEN, m)}
-
-  <!-- GDGoC logo badge in center -->
-  ${logoBadge(cx, cy, logoRadius)}
+  ${logoMark(cx, cy, logoW)}
 </svg>`;
 }
 
+/** Load sharp via CJS require to avoid the ESM "Importing JSON modules" ExperimentalWarning. */
+function loadSharp(): typeof import('sharp') | null {
+  if (typeof window !== 'undefined') return null;
+  try {
+    const { createRequire } = require('module') as typeof import('module');
+    const req = createRequire(
+      typeof __filename !== 'undefined' ? __filename : require('path').join(process.cwd(), 'package.json')
+    );
+
+    const prev = process.emitWarning;
+    process.emitWarning = ((warning: unknown, ...args: unknown[]) => {
+      const msg =
+        typeof warning === 'string'
+          ? warning
+          : warning && typeof warning === 'object' && 'message' in warning
+            ? String((warning as { message: unknown }).message)
+            : '';
+      if (msg.includes('Importing JSON modules')) return;
+      return (prev as (...a: unknown[]) => void).call(process, warning, ...args);
+    }) as typeof process.emitWarning;
+
+    try {
+      return req('sharp');
+    } finally {
+      process.emitWarning = prev;
+    }
+  } catch {
+    return null;
+  }
+}
+
+async function svgToPngDataUrl(svg: string, size: number): Promise<string | null> {
+  const sharpMod = loadSharp();
+  if (!sharpMod) return null;
+  try {
+    const sharp = sharpMod.default ?? sharpMod;
+    // 2× render for a sharper logo in PDF, then downscale
+    const renderSize = size * 2;
+    const png = await sharp(Buffer.from(svg), { density: 192 })
+      .resize(renderSize, renderSize, {
+        fit: 'contain',
+        background: { r: 0, g: 0, b: 0, alpha: 0 },
+      })
+      .png()
+      .toBuffer();
+    const out = await sharp(png)
+      .resize(size, size, {
+        fit: 'contain',
+        background: { r: 0, g: 0, b: 0, alpha: 0 },
+      })
+      .png()
+      .toBuffer();
+    return `data:image/png;base64,${out.toString('base64')}`;
+  } catch {
+    return null;
+  }
+}
+
 /**
- * Generate a styled QR code as a base64 SVG data URL.
- * Drop-in replacement for QRCode.toDataURL() — works both on server and in browser.
+ * Generate a styled QR as a data URL.
+ * Default: SVG (web preview / verify page).
+ * `forPdf: true` → PNG so react-pdf keeps the center logo.
  */
-export async function generateStyledQRDataURL(url: string, size = 240): Promise<string> {
+export async function generateStyledQRDataURL(
+  url: string,
+  size = 240,
+  options: StyledQROptions = {}
+): Promise<string> {
   const svg = await generateStyledQRSVG(url, size);
+
   if (typeof window !== 'undefined' && typeof window.btoa === 'function') {
     const b64 = window.btoa(unescape(encodeURIComponent(svg)));
     return `data:image/svg+xml;base64,${b64}`;
   }
+
+  if (options.forPdf) {
+    const pngUrl = await svgToPngDataUrl(svg, size);
+    if (pngUrl) return pngUrl;
+  }
+
   const b64 = Buffer.from(svg, 'utf-8').toString('base64');
   return `data:image/svg+xml;base64,${b64}`;
 }
-

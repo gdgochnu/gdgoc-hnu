@@ -229,10 +229,6 @@ export function CertificatePreviewCanvas({
             top: `${fieldLayout?.qr_code?.y ?? 76}%`,
             transform: 'translate(-50%, -50%)',
             zIndex: 15,
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            gap: '2px',
           }}
         >
           <img
@@ -245,9 +241,6 @@ export function CertificatePreviewCanvas({
               filter: 'drop-shadow(0 4px 12px rgba(0,0,0,0.5))',
             }}
           />
-          <span style={{ fontSize: `${fs(6)}px`, color: '#94a3b8', fontWeight: 600 }}>
-            Scan to Verify
-          </span>
         </div>
       )}
 

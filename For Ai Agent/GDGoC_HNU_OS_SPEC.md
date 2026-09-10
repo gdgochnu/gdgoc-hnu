@@ -19,7 +19,7 @@
 
 ## 0. Project Snapshot
 
-| | |
+|   |   |
 |---|---|
 | **Project name** | GDGoC HNU OS (Operating System for Google Developer Groups on Campus – Helwan National University) |
 | **Tagline** | One platform. One source of truth. For people, events, tasks, attendance, growth. |

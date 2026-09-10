@@ -545,14 +545,13 @@ export function TemplateBuilder({
                       style={{
                         width: `${field.fontSize || 54}px`,
                         height: `${field.fontSize || 54}px`,
-                        background: '#ffffff',
+                        background: 'transparent',
                         borderRadius: '8px',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
                         overflow: 'hidden',
                         padding: '2px',
-                        boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
                       }}
                     >
                       {sampleQrUrl ? (
