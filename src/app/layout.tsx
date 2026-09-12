@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { NavigationProgressBar } from "@/components/layout/NavigationProgressBar";
+import { PageTransitionTracker } from "@/components/layout/PageTransitionTracker";
 
 export const metadata: Metadata = {
   title: "GDGoC HNU OS — Chapter Operating System",
@@ -108,7 +109,9 @@ export default function RootLayout({
       <body suppressHydrationWarning>
         <NavigationProgressBar />
         <div className="ambient-glow" aria-hidden="true" suppressHydrationWarning />
-        {children}
+        <PageTransitionTracker>
+          {children}
+        </PageTransitionTracker>
 
         {/* Client Service Worker Registration: Production Only */}
         <script

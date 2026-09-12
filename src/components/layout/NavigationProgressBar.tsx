@@ -17,22 +17,23 @@ function NavigationProgressBarContent() {
     if (safetyTimerRef.current) clearTimeout(safetyTimerRef.current);
 
     setIsVisible(true);
-    setProgress(30);
+    setProgress(25);
 
-    // Natural progress acceleration
+    // Natural smooth progress acceleration up to 92%, then continuous trickle
     timerRef.current = setInterval(() => {
       setProgress((prev) => {
-        if (prev < 70) return prev + 18;
-        if (prev < 88) return prev + 6;
-        if (prev < 94) return prev + 1;
+        if (prev < 65) return prev + 12;
+        if (prev < 82) return prev + 5;
+        if (prev < 90) return prev + 1.5;
+        if (prev < 95) return prev + 0.3;
         return prev;
       });
-    }, 120);
+    }, 100);
 
-    // Safety timeout to prevent stuck progress bar
+    // Safety timeout to prevent stuck progress bar if network disconnects
     safetyTimerRef.current = setTimeout(() => {
       finishProgress();
-    }, 6000);
+    }, 25000);
   };
 
   const finishProgress = () => {
@@ -45,14 +46,21 @@ function NavigationProgressBarContent() {
       setIsVisible(false);
       setTimeout(() => {
         setProgress(0);
-      }, 250);
+      }, 300);
     }, 200);
   };
 
-  // Complete progress on route/searchParam change
+  // Complete progress ONLY when the new page content has actually mounted to the DOM
   useEffect(() => {
-    finishProgress();
-  }, [pathname, searchParams]);
+    const handlePageNavigationComplete = () => {
+      finishProgress();
+    };
+
+    window.addEventListener('page-navigation-complete', handlePageNavigationComplete);
+    return () => {
+      window.removeEventListener('page-navigation-complete', handlePageNavigationComplete);
+    };
+  }, []);
 
   // Intercept click on internal links
   useEffect(() => {

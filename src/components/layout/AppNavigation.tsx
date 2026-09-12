@@ -76,6 +76,11 @@ export function AppNavigation({
     }
   }, [pathname]);
 
+  // Complete navigation progress bar when new page content actually commits to the DOM
+  useEffect(() => {
+    window.dispatchEvent(new CustomEvent('page-navigation-complete'));
+  }, [children]);
+
   const handleSidebarScroll = (e: React.UIEvent<HTMLDivElement>) => {
     if (typeof window !== 'undefined') {
       sessionStorage.setItem('sidebar_scroll_top', String(e.currentTarget.scrollTop));
