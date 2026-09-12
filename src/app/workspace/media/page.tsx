@@ -86,7 +86,7 @@ export default async function MediaLibraryPage() {
         }}
         onRefresh={async () => {
           'use server';
-          const { files: updated } = await getAllMediaFiles(deptIds, eventIds);
+          const { files: updated } = await getAllMediaFiles(deptIds, eventIds, true);
           return updated;
         }}
       />

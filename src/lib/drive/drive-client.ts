@@ -141,7 +141,7 @@ export async function callDriveBridge<T = any>(
           ...payload,
         }),
         redirect: 'follow',
-        signal: AbortSignal.timeout(3500),
+        signal: AbortSignal.timeout(15000),
       });
 
       if (response.ok) {
@@ -149,10 +149,19 @@ export async function callDriveBridge<T = any>(
         return result;
       } else {
         const errorText = await response.text();
-        console.warn(`[callDriveBridge] Live fetch returned HTTP ${response.status}: ${errorText}. Falling back to sandbox engine.`);
+        console.warn(`[callDriveBridge] Live fetch returned HTTP ${response.status}: ${errorText}.`);
+        return {
+          success: false,
+          error: `Drive Bridge returned HTTP ${response.status}: ${errorText}`,
+        } as any;
       }
     } catch (err: any) {
-      console.warn('[callDriveBridge] Live fetch error, falling back to internal mock:', err.message);
+      const causeMsg = err.cause ? ` (cause: ${err.cause.message || err.cause.code || err.cause})` : '';
+      console.warn(`[callDriveBridge] Live fetch error: ${err.message}${causeMsg}`);
+      return {
+        success: false,
+        error: `Drive Bridge error: ${err.message}${causeMsg}`,
+      } as any;
     }
   }
 

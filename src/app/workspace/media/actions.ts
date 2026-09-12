@@ -9,113 +9,100 @@ import {
   deleteEntityFile,
   renameEntityFile,
 } from '@/app/drive/actions';
+import { listFilesInDrive } from '@/lib/drive/drive-client';
 import { MediaFile } from '@/components/workspace/MediaLibraryClient';
+
+// In-memory cache for media files to avoid repeated Apps Script round-trips
+interface CachedMedia {
+  timestamp: number;
+  files: MediaFile[];
+  folderUrl?: string;
+}
+let mediaCache: CachedMedia | null = null;
+const CACHE_TTL_MS = 60 * 1000; // 60 seconds
+
+export async function invalidateMediaCache() {
+  mediaCache = null;
+}
 
 /**
  * Fetch all media files across all committees for the Central Media Library.
- * Aggregates: media_library (general) + each department's media folder.
+ * Aggregates: media_library (general) + each department's media folder + event media folders.
  */
 export async function getAllMediaFiles(
-  departmentIds: string[],
-  eventIds: string[] = []
+  departmentIds?: string[],
+  eventIds?: string[],
+  forceRefresh: boolean = false
 ): Promise<{
   files: MediaFile[];
   folderUrl?: string;
 }> {
+  if (!forceRefresh && mediaCache && (Date.now() - mediaCache.timestamp < CACHE_TTL_MS)) {
+    return { files: mediaCache.files, folderUrl: mediaCache.folderUrl };
+  }
+
   const fileMap = new Map<string, MediaFile>();
   let rootFolderUrl: string | undefined;
   const admin = createAdminClient();
 
-  // 1. General "Media Library" folder
-  const generalRes = await listEntityFiles('media_library', null);
-  if (generalRes.success && generalRes.files.length > 0) {
-    rootFolderUrl = generalRes.folderUrl;
-    for (const f of generalRes.files) {
-      const isImg = (f.mimeType || '').startsWith('image/');
-      fileMap.set(f.id, {
-        id: f.id,
-        name: f.name,
-        mimeType: f.mimeType,
-        size: f.size,
-        url: f.url,
-        downloadUrl: f.downloadUrl,
-        thumbnailUrl: f.thumbnailUrl || (isImg ? `/api/workspace/media/thumbnail?id=${f.id}` : undefined),
-        dateCreated: f.dateCreated,
-        entityType: 'media_library',
-        entityId: null,
-        entityLabel: 'General',
-      });
+  // 1. Fetch departments and events metadata for clear labeling
+  const [{ data: deptsData }, { data: eventsData }, { data: mappings }] = await Promise.all([
+    admin.from('departments').select('id, name'),
+    admin.from('events').select('id, title'),
+    admin.from('drive_folder_map').select('id, entity_type, entity_id, drive_folder_id, drive_folder_url'),
+  ]);
+
+  const deptMap = new Map((deptsData || []).map((d) => [d.id, d.name]));
+  const eventMap = new Map((eventsData || []).map((e) => [e.id, e.title]));
+
+  // 2. Filter mappings to valid real Drive folders
+  const validMappings = (mappings || []).filter(
+    (m) =>
+      m.drive_folder_id &&
+      !m.drive_folder_id.startsWith('folder_') &&
+      !m.drive_folder_id.startsWith('mock-')
+  );
+
+  // 3. Query all valid mapped Drive folders sequentially to respect Google Apps Script concurrency
+  for (const mapping of validMappings) {
+    try {
+      let res = await listFilesInDrive(mapping.drive_folder_id);
+
+      if (res.success && Array.isArray(res.files)) {
+        if (mapping.entity_type === 'media_library' && !rootFolderUrl) {
+          rootFolderUrl = mapping.drive_folder_url || res.folderUrl;
+        }
+
+        let label = 'General';
+        if (mapping.entity_type === 'department') {
+          label = deptMap.get(mapping.entity_id || '') || 'Department';
+        } else if (mapping.entity_type === 'event') {
+          label = `Event: ${eventMap.get(mapping.entity_id || '') || 'Event'}`;
+        }
+
+        for (const f of res.files) {
+          if (!fileMap.has(f.id)) {
+            const isImg = (f.mimeType || '').startsWith('image/');
+            fileMap.set(f.id, {
+              id: f.id,
+              name: f.name,
+              mimeType: f.mimeType,
+              size: f.size,
+              url: f.url,
+              downloadUrl: f.downloadUrl,
+              thumbnailUrl: f.thumbnailUrl || (isImg ? `/api/workspace/media/thumbnail?id=${f.id}` : undefined),
+              dateCreated: f.dateCreated,
+              entityType: mapping.entity_type,
+              entityId: mapping.entity_id,
+              entityLabel: label,
+            });
+          }
+        }
+      }
+    } catch (folderErr: any) {
+      console.warn(`[getAllMediaFiles] Error fetching folder ${mapping.drive_folder_id}:`, folderErr.message);
     }
-    if (!rootFolderUrl) rootFolderUrl = generalRes.folderUrl;
   }
-
-  // 2. Each department's media folder
-  await Promise.all(
-    departmentIds.map(async (deptId) => {
-      const res = await listEntityFiles('department', deptId);
-      if (res.success && res.files.length > 0) {
-        const { data: dept } = await admin
-          .from('departments')
-          .select('name')
-          .eq('id', deptId)
-          .maybeSingle();
-
-        for (const f of res.files) {
-          if (!fileMap.has(f.id)) {
-            const isImg = (f.mimeType || '').startsWith('image/');
-            fileMap.set(f.id, {
-              id: f.id,
-              name: f.name,
-              mimeType: f.mimeType,
-              size: f.size,
-              url: f.url,
-              downloadUrl: f.downloadUrl,
-              thumbnailUrl: f.thumbnailUrl || (isImg ? `/api/workspace/media/thumbnail?id=${f.id}` : undefined),
-              dateCreated: f.dateCreated,
-              entityType: 'department',
-              entityId: deptId,
-              entityLabel: dept?.name || deptId,
-            });
-          }
-        }
-      }
-    })
-  );
-
-  // 3. Each event's media folder (Drive /Events/{EventName}/Media-Coverage/)
-  await Promise.all(
-    eventIds.map(async (eventId) => {
-      const res = await listEntityFiles('event', eventId);
-      const { data: ev } = await admin
-        .from('events')
-        .select('title')
-        .eq('id', eventId)
-        .maybeSingle();
-
-      const eventLabel = ev?.title ? `Event: ${ev.title}` : `Event`;
-
-      if (res.success && res.files.length > 0) {
-        for (const f of res.files) {
-          if (!fileMap.has(f.id)) {
-            const isImg = (f.mimeType || '').startsWith('image/');
-            fileMap.set(f.id, {
-              id: f.id,
-              name: f.name,
-              mimeType: f.mimeType,
-              size: f.size,
-              url: f.url,
-              downloadUrl: f.downloadUrl,
-              thumbnailUrl: f.thumbnailUrl || (isImg ? `/api/workspace/media/thumbnail?id=${f.id}` : undefined),
-              dateCreated: f.dateCreated,
-              entityType: 'event',
-              entityId: eventId,
-              entityLabel: eventLabel,
-            });
-          }
-        }
-      }
-    })
-  );
 
   // 4. Also fetch any uploaded event coverage checklist items
   try {
@@ -148,10 +135,18 @@ export async function getAllMediaFiles(
     // Non-fatal
   }
 
+  const finalFiles = Array.from(fileMap.values()).sort(
+    (a, b) => new Date(b.dateCreated || 0).getTime() - new Date(a.dateCreated || 0).getTime()
+  );
+
+  mediaCache = {
+    timestamp: Date.now(),
+    files: finalFiles,
+    folderUrl: rootFolderUrl,
+  };
+
   return {
-    files: Array.from(fileMap.values()).sort(
-      (a, b) => new Date(b.dateCreated || 0).getTime() - new Date(a.dateCreated || 0).getTime()
-    ),
+    files: finalFiles,
     folderUrl: rootFolderUrl,
   };
 }
@@ -198,6 +193,10 @@ export async function uploadMediaFile(
       makePublic: true,
     });
 
+    if (res.success) {
+      invalidateMediaCache();
+    }
+
     return { success: res.success, error: res.error };
   } catch (err: any) {
     return { success: false, error: err.message };
@@ -222,7 +221,11 @@ export async function deleteMediaFile(
       return { success: false, error: 'Only leadership can delete media files' };
     }
 
-    return await deleteEntityFile(fileId, 'media_library', entityId || null);
+    const res = await deleteEntityFile(fileId, 'media_library', entityId || null);
+    if (res.success) {
+      invalidateMediaCache();
+    }
+    return res;
   } catch (err: any) {
     return { success: false, error: err.message };
   }
@@ -248,7 +251,11 @@ export async function renameMediaFile(
       return { success: false, error: 'Only leadership can rename media files' };
     }
 
-    return await renameEntityFile(fileId, newName, entityType, entityId || null);
+    const res = await renameEntityFile(fileId, newName, entityType, entityId || null);
+    if (res.success) {
+      invalidateMediaCache();
+    }
+    return res;
   } catch (err: any) {
     return { success: false, error: err.message };
   }
