@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { sanitizeRichText } from '@/lib/security/sanitizer';
 
 export const dynamic = 'force-dynamic';
 
@@ -73,9 +74,10 @@ export async function POST(
     }
 
     const bodyJson = await req.json().catch(() => null);
-    const body = bodyJson?.body?.trim();
+    const rawBody = bodyJson?.body;
+    const body = sanitizeRichText(rawBody, 2000);
 
-    if (!body) {
+    if (!body || body.trim().length === 0) {
       return NextResponse.json({ error: 'Comment body cannot be empty' }, { status: 400 });
     }
 

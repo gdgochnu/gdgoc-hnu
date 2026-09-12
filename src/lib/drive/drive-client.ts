@@ -141,6 +141,7 @@ export async function callDriveBridge<T = any>(
           ...payload,
         }),
         redirect: 'follow',
+        signal: AbortSignal.timeout(3500),
       });
 
       if (response.ok) {
@@ -437,6 +438,8 @@ export async function ensureFolderPath(
   return callDriveBridge<DriveFolderResult>('ensureFolderPath', { pathSegments });
 }
 
+import { validateFileUpload } from '@/lib/security/file-validation';
+
 export async function uploadFileToDrive(options: {
   folderId?: string;
   fileName: string;
@@ -444,7 +447,27 @@ export async function uploadFileToDrive(options: {
   base64Data: string;
   makePublic?: boolean;
 }): Promise<DriveBridgeResponse<DriveFileResult>> {
-  return callDriveBridge<DriveFileResult>('uploadFile', options);
+  // Enforce MIME and size validation before dispatching to Drive Bridge
+  const approxSizeBytes = Math.round((options.base64Data || '').length * 0.75);
+  const validation = validateFileUpload({
+    fileName: options.fileName,
+    mimeType: options.mimeType,
+    sizeBytes: approxSizeBytes,
+  });
+
+  if (!validation.valid) {
+    return {
+      success: false,
+      error: validation.error || 'File validation failed',
+      code: validation.code,
+    };
+  }
+
+  return callDriveBridge<DriveFileResult>('uploadFile', {
+    ...options,
+    fileName: validation.sanitizedFileName || options.fileName,
+    mimeType: validation.canonicalMimeType || options.mimeType,
+  });
 }
 
 export async function listFilesInDrive(

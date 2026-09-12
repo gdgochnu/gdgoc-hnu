@@ -13,6 +13,7 @@ import { getEventFeedbackSummary, getEventBudget, canAccessEventBudget } from '@
 import { getEventCoverage } from '@/app/events/coverage-actions';
 import { getEventOperationsChecklist } from '@/app/events/operations-actions';
 import { Event, EventStatus } from '@/types';
+import { EditEventButton } from '@/components/events/EditEventButton';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { 
@@ -386,7 +387,10 @@ export default async function EventDetailPage({ params, searchParams }: EventDet
               <span>Back to Events Hub</span>
             </Link>
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+              {canManage && (
+                <EditEventButton event={event} departments={departments} />
+              )}
               <Link
                 href={`/events/${event.id}/tasks`}
                 className="btn-secondary"

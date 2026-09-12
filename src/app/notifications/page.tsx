@@ -11,7 +11,7 @@ export default async function NotificationsPage() {
   const context = await getUserContext();
 
   if (!context.user || !context.profile) {
-    redirect('/auth/signin');
+    redirect('/auth/login?redirect=/notifications');
   }
 
   const { summary } = await getNotifications({ limit: 100 });

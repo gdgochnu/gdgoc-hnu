@@ -1,3 +1,4 @@
+import { AppShell } from '@/components/layout/AppShell';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import Link from 'next/link';
@@ -140,31 +141,22 @@ export default async function ApprovalsPage() {
     : 'Committee Head Portal';
 
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
-      {/* Navigation Header */}
-      <header className="header-nav">
-        <div className="nav-content">
-          <Link href="/" className="brand-badge">
-            <div className="brand-logo-wrap">
-              <span style={{ fontWeight: 800, fontSize: '1.1rem', background: 'linear-gradient(135deg, #4285F4, #34A853)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-                &lt;&gt;
-              </span>
-            </div>
-            <div>
-              <div className="brand-title">GDGoC HNU OS</div>
-              <div className="brand-sub">Leadership Command & Approvals</div>
-            </div>
-          </Link>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-            <span style={{ fontSize: '0.8rem', padding: '0.3rem 0.75rem', borderRadius: '999px', background: 'rgba(66, 133, 244, 0.15)', color: '#93C5FD', fontWeight: 600 }}>
-              {roleTitle}
-            </span>
+    <AppShell>
+      <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '2rem 1.5rem 5rem', width: '100%' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '2rem', flexWrap: 'wrap', gap: '1rem' }}>
+          <div>
+            <h1 style={{ fontSize: '2rem', fontWeight: 800, letterSpacing: '-0.02em', margin: 0, color: '#FFFFFF' }}>
+              Leadership Approvals Queue
+            </h1>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '0.92rem', margin: '0.25rem 0 0' }}>
+              Review pending member account registrations, manage status, and oversee chapter applications.
+            </p>
           </div>
+          <span style={{ fontSize: '0.8rem', padding: '0.35rem 0.85rem', borderRadius: '999px', background: 'rgba(66, 133, 244, 0.15)', color: '#93C5FD', fontWeight: 600, border: '1px solid rgba(66, 133, 244, 0.3)' }}>
+            {roleTitle}
+          </span>
         </div>
-      </header>
 
-      {/* Main Body */}
-      <main style={{ maxWidth: '1100px', margin: '0 auto', padding: '2.5rem 1.5rem 5rem', width: '100%' }}>
         <LeadershipDashboardTabs
           pendingAccounts={pendingAccounts || []}
           managedMembers={managedMembers || []}
@@ -172,8 +164,8 @@ export default async function ApprovalsPage() {
           currentUserId={user.id}
           currentUserRole={callerProfile.role}
         />
-      </main>
-    </div>
+      </div>
+    </AppShell>
   );
 }
 

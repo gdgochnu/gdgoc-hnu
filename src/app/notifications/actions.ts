@@ -227,6 +227,8 @@ export async function deleteNotification(notificationId: string): Promise<{
   }
 }
 
+import { sanitizePlainText, sanitizeRichText } from '@/lib/security/sanitizer';
+
 export async function createNotification(params: {
   profileId: string;
   type: string;
@@ -241,13 +243,16 @@ export async function createNotification(params: {
 }> {
   try {
     const admin = createAdminClient();
+    const cleanTitle = sanitizePlainText(params.title, 200);
+    const cleanMessage = sanitizeRichText(params.message, 2000);
+
     const { data, error } = await admin
       .from('notifications')
       .insert({
         profile_id: params.profileId,
         type: params.type,
-        title: params.title,
-        message: params.message,
+        title: cleanTitle,
+        message: cleanMessage,
         related_entity_type: params.relatedEntityType || null,
         related_entity_id: params.relatedEntityId || null,
         is_read: false,

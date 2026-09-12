@@ -8,55 +8,45 @@ function NavigationProgressBarContent() {
   const searchParams = useSearchParams();
   const [progress, setProgress] = useState(0);
   const [isVisible, setIsVisible] = useState(false);
-  const [showPill, setShowPill] = useState(false);
 
   const timerRef = useRef<NodeJS.Timeout | null>(null);
-  const pillTimerRef = useRef<NodeJS.Timeout | null>(null);
   const safetyTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   const startProgress = () => {
     if (timerRef.current) clearInterval(timerRef.current);
-    if (pillTimerRef.current) clearTimeout(pillTimerRef.current);
     if (safetyTimerRef.current) clearTimeout(safetyTimerRef.current);
 
     setIsVisible(true);
-    setProgress(25);
-
-    // After 200ms, if still navigating, show the tactile loading pill
-    pillTimerRef.current = setTimeout(() => {
-      setShowPill(true);
-    }, 200);
+    setProgress(30);
 
     // Natural progress acceleration
     timerRef.current = setInterval(() => {
       setProgress((prev) => {
-        if (prev < 65) return prev + 15;
-        if (prev < 85) return prev + 5;
-        if (prev < 92) return prev + 1;
+        if (prev < 70) return prev + 18;
+        if (prev < 88) return prev + 6;
+        if (prev < 94) return prev + 1;
         return prev;
       });
-    }, 150);
+    }, 120);
 
     // Safety timeout to prevent stuck progress bar
     safetyTimerRef.current = setTimeout(() => {
       finishProgress();
-    }, 8000);
+    }, 6000);
   };
 
   const finishProgress = () => {
     if (timerRef.current) clearInterval(timerRef.current);
-    if (pillTimerRef.current) clearTimeout(pillTimerRef.current);
     if (safetyTimerRef.current) clearTimeout(safetyTimerRef.current);
 
     setProgress(100);
-    setShowPill(false);
 
     setTimeout(() => {
       setIsVisible(false);
       setTimeout(() => {
         setProgress(0);
-      }, 300);
-    }, 250);
+      }, 250);
+    }, 200);
   };
 
   // Complete progress on route/searchParam change
@@ -119,7 +109,6 @@ function NavigationProgressBarContent() {
       document.removeEventListener('click', handleDocumentClick, true);
       window.removeEventListener('popstate', handlePopState);
       if (timerRef.current) clearInterval(timerRef.current);
-      if (pillTimerRef.current) clearTimeout(pillTimerRef.current);
       if (safetyTimerRef.current) clearTimeout(safetyTimerRef.current);
     };
   }, []);
@@ -127,26 +116,15 @@ function NavigationProgressBarContent() {
   if (!isVisible) return null;
 
   return (
-    <>
-      {/* Top Google 4-Color Progress Bar */}
-      <div className="top-nav-progress" aria-hidden="true">
-        <div
-          className="top-nav-progress-bar"
-          style={{
-            width: `${progress}%`,
-            opacity: progress === 100 ? 0 : 1,
-          }}
-        />
-      </div>
-
-      {/* Floating Tactile Loading Pill */}
-      {showPill && (
-        <div className="nav-loading-pill" aria-live="polite">
-          <div className="nav-spinner" />
-          <span>جاري التحميل... GDGoC HNU</span>
-        </div>
-      )}
-    </>
+    <div className="top-nav-progress" aria-hidden="true">
+      <div
+        className="top-nav-progress-bar"
+        style={{
+          width: `${progress}%`,
+          opacity: progress === 100 ? 0 : 1,
+        }}
+      />
+    </div>
   );
 }
 

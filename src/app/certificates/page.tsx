@@ -17,7 +17,7 @@ export default async function CertificatesPage() {
   const context = await getUserContext();
 
   if (!context.user || !context.profile) {
-    redirect('/auth/signin');
+    redirect('/auth/login?redirect=/certificates');
   }
 
   const admin = createAdminClient();

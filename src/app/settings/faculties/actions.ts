@@ -21,7 +21,7 @@ async function verifyPresidentCaller() {
     .maybeSingle();
 
   // Local development bootstrap if no president exists
-  if (!profile || profile.role !== 'president' || profile.status !== 'active') {
+  if (!profile || !['president', 'co_president'].includes(profile.role) || profile.status !== 'active') {
     const { count } = await admin
       .from('profiles')
       .select('id', { count: 'exact', head: true })

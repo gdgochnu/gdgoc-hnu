@@ -13,6 +13,7 @@ import {
   DriveFileResult,
   DriveListResult,
 } from '@/lib/drive/drive-client';
+import { validateFileUpload } from '@/lib/security/file-validation';
 
 export type DriveEntityType =
   | 'department'
@@ -242,6 +243,18 @@ export async function uploadEntityFile(options: {
 }> {
   try {
     const admin = createAdminClient();
+
+    // 0. Pre-validate file MIME and size before folder operations
+    const approxSizeBytes = Math.round((options.base64Data || '').length * 0.75);
+    const fileValidation = validateFileUpload({
+      fileName: options.fileName,
+      mimeType: options.mimeType,
+      sizeBytes: approxSizeBytes,
+    });
+
+    if (!fileValidation.valid) {
+      return { success: false, error: fileValidation.error || 'Invalid file uploaded' };
+    }
 
     // 1. Resolve actor
     let actorId: string | null = null;

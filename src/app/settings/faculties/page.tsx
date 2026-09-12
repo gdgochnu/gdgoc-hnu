@@ -47,7 +47,7 @@ export default async function FacultiesSettingsPage() {
     .maybeSingle();
 
   // Local bootstrap if no president exists
-  let isPresident = callerProfile && callerProfile.role === 'president' && callerProfile.status === 'active';
+  let isPresident = callerProfile && ['president', 'co_president'].includes(callerProfile.role) && callerProfile.status === 'active';
   if (!isPresident) {
     const { count } = await admin
       .from('profiles')

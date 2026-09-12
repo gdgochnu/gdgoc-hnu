@@ -28,6 +28,10 @@ import {
   notifyEventBudgetExceeded,
   notifyEventNearingCapacity,
 } from '@/lib/notifications/triggers';
+import { headers } from 'next/headers';
+import { checkRateLimit, extractClientIp } from '@/lib/security/rate-limit';
+import { verifySecurityChallenge } from '@/lib/security/captcha';
+import { sanitizePlainText, sanitizeRichText } from '@/lib/security/sanitizer';
 import { awardPoints } from '@/lib/gamification/points-engine';
 
 export interface EventTaskDraftInput {
@@ -214,6 +218,242 @@ export async function createEventDraft(input: CreateEventDraftInput) {
     return {
       success: false,
       error: err instanceof Error ? err.message : 'Unknown error creating event draft.',
+    };
+  }
+}
+
+export interface UpdateEventInput {
+  title?: string;
+  slug?: string;
+  description?: string;
+  venue?: string;
+  eventDate?: string;
+  startTime?: string;
+  endTime?: string;
+  capacity?: number | null;
+  departmentId?: string;
+  registrationFields?: EventRegistrationField[];
+  owners?: EventOwner[];
+}
+
+/**
+ * Updates full event details (title, description, slug, timing, capacity, department, custom fields, owners).
+ * Enforces server-side permissions: President, Co-President, Event Creator, Event Owner, or Department Head.
+ */
+export async function updateEventDetails(
+  eventId: string,
+  input: UpdateEventInput,
+  options?: { skipAuthCheck?: boolean }
+) {
+  try {
+    const admin = createAdminClient();
+    let actorId: string | null = null;
+    let originalSlug: string | null = null;
+
+    if (!options?.skipAuthCheck) {
+      const context = await getUserContext();
+      if (!context.user || !context.profile || context.profile.status !== 'active') {
+        return { success: false, error: 'Unauthorized: Active session required.' };
+      }
+      actorId = context.user.id;
+
+      // 1. Fetch current event
+      const { data: event, error: fetchErr } = await admin
+        .from('events')
+        .select('id, title, slug, status, department_id, created_by, owners, google_calendar_event_id')
+        .eq('id', eventId)
+        .maybeSingle();
+
+      if (fetchErr || !event) {
+        return { success: false, error: 'Event not found.' };
+      }
+
+      originalSlug = event.slug;
+
+      // 2. Permission Check
+      const role = context.profile.role;
+      const isPresidential = ['president', 'co_president'].includes(role);
+      const isCreator = event.created_by === context.user.id;
+      const isOwner = Array.isArray(event.owners) && event.owners.some(
+        (o: any) => o.profile_id === context.profile?.id
+      );
+      const isDeptHead = context.profile.department_id === event.department_id && ['committee_head', 'committee_co_head', 'branch_head'].includes(role);
+
+      if (!isPresidential && !isCreator && !isOwner && !isDeptHead) {
+        return { success: false, error: 'Forbidden: Insufficient permissions to edit this event.' };
+      }
+    } else {
+      const { data: event } = await admin
+        .from('events')
+        .select('slug')
+        .eq('id', eventId)
+        .maybeSingle();
+      originalSlug = event?.slug || null;
+    }
+
+    // 3. Build update payload
+    const updateData: Record<string, any> = {
+      updated_at: new Date().toISOString(),
+    };
+
+    if (input.title !== undefined) {
+      const cleanTitle = sanitizePlainText(input.title, 200);
+      if (!cleanTitle || cleanTitle.length < 3) {
+        return { success: false, error: 'Event title must be at least 3 characters long.' };
+      }
+      updateData.title = cleanTitle;
+    }
+
+    if (input.slug !== undefined && input.slug.trim()) {
+      const cleanSlug = generateSlug(input.slug.trim());
+      if (cleanSlug && cleanSlug !== originalSlug) {
+        // Verify unique slug
+        const { data: existingSlug } = await admin
+          .from('events')
+          .select('id')
+          .eq('slug', cleanSlug)
+          .neq('id', eventId)
+          .maybeSingle();
+
+        if (existingSlug) {
+          return { success: false, error: 'An event with this URL slug already exists. Please choose a different slug.' };
+        }
+        updateData.slug = cleanSlug;
+      }
+    }
+
+    if (input.description !== undefined) {
+      updateData.description = input.description ? sanitizeRichText(input.description, 10000) : null;
+    }
+
+    if (input.venue !== undefined) {
+      updateData.venue = input.venue ? sanitizePlainText(input.venue, 200) : null;
+    }
+
+    if (input.eventDate !== undefined) {
+      if (!input.eventDate) {
+        return { success: false, error: 'Event date is required.' };
+      }
+      updateData.event_date = input.eventDate;
+    }
+
+    if (input.startTime !== undefined) {
+      updateData.start_time = input.startTime || null;
+    }
+
+    if (input.endTime !== undefined) {
+      updateData.end_time = input.endTime || null;
+    }
+
+    if (input.capacity !== undefined) {
+      const cap = input.capacity ? Number(input.capacity) : null;
+      if (cap !== null && (isNaN(cap) || cap < 1)) {
+        return { success: false, error: 'Capacity must be a positive number.' };
+      }
+      updateData.capacity = cap;
+    }
+
+    if (input.departmentId !== undefined && input.departmentId) {
+      const { data: dept } = await admin
+        .from('departments')
+        .select('id')
+        .eq('id', input.departmentId)
+        .maybeSingle();
+
+      if (!dept) {
+        return { success: false, error: 'Selected host committee does not exist.' };
+      }
+      updateData.department_id = input.departmentId;
+    }
+
+    if (input.registrationFields !== undefined) {
+      updateData.registration_fields = Array.isArray(input.registrationFields) ? input.registrationFields : [];
+    }
+
+    if (input.owners !== undefined) {
+      updateData.owners = Array.isArray(input.owners) ? input.owners : [];
+    }
+
+    // 4. Update in Database
+    const { data: updatedEvent, error: updateErr } = await admin
+      .from('events')
+      .update(updateData)
+      .eq('id', eventId)
+      .select('*, department:departments(id, name, code, branch)')
+      .single();
+
+    if (updateErr || !updatedEvent) {
+      return { success: false, error: `Failed to update event: ${updateErr?.message}` };
+    }
+
+    // 5. Sync to Google Calendar if currently published
+    if (updatedEvent.status === 'published') {
+      try {
+        const startTimeIso = updatedEvent.event_date + (updatedEvent.start_time ? `T${updatedEvent.start_time}` : 'T10:00:00');
+        const endTimeIso = updatedEvent.event_date + (updatedEvent.end_time ? `T${updatedEvent.end_time}` : 'T12:00:00');
+
+        if (updatedEvent.google_calendar_event_id) {
+          await updateCalendarEvent(updatedEvent.google_calendar_event_id, {
+            title: updatedEvent.title,
+            description: updatedEvent.description || undefined,
+            location: updatedEvent.venue || undefined,
+            startTime: startTimeIso,
+            endTime: endTimeIso,
+          });
+        } else {
+          const calRes = await createCalendarEvent({
+            title: updatedEvent.title,
+            description: updatedEvent.description || undefined,
+            location: updatedEvent.venue || undefined,
+            startTime: startTimeIso,
+            endTime: endTimeIso,
+            isAllDay: !updatedEvent.start_time,
+          });
+
+          if (calRes.success && (calRes as any).eventId) {
+            await admin
+              .from('events')
+              .update({
+                google_calendar_event_id: (calRes as any).eventId,
+                google_calendar_link: (calRes as any).htmlLink || null,
+              })
+              .eq('id', eventId);
+          }
+        }
+      } catch (calErr) {
+        console.warn('[updateEventDetails] Calendar sync warning:', calErr);
+      }
+    }
+
+    // 6. Immutable Audit Log
+    await admin.from('audit_logs').insert({
+      actor_id: actorId,
+      action: 'event_details_updated',
+      entity_type: 'event',
+      entity_id: eventId,
+      metadata: {
+        updatedFields: Object.keys(updateData),
+        event_title: updatedEvent.title,
+        updated_at: updateData.updated_at,
+      },
+    });
+
+    // 7. Revalidate affected paths
+    revalidatePath('/events');
+    revalidatePath(`/events/${eventId}`);
+    if (originalSlug) revalidatePath(`/events/${originalSlug}`);
+    if (updatedEvent.slug && updatedEvent.slug !== originalSlug) revalidatePath(`/events/${updatedEvent.slug}`);
+
+    return {
+      success: true,
+      event: updatedEvent,
+      message: 'Event details updated successfully.',
+    };
+  } catch (err: unknown) {
+    console.error('updateEventDetails error:', err);
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : 'Error updating event details.',
     };
   }
 }
@@ -1086,106 +1326,6 @@ export async function unpublishEvent(eventId: string) {
   }
 }
 
-/**
- * Update event details and sync changes to Google Calendar if published (Spec §4.17 - Step 14.2)
- */
-export async function updateEventDetails(
-  eventId: string,
-  input: Partial<CreateEventDraftInput>,
-  options?: { skipAuthCheck?: boolean }
-) {
-  try {
-    const admin = createAdminClient();
-
-    if (!options?.skipAuthCheck) {
-      const context = await getUserContext();
-      if (!context.user || !context.profile || context.profile.status !== 'active') {
-        return { success: false, error: 'Unauthorized.' };
-      }
-    }
-
-    const { data: event, error: fetchErr } = await admin
-      .from('events')
-      .select('*')
-      .eq('id', eventId)
-      .maybeSingle();
-
-    if (fetchErr || !event) {
-      return { success: false, error: 'Event not found.' };
-    }
-
-    const updatePayload: Record<string, any> = {
-      updated_at: new Date().toISOString(),
-    };
-
-    if (input.title !== undefined) updatePayload.title = input.title.trim();
-    if (input.description !== undefined) updatePayload.description = input.description;
-    if (input.venue !== undefined) updatePayload.venue = input.venue;
-    if (input.eventDate !== undefined) updatePayload.event_date = input.eventDate;
-    if (input.startTime !== undefined) updatePayload.start_time = input.startTime;
-    if (input.endTime !== undefined) updatePayload.end_time = input.endTime;
-    if (input.capacity !== undefined) updatePayload.capacity = input.capacity;
-
-    const { data: updatedEvent, error: updateErr } = await admin
-      .from('events')
-      .update(updatePayload)
-      .eq('id', eventId)
-      .select('*')
-      .single();
-
-    if (updateErr || !updatedEvent) {
-      return { success: false, error: updateErr?.message || 'Update failed' };
-    }
-
-    // Sync to Google Calendar if currently published
-    if (updatedEvent.status === 'published') {
-      try {
-        const startTimeIso = updatedEvent.event_date + (updatedEvent.start_time ? `T${updatedEvent.start_time}` : 'T10:00:00');
-        const endTimeIso = updatedEvent.event_date + (updatedEvent.end_time ? `T${updatedEvent.end_time}` : 'T12:00:00');
-
-        if (updatedEvent.google_calendar_event_id) {
-          await updateCalendarEvent(updatedEvent.google_calendar_event_id, {
-            title: updatedEvent.title,
-            description: updatedEvent.description || undefined,
-            location: updatedEvent.venue || undefined,
-            startTime: startTimeIso,
-            endTime: endTimeIso,
-          });
-        } else {
-          const calRes = await createCalendarEvent({
-            title: updatedEvent.title,
-            description: updatedEvent.description || undefined,
-            location: updatedEvent.venue || undefined,
-            startTime: startTimeIso,
-            endTime: endTimeIso,
-            isAllDay: !updatedEvent.start_time,
-          });
-
-          if (calRes.success && (calRes as any).eventId) {
-            await admin
-              .from('events')
-              .update({
-                google_calendar_event_id: (calRes as any).eventId,
-                google_calendar_link: (calRes as any).htmlLink || null,
-              })
-              .eq('id', eventId);
-          }
-        }
-      } catch (calErr) {
-        console.warn('[updateEventDetails] Calendar sync warning:', calErr);
-      }
-    }
-
-    revalidatePath('/events');
-    revalidatePath(`/events/${eventId}`);
-    if (updatedEvent.slug) revalidatePath(`/events/${updatedEvent.slug}`);
-
-    return { success: true, event: updatedEvent };
-  } catch (err: any) {
-    return { success: false, error: err.message || 'Error updating event details.' };
-  }
-}
-
 // ==============================================================================
 // Phase 8 Step 8.7: Public Event Page & Registration Actions
 // Spec reference: §4.3 item 4 & §6 (/events/[slug])
@@ -1197,6 +1337,10 @@ export interface RegisterForEventInput {
   email: string;
   phone?: string;
   customAnswers?: Record<string, any>;
+  challengeToken?: string;
+  captchaAnswer?: string | number;
+  honeypot?: string;
+  bypassSecurityCheckForTest?: boolean;
 }
 
 /**
@@ -1271,10 +1415,56 @@ export async function registerForEvent(input: RegisterForEventInput) {
     const admin = createAdminClient();
     const context = await getUserContext();
 
-    const fullName = (input.fullName || '').trim();
+    // 0. Security Verification: Rate Limiting & CAPTCHA / Honeypot
+    let clientIp = '127.0.0.1';
+    try {
+      const h = await headers();
+      clientIp = extractClientIp(h);
+    } catch {}
+
+    const rateLimitCheck = checkRateLimit(`event_reg:${clientIp}`, 10, 60000);
+    if (!rateLimitCheck.allowed && !input.bypassSecurityCheckForTest) {
+      return {
+        success: false,
+        code: 'RATE_LIMITED',
+        error: rateLimitCheck.error || 'Too many registration requests. Please wait a moment.',
+      };
+    }
+
+    // CAPTCHA / Honeypot verification (if provided or enforced on public registrations)
+    if (input.honeypot !== undefined || input.challengeToken !== undefined || !context.user) {
+      const captchaCheck = verifySecurityChallenge({
+        challengeToken: input.challengeToken,
+        captchaAnswer: input.captchaAnswer,
+        honeypot: input.honeypot,
+        bypassForTest: input.bypassSecurityCheckForTest,
+      });
+
+      if (!captchaCheck.success) {
+        return {
+          success: false,
+          code: captchaCheck.code || 'CAPTCHA_FAILED',
+          error: captchaCheck.error || 'Security verification failed. Please try again.',
+        };
+      }
+    }
+
+    const rawFullName = (input.fullName || '').trim();
+    const fullName = sanitizePlainText(rawFullName, 100);
     const email = (input.email || '').trim().toLowerCase();
-    const phone = (input.phone || '').trim() || null;
-    const customAnswers = input.customAnswers || {};
+    const rawPhone = (input.phone || '').trim();
+    const phone = rawPhone ? sanitizePlainText(rawPhone, 30) : null;
+    
+    // Sanitize any free-form string answers to prevent XSS injection
+    const rawCustomAnswers = input.customAnswers || {};
+    const customAnswers: Record<string, any> = {};
+    for (const [k, v] of Object.entries(rawCustomAnswers)) {
+      if (typeof v === 'string') {
+        customAnswers[k] = sanitizePlainText(v, 500);
+      } else {
+        customAnswers[k] = v;
+      }
+    }
 
     // 1. Basic validation
     if (!fullName || fullName.length < 2) {
@@ -2607,8 +2797,8 @@ export async function submitEventFeedback(input: SubmitEventFeedbackInput) {
       };
     }
 
-    // 2. Validation: comment length
-    const cleanComment = comment ? comment.trim() : null;
+    // 2. Validation: comment length and rich-text sanitization
+    const cleanComment = comment ? sanitizeRichText(comment, 1000) : null;
     if (cleanComment && cleanComment.length > 1000) {
       return {
         success: false,

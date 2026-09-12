@@ -22,7 +22,7 @@ export default async function ReportsPage() {
   ]);
 
   if (!context.user || !context.profile) {
-    redirect('/auth/signin');
+    redirect('/auth/login?redirect=/reports');
   }
   if (context.profile.status !== 'active') {
     redirect('/onboarding');

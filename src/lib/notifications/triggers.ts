@@ -1,4 +1,5 @@
 import { createAdminClient } from '@/lib/supabase/admin';
+import { sanitizePlainText, sanitizeRichText } from '@/lib/security/sanitizer';
 import {
   sendTaskDelegatedEmail,
   sendTaskReviewRequestEmail,
@@ -47,17 +48,30 @@ export async function dispatchNotificationsSafely(
 
   try {
     const admin = createAdminClient();
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
     const rows = payloads
       .filter((p) => Boolean(p.profileId))
-      .map((p) => ({
-        profile_id: p.profileId,
-        type: p.type,
-        title: p.title,
-        message: p.message,
-        related_entity_type: p.relatedEntityType || null,
-        related_entity_id: p.relatedEntityId || null,
-        is_read: false,
-      }));
+      .map((p) => {
+        let validUuid: string | null = null;
+        if (p.relatedEntityId) {
+          if (uuidRegex.test(p.relatedEntityId)) {
+            validUuid = p.relatedEntityId;
+          } else {
+            const match = p.relatedEntityId.match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i);
+            validUuid = match ? match[0] : null;
+          }
+        }
+
+        return {
+          profile_id: p.profileId,
+          type: p.type,
+          title: sanitizePlainText(p.title, 200),
+          message: sanitizeRichText(p.message, 2000),
+          related_entity_type: p.relatedEntityType || null,
+          related_entity_id: validUuid,
+          is_read: false,
+        };
+      });
 
     if (rows.length === 0) return 0;
 

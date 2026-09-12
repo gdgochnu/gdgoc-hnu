@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getUserContext } from '@/lib/auth/get-user-context';
 import { uploadEntityFile } from '@/app/drive/actions';
+import { validateFileUpload } from '@/lib/security/file-validation';
 
 export const dynamic = 'force-dynamic';
 
@@ -27,10 +28,26 @@ export async function POST(req: NextRequest) {
     }
 
     const finalFileName = customName || file.name;
+
+    // MIME and size validation before buffer allocation and Drive bridge call
+    const validation = validateFileUpload({
+      fileName: finalFileName,
+      mimeType: file.type,
+      sizeBytes: file.size,
+      category: 'media',
+    });
+
+    if (!validation.valid) {
+      return NextResponse.json(
+        { success: false, error: validation.error, code: validation.code },
+        { status: 400 }
+      );
+    }
+
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
     const base64Data = buffer.toString('base64');
-    const mimeType = file.type || 'application/octet-stream';
+    const mimeType = validation.canonicalMimeType || file.type || 'application/octet-stream';
 
     const entityType = targetType === 'event' ? 'event' : targetType === 'department' ? 'department' : 'media_library';
     const entityId = targetType === 'media_library' ? null : targetId;

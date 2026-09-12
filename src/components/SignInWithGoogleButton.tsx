@@ -8,12 +8,14 @@ interface SignInButtonProps {
   label?: string;
   variant?: 'primary' | 'secondary' | 'nav';
   className?: string;
+  redirectTo?: string;
 }
 
 export function SignInWithGoogleButton({
   label = 'Sign in with Google',
   variant = 'primary',
   className = '',
+  redirectTo,
 }: SignInButtonProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -25,10 +27,20 @@ export function SignInWithGoogleButton({
       const supabase = createClient();
 
       const origin = typeof window !== 'undefined' ? window.location.origin : '';
+      let targetNext = redirectTo;
+      if (!targetNext && typeof window !== 'undefined') {
+        const sParams = new URLSearchParams(window.location.search);
+        targetNext = sParams.get('redirect') || sParams.get('next') || undefined;
+      }
+
+      const callbackUrl = targetNext
+        ? `${origin}/auth/callback?next=${encodeURIComponent(targetNext)}`
+        : `${origin}/auth/callback`;
+
       const { data, error: authError } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${origin}/auth/callback`,
+          redirectTo: callbackUrl,
         },
       });
 

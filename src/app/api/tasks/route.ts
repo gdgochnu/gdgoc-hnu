@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { UserRole, TaskPriority } from '@/types';
+import { sanitizePlainText, sanitizeRichText } from '@/lib/security/sanitizer';
 
 export const dynamic = 'force-dynamic';
 
@@ -94,13 +95,16 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Invalid priority value.' }, { status: 400 });
     }
 
-    // Insert task
+    // Insert task with sanitized inputs
     const isBroadcast = assignment_mode === 'broadcast';
+    const cleanTitle = sanitizePlainText(title, 200);
+    const cleanDescription = description ? sanitizeRichText(description, 5000) : null;
+
     const { data: newTask, error: insertErr } = await admin
       .from('tasks')
       .insert({
-        title: title.trim(),
-        description: description?.trim() || null,
+        title: cleanTitle,
+        description: cleanDescription,
         department_id,
         assignment_mode: isBroadcast ? 'broadcast' : 'single',
         assignee_id: isBroadcast ? null : (assignee_id || null),

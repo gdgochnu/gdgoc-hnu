@@ -1,0 +1,25 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "crons": [
+    {
+      "path": "/api/cron/performance-reviews",
+      "schedule": "0 0 1 * *"
+    },
+    {
+      "path": "/api/cron/auto-complete-events",
+      "schedule": "0 0 * * *"
+    },
+    {
+      "path": "/api/cron/sla-reminders",
+      "schedule": "0 8 * * *"
+    },
+    {
+      "path": "/api/cron/leaderboard-reset",
+      "schedule": "0 0 1 2,7,9 *"
+    },
+    {
+      "path": "/api/cron/refresh-attendance-rates",
+      "schedule": "0 2 * * *"
+    }
+  ]
+}

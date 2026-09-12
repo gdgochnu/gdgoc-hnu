@@ -1,20 +1,14 @@
 import { NextResponse } from 'next/server';
 import { computeMonthlyPerformanceReviews } from '@/app/hr/actions';
+import { verifyCronAuth } from '@/lib/cron-auth';
 
 export const dynamic = 'force-dynamic';
 
 export async function POST(req: Request) {
   try {
-    const authHeader = req.headers.get('authorization');
-    const cronSecret = process.env.CRON_SECRET;
-
-    // Authenticate if CRON_SECRET is configured
-    if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
-      // Allow internal local or test invocation
-      const host = req.headers.get('host') || '';
-      if (!host.includes('localhost') && !host.includes('127.0.0.1')) {
-        return NextResponse.json({ error: 'Unauthorized cron request' }, { status: 401 });
-      }
+    const auth = verifyCronAuth(req);
+    if (!auth.authorized) {
+      return NextResponse.json({ error: auth.error }, { status: 401 });
     }
 
     const body = await req.json().catch(() => ({}));
@@ -36,10 +30,17 @@ export async function POST(req: Request) {
   }
 }
 
-export async function GET() {
-  // Allow simple GET check or manual trigger for testing
+export async function GET(req: Request) {
   try {
-    const result = await computeMonthlyPerformanceReviews(undefined, null, true);
+    const auth = verifyCronAuth(req);
+    if (!auth.authorized) {
+      return NextResponse.json({ error: auth.error }, { status: 401 });
+    }
+
+    const { searchParams } = new URL(req.url);
+    const periodMonth = searchParams.get('periodMonth') || undefined;
+
+    const result = await computeMonthlyPerformanceReviews(periodMonth, null, true);
     return NextResponse.json({
       success: true,
       job: 'computeMonthlyPerformanceReviews',

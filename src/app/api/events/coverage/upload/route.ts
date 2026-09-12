@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getUserContext } from '@/lib/auth/get-user-context';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { uploadEntityFile, deleteEntityFile } from '@/app/drive/actions';
+import { validateFileUpload } from '@/lib/security/file-validation';
 
 export const dynamic = 'force-dynamic';
 
@@ -20,6 +21,21 @@ export async function POST(req: NextRequest) {
     if (!file || !itemId || !eventId) {
       return NextResponse.json(
         { success: false, error: 'Missing required parameters: file, itemId, or eventId' },
+        { status: 400 }
+      );
+    }
+
+    // MIME and size validation before Drive upload
+    const validation = validateFileUpload({
+      fileName: file.name,
+      mimeType: file.type,
+      sizeBytes: file.size,
+      category: 'media',
+    });
+
+    if (!validation.valid) {
+      return NextResponse.json(
+        { success: false, error: validation.error, code: validation.code },
         { status: 400 }
       );
     }

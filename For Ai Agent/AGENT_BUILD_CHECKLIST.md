@@ -221,21 +221,21 @@
 - [x] 21.2 Build the public `/stats` page, linked from the landing page. (2026-09-09)
 
 ## Phase 22 — Scheduled Jobs (Vercel Cron)
-- [ ] 22.1 Build the protected cron API route + `vercel.json` schedule for monthly `performance_reviews` computation.
-- [ ] 22.2 Build the cron route for daily event auto-completion (spec §4.3).
-- [ ] 22.3 Build the cron route for daily SLA escalation reminders (spec §4.2).
-- [ ] 22.4 Build the seasonal leaderboard reset job (spec §4.13).
-- [ ] 22.5 Build the daily `profiles.attendance_rate` cache-refresh job.
-- [ ] 22.6 Confirm every cron route rejects requests missing/mismatching `CRON_SECRET`.
+- [x] 22.1 Build the protected cron API route + `vercel.json` schedule for monthly `performance_reviews` computation. (2026-09-12)
+- [x] 22.2 Build the cron route for daily event auto-completion (spec §4.3). (2026-09-12)
+- [x] 22.3 Build the cron route for daily SLA escalation reminders (spec §4.2). (2026-09-12)
+- [x] 22.4 Build the seasonal leaderboard reset job (spec §4.13). (2026-09-12)
+- [x] 22.5 Build the daily `profiles.attendance_rate` cache-refresh job. (2026-09-12)
+- [x] 22.6 Confirm every cron route rejects requests missing/mismatching `CRON_SECRET`. (2026-09-12)
 
 ## Phase 23 — Security Hardening Pass
-- [ ] 23.1 Re-audit every table's RLS policy against spec §3.17 — no gaps, including all new v2 tables (`task_assignees`, `event_feedback`, `event_budget_items`, `onboarding_checklist_items`).
-- [ ] 23.2 Add rate limiting + CAPTCHA to the Recruitment and public Event Registration pages.
-- [ ] 23.3 Add input sanitization on all rich-text fields.
-- [ ] 23.4 Add file-upload MIME/size validation before the Drive bridge call.
-- [ ] 23.5 Confirm all privileged actions run through API Routes/Server Actions with server-side role checks, not client-only checks.
-- [ ] 23.6 Confirm `audit_logs` has no update/delete policy for any role.
-- [ ] 23.7 Confirm check-in access gating (Phase 8.9) cannot be bypassed by a direct API call from an unassigned profile.
+- [x] 23.1 Re-audit every table's RLS policy against spec §3.17 — no gaps, including all new v2 tables (`task_assignees`, `event_feedback`, `event_budget_items`, `onboarding_checklist_items`). (2026-09-12)
+- [x] 23.2 Add rate limiting + CAPTCHA to the Recruitment and public Event Registration pages. (2026-09-12)
+- [x] 23.3 Add input sanitization on all rich-text fields. (2026-09-12)
+- [x] 23.4 Add file-upload MIME/size validation before the Drive bridge call. (2026-09-12)
+- [x] 23.5 Confirm all privileged actions run through API Routes/Server Actions with server-side role checks, not client-only checks. (2026-09-12)
+- [x] 23.6 Confirm `audit_logs` has no update/delete policy for any role. (2026-09-12)
+- [x] 23.7 Confirm check-in access gating (Phase 8.9) cannot be bypassed by a direct API call from an unassigned profile. (2026-09-12)
 
 ## Phase 24 — Final QA
 - [ ] 24.1 Full onboarding → approval dry run (new Google account to active member, incl. onboarding checklist appearing).

@@ -38,8 +38,14 @@ export interface UserContext {
  * and Promise.all() to run database queries in parallel rather than sequentially.
  */
 export const getUserContext = cache(async (): Promise<UserContext> => {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  let user = null;
+  try {
+    const supabase = await createClient();
+    const { data } = await supabase.auth.getUser();
+    user = data.user;
+  } catch (authErr) {
+    console.warn('[getUserContext] Auth user fetch exception:', authErr);
+  }
 
   if (!user) {
     return {
@@ -70,6 +76,18 @@ export const getUserContext = cache(async (): Promise<UserContext> => {
   ]);
 
   let profile = profileResult.data;
+
+  // Transient retry if query encountered a network hiccup
+  if (!profile && profileResult.error) {
+    console.warn('[getUserContext] Transient profile fetch error, retrying once:', profileResult.error.message);
+    const retry = await admin
+      .from('profiles')
+      .select('id, full_name, email, avatar_url, role, status, position, department_id')
+      .eq('id', user.id)
+      .maybeSingle();
+    profile = retry.data;
+  }
+
   const deptList = deptResult.data || [];
   const deptMap = new Map(deptList.map((d) => [d.id, d]));
 

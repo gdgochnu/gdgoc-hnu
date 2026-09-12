@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
@@ -64,6 +64,23 @@ export function AppNavigation({
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
+  const sidebarNavRef = useRef<HTMLDivElement | null>(null);
+
+  // Preserve sidebar scroll position across route transitions
+  useEffect(() => {
+    if (typeof window !== 'undefined' && sidebarNavRef.current) {
+      const savedScroll = sessionStorage.getItem('sidebar_scroll_top');
+      if (savedScroll) {
+        sidebarNavRef.current.scrollTop = Number(savedScroll);
+      }
+    }
+  }, [pathname]);
+
+  const handleSidebarScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    if (typeof window !== 'undefined') {
+      sessionStorage.setItem('sidebar_scroll_top', String(e.currentTarget.scrollTop));
+    }
+  };
 
   const supabase = createClient();
 
@@ -143,18 +160,13 @@ export function AppNavigation({
       },
       {
         label: 'Leaderboard',
-        href: '/leaderboard',
+        href: '/gamification',
         icon: Award,
       },
       {
         label: 'Certificates',
         href: '/certificates',
         icon: GraduationCap,
-      },
-      {
-        label: 'Chapter Stats',
-        href: '/stats',
-        icon: BarChart3,
       }
     );
 
@@ -170,7 +182,7 @@ export function AppNavigation({
     if (isPresident || isCoPresident || deptCode === 'PR') {
       workspaceItems.push({
         label: 'PR CRM',
-        href: '/workspace/pr',
+        href: '/pr',
         icon: Briefcase,
       });
     }
@@ -194,7 +206,7 @@ export function AppNavigation({
     if (isPresident || isCoPresident || deptCode === 'HR') {
       workspaceItems.push({
         label: 'HR & Attendance',
-        href: '/workspace/hr',
+        href: '/hr',
         icon: UserCheck,
       });
     }
@@ -273,6 +285,25 @@ export function AppNavigation({
     }
   }, [profile.role]);
 
+  const currentPageTitle = useMemo(() => {
+    if (pathname === '/dashboard') return 'Dashboard';
+    if (pathname.startsWith('/tasks')) return 'Tasks & Escalations';
+    if (pathname.startsWith('/events')) return 'Events Hub';
+    if (pathname.startsWith('/members')) return 'Members Directory';
+    if (pathname.startsWith('/gamification') || pathname.startsWith('/leaderboard')) return 'Gamification & Leaderboard';
+    if (pathname.startsWith('/certificates')) return 'Certificates Center';
+    if (pathname.startsWith('/pr')) return 'Public Relations';
+    if (pathname.startsWith('/hr')) return 'HR & Attendance';
+    if (pathname.startsWith('/approvals')) return 'Approvals & Membership';
+    if (pathname.startsWith('/reports')) return 'Reports & Analytics';
+    if (pathname.startsWith('/command-center')) return 'Command Center';
+    if (pathname.startsWith('/settings')) return 'Settings & Governance';
+    if (pathname.startsWith('/workspace/media')) return 'Media Library';
+    if (pathname.startsWith('/workspace/operations')) return 'Operations Checklists';
+    if (pathname.startsWith('/workspace/content-calendar')) return 'Content Calendar';
+    return 'Workspace';
+  }, [pathname]);
+
   return (
     <div style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg-primary)' }}>
       {/* ========================================================================= */}
@@ -281,17 +312,19 @@ export function AppNavigation({
       <aside
         style={{
           width: isCollapsed ? '78px' : '260px',
-          flexShrink: 0,
-          background: 'rgba(15, 20, 32, 0.85)',
+          background: 'rgba(15, 20, 32, 0.96)',
           backdropFilter: 'blur(20px)',
           borderRight: '1px solid rgba(255, 255, 255, 0.08)',
           display: 'flex',
           flexDirection: 'column',
           transition: 'width 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
-          position: 'sticky',
+          position: 'fixed',
           top: 0,
+          left: 0,
+          bottom: 0,
           height: '100vh',
-          zIndex: 40,
+          zIndex: 50,
+          boxShadow: '4px 0 24px rgba(0, 0, 0, 0.3)',
         }}
         className="desktop-sidebar"
       >
@@ -379,14 +412,18 @@ export function AppNavigation({
         ) : null}
 
         {/* Navigation Items List */}
-        <div style={{
-          flex: 1,
-          overflowY: 'auto',
-          padding: isCollapsed ? '1rem 0.5rem' : '1rem 0.75rem',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '1.25rem',
-        }}>
+        <div
+          ref={sidebarNavRef}
+          onScroll={handleSidebarScroll}
+          style={{
+            flex: 1,
+            overflowY: 'auto',
+            padding: isCollapsed ? '1rem 0.5rem' : '1rem 0.75rem',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '1.25rem',
+          }}
+        >
           {navigationGroups.map((group, gIdx) => (
             <div key={gIdx} style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
               {!isCollapsed && group.groupTitle ? (
@@ -403,7 +440,9 @@ export function AppNavigation({
               ) : null}
 
               {group.items.map((item) => {
-                const isActive = pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href));
+                const isExact = pathname === item.href || (item.href === '/gamification' && pathname === '/leaderboard');
+                const isSub = item.href !== '/' && item.href !== '/dashboard' && (pathname.startsWith(item.href + '/') || pathname.startsWith(item.href + '?') || (item.href === '/gamification' && pathname.startsWith('/leaderboard')));
+                const isActive = isExact || isSub;
                 const IconComponent = item.icon;
 
                 return (
@@ -414,13 +453,15 @@ export function AppNavigation({
                       display: 'flex',
                       alignItems: 'center',
                       gap: '0.75rem',
-                      padding: isCollapsed ? '0.65rem 0' : '0.65rem 0.75rem',
+                      padding: isCollapsed ? '0.65rem 0' : '0.65rem 0.85rem',
                       justifyContent: isCollapsed ? 'center' : 'flex-start',
                       borderRadius: '10px',
                       textDecoration: 'none',
                       color: isActive ? '#FFFFFF' : 'var(--text-secondary)',
-                      background: isActive ? 'rgba(66, 133, 244, 0.15)' : 'transparent',
-                      border: isActive ? '1px solid rgba(66, 133, 244, 0.3)' : '1px solid transparent',
+                      background: isActive
+                        ? 'linear-gradient(90deg, rgba(66, 133, 244, 0.18) 0%, rgba(66, 133, 244, 0.04) 100%)'
+                        : 'transparent',
+                      border: isActive ? '1px solid rgba(66, 133, 244, 0.35)' : '1px solid transparent',
                       fontWeight: isActive ? 700 : 500,
                       fontSize: '0.88rem',
                       transition: 'all 0.15s ease',
@@ -428,6 +469,21 @@ export function AppNavigation({
                     }}
                     title={isCollapsed ? item.label : undefined}
                   >
+                    {isActive && (
+                      <span
+                        style={{
+                          position: 'absolute',
+                          left: '0',
+                          top: '50%',
+                          transform: 'translateY(-50%)',
+                          width: '3.5px',
+                          height: '22px',
+                          borderRadius: '0 4px 4px 0',
+                          background: 'linear-gradient(180deg, #4285F4, #34A853)',
+                          boxShadow: '0 0 10px rgba(66, 133, 244, 0.7)',
+                        }}
+                      />
+                    )}
                     <IconComponent
                       size={18}
                       color={isActive ? 'var(--google-blue)' : 'currentColor'}
@@ -542,24 +598,39 @@ export function AppNavigation({
       {/* ========================================================================= */}
       {/* MAIN CONTENT WRAPPER */}
       {/* ========================================================================= */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-        {/* Top Header Bar */}
+      <div
+        style={{
+          flex: 1,
+          display: 'flex',
+          flexDirection: 'column',
+          minWidth: 0,
+          marginLeft: isCollapsed ? '78px' : '260px',
+          transition: 'margin-left 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
+          minHeight: '100vh',
+        }}
+        className="main-content-wrapper"
+      >
+        {/* Fixed Top Header Bar */}
         <header
           style={{
             height: '64px',
-            background: 'rgba(11, 15, 25, 0.8)',
-            backdropFilter: 'blur(16px)',
+            background: 'rgba(11, 15, 25, 0.92)',
+            backdropFilter: 'blur(20px)',
             borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
-            padding: '0 1.5rem',
-            position: 'sticky',
+            padding: '0 1.75rem',
+            position: 'fixed',
             top: 0,
-            zIndex: 30,
+            left: isCollapsed ? '78px' : '260px',
+            right: 0,
+            zIndex: 40,
+            transition: 'left 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
+            boxShadow: '0 4px 20px rgba(0, 0, 0, 0.2)',
           }}
         >
-          {/* Left: Mobile Menu Toggle & Title */}
+          {/* Left: Mobile Menu Toggle, Breadcrumbs & Department Pill */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
             <button
               onClick={() => setIsMobileOpen(true)}
@@ -576,13 +647,20 @@ export function AppNavigation({
               <Menu size={20} />
             </button>
 
+            {/* Breadcrumb Indicator */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem' }}>
+              <span style={{ color: 'var(--text-muted)' }}>GDGoC OS</span>
+              <span style={{ color: 'rgba(255, 255, 255, 0.2)' }}>/</span>
+              <span style={{ color: '#FFFFFF', fontWeight: 600 }}>{currentPageTitle}</span>
+            </div>
+
             {/* Department Badge if assigned */}
             {profile.department ? (
               <div style={{
                 display: 'flex',
                 alignItems: 'center',
                 gap: '0.5rem',
-                padding: '0.35rem 0.75rem',
+                padding: '0.3rem 0.7rem',
                 borderRadius: '8px',
                 background: profile.department.branch === 'tech'
                   ? 'rgba(66, 133, 244, 0.12)'
@@ -590,7 +668,7 @@ export function AppNavigation({
                 border: profile.department.branch === 'tech'
                   ? '1px solid rgba(66, 133, 244, 0.25)'
                   : '1px solid rgba(52, 168, 83, 0.25)',
-                fontSize: '0.8rem',
+                fontSize: '0.78rem',
                 color: profile.department.branch === 'tech' ? '#93C5FD' : '#86EFAC',
                 fontWeight: 600,
               }}>
@@ -601,7 +679,6 @@ export function AppNavigation({
                   background: profile.department.branch === 'tech' ? 'var(--google-blue)' : 'var(--google-green)',
                 }} />
                 <span>{profile.department.name}</span>
-                <span style={{ opacity: 0.6, fontSize: '0.75rem' }}>• {profile.department.branch === 'tech' ? 'Tech' : 'Non-Tech'}</span>
               </div>
             ) : null}
           </div>
@@ -653,8 +730,8 @@ export function AppNavigation({
           </div>
         </header>
 
-        {/* Page Content */}
-        <main style={{ flex: 1 }}>
+        {/* Page Content with top clearance for fixed header */}
+        <main style={{ flex: 1, paddingTop: '64px', minHeight: 'calc(100vh - 64px)' }}>
           {children}
         </main>
       </div>
@@ -792,6 +869,27 @@ export function AppNavigation({
           </div>
         </div>
       ) : null}
+      <style>{`
+        @media (max-width: 768px) {
+          .desktop-sidebar {
+            display: none !important;
+          }
+          .main-content-wrapper {
+            margin-left: 0 !important;
+          }
+          header {
+            left: 0 !important;
+          }
+          .mobile-only-btn {
+            display: flex !important;
+          }
+        }
+        @media (min-width: 769px) {
+          .mobile-only-btn {
+            display: none !important;
+          }
+        }
+      `}</style>
     </div>
   );
 }

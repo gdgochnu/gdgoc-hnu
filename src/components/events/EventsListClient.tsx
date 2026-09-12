@@ -4,6 +4,7 @@ import { useState, useMemo } from 'react';
 import Link from 'next/link';
 import { Event, EventStatus } from '@/types';
 import { EventBuilderModal } from '@/components/events/EventBuilderModal';
+import { EditEventButton } from '@/components/events/EditEventButton';
 import { deleteEventDraft } from '@/app/events/actions';
 import { 
   Plus, 
@@ -411,6 +412,12 @@ export function EventsListClient({
             const isDraft = event.status === 'draft';
             const dept = departments.find(d => d.id === event.department_id);
 
+            const canEditThisEvent =
+              ['president', 'co_president', 'branch_head'].includes(currentUserRole || '') ||
+              (userDepartmentId && userDepartmentId === event.department_id && ['committee_head', 'committee_co_head'].includes(currentUserRole || '')) ||
+              (Array.isArray(event.owners) && event.owners.some((o: any) => o.profile_id === currentUserId)) ||
+              event.created_by === currentUserId;
+
             return (
               <div
                 key={event.id}
@@ -569,39 +576,48 @@ export function EventsListClient({
 
                 {/* Footer Actions */}
                 <div style={{
-                  padding: '0.85rem 1.5rem',
+                  padding: '0.85rem 1.25rem',
                   borderTop: '1px solid var(--border-subtle)',
                   background: 'rgba(0, 0, 0, 0.2)',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'space-between',
+                  gap: '0.5rem',
+                  flexWrap: 'wrap',
                 }}>
-                  {isDraft ? (
-                    <button
-                      type="button"
-                      onClick={(e) => handleDeleteDraft(event.id, e)}
-                      style={{
-                        background: 'transparent',
-                        border: 'none',
-                        color: '#F87171',
-                        cursor: 'pointer',
-                        fontSize: '0.82rem',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '0.35rem',
-                        padding: '0.25rem 0.5rem',
-                        borderRadius: '6px',
-                      }}
-                      title="Delete Draft Event"
-                    >
-                      <Trash2 size={14} />
-                      <span>Delete</span>
-                    </button>
-                  ) : (
-                    <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-                      ID: {event.id.slice(0, 8)}
-                    </span>
-                  )}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    {isDraft && (
+                      <button
+                        type="button"
+                        onClick={(e) => handleDeleteDraft(event.id, e)}
+                        style={{
+                          background: 'transparent',
+                          border: 'none',
+                          color: '#F87171',
+                          cursor: 'pointer',
+                          fontSize: '0.82rem',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '0.35rem',
+                          padding: '0.25rem 0.5rem',
+                          borderRadius: '6px',
+                        }}
+                        title="Delete Draft Event"
+                      >
+                        <Trash2 size={14} />
+                        <span>Delete</span>
+                      </button>
+                    )}
+
+                    {canEditThisEvent && (
+                      <EditEventButton
+                        event={event}
+                        departments={departments}
+                        label="Edit"
+                        variant="secondary"
+                      />
+                    )}
+                  </div>
 
                   <Link
                     href={`/events/${event.id}`}

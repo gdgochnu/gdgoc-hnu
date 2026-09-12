@@ -1,3 +1,4 @@
+import { AppShell } from '@/components/layout/AppShell';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import Link from 'next/link';
@@ -45,7 +46,7 @@ export default async function CommitteesSettingsPage() {
     .maybeSingle();
 
   // Local bootstrap if no president exists
-  let isPresident = callerProfile && callerProfile.role === 'president' && callerProfile.status === 'active';
+  let isPresident = callerProfile && ['president', 'co_president'].includes(callerProfile.role) && callerProfile.status === 'active';
   if (!isPresident) {
     const { count } = await admin
       .from('profiles')
@@ -130,53 +131,30 @@ export default async function CommitteesSettingsPage() {
   });
 
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
-      {/* Navigation Header */}
-      <header className="header-nav">
-        <div className="nav-content">
-          <Link href="/" className="brand-badge">
-            <div className="brand-logo-wrap">
-              <span style={{ fontWeight: 800, fontSize: '1.1rem', background: 'linear-gradient(135deg, #4285F4, #34A853)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-                &lt;&gt;
-              </span>
-            </div>
-            <div>
-              <div className="brand-title">GDGoC HNU OS</div>
-              <div className="brand-sub">Settings • Committee Structure</div>
-            </div>
-          </Link>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-            <Link
-              href="/approvals"
-              className="btn-secondary"
-              style={{ fontSize: '0.8rem', padding: '0.35rem 0.75rem' }}
-            >
-              Approvals Queue
-            </Link>
-            <span style={{ fontSize: '0.8rem', padding: '0.3rem 0.75rem', borderRadius: '999px', background: 'rgba(66, 133, 244, 0.15)', color: '#93C5FD', fontWeight: 600 }}>
-              President Only
-            </span>
-          </div>
-        </div>
-      </header>
-
-      {/* Main Body */}
-      <main style={{ maxWidth: '1100px', margin: '0 auto', padding: '2.5rem 1.5rem 5rem', width: '100%' }}>
+    <AppShell>
+      <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '2rem 1.5rem 5rem', width: '100%' }}>
         {/* Breadcrumb & Title */}
         <div style={{ marginBottom: '2.5rem' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>
-            <Link href="/" style={{ color: 'inherit', textDecoration: 'none' }}>Home</Link>
+            <Link href="/dashboard" style={{ color: 'inherit', textDecoration: 'none' }}>Dashboard</Link>
             <ChevronRight size={14} />
-            <span>Settings</span>
+            <span>Administration</span>
             <ChevronRight size={14} />
             <span style={{ color: 'var(--text-primary)' }}>Committees</span>
           </div>
-          <h1 style={{ fontSize: '2.2rem', fontWeight: 800, letterSpacing: '-0.02em', marginBottom: '0.35rem' }}>
-            Chapter Committees & Departments
-          </h1>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '0.95rem' }}>
-            Manage the chapter's organizational chart, create new technical/non-technical tracks, and appoint Committee Heads and Co-Heads.
-          </p>
+          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem' }}>
+            <div>
+              <h1 style={{ fontSize: '2.2rem', fontWeight: 800, letterSpacing: '-0.02em', margin: '0 0 0.35rem', color: '#FFFFFF' }}>
+                Chapter Committees & Departments
+              </h1>
+              <p style={{ color: 'var(--text-secondary)', fontSize: '0.95rem', margin: 0 }}>
+                Manage the chapter's organizational chart, create new technical/non-technical tracks, and appoint Committee Heads and Co-Heads.
+              </p>
+            </div>
+            <span style={{ fontSize: '0.8rem', padding: '0.35rem 0.85rem', borderRadius: '999px', background: 'rgba(66, 133, 244, 0.15)', color: '#93C5FD', fontWeight: 600, border: '1px solid rgba(66, 133, 244, 0.3)' }}>
+              Leadership Only
+            </span>
+          </div>
         </div>
 
         {/* Committees Client */}
@@ -184,7 +162,7 @@ export default async function CommitteesSettingsPage() {
           initialCommittees={committees}
           eligibleMembers={rawMembers || []}
         />
-      </main>
-    </div>
+      </div>
+    </AppShell>
   );
 }

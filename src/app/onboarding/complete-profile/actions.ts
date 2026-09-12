@@ -4,6 +4,10 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { revalidatePath } from 'next/cache';
 import { notifyNewAccountPending } from '@/lib/notifications/triggers';
+import { headers } from 'next/headers';
+import { checkRateLimit, extractClientIp } from '@/lib/security/rate-limit';
+import { verifySecurityChallenge } from '@/lib/security/captcha';
+import { sanitizePlainText, sanitizeRichText } from '@/lib/security/sanitizer';
 
 export interface ProfileFormData {
   fullNameAr: string;
@@ -23,6 +27,10 @@ export interface ProfileFormData {
   howHeard: string;
   availabilityHours: number;
   agreeCodeOfConduct: boolean;
+  challengeToken?: string;
+  captchaAnswer?: string | number;
+  honeypot?: string;
+  bypassSecurityCheckForTest?: boolean;
 }
 
 function normalizeEgyptianPhone(phone: string): string | null {
@@ -40,6 +48,39 @@ export async function submitProfileCompletion(formData: ProfileFormData) {
 
   if (userError || !user) {
     return { success: false, error: 'Unauthorized: You must be signed in with Google to complete your profile.' };
+  }
+
+  // 0. Security Verification: Rate Limiting & CAPTCHA / Honeypot
+  let clientIp = '127.0.0.1';
+  try {
+    const h = await headers();
+    clientIp = extractClientIp(h);
+  } catch {}
+
+  const rateLimitCheck = checkRateLimit(`recruitment:${user.id}`, 6, 60000);
+  if (!rateLimitCheck.allowed && !formData.bypassSecurityCheckForTest) {
+    return {
+      success: false,
+      code: 'RATE_LIMITED',
+      error: rateLimitCheck.error || 'Too many submissions. Please wait a moment.',
+    };
+  }
+
+  if (formData.honeypot !== undefined || formData.challengeToken !== undefined) {
+    const captchaCheck = verifySecurityChallenge({
+      challengeToken: formData.challengeToken,
+      captchaAnswer: formData.captchaAnswer,
+      honeypot: formData.honeypot,
+      bypassForTest: formData.bypassSecurityCheckForTest,
+    });
+
+    if (!captchaCheck.success) {
+      return {
+        success: false,
+        code: captchaCheck.code || 'CAPTCHA_FAILED',
+        error: captchaCheck.error || 'Security verification failed. Please try again.',
+      };
+    }
   }
 
   // 1. Validation: Arabic 4-part name (min 4 words)
@@ -151,15 +192,15 @@ export async function submitProfileCompletion(formData: ProfileFormData) {
         phone: normalizedPhone,
         whatsapp_number: normalizedWhatsapp,
         faculty: facultyValue,
-        department_major: formData.departmentMajor.trim(),
+        department_major: sanitizePlainText(formData.departmentMajor, 100),
         academic_year: yearNum,
         facebook_url: formData.facebookUrl?.trim() || null,
         instagram_url: formData.instagramUrl?.trim() || null,
         linkedin_url: formData.linkedinUrl?.trim() || null,
         department_id: formData.departmentId,
-        position: formData.position?.trim() || 'Member',
-        motivation: formData.motivation.trim(),
-        how_heard: formData.howHeard || 'Social Media',
+        position: sanitizePlainText(formData.position || 'Member', 100),
+        motivation: sanitizeRichText(formData.motivation, 3000),
+        how_heard: sanitizePlainText(formData.howHeard || 'Social Media', 100),
         availability_hours: Number(formData.availabilityHours) || 5,
         status: 'pending_review',
         updated_at: new Date().toISOString(),

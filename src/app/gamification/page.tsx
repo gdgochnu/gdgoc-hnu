@@ -31,7 +31,7 @@ export default async function GamificationPage({
   const context = await getUserContext();
 
   if (!context.user || !context.profile) {
-    redirect('/auth/signin');
+    redirect('/auth/login?redirect=/gamification');
   }
 
   const currentUserId = context.profile.id;

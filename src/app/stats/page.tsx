@@ -398,7 +398,7 @@ export default async function PublicStatsPage() {
             </Link>
 
             <Link
-              href="/auth/signin"
+              href="/auth/login"
               style={{
                 display: 'inline-flex',
                 alignItems: 'center',

@@ -2144,9 +2144,11 @@ export async function escalatePastSlaReminders(options?: {
     for (const item of feed.summary.items) {
       if (item.category === 'stalled_approval' || item.category === 'overdue_task') {
         const entityType = item.category === 'stalled_approval' ? 'approval' : 'task';
+        const uuidMatch = item.id.match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i);
+        const entityId = uuidMatch ? uuidMatch[0] : item.id;
         await notifySlaEscalation({
           entityType,
-          entityId: item.id,
+          entityId,
           title: item.title,
           hoursPastSla: 48,
         });

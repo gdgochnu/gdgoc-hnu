@@ -30,7 +30,7 @@ export default async function CommandCenterPage() {
   ]);
 
   if (!context.user || !context.profile) {
-    redirect('/auth/signin');
+    redirect('/auth/login?redirect=/command-center');
   }
 
   if (context.profile.status !== 'active') {
