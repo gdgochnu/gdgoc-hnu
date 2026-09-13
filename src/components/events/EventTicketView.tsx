@@ -15,7 +15,6 @@ import {
   FileText,
   Image as ImageIcon,
   ExternalLink,
-  Printer,
   ChevronRight,
   ShieldCheck,
   Building2,
@@ -69,13 +68,6 @@ export function EventTicketView({ registration }: EventTicketViewProps) {
       });
   }, [registration.qr_code]);
 
-  // Handle Print
-  const handlePrint = () => {
-    if (typeof window !== 'undefined') {
-      window.print();
-    }
-  };
-
   // Download Ticket as PNG Image
   const handleDownloadPng = async () => {
     if (!ticketRef.current) return;
@@ -93,7 +85,7 @@ export function EventTicketView({ registration }: EventTicketViewProps) {
       link.click();
     } catch (err) {
       console.error('Failed to download ticket as PNG image:', err);
-      alert('Could not generate image. Please use Print Ticket to save as PDF.');
+      alert('Could not generate image. Please use Download Ticket (PDF) instead.');
     } finally {
       setIsDownloadingPng(false);
     }
@@ -195,27 +187,6 @@ export function EventTicketView({ registration }: EventTicketViewProps) {
         </Link>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
-          <button
-            type="button"
-            onClick={handlePrint}
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '0.4rem',
-              padding: '0.5rem 0.9rem',
-              borderRadius: '8px',
-              background: 'rgba(255, 255, 255, 0.06)',
-              border: '1px solid rgba(255, 255, 255, 0.12)',
-              color: '#F1F5F9',
-              fontSize: '0.82rem',
-              fontWeight: 600,
-              cursor: 'pointer',
-            }}
-          >
-            <Printer size={14} />
-            <span>Print Ticket</span>
-          </button>
-
           <a
             href={calendarUrl}
             target="_blank"
