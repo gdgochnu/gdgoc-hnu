@@ -28,8 +28,8 @@ export default async function MeetingDetailPage({ params }: MeetingPageProps) {
     getMeetingSchedulingOptions(),
   ]);
 
-  if (!detailsRes.success || !detailsRes.meeting) {
-    notFound();
+  if (!detailsRes.success || !detailsRes.meeting || !detailsRes.canManageAttendance) {
+    redirect('/meetings');
   }
 
   return (

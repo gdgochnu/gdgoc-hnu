@@ -684,6 +684,15 @@ export async function getMeetingDetails(meetingId: string): Promise<{
       return { success: false, error: 'Meeting not found.' };
     }
 
+    const canManageAttendance = canRecordAttendance(context.profile, meeting);
+    if (!canManageAttendance) {
+      return {
+        success: false,
+        canManageAttendance: false,
+        error: 'Forbidden: Meeting attendance details are restricted to chapter leadership and HR.',
+      };
+    }
+
     // Fetch creator, facilitator, and department in parallel
     const [creatorRes, facilitatorRes, deptRes] = await Promise.all([
       meeting.created_by
@@ -745,7 +754,6 @@ export async function getMeetingDetails(meetingId: string): Promise<{
       profile: attendeesProfilesMap.get(a.profile_id) || null,
     }));
 
-    const canManageAttendance = canRecordAttendance(context.profile, meeting);
     const isPresident = context.profile.role === 'president' || context.profile.role === 'co_president';
     const isCreator = meeting.created_by === context.profile.id;
 

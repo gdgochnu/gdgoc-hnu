@@ -24,11 +24,17 @@ export default async function TeamMeetingsPage() {
     getMeetingSchedulingOptions(),
   ]);
 
+  const isPresident = context.profile.role === 'president' || context.profile.role === 'co_president';
+  const isBranchHead = context.profile.role === 'branch_head';
+  const isHR = context.profile.department?.code === 'HR' || context.profile.department?.code === 'HUMAN_RESOURCES';
+  const canManageGeneralAttendance = isPresident || isBranchHead || isHR;
+
   return (
     <AppShell>
       <TeamMeetingsClient
         initialMeetings={meetingsRes.meetings || []}
         canSchedule={optionsRes.canSchedule}
+        canManageGeneralAttendance={canManageGeneralAttendance}
         departments={optionsRes.departments || []}
         members={optionsRes.members || []}
         currentUserId={context.profile.id}

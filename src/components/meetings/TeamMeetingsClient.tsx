@@ -29,6 +29,7 @@ import { ScheduleMeetingModal } from './ScheduleMeetingModal';
 interface TeamMeetingsClientProps {
   initialMeetings: TeamMeeting[];
   canSchedule: boolean;
+  canManageGeneralAttendance?: boolean;
   departments: Array<{ id: string; name: string; code: string; branch: DepartmentBranch }>;
   members: Array<{ id: string; full_name: string; role: string; department_id: string | null; email: string; avatar_url: string | null }>;
   currentUserId: string;
@@ -37,6 +38,7 @@ interface TeamMeetingsClientProps {
 export function TeamMeetingsClient({
   initialMeetings,
   canSchedule,
+  canManageGeneralAttendance = false,
   departments,
   members,
   currentUserId,
@@ -325,6 +327,10 @@ export function TeamMeetingsClient({
           const statusBadge = getStatusBadge(meeting);
           const isOnline = meeting.type === 'online';
           const myAtt = meeting.my_attendance;
+          const canManageThisMeeting =
+            canManageGeneralAttendance ||
+            meeting.created_by === currentUserId ||
+            meeting.facilitator_id === currentUserId;
 
           return (
             <div
@@ -533,25 +539,28 @@ export function TeamMeetingsClient({
                     </a>
                   )}
 
-                  <Link
-                    href={`/meetings/${meeting.id}`}
-                    style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '0.4rem',
-                      padding: '0.5rem 0.9rem',
-                      borderRadius: '8px',
-                      background: 'rgba(255, 255, 255, 0.06)',
-                      border: '1px solid rgba(255, 255, 255, 0.12)',
-                      color: '#F1F5F9',
-                      fontSize: '0.82rem',
-                      fontWeight: 600,
-                      textDecoration: 'none',
-                    }}
-                  >
-                    <span>View Attendance Ledger</span>
-                    <ChevronRight size={14} />
-                  </Link>
+                  {canManageThisMeeting && (
+                    <Link
+                      href={`/meetings/${meeting.id}`}
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '0.4rem',
+                        padding: '0.5rem 0.9rem',
+                        borderRadius: '8px',
+                        background: 'rgba(66, 133, 244, 0.1)',
+                        border: '1px solid rgba(66, 133, 244, 0.25)',
+                        color: '#93C5FD',
+                        fontSize: '0.82rem',
+                        fontWeight: 600,
+                        textDecoration: 'none',
+                      }}
+                    >
+                      <ShieldCheck size={14} color="#60A5FA" />
+                      <span>Manage Attendance</span>
+                      <ChevronRight size={14} />
+                    </Link>
+                  )}
                 </div>
               </div>
 
