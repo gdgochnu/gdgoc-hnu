@@ -2,7 +2,14 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { submitEventForReview, publishEvent, completeEvent, closeEvent } from '@/app/events/actions';
+import { 
+  submitEventForReview, 
+  publishEvent, 
+  completeEvent, 
+  closeEvent,
+  overrideEventStatus,
+  updateEventCapacity
+} from '@/app/events/actions';
 import { Event, EventStatus } from '@/types';
 import Link from 'next/link';
 import { 
@@ -19,16 +26,38 @@ import {
   Globe,
   Copy,
   Check,
-  Archive
+  Archive,
+  ArrowRightLeft,
+  Users,
+  Lock,
+  Unlock,
+  Sliders,
+  X,
+  Plus,
+  Minus
 } from 'lucide-react';
 
 interface EventReviewBannerProps {
   event: Event;
   canManage: boolean;
   approvalInstance?: any;
+  isPresidential?: boolean;
+  userRole?: string;
 }
 
-export function EventReviewBanner({ event, canManage, approvalInstance }: EventReviewBannerProps) {
+const ALL_STATUSES: { value: EventStatus; label: string; desc: string; color: string }[] = [
+  { value: 'draft', label: 'Draft', desc: 'Working draft, visible to chapter organizers only', color: '#FBBF24' },
+  { value: 'submitted_for_review', label: 'Submitted for Review', desc: 'Initial submission into review pipeline', color: '#60A5FA' },
+  { value: 'branch_review', label: 'Branch Review', desc: 'Stage 1 Tech/Non-Tech Branch Head evaluation', color: '#38BDF8' },
+  { value: 'pending_final_approval', label: 'Pending Final Approval', desc: 'Stage 2 Presidential executive sign-off', color: '#818CF8' },
+  { value: 'approved', label: 'Approved', desc: 'Fully approved, unlocked for publication', color: '#34D399' },
+  { value: 'published', label: 'Published (Live)', desc: 'Live on public portal, accepting attendee registrations', color: '#10B981' },
+  { value: 'closed', label: 'Closed (Registration Capped)', desc: 'Public registrations capped or closed, check-ins ready', color: '#F59E0B' },
+  { value: 'completed', label: 'Completed', desc: 'Concluded lifecycle, feedback sent, certificates unlocked', color: '#A855F7' },
+  { value: 'rejected', label: 'Rejected', desc: 'Returned with revision notes or cancelled', color: '#EF4444' },
+];
+
+export function EventReviewBanner({ event, canManage, approvalInstance, isPresidential = false, userRole }: EventReviewBannerProps) {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
@@ -40,6 +69,80 @@ export function EventReviewBanner({ event, canManage, approvalInstance }: EventR
   const [showCompleteModal, setShowCompleteModal] = useState(false);
   const [completionNotes, setCompletionNotes] = useState('');
   const [copied, setCopied] = useState(false);
+
+  // Status Override Modal State
+  const [showStatusModal, setShowStatusModal] = useState(false);
+  const [targetStatus, setTargetStatus] = useState<EventStatus>(event.status);
+  const [statusReason, setStatusReason] = useState('');
+  const [isChangingStatus, setIsChangingStatus] = useState(false);
+
+  // Capacity Modal State
+  const [showCapacityModal, setShowCapacityModal] = useState(false);
+  const [capacityValue, setCapacityValue] = useState<number | string>(event.capacity ?? 100);
+  const [isUnlimitedCapacity, setIsUnlimitedCapacity] = useState<boolean>(event.capacity === null || event.capacity === undefined);
+  const [isUpdatingCapacity, setIsUpdatingCapacity] = useState(false);
+
+  const handleStatusOverride = async () => {
+    if (!targetStatus) return;
+    setErrorMsg(null);
+    setIsChangingStatus(true);
+    try {
+      const res = await overrideEventStatus(event.id, targetStatus, statusReason.trim() || undefined);
+      if (!res.success) {
+        setErrorMsg(res.error || 'Failed to change event status.');
+      } else {
+        setShowStatusModal(false);
+        setPublishSuccessMsg(`Event status successfully updated to '${targetStatus}'.`);
+        router.refresh();
+      }
+    } catch (err: unknown) {
+      setErrorMsg(err instanceof Error ? err.message : 'Error changing event status.');
+    } finally {
+      setIsChangingStatus(false);
+    }
+  };
+
+  const handleCapacityUpdate = async () => {
+    setErrorMsg(null);
+    setIsUpdatingCapacity(true);
+    try {
+      const cap = isUnlimitedCapacity ? null : (parseInt(String(capacityValue), 10) || null);
+      const res = await updateEventCapacity(event.id, cap);
+      if (!res.success) {
+        setErrorMsg(res.error || 'Failed to update capacity.');
+      } else {
+        setShowCapacityModal(false);
+        setPublishSuccessMsg(cap !== null ? `Event capacity updated to ${cap} attendees.` : 'Event capacity set to Unlimited.');
+        router.refresh();
+      }
+    } catch (err: unknown) {
+      setErrorMsg(err instanceof Error ? err.message : 'Error updating capacity.');
+    } finally {
+      setIsUpdatingCapacity(false);
+    }
+  };
+
+  const handleToggleRegistration = async (newStatus: 'closed' | 'published') => {
+    setErrorMsg(null);
+    setIsChangingStatus(true);
+    try {
+      const res = await overrideEventStatus(
+        event.id,
+        newStatus,
+        newStatus === 'closed' ? 'Registration closed by leadership (capacity satisfied)' : 'Registration reopened by leadership'
+      );
+      if (!res.success) {
+        setErrorMsg(res.error || 'Failed to update registration status.');
+      } else {
+        setPublishSuccessMsg(newStatus === 'closed' ? 'Registration successfully closed.' : 'Registration reopened!');
+        router.refresh();
+      }
+    } catch (err: unknown) {
+      setErrorMsg(err instanceof Error ? err.message : 'Error toggling registration.');
+    } finally {
+      setIsChangingStatus(false);
+    }
+  };
 
   const handleSubmitReview = async () => {
     setErrorMsg(null);
@@ -121,6 +224,34 @@ export function EventReviewBanner({ event, canManage, approvalInstance }: EventR
 
   return (
     <>
+      {publishSuccessMsg && (
+        <div style={{
+          background: 'rgba(52, 168, 83, 0.15)',
+          border: '1px solid rgba(52, 168, 83, 0.4)',
+          color: '#86EFAC',
+          padding: '0.75rem 1.25rem',
+          borderRadius: '12px',
+          marginBottom: '1rem',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          fontSize: '0.88rem',
+          fontWeight: 600,
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <CheckCircle2 size={18} color="var(--google-green)" />
+            <span>{publishSuccessMsg}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setPublishSuccessMsg(null)}
+            style={{ background: 'transparent', border: 'none', color: '#86EFAC', cursor: 'pointer', padding: '0.2rem' }}
+          >
+            <X size={16} />
+          </button>
+        </div>
+      )}
+
       <div
         className="glass-panel"
         style={{
@@ -187,17 +318,17 @@ export function EventReviewBanner({ event, canManage, approvalInstance }: EventR
             ) : isPublished ? (
               <Globe size={22} color="var(--google-green)" />
             ) : isClosed ? (
-              <Clock size={22} color="var(--google-yellow)" />
+              <Lock size={22} color="var(--google-yellow)" />
             ) : (
               <CheckCircle2 size={22} color="#D8B4FE" />
             )}
           </div>
 
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap' }}>
               <h4 style={{ fontSize: '1.05rem', fontWeight: 800, margin: 0 }}>
                 {isDraftOrRejected
-                  ? event.status === 'rejected' ? 'Event Revision Required' : 'Event Draft Ready for Review'
+                  ? event.status === 'rejected' ? 'Event Revision Required' : (isPresidential ? 'Presidential Executive Draft' : 'Event Draft Ready for Review')
                   : isInReview
                   ? 'Event Under Executive Review'
                   : isApproved
@@ -205,7 +336,7 @@ export function EventReviewBanner({ event, canManage, approvalInstance }: EventR
                   : isPublished
                   ? 'Event is Live on Public Portal'
                   : isClosed
-                  ? 'Event Registrations Closed'
+                  ? 'Event Registrations Closed / Capped'
                   : 'Event Concluded & Completed (Step 8.11)'}
               </h4>
 
@@ -236,11 +367,39 @@ export function EventReviewBanner({ event, canManage, approvalInstance }: EventR
               }}>
                 {event.status === 'draft' ? 'Draft' : event.status.replace(/_/g, ' ').toUpperCase()}
               </span>
+
+              {event.capacity !== null && event.capacity !== undefined ? (
+                <span style={{
+                  fontSize: '0.72rem',
+                  fontWeight: 600,
+                  padding: '0.15rem 0.5rem',
+                  borderRadius: '6px',
+                  background: 'rgba(59, 130, 246, 0.15)',
+                  color: '#93C5FD',
+                  border: '1px solid rgba(59, 130, 246, 0.3)',
+                }}>
+                  Cap: {event.capacity} seats
+                </span>
+              ) : (
+                <span style={{
+                  fontSize: '0.72rem',
+                  fontWeight: 600,
+                  padding: '0.15rem 0.5rem',
+                  borderRadius: '6px',
+                  background: 'rgba(16, 185, 129, 0.15)',
+                  color: '#6EE7B7',
+                  border: '1px solid rgba(16, 185, 129, 0.3)',
+                }}>
+                  Unlimited Capacity
+                </span>
+              )}
             </div>
 
             <p style={{ color: 'var(--text-secondary)', fontSize: '0.82rem', margin: '0.2rem 0 0' }}>
               {isDraftOrRejected ? (
-                'Review details, tasks, and registration questions. Submit to trigger the 2-stage approval chain (Branch Head → President/Co-President).'
+                isPresidential
+                  ? 'Presidential Direct Authority: You can directly publish this event, adjust capacity, or transition to any status without review submission.'
+                  : 'Review details, tasks, and registration questions. Submit to trigger the 2-stage approval chain (Branch Head → President/Co-President).'
               ) : isInReview ? (
                 `Currently in approval engine workflow. ${
                   event.status === 'branch_review' 
@@ -252,9 +411,9 @@ export function EventReviewBanner({ event, canManage, approvalInstance }: EventR
               ) : isPublished ? (
                 `Accepting attendee registrations at /events/${event.slug}. Share this link on official channels.`
               ) : isClosed ? (
-                'Public registration has closed. Check-in operations are active or ready to mark as completed.'
+                'Public registration has closed. Attendance check-ins are active or ready to mark as completed.'
               ) : (
-                'Event lifecycle has concluded. Attendance records finalized, feedback survey unlocked, and certificates ready to issue.'
+                'Event lifecycle has concluded. Attendance finalized, feedback surveys sent, and certificates ready to issue.'
               )}
             </p>
           </div>
@@ -262,24 +421,48 @@ export function EventReviewBanner({ event, canManage, approvalInstance }: EventR
 
         {/* Right Side: Action Buttons */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap' }}>
-          {isDraftOrRejected && canManage && (
-            <button
-              type="button"
-              onClick={() => setShowConfirmModal(true)}
-              className="btn-primary"
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '0.45rem',
-                padding: '0.65rem 1.2rem',
-                fontSize: '0.88rem',
-                fontWeight: 700,
-                background: 'linear-gradient(135deg, var(--google-blue), #2B6CB0)',
-              }}
-            >
-              <Send size={15} />
-              Submit for Review
-            </button>
+          {/* Status-specific primary actions */}
+          {isDraftOrRejected && (
+            <>
+              {isPresidential ? (
+                <button
+                  type="button"
+                  onClick={() => setShowPublishModal(true)}
+                  className="btn-primary"
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '0.45rem',
+                    padding: '0.65rem 1.25rem',
+                    fontSize: '0.88rem',
+                    fontWeight: 700,
+                    background: 'linear-gradient(135deg, var(--google-green), #237A3D)',
+                    boxShadow: '0 4px 12px rgba(52, 168, 83, 0.3)',
+                  }}
+                >
+                  <Sparkles size={16} />
+                  <span>Publish Directly</span>
+                </button>
+              ) : canManage ? (
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmModal(true)}
+                  className="btn-primary"
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '0.45rem',
+                    padding: '0.65rem 1.2rem',
+                    fontSize: '0.88rem',
+                    fontWeight: 700,
+                    background: 'linear-gradient(135deg, var(--google-blue), #2B6CB0)',
+                  }}
+                >
+                  <Send size={15} />
+                  Submit for Review
+                </button>
+              ) : null}
+            </>
           )}
 
           {isInReview && (
@@ -374,6 +557,30 @@ export function EventReviewBanner({ event, canManage, approvalInstance }: EventR
                 <ExternalLink size={13} />
               </Link>
 
+              {(canManage || isPresidential) && (
+                <button
+                  type="button"
+                  disabled={isChangingStatus}
+                  onClick={() => handleToggleRegistration('closed')}
+                  className="btn-secondary"
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '0.4rem',
+                    padding: '0.6rem 0.95rem',
+                    fontSize: '0.84rem',
+                    fontWeight: 600,
+                    background: 'rgba(234, 67, 53, 0.12)',
+                    border: '1px solid rgba(234, 67, 53, 0.35)',
+                    color: '#F87171',
+                  }}
+                  title="Stop attendee registrations (cap numbers or close)"
+                >
+                  <Lock size={14} color="#F87171" />
+                  <span>Close Registration</span>
+                </button>
+              )}
+
               {canManage && (
                 <button
                   type="button"
@@ -414,6 +621,30 @@ export function EventReviewBanner({ event, canManage, approvalInstance }: EventR
                 <span>Check-in Attendance</span>
                 <ExternalLink size={13} />
               </Link>
+
+              {(canManage || isPresidential) && (
+                <button
+                  type="button"
+                  disabled={isChangingStatus}
+                  onClick={() => handleToggleRegistration('published')}
+                  className="btn-secondary"
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '0.4rem',
+                    padding: '0.6rem 0.95rem',
+                    fontSize: '0.84rem',
+                    fontWeight: 600,
+                    background: 'rgba(52, 168, 83, 0.12)',
+                    border: '1px solid rgba(52, 168, 83, 0.35)',
+                    color: '#86EFAC',
+                  }}
+                  title="Reopen public registration"
+                >
+                  <Unlock size={14} color="#86EFAC" />
+                  <span>Reopen Registration</span>
+                </button>
+              )}
 
               {canManage && (
                 <button
@@ -472,6 +703,61 @@ export function EventReviewBanner({ event, canManage, approvalInstance }: EventR
                 <span>Public Recap Page</span>
                 <ExternalLink size={12} />
               </Link>
+            </div>
+          )}
+
+          {/* Universal Leadership Actions: Capacity & Status Override across ALL statuses */}
+          {(canManage || isPresidential) && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', borderLeft: '1px solid rgba(255, 255, 255, 0.12)', paddingLeft: '0.6rem' }}>
+              <button
+                type="button"
+                onClick={() => {
+                  setCapacityValue(event.capacity ?? 100);
+                  setIsUnlimitedCapacity(event.capacity === null || event.capacity === undefined);
+                  setShowCapacityModal(true);
+                }}
+                className="btn-secondary"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.4rem',
+                  padding: '0.55rem 0.85rem',
+                  fontSize: '0.82rem',
+                  fontWeight: 600,
+                  background: 'rgba(59, 130, 246, 0.12)',
+                  border: '1px solid rgba(59, 130, 246, 0.35)',
+                  color: '#93C5FD',
+                }}
+                title="Adjust capacity or limit registrations"
+              >
+                <Users size={14} color="#93C5FD" />
+                <span>Capacity</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setTargetStatus(event.status);
+                  setStatusReason('');
+                  setShowStatusModal(true);
+                }}
+                className="btn-secondary"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.4rem',
+                  padding: '0.55rem 0.85rem',
+                  fontSize: '0.82rem',
+                  fontWeight: 600,
+                  background: 'rgba(251, 188, 4, 0.12)',
+                  border: '1px solid rgba(251, 188, 4, 0.35)',
+                  color: '#FDE047',
+                }}
+                title="Executive Override: Switch status from any status to any status"
+              >
+                <ArrowRightLeft size={14} color="#FDE047" />
+                <span>Change Status</span>
+              </button>
             </div>
           )}
         </div>
@@ -884,6 +1170,465 @@ export function EventReviewBanner({ event, canManage, approvalInstance }: EventR
                   <>
                     <CheckCircle2 size={16} />
                     <span>Confirm &amp; Complete</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Status Override Modal */}
+      {showStatusModal && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          background: 'rgba(0, 0, 0, 0.8)',
+          backdropFilter: 'blur(8px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 9999,
+          padding: '1.25rem',
+        }}>
+          <div className="glass-panel" style={{
+            maxWidth: '560px',
+            width: '100%',
+            maxHeight: '90vh',
+            overflowY: 'auto',
+            padding: '1.75rem',
+            borderRadius: '20px',
+            border: '1px solid rgba(251, 188, 4, 0.4)',
+            background: 'linear-gradient(180deg, #181611 0%, #0D0C09 100%)',
+            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.8), 0 0 30px rgba(251, 188, 4, 0.15)',
+          }}>
+            {/* Modal Header */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.25rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                <div style={{
+                  width: '42px',
+                  height: '42px',
+                  borderRadius: '12px',
+                  background: 'rgba(251, 188, 4, 0.15)',
+                  border: '1px solid rgba(251, 188, 4, 0.3)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}>
+                  <ArrowRightLeft size={22} color="#FDE047" />
+                </div>
+                <div>
+                  <h3 style={{ fontSize: '1.2rem', fontWeight: 800, margin: 0, color: '#FFFFFF' }}>
+                    Executive Status Override
+                  </h3>
+                  <p style={{ fontSize: '0.78rem', color: '#94A3B8', margin: '0.15rem 0 0' }}>
+                    Switch status from any status to any status directly
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowStatusModal(false)}
+                style={{
+                  background: 'rgba(255, 255, 255, 0.06)',
+                  border: '1px solid rgba(255, 255, 255, 0.1)',
+                  borderRadius: '8px',
+                  color: '#94A3B8',
+                  padding: '0.4rem',
+                  cursor: 'pointer',
+                }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Current Status Indicator */}
+            <div style={{
+              background: 'rgba(255, 255, 255, 0.04)',
+              border: '1px solid rgba(255, 255, 255, 0.08)',
+              borderRadius: '10px',
+              padding: '0.75rem 1rem',
+              marginBottom: '1rem',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+            }}>
+              <span style={{ fontSize: '0.82rem', color: '#94A3B8' }}>Current Event Status:</span>
+              <span style={{
+                fontSize: '0.8rem',
+                fontWeight: 700,
+                padding: '0.2rem 0.6rem',
+                borderRadius: '6px',
+                background: 'rgba(255, 255, 255, 0.1)',
+                color: '#FFFFFF',
+              }}>
+                {event.status.replace(/_/g, ' ').toUpperCase()}
+              </span>
+            </div>
+
+            {/* Status Option List */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: '1.25rem' }}>
+              {ALL_STATUSES.map((s) => {
+                const isSelected = targetStatus === s.value;
+                const isCurrent = event.status === s.value;
+                return (
+                  <button
+                    key={s.value}
+                    type="button"
+                    onClick={() => setTargetStatus(s.value)}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      padding: '0.75rem 1rem',
+                      borderRadius: '12px',
+                      border: isSelected
+                        ? `1.5px solid ${s.color}`
+                        : '1px solid rgba(255, 255, 255, 0.07)',
+                      background: isSelected
+                        ? `linear-gradient(90deg, ${s.color}22, rgba(255, 255, 255, 0.03))`
+                        : 'rgba(255, 255, 255, 0.02)',
+                      cursor: 'pointer',
+                      textAlign: 'left',
+                      transition: 'all 0.15s ease',
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                      <div style={{
+                        width: '18px',
+                        height: '18px',
+                        borderRadius: '50%',
+                        border: isSelected ? `5px solid ${s.color}` : '2px solid rgba(255, 255, 255, 0.3)',
+                        background: isSelected ? '#FFFFFF' : 'transparent',
+                        flexShrink: 0,
+                      }} />
+                      <div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                          <span style={{ fontSize: '0.88rem', fontWeight: 700, color: isSelected ? s.color : '#F1F5F9' }}>
+                            {s.label}
+                          </span>
+                          {isCurrent && (
+                            <span style={{
+                              fontSize: '0.68rem',
+                              padding: '0.1rem 0.4rem',
+                              borderRadius: '4px',
+                              background: 'rgba(255, 255, 255, 0.12)',
+                              color: '#E2E8F0',
+                            }}>
+                              Current
+                            </span>
+                          )}
+                        </div>
+                        <div style={{ fontSize: '0.74rem', color: '#94A3B8', marginTop: '0.15rem' }}>
+                          {s.desc}
+                        </div>
+                      </div>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Optional Reason / Notes */}
+            <div style={{ marginBottom: '1.25rem' }}>
+              <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#CBD5E1', marginBottom: '0.35rem' }}>
+                Administrative Reason / Notes (Optional)
+              </label>
+              <textarea
+                value={statusReason}
+                onChange={(e) => setStatusReason(e.target.value)}
+                placeholder="e.g. Approved directly by President / Urgent schedule update / Cap reached"
+                rows={2}
+                style={{
+                  width: '100%',
+                  padding: '0.65rem 0.85rem',
+                  borderRadius: '10px',
+                  background: 'rgba(255, 255, 255, 0.05)',
+                  border: '1px solid rgba(255, 255, 255, 0.12)',
+                  color: '#FFFFFF',
+                  fontSize: '0.84rem',
+                  outline: 'none',
+                }}
+              />
+            </div>
+
+            {errorMsg && (
+              <div style={{
+                background: 'rgba(234, 67, 53, 0.12)',
+                border: '1px solid rgba(234, 67, 53, 0.3)',
+                color: '#F28B82',
+                padding: '0.6rem 0.85rem',
+                borderRadius: '8px',
+                fontSize: '0.82rem',
+                marginBottom: '1rem',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+              }}>
+                <AlertCircle size={15} />
+                {errorMsg}
+              </div>
+            )}
+
+            {/* Actions */}
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem' }}>
+              <button
+                type="button"
+                onClick={() => setShowStatusModal(false)}
+                disabled={isChangingStatus}
+                className="btn-secondary"
+                style={{ padding: '0.55rem 1rem', fontSize: '0.85rem' }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleStatusOverride}
+                disabled={isChangingStatus}
+                className="btn-primary"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.45rem',
+                  padding: '0.55rem 1.25rem',
+                  fontSize: '0.85rem',
+                  fontWeight: 700,
+                  background: 'linear-gradient(135deg, #F59E0B, #D97706)',
+                  color: '#000000',
+                }}
+              >
+                {isChangingStatus ? (
+                  <>
+                    <Loader2 size={15} className="spin" />
+                    <span>Applying...</span>
+                  </>
+                ) : (
+                  <>
+                    <ArrowRightLeft size={15} />
+                    <span>Update Status Now</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Adjust Capacity Modal */}
+      {showCapacityModal && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          background: 'rgba(0, 0, 0, 0.8)',
+          backdropFilter: 'blur(8px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 9999,
+          padding: '1.25rem',
+        }}>
+          <div className="glass-panel" style={{
+            maxWidth: '480px',
+            width: '100%',
+            padding: '1.75rem',
+            borderRadius: '20px',
+            border: '1px solid rgba(59, 130, 246, 0.4)',
+            background: 'linear-gradient(180deg, #111726 0%, #0B0E17 100%)',
+            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.8), 0 0 30px rgba(59, 130, 246, 0.15)',
+          }}>
+            {/* Modal Header */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.25rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                <div style={{
+                  width: '42px',
+                  height: '42px',
+                  borderRadius: '12px',
+                  background: 'rgba(59, 130, 246, 0.15)',
+                  border: '1px solid rgba(59, 130, 246, 0.3)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}>
+                  <Users size={22} color="#60A5FA" />
+                </div>
+                <div>
+                  <h3 style={{ fontSize: '1.2rem', fontWeight: 800, margin: 0, color: '#FFFFFF' }}>
+                    Adjust Event Capacity
+                  </h3>
+                  <p style={{ fontSize: '0.78rem', color: '#94A3B8', margin: '0.15rem 0 0' }}>
+                    Set seat limits, cap numbers, or make unlimited
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowCapacityModal(false)}
+                style={{
+                  background: 'rgba(255, 255, 255, 0.06)',
+                  border: '1px solid rgba(255, 255, 255, 0.1)',
+                  borderRadius: '8px',
+                  color: '#94A3B8',
+                  padding: '0.4rem',
+                  cursor: 'pointer',
+                }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Unlimited Capacity Checkbox */}
+            <label style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.65rem',
+              padding: '0.75rem 1rem',
+              borderRadius: '10px',
+              background: isUnlimitedCapacity ? 'rgba(16, 185, 129, 0.12)' : 'rgba(255, 255, 255, 0.03)',
+              border: isUnlimitedCapacity ? '1px solid rgba(16, 185, 129, 0.35)' : '1px solid rgba(255, 255, 255, 0.08)',
+              cursor: 'pointer',
+              marginBottom: '1.25rem',
+            }}>
+              <input
+                type="checkbox"
+                checked={isUnlimitedCapacity}
+                onChange={(e) => setIsUnlimitedCapacity(e.target.checked)}
+                style={{ width: '18px', height: '18px', accentColor: '#10B981', cursor: 'pointer' }}
+              />
+              <div>
+                <div style={{ fontSize: '0.88rem', fontWeight: 700, color: isUnlimitedCapacity ? '#6EE7B7' : '#FFFFFF' }}>
+                  Unlimited Capacity
+                </div>
+                <div style={{ fontSize: '0.75rem', color: '#94A3B8' }}>
+                  Accept registrations without automatic limit capping
+                </div>
+              </div>
+            </label>
+
+            {/* Capacity Input when not unlimited */}
+            {!isUnlimitedCapacity && (
+              <div style={{ marginBottom: '1.25rem' }}>
+                <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: '#CBD5E1', marginBottom: '0.4rem' }}>
+                  Maximum Attendee Capacity
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  max="100000"
+                  value={capacityValue}
+                  onChange={(e) => setCapacityValue(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '0.75rem 1rem',
+                    borderRadius: '10px',
+                    background: 'rgba(255, 255, 255, 0.05)',
+                    border: '1px solid rgba(59, 130, 246, 0.3)',
+                    color: '#FFFFFF',
+                    fontSize: '1.1rem',
+                    fontWeight: 700,
+                    outline: 'none',
+                    marginBottom: '0.75rem',
+                  }}
+                />
+
+                {/* Quick Add Increment Pills */}
+                <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
+                  {[10, 25, 50, 100].map((inc) => (
+                    <button
+                      key={inc}
+                      type="button"
+                      onClick={() => {
+                        const current = parseInt(String(capacityValue), 10) || 0;
+                        setCapacityValue(current + inc);
+                      }}
+                      style={{
+                        padding: '0.35rem 0.65rem',
+                        borderRadius: '8px',
+                        background: 'rgba(59, 130, 246, 0.15)',
+                        border: '1px solid rgba(59, 130, 246, 0.3)',
+                        color: '#93C5FD',
+                        fontSize: '0.78rem',
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      +{inc} seats
+                    </button>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const current = parseInt(String(capacityValue), 10) || 0;
+                      setCapacityValue(Math.max(1, current - 10));
+                    }}
+                    style={{
+                      padding: '0.35rem 0.65rem',
+                      borderRadius: '8px',
+                      background: 'rgba(234, 67, 53, 0.15)',
+                      border: '1px solid rgba(234, 67, 53, 0.3)',
+                      color: '#F87171',
+                      fontSize: '0.78rem',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    -10 seats
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {errorMsg && (
+              <div style={{
+                background: 'rgba(234, 67, 53, 0.12)',
+                border: '1px solid rgba(234, 67, 53, 0.3)',
+                color: '#F28B82',
+                padding: '0.6rem 0.85rem',
+                borderRadius: '8px',
+                fontSize: '0.82rem',
+                marginBottom: '1rem',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+              }}>
+                <AlertCircle size={15} />
+                {errorMsg}
+              </div>
+            )}
+
+            {/* Actions */}
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem' }}>
+              <button
+                type="button"
+                onClick={() => setShowCapacityModal(false)}
+                disabled={isUpdatingCapacity}
+                className="btn-secondary"
+                style={{ padding: '0.55rem 1rem', fontSize: '0.85rem' }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleCapacityUpdate}
+                disabled={isUpdatingCapacity}
+                className="btn-primary"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.45rem',
+                  padding: '0.55rem 1.25rem',
+                  fontSize: '0.85rem',
+                  fontWeight: 700,
+                  background: 'linear-gradient(135deg, #3B82F6, #1D4ED8)',
+                }}
+              >
+                {isUpdatingCapacity ? (
+                  <>
+                    <Loader2 size={15} className="spin" />
+                    <span>Saving...</span>
+                  </>
+                ) : (
+                  <>
+                    <Check size={15} />
+                    <span>Save Capacity</span>
                   </>
                 )}
               </button>

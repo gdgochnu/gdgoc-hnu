@@ -640,3 +640,97 @@ body[dir="rtl"] select,
   border: 1px solid rgba(255, 255, 255, 0.08) !important;
 }
 
+/* Landing Page Header Responsive */
+@media (max-width: 640px) {
+  .header-brand-sub {
+    display: none !important;
+  }
+  .sign-out-text {
+    display: none !important;
+  }
+  .user-name-label {
+    max-width: 85px !important;
+  }
+}
+
+/* ==========================================================================
+   Event Attendance Scanner & Check-in Mobile UX
+   ========================================================================== */
+.attendance-scanner-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
+  gap: 1.75rem;
+  align-items: start;
+}
+
+.attendance-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1rem;
+  margin-bottom: 2rem;
+}
+
+@media (max-width: 1024px) {
+  .attendance-scanner-grid {
+    grid-template-columns: 1fr !important;
+    gap: 1.5rem !important;
+  }
+}
+
+@media (max-width: 768px) {
+  .attendance-kpi-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 0.75rem !important;
+    margin-bottom: 1.5rem !important;
+  }
+}
+
+@media (max-width: 640px) {
+  .attendance-header-wrap {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 1rem !important;
+  }
+  .attendance-actions-bar {
+    width: 100% !important;
+    display: flex !important;
+    flex-wrap: wrap !important;
+    gap: 0.5rem !important;
+  }
+  .attendance-actions-bar > * {
+    flex: 1 1 calc(50% - 0.25rem) !important;
+    justify-content: center !important;
+    text-align: center !important;
+  }
+  .attendance-actions-bar > .btn-primary {
+    flex: 1 1 100% !important;
+  }
+  .attendance-kpi-card {
+    padding: 0.85rem 1rem !important;
+  }
+  .attendance-kpi-val {
+    font-size: 1.4rem !important;
+  }
+  .attendance-tab-btn {
+    font-size: 0.76rem !important;
+    padding: 0.55rem 0.35rem !important;
+  }
+  .attendance-tab-btn span {
+    white-space: nowrap !important;
+  }
+  .attendee-search-item {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 0.75rem !important;
+  }
+  .attendee-search-item > div:last-child {
+    width: 100% !important;
+  }
+  .attendee-search-item button {
+    width: 100% !important;
+    justify-content: center !important;
+  }
+}
+
+
+

@@ -88,6 +88,44 @@ export function EventCheckinScanner({
   const [isProcessing, setIsProcessing] = useState(false);
   const [soundEnabled, setSoundEnabled] = useState(true);
 
+  // Secure context and client hydration flags
+  const [isSecureContext, setIsSecureContext] = useState<boolean>(true);
+  const [isMounted, setIsMounted] = useState<boolean>(false);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  // Deterministic time formatter (avoids SSR hydration mismatch across locales and timezones)
+  const formatTime = (isoString?: string | null): string => {
+    if (!isoString) return '';
+    try {
+      const d = new Date(isoString);
+      if (isNaN(d.getTime())) return '';
+      let hours = d.getHours();
+      const minutes = d.getMinutes().toString().padStart(2, '0');
+      const ampm = hours >= 12 ? 'PM' : 'AM';
+      hours = hours % 12;
+      hours = hours ? hours : 12;
+      const hoursStr = hours.toString().padStart(2, '0');
+      return `${hoursStr}:${minutes} ${ampm}`;
+    } catch {
+      return '';
+    }
+  };
+
+  useEffect(() => {
+    setIsMounted(true);
+    const isSec = typeof window !== 'undefined' && (
+      window.isSecureContext ||
+      window.location.hostname === 'localhost' ||
+      window.location.hostname === '127.0.0.1'
+    );
+    setIsSecureContext(isSec);
+    if (!isSec) {
+      // Browsers disable live getUserMedia over plain HTTP on LAN IPs (e.g. 10.0.0.108).
+      // Default to 'manual' tab so mobile officers are not greeted by an immediate camera error.
+      setActiveTab('manual');
+    }
+  }, []);
+
   // Search & Walk-in state
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<SearchResultItem[]>([]);
@@ -390,9 +428,49 @@ export function EventCheckinScanner({
     }
   };
 
+  // Native Photo Scan (Works over HTTP on mobile without HTTPS)
+  const handleScanQrFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setIsProcessing(true);
+    try {
+      const html5QrCode = new Html5Qrcode('qr-file-scanner-temp');
+      const decodedText = await html5QrCode.scanFile(file, false);
+      html5QrCode.clear();
+      await handleProcessScan(decodedText);
+    } catch (err: any) {
+      playBeep('error');
+      setLastResult({
+        type: 'error',
+        message: 'Could not detect a clear QR code in this photo. Please retake closer or enter code manually.',
+      });
+    } finally {
+      setIsProcessing(false);
+      if (e.target) e.target.value = '';
+    }
+  };
+
   // Start Camera Scanner
   const startCamera = async () => {
     setCameraError(null);
+    const isSec = typeof window !== 'undefined' && (
+      window.isSecureContext ||
+      window.location.hostname === 'localhost' ||
+      window.location.hostname === '127.0.0.1'
+    );
+
+    if (!isSec) {
+      setCameraError('HTTP_INSECURE_CONTEXT');
+      setIsCameraActive(false);
+      return;
+    }
+
+    if (typeof navigator === 'undefined' || !navigator.mediaDevices?.getUserMedia) {
+      setCameraError('Camera streaming is not supported on this browser or connection.');
+      setIsCameraActive(false);
+      return;
+    }
+
     try {
       const qrScanner = new Html5Qrcode(scannerContainerId);
       html5QrCodeRef.current = qrScanner;
@@ -410,8 +488,12 @@ export function EventCheckinScanner({
       );
       setIsCameraActive(true);
     } catch (err: any) {
-      console.error('Failed to start camera scanner:', err);
-      setCameraError(err?.message || 'Unable to access camera. Please allow camera permissions or use manual scanner.');
+      console.warn('Failed to start camera scanner:', err);
+      if (err?.message?.includes('Camera streaming not supported') || !isSec) {
+        setCameraError('HTTP_INSECURE_CONTEXT');
+      } else {
+        setCameraError(err?.message || 'Unable to access camera. Please allow camera permissions or use manual scanner.');
+      }
       setIsCameraActive(false);
     }
   };
@@ -448,18 +530,18 @@ export function EventCheckinScanner({
   };
 
   return (
-    <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
+    <div style={{ maxWidth: '1200px', margin: '0 auto', width: '100%' }}>
       {/* Top Header & Officer Duty Info */}
-      <div style={{
+      <div className="attendance-header-wrap" style={{
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
         flexWrap: 'wrap',
         gap: '1rem',
-        marginBottom: '2rem',
+        marginBottom: '1.75rem',
       }}>
         <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', marginBottom: '0.35rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', marginBottom: '0.35rem', flexWrap: 'wrap' }}>
             <span style={{
               display: 'inline-flex',
               alignItems: 'center',
@@ -480,16 +562,16 @@ export function EventCheckinScanner({
             </span>
           </div>
 
-          <h1 style={{ fontSize: '1.75rem', fontWeight: 900, color: '#FFFFFF', margin: 0 }}>
+          <h1 style={{ fontSize: 'clamp(1.35rem, 3.5vw, 1.85rem)', fontWeight: 900, color: '#FFFFFF', margin: 0, lineHeight: 1.25 }}>
             {eventTitle}
           </h1>
-          <div style={{ fontSize: '0.86rem', color: '#94A3B8', marginTop: '0.2rem' }}>
+          <div style={{ fontSize: '0.84rem', color: '#94A3B8', marginTop: '0.25rem' }}>
             Officer on Duty: <strong style={{ color: '#F1F5F9' }}>{officerName}</strong>
           </div>
         </div>
 
         {/* Action Controls */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+        <div className="attendance-actions-bar" style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', flexWrap: 'wrap' }}>
           <button
             type="button"
             onClick={() => setShowWalkinModal(true)}
@@ -502,6 +584,7 @@ export function EventCheckinScanner({
               fontSize: '0.84rem',
               fontWeight: 700,
               borderRadius: '10px',
+              whiteSpace: 'nowrap',
             }}
           >
             <UserPlus size={16} />
@@ -515,14 +598,15 @@ export function EventCheckinScanner({
               display: 'inline-flex',
               alignItems: 'center',
               gap: '0.4rem',
-              padding: '0.55rem 0.9rem',
+              padding: '0.55rem 0.85rem',
               borderRadius: '10px',
               background: 'rgba(255, 255, 255, 0.05)',
               border: '1px solid rgba(255, 255, 255, 0.1)',
               color: soundEnabled ? '#60A5FA' : '#94A3B8',
-              fontSize: '0.84rem',
+              fontSize: '0.82rem',
               fontWeight: 600,
               cursor: 'pointer',
+              whiteSpace: 'nowrap',
             }}
           >
             {soundEnabled ? <Volume2 size={16} /> : <VolumeX size={16} />}
@@ -535,14 +619,15 @@ export function EventCheckinScanner({
               display: 'inline-flex',
               alignItems: 'center',
               gap: '0.4rem',
-              padding: '0.55rem 1rem',
+              padding: '0.55rem 0.95rem',
               borderRadius: '10px',
               background: 'rgba(66, 133, 244, 0.15)',
               border: '1px solid rgba(66, 133, 244, 0.3)',
               color: '#60A5FA',
-              fontSize: '0.84rem',
+              fontSize: '0.82rem',
               fontWeight: 600,
               textDecoration: 'none',
+              whiteSpace: 'nowrap',
             }}
           >
             <span>Back to Event</span>
@@ -551,65 +636,55 @@ export function EventCheckinScanner({
         </div>
       </div>
 
-      {/* Live KPIs Grid */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-        gap: '1rem',
-        marginBottom: '2rem',
-      }}>
+      {/* Live KPIs Grid (Responsive 2x2 on Mobile) */}
+      <div className="attendance-kpi-grid">
         {/* Total Registered */}
-        <div className="glass-panel" style={{ padding: '1.25rem', borderRadius: '14px' }}>
-          <div style={{ fontSize: '0.75rem', textTransform: 'uppercase', color: '#94A3B8', fontWeight: 700, marginBottom: '0.35rem' }}>
+        <div className="glass-panel attendance-kpi-card" style={{ padding: '1.2rem', borderRadius: '14px' }}>
+          <div style={{ fontSize: '0.72rem', textTransform: 'uppercase', color: '#94A3B8', fontWeight: 700, marginBottom: '0.25rem' }}>
             Total Registered
           </div>
-          <div style={{ fontSize: '1.75rem', fontWeight: 900, color: '#FFFFFF' }}>
+          <div className="attendance-kpi-val" style={{ fontSize: '1.75rem', fontWeight: 900, color: '#FFFFFF', lineHeight: 1.1 }}>
             {stats.totalRegistered}
           </div>
-          <div style={{ fontSize: '0.78rem', color: '#94A3B8', marginTop: '0.2rem' }}>Confirmed Passes</div>
+          <div className="attendance-kpi-sub" style={{ fontSize: '0.76rem', color: '#94A3B8', marginTop: '0.2rem' }}>Confirmed Passes</div>
         </div>
 
         {/* Total Checked In */}
-        <div className="glass-panel" style={{ padding: '1.25rem', borderRadius: '14px' }}>
-          <div style={{ fontSize: '0.75rem', textTransform: 'uppercase', color: '#94A3B8', fontWeight: 700, marginBottom: '0.35rem' }}>
+        <div className="glass-panel attendance-kpi-card" style={{ padding: '1.2rem', borderRadius: '14px' }}>
+          <div style={{ fontSize: '0.72rem', textTransform: 'uppercase', color: '#94A3B8', fontWeight: 700, marginBottom: '0.25rem' }}>
             Checked In
           </div>
-          <div style={{ fontSize: '1.75rem', fontWeight: 900, color: '#4ADE80' }}>
+          <div className="attendance-kpi-val" style={{ fontSize: '1.75rem', fontWeight: 900, color: '#4ADE80', lineHeight: 1.1 }}>
             {stats.totalCheckedIn}
           </div>
-          <div style={{ fontSize: '0.78rem', color: '#4ADE80', marginTop: '0.2rem' }}>Verified Attendees</div>
+          <div className="attendance-kpi-sub" style={{ fontSize: '0.76rem', color: '#4ADE80', marginTop: '0.2rem' }}>Verified Attendees</div>
         </div>
 
         {/* Attendance Rate */}
-        <div className="glass-panel" style={{ padding: '1.25rem', borderRadius: '14px' }}>
-          <div style={{ fontSize: '0.75rem', textTransform: 'uppercase', color: '#94A3B8', fontWeight: 700, marginBottom: '0.35rem' }}>
+        <div className="glass-panel attendance-kpi-card" style={{ padding: '1.2rem', borderRadius: '14px' }}>
+          <div style={{ fontSize: '0.72rem', textTransform: 'uppercase', color: '#94A3B8', fontWeight: 700, marginBottom: '0.25rem' }}>
             Attendance Rate
           </div>
-          <div style={{ fontSize: '1.75rem', fontWeight: 900, color: '#60A5FA' }}>
+          <div className="attendance-kpi-val" style={{ fontSize: '1.75rem', fontWeight: 900, color: '#60A5FA', lineHeight: 1.1 }}>
             {stats.attendanceRate}%
           </div>
-          <div style={{ fontSize: '0.78rem', color: '#94A3B8', marginTop: '0.2rem' }}>Turnout percentage</div>
+          <div className="attendance-kpi-sub" style={{ fontSize: '0.76rem', color: '#94A3B8', marginTop: '0.2rem' }}>Turnout percentage</div>
         </div>
 
         {/* Remaining to Check In */}
-        <div className="glass-panel" style={{ padding: '1.25rem', borderRadius: '14px' }}>
-          <div style={{ fontSize: '0.75rem', textTransform: 'uppercase', color: '#94A3B8', fontWeight: 700, marginBottom: '0.35rem' }}>
+        <div className="glass-panel attendance-kpi-card" style={{ padding: '1.2rem', borderRadius: '14px' }}>
+          <div style={{ fontSize: '0.72rem', textTransform: 'uppercase', color: '#94A3B8', fontWeight: 700, marginBottom: '0.25rem' }}>
             Pending Arrival
           </div>
-          <div style={{ fontSize: '1.75rem', fontWeight: 900, color: '#FBBF24' }}>
+          <div className="attendance-kpi-val" style={{ fontSize: '1.75rem', fontWeight: 900, color: '#FBBF24', lineHeight: 1.1 }}>
             {Math.max(0, stats.totalRegistered - stats.totalCheckedIn)}
           </div>
-          <div style={{ fontSize: '0.78rem', color: '#94A3B8', marginTop: '0.2rem' }}>Remaining tickets</div>
+          <div className="attendance-kpi-sub" style={{ fontSize: '0.76rem', color: '#94A3B8', marginTop: '0.2rem' }}>Remaining tickets</div>
         </div>
       </div>
 
-      {/* Main Scanner Section (Split Grid) */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'minmax(0, 1.35fr) minmax(0, 1fr)',
-        gap: '2rem',
-        alignItems: 'start',
-      }}>
+      {/* Main Scanner Section (Responsive Grid) */}
+      <div className="attendance-scanner-grid">
         {/* Left Side: Scanner & Search Device */}
         <div>
           <div className="glass-panel" style={{
@@ -621,7 +696,7 @@ export function EventCheckinScanner({
             {/* Mode Switcher Tabs */}
             <div style={{
               display: 'flex',
-              background: 'rgba(0, 0, 0, 0.3)',
+              background: 'rgba(0, 0, 0, 0.35)',
               padding: '0.35rem',
               borderRadius: '12px',
               gap: '0.35rem',
@@ -630,69 +705,72 @@ export function EventCheckinScanner({
               <button
                 type="button"
                 onClick={() => setActiveTab('camera')}
+                className="attendance-tab-btn"
                 style={{
                   flex: 1,
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  gap: '0.45rem',
-                  padding: '0.65rem',
+                  gap: '0.35rem',
+                  padding: '0.65rem 0.4rem',
                   borderRadius: '9px',
                   background: activeTab === 'camera' ? 'rgba(66, 133, 244, 0.25)' : 'transparent',
                   border: activeTab === 'camera' ? '1px solid rgba(66, 133, 244, 0.4)' : 'none',
                   color: activeTab === 'camera' ? '#93C5FD' : '#94A3B8',
-                  fontSize: '0.84rem',
+                  fontSize: '0.82rem',
                   fontWeight: 700,
                   cursor: 'pointer',
                 }}
               >
-                <Camera size={16} />
-                <span>Camera Scanner</span>
+                <Camera size={15} />
+                <span>Camera</span>
               </button>
 
               <button
                 type="button"
                 onClick={() => setActiveTab('manual')}
+                className="attendance-tab-btn"
                 style={{
                   flex: 1,
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  gap: '0.45rem',
-                  padding: '0.65rem',
+                  gap: '0.35rem',
+                  padding: '0.65rem 0.4rem',
                   borderRadius: '9px',
                   background: activeTab === 'manual' ? 'rgba(66, 133, 244, 0.25)' : 'transparent',
                   border: activeTab === 'manual' ? '1px solid rgba(66, 133, 244, 0.4)' : 'none',
                   color: activeTab === 'manual' ? '#93C5FD' : '#94A3B8',
-                  fontSize: '0.84rem',
+                  fontSize: '0.82rem',
                   fontWeight: 700,
                   cursor: 'pointer',
                 }}
               >
-                <Keyboard size={16} />
-                <span>Barcode / Pass</span>
+                <Keyboard size={15} />
+                <span>Pass Code</span>
               </button>
 
               <button
                 type="button"
                 onClick={() => setActiveTab('walkin')}
+                className="attendance-tab-btn"
                 style={{
                   flex: 1,
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  gap: '0.45rem',
-                  padding: '0.65rem',
+                  gap: '0.35rem',
+                  padding: '0.65rem 0.4rem',
                   borderRadius: '9px',
                   background: activeTab === 'walkin' ? 'rgba(66, 133, 244, 0.25)' : 'transparent',
                   border: activeTab === 'walkin' ? '1px solid rgba(66, 133, 244, 0.4)' : 'none',
                   color: activeTab === 'walkin' ? '#93C5FD' : '#94A3B8',
-                  fontSize: '0.84rem',
+                  fontSize: '0.82rem',
                   fontWeight: 700,
                   cursor: 'pointer',
                 }}
               >
-                <Search size={16} />
+                <Search size={15} />
                 <span>Search / Walk-in</span>
               </button>
             </div>
@@ -707,7 +785,7 @@ export function EventCheckinScanner({
                   overflow: 'hidden',
                   background: '#000000',
                   border: '1px solid rgba(255, 255, 255, 0.1)',
-                  minHeight: '320px',
+                  minHeight: '280px',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
@@ -718,18 +796,107 @@ export function EventCheckinScanner({
                     <div style={{
                       padding: '1.5rem',
                       textAlign: 'center',
-                      color: '#FCA5A5',
+                      color: '#F8FAFC',
+                      background: 'rgba(15, 23, 42, 0.95)',
+                      borderRadius: '14px',
+                      border: '1px solid rgba(251, 188, 4, 0.3)',
+                      maxWidth: '440px',
+                      margin: '1rem',
+                      boxShadow: '0 8px 30px rgba(0, 0, 0, 0.6)',
                     }}>
-                      <AlertCircle size={32} style={{ margin: '0 auto 0.75rem' }} />
-                      <div style={{ fontSize: '0.9rem', marginBottom: '1rem' }}>{cameraError}</div>
-                      <button
-                        type="button"
-                        onClick={startCamera}
-                        className="btn-primary"
-                        style={{ padding: '0.5rem 1rem', fontSize: '0.82rem' }}
-                      >
-                        Retry Camera
-                      </button>
+                      <div style={{
+                        width: '44px',
+                        height: '44px',
+                        borderRadius: '12px',
+                        background: 'rgba(251, 188, 4, 0.15)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        margin: '0 auto 0.75rem',
+                      }}>
+                        <AlertCircle size={24} color="#FBBF24" />
+                      </div>
+
+                      {cameraError === 'HTTP_INSECURE_CONTEXT' ? (
+                        <>
+                          <div style={{ fontSize: '0.98rem', fontWeight: 800, color: '#FDE047', marginBottom: '0.35rem' }}>
+                            Live Camera Restricted on Local HTTP
+                          </div>
+                          <p style={{ fontSize: '0.82rem', color: '#94A3B8', lineHeight: 1.5, marginBottom: '1.25rem' }}>
+                            Mobile browsers require HTTPS or localhost for live video streaming. When connecting over local Wi-Fi, you can snap a QR photo directly using your native camera, or search by attendee name.
+                          </p>
+
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
+                            <label
+                              className="btn-primary"
+                              style={{
+                                padding: '0.65rem 1.25rem',
+                                fontSize: '0.86rem',
+                                fontWeight: 700,
+                                cursor: 'pointer',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                gap: '0.5rem',
+                                borderRadius: '10px',
+                              }}
+                            >
+                              <Camera size={17} />
+                              <span>Snap QR Photo (Native Camera)</span>
+                              <input
+                                type="file"
+                                accept="image/*"
+                                capture="environment"
+                                style={{ display: 'none' }}
+                                onChange={handleScanQrFile}
+                              />
+                            </label>
+
+                            <div style={{ display: 'flex', gap: '0.5rem' }}>
+                              <button
+                                type="button"
+                                onClick={() => setActiveTab('manual')}
+                                className="btn-secondary"
+                                style={{ flex: 1, padding: '0.55rem', fontSize: '0.8rem' }}
+                              >
+                                Enter Ticket Code
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setActiveTab('walkin')}
+                                className="btn-secondary"
+                                style={{ flex: 1, padding: '0.55rem', fontSize: '0.8rem' }}
+                              >
+                                Search Attendees
+                              </button>
+                            </div>
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <div style={{ fontSize: '0.95rem', fontWeight: 700, color: '#FCA5A5', marginBottom: '0.5rem' }}>
+                            {cameraError}
+                          </div>
+                          <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center', marginTop: '1rem', flexWrap: 'wrap' }}>
+                            <button
+                              type="button"
+                              onClick={startCamera}
+                              className="btn-primary"
+                              style={{ padding: '0.5rem 1rem', fontSize: '0.82rem' }}
+                            >
+                              Retry Camera
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setActiveTab('manual')}
+                              className="btn-secondary"
+                              style={{ padding: '0.5rem 1rem', fontSize: '0.82rem' }}
+                            >
+                              Switch to Manual Input
+                            </button>
+                          </div>
+                        </>
+                      )}
                     </div>
                   )}
                 </div>
@@ -741,9 +908,13 @@ export function EventCheckinScanner({
                   marginTop: '0.85rem',
                   fontSize: '0.78rem',
                   color: '#94A3B8',
+                  flexWrap: 'wrap',
+                  gap: '0.4rem',
                 }}>
-                  <span>Align attendee QR code inside the bounding box</span>
-                  <span style={{ color: '#4ADE80' }}>● Camera Active</span>
+                  <span>Align attendee QR code inside camera frame</span>
+                  {isCameraActive && (
+                    <span style={{ color: '#4ADE80', fontWeight: 600 }}>● Live Camera Active</span>
+                  )}
                 </div>
               </div>
             )}
@@ -886,6 +1057,7 @@ export function EventCheckinScanner({
                         {searchResults.map((attendee) => (
                           <div
                             key={attendee.id}
+                            className="attendee-search-item"
                             style={{
                               padding: '1rem',
                               borderRadius: '12px',
@@ -897,11 +1069,11 @@ export function EventCheckinScanner({
                               gap: '1rem',
                             }}
                           >
-                            <div>
-                              <div style={{ fontWeight: 700, fontSize: '0.95rem', color: '#F8FAFC' }}>
+                            <div style={{ minWidth: 0, flex: 1 }}>
+                              <div style={{ fontWeight: 700, fontSize: '0.95rem', color: '#F8FAFC', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                                 {attendee.full_name}
                               </div>
-                              <div style={{ fontSize: '0.8rem', color: '#94A3B8', marginTop: '0.1rem' }}>
+                              <div style={{ fontSize: '0.8rem', color: '#94A3B8', marginTop: '0.1rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                                 {attendee.email} {attendee.phone ? `• ${attendee.phone}` : ''}
                               </div>
                               <div style={{ fontSize: '0.72rem', color: '#64748B', fontFamily: 'monospace', marginTop: '0.2rem' }}>
@@ -909,7 +1081,7 @@ export function EventCheckinScanner({
                               </div>
                             </div>
 
-                            <div>
+                            <div style={{ flexShrink: 0 }}>
                               {attendee.isCheckedIn ? (
                                 <span style={{
                                   display: 'inline-flex',
@@ -1034,7 +1206,7 @@ export function EventCheckinScanner({
                       gap: '0.3rem',
                     }}>
                       <Clock size={12} />
-                      <span>Checked in at: {new Date(lastResult.checkInTime).toLocaleTimeString()}</span>
+                      <span suppressHydrationWarning>Checked in at: {formatTime(lastResult.checkInTime)}</span>
                     </div>
                   )}
                 </div>
@@ -1100,9 +1272,10 @@ export function EventCheckinScanner({
                       borderRadius: '10px',
                       background: 'rgba(255, 255, 255, 0.03)',
                       border: '1px solid rgba(255, 255, 255, 0.06)',
+                      gap: '0.65rem',
                     }}
                   >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', minWidth: 0, flex: 1 }}>
                       <div style={{
                         width: '32px',
                         height: '32px',
@@ -1119,19 +1292,19 @@ export function EventCheckinScanner({
                       }}>
                         {item.registration?.full_name?.charAt(0) || 'A'}
                       </div>
-                      <div>
-                        <div style={{ fontWeight: 700, fontSize: '0.88rem', color: '#F1F5F9' }}>
+                      <div style={{ minWidth: 0, flex: 1 }}>
+                        <div style={{ fontWeight: 700, fontSize: '0.88rem', color: '#F1F5F9', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                           {item.registration?.full_name || 'Attendee'}
                         </div>
-                        <div style={{ fontSize: '0.75rem', color: '#94A3B8' }}>
+                        <div style={{ fontSize: '0.74rem', color: '#94A3B8', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                           {item.registration?.email}
                         </div>
                       </div>
                     </div>
 
-                    <div style={{ textAlign: 'right' }}>
-                      <div style={{ fontSize: '0.78rem', fontWeight: 700, color: '#60A5FA' }}>
-                        {new Date(item.check_in_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    <div style={{ textAlign: 'right', flexShrink: 0, marginLeft: '0.5rem' }}>
+                      <div suppressHydrationWarning style={{ fontSize: '0.78rem', fontWeight: 700, color: '#60A5FA' }}>
+                        {formatTime(item.check_in_time)}
                       </div>
                       <div style={{ fontSize: '0.7rem', color: '#64748B' }}>
                         via {item.method.toUpperCase()}
@@ -1144,6 +1317,9 @@ export function EventCheckinScanner({
           </div>
         </div>
       </div>
+
+      {/* Hidden Reader for Mobile File Scan */}
+      <div id="qr-file-scanner-temp" style={{ display: 'none' }} />
 
       {/* Fast 10-Second Walk-in Registration Modal (§4.4) */}
       {showWalkinModal && (

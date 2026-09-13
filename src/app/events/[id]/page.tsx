@@ -430,7 +430,12 @@ export default async function EventDetailPage({ params, searchParams }: EventDet
           </div>
 
           {/* Event Review & Approval Banner (Step 8.4) */}
-          <EventReviewBanner event={event} canManage={canManage} />
+          <EventReviewBanner 
+            event={event} 
+            canManage={canManage} 
+            isPresidential={isPresidential}
+            userRole={userRole}
+          />
 
           {/* Event Hero Banner */}
           <div className="glass-panel" style={{

@@ -1139,7 +1139,9 @@ export async function publishEvent(eventId: string) {
     }
 
     // Strict Gate: ONLY enabled once status = 'approved' (Spec §4.3 item 3)
-    if (event.status !== 'approved') {
+    // Exception: President / Co-President have executive authority to directly publish from draft or rejected
+    const isPresidential = ['president', 'co_president'].includes(context.profile.role);
+    if (event.status !== 'approved' && !isPresidential) {
       return {
         success: false,
         error: `Event cannot be published until all executive approvals are completed. (Current status: '${event.status}', required: 'approved').`,
@@ -1147,7 +1149,6 @@ export async function publishEvent(eventId: string) {
     }
 
     // Check authorization: Creator, owners, host committee head, or Chapter Leadership
-    const isPresidential = ['president', 'co_president'].includes(context.profile.role);
     const isBranchHead = context.profile.role === 'branch_head';
     const isDeptHead = context.profile.department_id === event.department_id && ['committee_head', 'committee_co_head'].includes(context.profile.role);
     const userId = context.user.id;
@@ -2518,6 +2519,243 @@ export async function closeEvent(eventId: string) {
   } catch (err: unknown) {
     console.error('closeEvent error:', err);
     return { success: false, error: err instanceof Error ? err.message : 'Error closing event.' };
+  }
+}
+
+/**
+ * Executive Status Override:
+ * Allows President / Co-President (and authorized Branch Heads) to transition an event
+ * from ANY status to ANY status (draft, submitted_for_review, branch_review,
+ * pending_final_approval, approved, published, closed, completed, rejected).
+ */
+export async function overrideEventStatus(
+  eventId: string,
+  newStatus: EventStatus,
+  reason?: string
+) {
+  try {
+    const context = await getUserContext();
+    if (!context.user || !context.profile || context.profile.status !== 'active') {
+      return { success: false, error: 'Unauthorized: Active membership required.' };
+    }
+
+    const admin = createAdminClient();
+    const { data: event, error: eventErr } = await admin
+      .from('events')
+      .select('*, department:departments(id, name, code, branch)')
+      .eq('id', eventId)
+      .maybeSingle();
+
+    if (eventErr || !event) {
+      return { success: false, error: 'Event not found.' };
+    }
+
+    const isPresidential = ['president', 'co_president'].includes(context.profile.role);
+    const isBranchHead = context.profile.role === 'branch_head';
+    if (!isPresidential && !isBranchHead) {
+      return {
+        success: false,
+        error: 'Forbidden: Only chapter leadership (President, Co-President, Branch Head) can directly override event status.',
+      };
+    }
+
+    const validStatuses: EventStatus[] = [
+      'draft',
+      'submitted_for_review',
+      'branch_review',
+      'pending_final_approval',
+      'approved',
+      'published',
+      'closed',
+      'completed',
+      'rejected',
+    ];
+
+    if (!validStatuses.includes(newStatus)) {
+      return { success: false, error: `Invalid status: '${newStatus}'.` };
+    }
+
+    const now = new Date().toISOString();
+    const updatePayload: Record<string, any> = {
+      status: newStatus,
+      updated_at: now,
+    };
+
+    const { data: updatedEvent, error: updateErr } = await admin
+      .from('events')
+      .update(updatePayload)
+      .eq('id', eventId)
+      .select('*, department:departments(id, name, code, branch)')
+      .single();
+
+    if (updateErr || !updatedEvent) {
+      return { success: false, error: updateErr?.message || 'Failed to update event status.' };
+    }
+
+    // If transitioned to published, sync with Google Calendar
+    if (newStatus === 'published') {
+      try {
+        const startTimeIso = updatedEvent.event_date + (updatedEvent.start_time ? `T${updatedEvent.start_time}` : 'T10:00:00');
+        const endTimeIso = updatedEvent.event_date + (updatedEvent.end_time ? `T${updatedEvent.end_time}` : 'T12:00:00');
+
+        let calRes;
+        if (updatedEvent.google_calendar_event_id) {
+          calRes = await updateCalendarEvent(updatedEvent.google_calendar_event_id, {
+            title: updatedEvent.title,
+            description: updatedEvent.description || `GDGoC HNU Event: ${updatedEvent.title}`,
+            location: updatedEvent.venue || 'Helwan National University Campus',
+            startTime: startTimeIso,
+            endTime: endTimeIso,
+            isAllDay: !updatedEvent.start_time,
+          });
+        } else {
+          calRes = await createCalendarEvent({
+            title: updatedEvent.title,
+            description: updatedEvent.description || `GDGoC HNU Event: ${updatedEvent.title}`,
+            location: updatedEvent.venue || 'Helwan National University Campus',
+            startTime: startTimeIso,
+            endTime: endTimeIso,
+            isAllDay: !updatedEvent.start_time,
+          });
+        }
+
+        if (calRes.success && (calRes as any).eventId) {
+          await admin
+            .from('events')
+            .update({
+              google_calendar_event_id: (calRes as any).eventId,
+              google_calendar_link: (calRes as any).htmlLink || null,
+            })
+            .eq('id', eventId);
+        }
+      } catch (calErr) {
+        console.warn('[overrideEventStatus] Calendar sync warning:', calErr);
+      }
+    }
+
+    // If transitioned to completed, trigger feedback surveys
+    if (newStatus === 'completed') {
+      try {
+        await triggerEventFeedbackSurveys(eventId);
+      } catch (fbErr) {
+        console.warn('[overrideEventStatus] Feedback survey trigger warning:', fbErr);
+      }
+    }
+
+    // Record audit log
+    await admin.from('audit_logs').insert({
+      actor_id: context.user.id,
+      action: 'event_status_overridden',
+      entity_type: 'event',
+      entity_id: eventId,
+      metadata: {
+        previous_status: event.status,
+        new_status: newStatus,
+        reason: reason || 'Executive status override',
+        overridden_by: context.user.id,
+        role: context.profile.role,
+      },
+    });
+
+    revalidatePath('/events');
+    revalidatePath(`/events/${eventId}`);
+    revalidatePath(`/events/${eventId}/review`);
+    if (event.slug) revalidatePath(`/events/${event.slug}`);
+    revalidatePath('/approvals');
+
+    return {
+      success: true,
+      event: updatedEvent,
+      message: `Event status updated to '${newStatus}'.`,
+    };
+  } catch (err: unknown) {
+    console.error('overrideEventStatus error:', err);
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : 'Error overriding event status.',
+    };
+  }
+}
+
+/**
+ * Quick Capacity / Registration Cap Update:
+ * Allows President / Co-President / Event Lead to cap or adjust attendee limit on the fly.
+ */
+export async function updateEventCapacity(
+  eventId: string,
+  capacity: number | null
+) {
+  try {
+    const context = await getUserContext();
+    if (!context.user || !context.profile || context.profile.status !== 'active') {
+      return { success: false, error: 'Unauthorized: Active membership required.' };
+    }
+
+    const admin = createAdminClient();
+    const { data: event, error: eventErr } = await admin
+      .from('events')
+      .select('*, department:departments(id, name, code, branch)')
+      .eq('id', eventId)
+      .maybeSingle();
+
+    if (eventErr || !event) {
+      return { success: false, error: 'Event not found.' };
+    }
+
+    const isPresidential = ['president', 'co_president'].includes(context.profile.role);
+    const isBranchHead = context.profile.role === 'branch_head';
+    const isDeptHead = context.profile.department_id === event.department_id && ['committee_head', 'committee_co_head'].includes(context.profile.role);
+    const userId = context.user.id;
+    const isCreator = event.created_by === userId;
+    const isOwner = Array.isArray(event.owners) && event.owners.some((o: any) => o.profile_id === userId);
+
+    if (!isPresidential && !isBranchHead && !isDeptHead && !isCreator && !isOwner) {
+      return { success: false, error: 'Forbidden: Insufficient permissions to adjust capacity.' };
+    }
+
+    const parsedCapacity = capacity !== null && capacity !== undefined ? Math.max(0, Number(capacity)) : null;
+
+    const { data: updatedEvent, error: updateErr } = await admin
+      .from('events')
+      .update({
+        capacity: parsedCapacity,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', eventId)
+      .select()
+      .single();
+
+    if (updateErr || !updatedEvent) {
+      return { success: false, error: updateErr?.message || 'Failed to update capacity.' };
+    }
+
+    await admin.from('audit_logs').insert({
+      actor_id: context.user.id,
+      action: 'event_capacity_updated',
+      entity_type: 'event',
+      entity_id: eventId,
+      metadata: {
+        previous_capacity: event.capacity,
+        new_capacity: parsedCapacity,
+        updated_by: context.user.id,
+      },
+    });
+
+    revalidatePath('/events');
+    revalidatePath(`/events/${eventId}`);
+    if (event.slug) revalidatePath(`/events/${event.slug}`);
+
+    return {
+      success: true,
+      event: updatedEvent,
+      message: parsedCapacity !== null ? `Capacity set to ${parsedCapacity} attendees.` : 'Capacity set to Unlimited.',
+    };
+  } catch (err: unknown) {
+    console.error('updateEventCapacity error:', err);
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : 'Error updating capacity.',
+    };
   }
 }
 

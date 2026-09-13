@@ -262,7 +262,13 @@ export default async function EventReviewPage({ params }: EventReviewPageProps) 
           </div>
 
           {/* Review Banner with Actions */}
-          <EventReviewBanner event={event} canManage={canView} approvalInstance={approvalInstance} />
+          <EventReviewBanner 
+            event={event} 
+            canManage={canView} 
+            approvalInstance={approvalInstance}
+            isPresidential={isPresidential}
+            userRole={userRole}
+          />
 
           {/* Main Grid: Left = Event Details, Right = Approval Stage Tracker */}
           <div style={{
