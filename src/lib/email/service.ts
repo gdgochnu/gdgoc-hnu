@@ -1,4 +1,5 @@
 import { createAdminClient } from '@/lib/supabase/admin';
+import { getAppBaseUrl } from '@/lib/utils';
 
 export interface SendEmailParams {
   to: string;
@@ -155,7 +156,7 @@ export async function sendWelcomeApprovedEmail(params: {
   position?: string;
   portalUrl?: string;
 }): Promise<EmailResult> {
-  const portalUrl = params.portalUrl || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+  const portalUrl = params.portalUrl || getAppBaseUrl();
   const roleDisplay = params.role.replace('_', ' ').toUpperCase();
 
   const content = `
@@ -230,7 +231,7 @@ export async function sendChangesRequestedEmail(params: {
   notes: string;
   actionUrl?: string;
 }): Promise<EmailResult> {
-  const actionUrl = params.actionUrl || `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/onboarding/complete-profile`;
+  const actionUrl = params.actionUrl || `${getAppBaseUrl()}/onboarding/complete-profile`;
 
   const content = `
     <div style="margin-bottom: 24px;">
@@ -291,7 +292,7 @@ export async function sendRejectionEmail(params: {
   reason?: string;
   portalUrl?: string;
 }): Promise<EmailResult> {
-  const portalUrl = params.portalUrl || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+  const portalUrl = params.portalUrl || getAppBaseUrl();
 
   const content = `
     <div style="margin-bottom: 24px;">
@@ -370,7 +371,7 @@ export async function sendEventRegistrationEmail(params: {
   registrationId: string;
   confirmationUrl?: string;
 }): Promise<EmailResult> {
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+  const appUrl = getAppBaseUrl();
   const confirmationUrl = params.confirmationUrl || `${appUrl}/events/${params.eventSlug}/confirmation?reg=${params.registrationId}`;
   const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=${encodeURIComponent(params.qrCode)}&margin=10`;
 
@@ -492,7 +493,7 @@ export interface SendEventFeedbackSurveyParams {
  * Spec §4.18: Sent automatically when an event status transitions to 'completed'.
  */
 export async function sendEventFeedbackSurveyEmail(params: SendEventFeedbackSurveyParams): Promise<EmailResult> {
-  const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000').replace(/\/$/, '');
+  const siteUrl = getAppBaseUrl();
   const targetUrl = params.feedbackUrl || `${siteUrl}/events/${params.eventSlug || params.eventId}/feedback`;
 
   const subject = `⭐ How was ${params.eventTitle}? Share your feedback — GDGoC HNU`;
@@ -577,7 +578,7 @@ export async function sendTaskDelegatedEmail(params: {
   taskId: string;
   isBroadcast?: boolean;
 }): Promise<EmailResult> {
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+  const appUrl = getAppBaseUrl();
   const taskUrl = `${appUrl}/tasks?taskId=${params.taskId}`;
 
   const content = `
@@ -632,7 +633,7 @@ export async function sendTaskReviewRequestEmail(params: {
   stageName: string;
   taskId: string;
 }): Promise<EmailResult> {
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+  const appUrl = getAppBaseUrl();
   const taskUrl = `${appUrl}/tasks?taskId=${params.taskId}`;
 
   const content = `
@@ -678,7 +679,7 @@ export async function sendEventReviewRequestEmail(params: {
   stageName: string;
   eventId: string;
 }): Promise<EmailResult> {
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+  const appUrl = getAppBaseUrl();
   const eventUrl = `${appUrl}/events/${params.eventId}/review`;
 
   const content = `
@@ -722,7 +723,7 @@ export async function sendCheckinDutyAssignedEmail(params: {
   eventTitle: string;
   eventId: string;
 }): Promise<EmailResult> {
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+  const appUrl = getAppBaseUrl();
   const checkinUrl = `${appUrl}/events/${params.eventId}/check-in`;
 
   const content = `
@@ -767,7 +768,7 @@ export async function sendEventApprovedEmail(params: {
   approverName: string;
   eventId: string;
 }): Promise<EmailResult> {
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+  const appUrl = getAppBaseUrl();
   const eventUrl = `${appUrl}/events/${params.eventId}`;
 
   const content = `
@@ -813,7 +814,7 @@ export async function sendBudgetAlertEmail(params: {
   actualCost: number;
   eventId: string;
 }): Promise<EmailResult> {
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+  const appUrl = getAppBaseUrl();
   const budgetUrl = `${appUrl}/events/${params.eventId}/budget`;
 
   const content = `
@@ -858,7 +859,7 @@ export async function sendSpeakerConfirmedEmail(params: {
   organization?: string | null;
   contactId: string;
 }): Promise<EmailResult> {
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+  const appUrl = getAppBaseUrl();
   const prUrl = `${appUrl}/pr`;
 
   const content = `
@@ -901,7 +902,7 @@ export async function sendAlumniTransitionEmail(params: {
   recipientName: string;
   reason?: string | null;
 }): Promise<EmailResult> {
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+  const appUrl = getAppBaseUrl();
 
   const content = `
     <div style="margin-bottom: 24px;">

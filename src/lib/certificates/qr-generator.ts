@@ -136,68 +136,9 @@ export async function generateStyledQRSVG(url: string, size = 240): Promise<stri
 </svg>`;
 }
 
-/** Load sharp via CJS require to avoid the ESM "Importing JSON modules" ExperimentalWarning. */
-function loadSharp(): typeof import('sharp') | null {
-  if (typeof window !== 'undefined') return null;
-  try {
-    const { createRequire } = require('module') as typeof import('module');
-    const req = createRequire(
-      typeof __filename !== 'undefined' ? __filename : require('path').join(process.cwd(), 'package.json')
-    );
-
-    const prev = process.emitWarning;
-    process.emitWarning = ((warning: unknown, ...args: unknown[]) => {
-      const msg =
-        typeof warning === 'string'
-          ? warning
-          : warning && typeof warning === 'object' && 'message' in warning
-            ? String((warning as { message: unknown }).message)
-            : '';
-      if (msg.includes('Importing JSON modules')) return;
-      return (prev as (...a: unknown[]) => void).call(process, warning, ...args);
-    }) as typeof process.emitWarning;
-
-    try {
-      return req('sharp');
-    } finally {
-      process.emitWarning = prev;
-    }
-  } catch {
-    return null;
-  }
-}
-
-async function svgToPngDataUrl(svg: string, size: number): Promise<string | null> {
-  const sharpMod = loadSharp();
-  if (!sharpMod) return null;
-  try {
-    const sharp = sharpMod.default ?? sharpMod;
-    // 2× render for a sharper logo in PDF, then downscale
-    const renderSize = size * 2;
-    const png = await sharp(Buffer.from(svg), { density: 192 })
-      .resize(renderSize, renderSize, {
-        fit: 'contain',
-        background: { r: 0, g: 0, b: 0, alpha: 0 },
-      })
-      .png()
-      .toBuffer();
-    const out = await sharp(png)
-      .resize(size, size, {
-        fit: 'contain',
-        background: { r: 0, g: 0, b: 0, alpha: 0 },
-      })
-      .png()
-      .toBuffer();
-    return `data:image/png;base64,${out.toString('base64')}`;
-  } catch {
-    return null;
-  }
-}
-
 /**
  * Generate a styled QR as a data URL.
- * Default: SVG (web preview / verify page).
- * `forPdf: true` → PNG so react-pdf keeps the center logo.
+ * Transparent SVG data URL containing the official icon.svg mark.
  */
 export async function generateStyledQRDataURL(
   url: string,
@@ -211,11 +152,7 @@ export async function generateStyledQRDataURL(
     return `data:image/svg+xml;base64,${b64}`;
   }
 
-  if (options.forPdf) {
-    const pngUrl = await svgToPngDataUrl(svg, size);
-    if (pngUrl) return pngUrl;
-  }
-
   const b64 = Buffer.from(svg, 'utf-8').toString('base64');
   return `data:image/svg+xml;base64,${b64}`;
 }
+

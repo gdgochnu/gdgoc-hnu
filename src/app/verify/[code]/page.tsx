@@ -20,6 +20,7 @@ import {
 import type { CertificateFieldLayout } from '@/types/certificates';
 import { CertificatePreviewCanvas } from '@/components/certificates/CertificatePreviewCanvas';
 import { CertificateDownloadActions } from '@/components/certificates/CertificateDownloadActions';
+import { getAppBaseUrl } from '@/lib/utils';
 
 interface VerifyPageProps {
   params: Promise<{ code: string }>;
@@ -115,7 +116,7 @@ export default async function CertificateVerificationPage({ params }: VerifyPage
   let fieldLayout: CertificateFieldLayout | null = null;
   let qrCodeDataUrl = '';
 
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+  const baseUrl = getAppBaseUrl();
 
   if (certificate) {
     // QR code encodes canonical serial number URL

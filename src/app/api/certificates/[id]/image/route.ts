@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { generateStyledQRDataURL } from '@/lib/certificates/qr-generator';
+import { getAppBaseUrl } from '@/lib/utils';
 import sharp from 'sharp';
 
 export const dynamic = 'force-dynamic';
@@ -101,7 +102,7 @@ export async function GET(
       ? `${issuerRes.data.full_name} (${issuerRes.data.role.replace('_', ' ')})`
       : 'Chapter Leadership';
 
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+    const baseUrl = getAppBaseUrl();
     const verifyUrl = `${baseUrl}/verify/${cert.verification_code}`;
 
     // 3. Generate styled QR code

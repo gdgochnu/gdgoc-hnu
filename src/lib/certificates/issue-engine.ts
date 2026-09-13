@@ -4,8 +4,10 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { uploadFileToDrive } from '@/lib/drive/drive-client';
 import { notifyCertificateIssued } from '@/lib/notifications/triggers';
 import { CertificatePDFDocument, CertificateData } from './pdf-template';
-import { generateStyledQRDataURL } from './qr-generator';
+import { generateStyledQRSVG } from './qr-generator';
+import sharp from 'sharp';
 import { DEFAULT_FIELD_LAYOUT } from '@/types/certificates';
+import { getAppBaseUrl } from '@/lib/utils';
 import type {
   CertificateTemplate,
   IssueCertificatesBatchInput,
@@ -33,12 +35,23 @@ export interface RenderCertificateInput {
 export async function renderCertificatePDFBuffer(
   input: RenderCertificateInput
 ): Promise<{ buffer: Buffer; verifyUrl: string; qrCodeDataUrl: string }> {
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+  const baseUrl = getAppBaseUrl();
   // Use distinctive serial number in verifyUrl so QR code points directly to canonical serial
   const verifyUrl = `${baseUrl}/verify/${input.certificateNumber}`;
 
   // PNG so @react-pdf/renderer paints the center icon.svg mark
-  const qrCodeDataUrl = await generateStyledQRDataURL(verifyUrl, 240, { forPdf: true });
+  const qrSvg = await generateStyledQRSVG(verifyUrl, 240);
+  let qrCodeDataUrl: string;
+  try {
+    const pngBuffer = await sharp(Buffer.from(qrSvg), { density: 192 })
+      .resize(480, 480, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } })
+      .png()
+      .toBuffer();
+    qrCodeDataUrl = `data:image/png;base64,${pngBuffer.toString('base64')}`;
+  } catch (err) {
+    console.warn('Fallback to SVG QR data URL:', err);
+    qrCodeDataUrl = `data:image/svg+xml;base64,${Buffer.from(qrSvg, 'utf-8').toString('base64')}`;
+  }
 
 
   const certData: CertificateData = {
