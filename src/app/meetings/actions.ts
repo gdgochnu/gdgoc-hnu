@@ -13,6 +13,7 @@ import {
   DepartmentBranch,
 } from '@/types';
 import { createNotification } from '@/app/notifications/actions';
+import { notifyTeamMeetingScheduled } from '@/lib/notifications/triggers';
 
 export interface CreateTeamMeetingInput {
   title: string;
@@ -234,27 +235,19 @@ export async function createTeamMeeting(input: CreateTeamMeetingInput): Promise<
         await admin.from('team_meeting_attendees').insert(chunk);
       }
 
-      // Notify invited members (except creator)
+      // Notify invited members (except creator) safely and synchronously
       const notifyIds = uniqueAttendeeIds.filter((id) => id !== creatorProfileId);
-      const locationText = input.type === 'online' ? 'Online' : (input.location || 'In-Person');
-      
-      // Async dispatch notifications
-      (async () => {
-        for (const targetId of notifyIds) {
-          try {
-            await createNotification({
-              profileId: targetId,
-              type: 'team_meeting_scheduled',
-              title: `New Team Meeting: ${meeting.title}`,
-              message: `You have been scheduled for a team meeting on ${meeting.meeting_date} at ${meeting.start_time} (${locationText}).`,
-              relatedEntityType: 'team_meeting',
-              relatedEntityId: meeting.id,
-            });
-          } catch (e) {
-            // non-blocking notification error
-          }
-        }
-      })();
+      if (notifyIds.length > 0) {
+        await notifyTeamMeetingScheduled({
+          meetingId: meeting.id,
+          meetingTitle: meeting.title,
+          meetingDate: meeting.meeting_date,
+          startTime: meeting.start_time,
+          type: input.type,
+          locationOrUrl: input.type === 'online' ? input.onlineMeetingUrl : input.location,
+          targetProfileIds: notifyIds,
+        });
+      }
     }
 
     revalidatePath('/meetings');
@@ -498,7 +491,7 @@ export async function addMeetingAttendee(params: {
     const admin = createAdminClient();
     const { data: meeting } = await admin
       .from('team_meetings')
-      .select('id, created_by, facilitator_id')
+      .select('id, title, meeting_date, start_time, type, online_meeting_url, location, created_by, facilitator_id')
       .eq('id', params.meetingId)
       .single();
 
@@ -524,6 +517,19 @@ export async function addMeetingAttendee(params: {
 
     if (error) {
       return { success: false, error: error.message };
+    }
+
+    // Safely notify the newly added attendee
+    if (params.profileId !== context.profile.id) {
+      await notifyTeamMeetingScheduled({
+        meetingId: meeting.id,
+        meetingTitle: meeting.title,
+        meetingDate: meeting.meeting_date,
+        startTime: meeting.start_time,
+        type: meeting.type,
+        locationOrUrl: meeting.type === 'online' ? meeting.online_meeting_url : meeting.location,
+        targetProfileIds: [params.profileId],
+      });
     }
 
     revalidatePath(`/meetings/${params.meetingId}`);
@@ -874,5 +880,72 @@ export async function getMemberMeetingAttendanceStats(profileId: string): Promis
     };
   } catch (err: any) {
     return { success: false, error: err.message };
+  }
+}
+
+/**
+ * 10. Send reminder notification to all attendees of a meeting
+ */
+export async function sendMeetingReminders(meetingId: string): Promise<{
+  success: boolean;
+  sentCount?: number;
+  error?: string;
+}> {
+  try {
+    const context = await getUserContext();
+    if (!context.user || !context.profile) {
+      return { success: false, error: 'Authentication required.' };
+    }
+
+    const admin = createAdminClient();
+    const { data: meeting, error: mErr } = await admin
+      .from('team_meetings')
+      .select('*')
+      .eq('id', meetingId)
+      .single();
+
+    if (mErr || !meeting) {
+      return { success: false, error: 'Meeting not found.' };
+    }
+
+    if (!canRecordAttendance(context.profile, meeting)) {
+      return {
+        success: false,
+        error: 'Forbidden: Only organizers, Chapter Leadership, or HR can send meeting reminders.',
+      };
+    }
+
+    // Fetch attendees for this meeting
+    const { data: attendees, error: aErr } = await admin
+      .from('team_meeting_attendees')
+      .select('profile_id')
+      .eq('meeting_id', meetingId);
+
+    if (aErr) {
+      return { success: false, error: aErr.message };
+    }
+
+    const targetProfileIds = (attendees || [])
+      .map((a) => a.profile_id)
+      .filter((id) => id !== context.profile?.id); // Do not notify the sender themselves
+
+    if (targetProfileIds.length === 0) {
+      return { success: false, error: 'No attendee members to notify.' };
+    }
+
+    const sentCount = await notifyTeamMeetingScheduled({
+      meetingId: meeting.id,
+      meetingTitle: meeting.title,
+      meetingDate: meeting.meeting_date,
+      startTime: meeting.start_time,
+      type: meeting.type,
+      locationOrUrl: meeting.type === 'online' ? meeting.online_meeting_url : meeting.location,
+      targetProfileIds,
+    });
+
+    return { success: true, sentCount };
+  } catch (err: any) {
+    console.error('sendMeetingReminders error:', err);
+    return { success: false, error: err.message || 'Failed to send reminders.' };
   }
 }

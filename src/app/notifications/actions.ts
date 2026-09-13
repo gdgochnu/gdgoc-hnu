@@ -15,11 +15,15 @@ function computeNotificationActionUrl(
     if (type.startsWith('event')) return '/events';
     if (type.startsWith('account')) return '/approvals';
     if (type.startsWith('onboarding')) return '/onboarding';
+    if (type.includes('meeting')) return '/meetings';
     return '/dashboard';
   }
 
   const entityType = (relatedEntityType || type).toLowerCase();
 
+  if (entityType.includes('meeting')) {
+    return '/meetings';
+  }
   if (entityType.includes('task')) {
     return `/tasks${relatedEntityId ? `?taskId=${relatedEntityId}` : ''}`;
   }

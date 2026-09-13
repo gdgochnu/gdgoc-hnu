@@ -89,6 +89,7 @@ export function NotificationsClient({ initialSummary }: NotificationsClientProps
 
   const getNotificationIcon = (type: string) => {
     const t = type.toLowerCase();
+    if (t.includes('meeting')) return <Calendar size={16} color="#38BDF8" />;
     if (t.includes('task')) return <CheckSquare size={16} color="#34A853" />;
     if (t.includes('event')) return <Calendar size={16} color="#A855F7" />;
     if (t.includes('account') || t.includes('approval')) return <UserCheck size={16} color="#4285F4" />;

@@ -873,3 +873,32 @@ export async function notifyGamificationAward(params: {
     },
   ]);
 }
+
+/**
+ * 22. Team Meeting Scheduled / Reminder
+ * Notifies all invited team members that they have an internal meeting scheduled.
+ */
+export async function notifyTeamMeetingScheduled(params: {
+  meetingId: string;
+  meetingTitle: string;
+  meetingDate: string;
+  startTime: string;
+  type: 'online' | 'offline';
+  locationOrUrl?: string | null;
+  targetProfileIds: string[];
+}): Promise<number> {
+  if (!params.targetProfileIds || params.targetProfileIds.length === 0) return 0;
+
+  const formatText = params.type === 'online' ? 'Online' : (params.locationOrUrl || 'In-Person');
+  const payloads = params.targetProfileIds.map((pid) => ({
+    profileId: pid,
+    type: 'team_meeting_scheduled',
+    title: `Team Meeting Scheduled: ${params.meetingTitle} 📅`,
+    message: `You are required to attend "${params.meetingTitle}" on ${params.meetingDate} at ${params.startTime} (${formatText}). Please check your meetings dashboard for details.`,
+    relatedEntityType: 'team_meeting',
+    relatedEntityId: params.meetingId,
+  }));
+
+  return dispatchNotificationsSafely(payloads);
+}
+

@@ -27,7 +27,8 @@ import {
   Loader2,
   Check,
   MessageSquare,
-  Sparkles
+  Sparkles,
+  Bell,
 } from 'lucide-react';
 import { TeamMeeting, TeamMeetingAttendee, TeamMeetingAttendanceStatus } from '@/types';
 import {
@@ -35,6 +36,7 @@ import {
   batchUpdateMeetingAttendees,
   addMeetingAttendee,
   deleteTeamMeeting,
+  sendMeetingReminders,
 } from '@/app/meetings/actions';
 
 interface MeetingAttendanceClientProps {
@@ -68,6 +70,7 @@ export function MeetingAttendanceClient({
   const [noteModalAttendee, setNoteModalAttendee] = useState<TeamMeetingAttendee | null>(null);
   const [noteText, setNoteText] = useState('');
   const [updatingProfileId, setUpdatingProfileId] = useState<string | null>(null);
+  const [isSendingNotification, setIsSendingNotification] = useState(false);
 
   // Compute live stats
   const totalCount = attendees.length;
@@ -267,6 +270,33 @@ export function MeetingAttendanceClient({
     });
   };
 
+  // Send Notification / Reminder to all attendees
+  const handleSendReminders = async () => {
+    if (!canManageAttendance) return;
+    if (attendees.length === 0) {
+      alert('No attendees found for this meeting to notify.');
+      return;
+    }
+
+    if (!confirm(`Send meeting notification and reminder to all ${attendees.length} invited attendees?`)) {
+      return;
+    }
+
+    setIsSendingNotification(true);
+    try {
+      const res = await sendMeetingReminders(meeting.id);
+      if (res.success) {
+        alert(`Notification dispatched successfully to ${res.sentCount || attendees.length} attendee(s)!`);
+      } else {
+        alert(res.error || 'Failed to send meeting reminders.');
+      }
+    } catch (err: any) {
+      alert(err.message || 'Error sending reminders.');
+    } finally {
+      setIsSendingNotification(false);
+    }
+  };
+
   // Export to Excel
   const handleExportExcel = () => {
     const dataRows = attendees.map((a, idx) => ({
@@ -444,6 +474,32 @@ export function MeetingAttendanceClient({
                 <span>Join Google Meet</span>
                 <ExternalLink size={14} />
               </a>
+            )}
+
+            {canManageAttendance && (
+              <button
+                type="button"
+                onClick={handleSendReminders}
+                disabled={isSendingNotification || isPending}
+                style={{
+                  padding: '0.75rem 1.2rem',
+                  borderRadius: '12px',
+                  background: 'rgba(251, 188, 4, 0.15)',
+                  border: '1px solid rgba(251, 188, 4, 0.35)',
+                  color: '#FDE047',
+                  fontSize: '0.85rem',
+                  fontWeight: 700,
+                  cursor: isSendingNotification ? 'wait' : 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '0.45rem',
+                  transition: 'all 0.2s ease',
+                }}
+              >
+                {isSendingNotification ? <Loader2 size={16} className="animate-spin" /> : <Bell size={16} />}
+                <span>{isSendingNotification ? 'Dispatching...' : 'Notify All Attendees'}</span>
+              </button>
             )}
 
             {canDeleteMeeting && (
@@ -765,6 +821,28 @@ export function MeetingAttendanceClient({
               >
                 <Plus size={13} />
                 <span>Add Member</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleSendReminders}
+                disabled={isSendingNotification || isPending}
+                style={{
+                  padding: '0.5rem 0.85rem',
+                  borderRadius: '8px',
+                  background: 'rgba(251, 188, 4, 0.12)',
+                  border: '1px solid rgba(251, 188, 4, 0.3)',
+                  color: '#FDE047',
+                  fontSize: '0.8rem',
+                  fontWeight: 700,
+                  cursor: isSendingNotification ? 'wait' : 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.35rem',
+                }}
+              >
+                {isSendingNotification ? <Loader2 size={13} className="animate-spin" /> : <Bell size={13} />}
+                <span>Notify Attendees</span>
               </button>
             </>
           )}
