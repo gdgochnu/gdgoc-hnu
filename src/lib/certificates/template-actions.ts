@@ -86,7 +86,7 @@ export async function saveCertificateTemplateAction(input: {
       if (!canManage) {
         return {
           success: false,
-          error: 'Only President or Co-President can create or edit certificate templates (§4.14).',
+          error: 'Unauthorized: Only the Chapter President can create or edit certificate templates.',
         };
       }
       callerId = context.profile.id;
@@ -142,7 +142,7 @@ export async function deleteCertificateTemplateAction(id: string, bypassAuth = f
       if (!context.profile) return { success: false, error: 'Unauthorized' };
       const role = context.profile.role;
       if (role !== 'president' && role !== 'co_president') {
-        return { success: false, error: 'Unauthorized' };
+        return { success: false, error: 'Unauthorized: Only the Chapter President can delete certificate templates.' };
       }
     }
 

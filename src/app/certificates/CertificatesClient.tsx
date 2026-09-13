@@ -65,6 +65,7 @@ export function CertificatesClient({
   currentUserId,
   userEmail,
 }: CertificatesClientProps) {
+  const isPresident = ['president', 'co_president'].includes(userRole);
   const isLeadership = [
     'president',
     'co_president',
@@ -436,30 +437,33 @@ export function CertificatesClient({
           <span>My Certificates ({myCerts.length})</span>
         </button>
 
-        {/* Leadership-only Tabs: Chapter Registry, Issue Batch, Templates */}
+        {/* Leadership-only Tabs: Chapter Registry */}
         {isLeadership && (
-          <>
-            <button
-              onClick={() => setActiveTab('issued')}
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '0.5rem',
-                padding: '0.7rem 1.25rem',
-                borderRadius: '12px',
-                border: activeTab === 'issued' ? '1px solid var(--google-blue)' : '1px solid transparent',
-                background: activeTab === 'issued' ? 'rgba(66, 133, 244, 0.12)' : 'transparent',
-                color: activeTab === 'issued' ? '#fff' : 'var(--text-secondary)',
-                fontSize: '0.85rem',
-                fontWeight: 700,
-                cursor: 'pointer',
-                transition: 'all 0.2s',
-              }}
-            >
-              <GraduationCap size={16} color={activeTab === 'issued' ? 'var(--google-blue)' : 'currentColor'} />
-              <span>Chapter Registry ({certificates.length})</span>
-            </button>
+          <button
+            onClick={() => setActiveTab('issued')}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.5rem',
+              padding: '0.7rem 1.25rem',
+              borderRadius: '12px',
+              border: activeTab === 'issued' ? '1px solid var(--google-blue)' : '1px solid transparent',
+              background: activeTab === 'issued' ? 'rgba(66, 133, 244, 0.12)' : 'transparent',
+              color: activeTab === 'issued' ? '#fff' : 'var(--text-secondary)',
+              fontSize: '0.85rem',
+              fontWeight: 700,
+              cursor: 'pointer',
+              transition: 'all 0.2s',
+            }}
+          >
+            <GraduationCap size={16} color={activeTab === 'issued' ? 'var(--google-blue)' : 'currentColor'} />
+            <span>Chapter Registry ({certificates.length})</span>
+          </button>
+        )}
 
+        {/* Presidential-only Tabs: Issue Batch & Template Builder */}
+        {isPresident && (
+          <>
             <button
               onClick={() => setActiveTab('issue')}
               style={{
@@ -1071,7 +1075,7 @@ export function CertificatesClient({
                       <Shield size={15} />
                     </a>
 
-                    {isLeadership && (
+                    {isPresident && (
                       <button
                         onClick={() => handleDeleteCertificate(cert.id, cert.recipient_name)}
                         disabled={deletingCertId === cert.id}
@@ -1105,7 +1109,7 @@ export function CertificatesClient({
       )}
 
       {/* TAB 2: ISSUE NEW BATCH */}
-      {activeTab === 'issue' && isLeadership && (
+      {activeTab === 'issue' && isPresident && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.75rem' }}>
           {/* Issue form configuration */}
           <div
@@ -1308,7 +1312,7 @@ export function CertificatesClient({
       )}
 
       {/* TAB 3: TEMPLATE BUILDER & TEMPLATE MANAGER */}
-      {activeTab === 'templates' && isLeadership && (
+      {activeTab === 'templates' && isPresident && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
           {/* Template Switcher Bar */}
           <div

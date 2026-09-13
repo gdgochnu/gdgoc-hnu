@@ -25,6 +25,7 @@ async function CertificatesDataLoader({
 }) {
   const admin = createAdminClient();
 
+  const isPresident = ['president', 'co_president'].includes(userRole);
   const isLeadership = [
     'president',
     'co_president',
@@ -33,14 +34,14 @@ async function CertificatesDataLoader({
     'committee_co_head',
   ].includes(userRole);
 
-  // Fetch data in parallel: templates & chapter ledger for leadership only, user's own certificates, and events
+  // Fetch data in parallel: templates for Chapter President only, chapter ledger for leadership, user's own certificates, and events
   const [
     templatesRes,
     { data: myCerts },
     certsRes,
     { data: events },
   ] = await Promise.all([
-    isLeadership
+    isPresident
       ? admin
           .from('certificate_templates')
           .select('*')

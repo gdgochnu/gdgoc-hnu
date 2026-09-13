@@ -23,21 +23,15 @@ export async function issueBatchAction(
     };
   }
 
-  const isLeadership = [
-    'president',
-    'co_president',
-    'branch_head',
-    'committee_head',
-    'committee_co_head',
-  ].includes(context.profile.role);
+  const isPresident = ['president', 'co_president'].includes(context.profile.role);
 
-  if (!isLeadership) {
+  if (!isPresident) {
     return {
       success: false,
       totalRequested: input.recipients.length,
       totalIssued: 0,
       issuedCertificates: [],
-      errors: ['Insufficient permissions to issue chapter certificates.'],
+      errors: ['Unauthorized: Only the Chapter President can issue certificates.'],
     };
   }
 
@@ -99,16 +93,10 @@ export async function deleteIssuedCertificateAction(certificateId: string): Prom
       return { success: false, error: 'Unauthorized. Please sign in.' };
     }
 
-    const isLeadership = [
-      'president',
-      'co_president',
-      'branch_head',
-      'committee_head',
-      'committee_co_head',
-    ].includes(context.profile.role);
+    const isPresident = ['president', 'co_president'].includes(context.profile.role);
 
-    if (!isLeadership) {
-      return { success: false, error: 'Insufficient permissions to delete certificates.' };
+    if (!isPresident) {
+      return { success: false, error: 'Unauthorized: Only the Chapter President can delete certificates.' };
     }
 
     const admin = createAdminClient();
