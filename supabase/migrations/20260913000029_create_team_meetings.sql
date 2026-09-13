@@ -15,7 +15,7 @@ CREATE TABLE IF NOT EXISTS public.team_meetings (
     online_meeting_url TEXT DEFAULT NULL,
     location TEXT DEFAULT NULL,
     target_audience_type TEXT NOT NULL CHECK (target_audience_type IN ('all_team', 'branch', 'department', 'selected_members')),
-    target_branch TEXT CHECK (target_branch IN ('tech', 'non_tech')),
+    target_branch public.department_branch DEFAULT NULL,
     target_department_id UUID REFERENCES public.departments(id) ON DELETE SET NULL,
     status TEXT NOT NULL DEFAULT 'scheduled' CHECK (status IN ('scheduled', 'in_progress', 'completed', 'cancelled')),
     created_by UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
@@ -84,7 +84,7 @@ CREATE POLICY "team_meetings_select_policy" ON public.team_meetings
             target_audience_type = 'branch' AND EXISTS (
                 SELECT 1 FROM public.profiles p
                 JOIN public.departments d ON p.department_id = d.id
-                WHERE p.id = auth.uid() AND d.branch = team_meetings.target_branch
+                WHERE p.id = auth.uid() AND d.branch::text = team_meetings.target_branch::text
             )
         )
         OR (
