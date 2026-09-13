@@ -30,6 +30,7 @@ import {
   Activity,
   BarChart3,
   Search,
+  Video,
 } from 'lucide-react';
 import { GlobalSearchBar } from './GlobalSearchBar';
 import { NotificationCenter } from '@/components/notifications/NotificationCenter';
@@ -165,6 +166,11 @@ export function AppNavigation({
         label: 'Events',
         href: '/events',
         icon: Calendar,
+      },
+      {
+        label: 'Team Meetings',
+        href: '/meetings',
+        icon: Video,
       },
       {
         label: 'Members Directory',

@@ -4,6 +4,7 @@ import { AppShell } from '@/components/layout/AppShell';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getUserContext } from '@/lib/auth/get-user-context';
 import { MemberProfileView, MemberProfileData } from '@/components/MemberProfileView';
+import { getMemberMeetingAttendanceStats } from '@/app/meetings/actions';
 
 export const dynamic = 'force-dynamic';
 
@@ -30,6 +31,7 @@ export default async function ProfilePage() {
     { data: attendanceRowsData },
     { count: totalEventsCount },
     { data: facultyOptionsData },
+    meetingsAttRes,
   ] = await Promise.all([
     admin
       .from('profiles')
@@ -74,6 +76,7 @@ export default async function ProfilePage() {
       .select('id, name_ar, name_en')
       .eq('is_active', true)
       .order('sort_order', { ascending: true }),
+    getMemberMeetingAttendanceStats(userId),
   ]);
 
   if (!profile) {
@@ -130,6 +133,8 @@ export default async function ProfilePage() {
           totalCompletedEventsCount={totalEventsCount || 0}
           facultyOptions={facultyOptionsData || []}
           isDedicatedProfilePage={true}
+          meetingAttendanceStats={meetingsAttRes?.stats}
+          meetingAttendanceRecords={meetingsAttRes?.meetings}
         />
       </div>
     </AppShell>

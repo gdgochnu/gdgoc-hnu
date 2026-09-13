@@ -1,6 +1,7 @@
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getUserContext } from '@/lib/auth/get-user-context';
 import { MemberProfileView, MemberProfileData } from '@/components/MemberProfileView';
+import { getMemberMeetingAttendanceStats } from '@/app/meetings/actions';
 import Link from 'next/link';
 import { ShieldAlert, ArrowLeft } from 'lucide-react';
 
@@ -128,13 +129,14 @@ export default async function MemberProfilePage({ params }: MemberProfilePagePro
     custom_fields: profile.custom_fields || {},
   };
 
-  // 4. Fetch performance reviews, certificates, and live attendance metrics in parallel (Spec §4.6 & Step 10.5)
+  // 4. Fetch performance reviews, certificates, live attendance metrics, and meetings attendance in parallel
   const [
     { data: performanceReviewsData },
     { data: certificatesData },
     { data: attendanceRowsData },
     { count: totalEventsCount },
     { data: facultyOptionsData },
+    meetingsAttRes,
   ] = await Promise.all([
     admin
       .from('performance_reviews')
@@ -174,6 +176,7 @@ export default async function MemberProfilePage({ params }: MemberProfilePagePro
       .select('id, name_ar, name_en')
       .eq('is_active', true)
       .order('sort_order', { ascending: true }),
+    getMemberMeetingAttendanceStats(id),
   ]);
 
   return (
@@ -191,6 +194,8 @@ export default async function MemberProfilePage({ params }: MemberProfilePagePro
         totalCompletedEventsCount={totalEventsCount || 0}
         facultyOptions={facultyOptionsData || []}
         departments={allDepartments}
+        meetingAttendanceStats={meetingsAttRes?.stats}
+        meetingAttendanceRecords={meetingsAttRes?.meetings}
       />
     </div>
   );

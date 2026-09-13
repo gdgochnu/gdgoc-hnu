@@ -585,6 +585,74 @@ export interface GlobalSearchResult {
   rank: number;
 }
 
+export type TeamMeetingType = 'online' | 'offline';
+export type TeamMeetingAudienceType = 'all_team' | 'branch' | 'department' | 'selected_members';
+export type TeamMeetingStatus = 'scheduled' | 'in_progress' | 'completed' | 'cancelled';
+export type TeamMeetingAttendanceStatus = 'pending' | 'present' | 'absent' | 'excused' | 'late';
+
+export interface TeamMeeting {
+  id: string;
+  title: string;
+  description: string | null;
+  meeting_date: string;
+  start_time: string;
+  end_time: string | null;
+  type: TeamMeetingType;
+  online_meeting_url: string | null;
+  location: string | null;
+  target_audience_type: TeamMeetingAudienceType;
+  target_branch: DepartmentBranch | null;
+  target_department_id: string | null;
+  status: TeamMeetingStatus;
+  created_by: string;
+  facilitator_id: string | null;
+  agenda: string | null;
+  minutes: string | null;
+  created_at: string;
+  updated_at: string;
+  creator?: {
+    id: string;
+    full_name: string;
+    avatar_url: string | null;
+    role: UserRole;
+  } | null;
+  facilitator?: {
+    id: string;
+    full_name: string;
+    avatar_url: string | null;
+  } | null;
+  target_department?: {
+    id: string;
+    name: string;
+    code: string;
+    branch: DepartmentBranch;
+  } | null;
+  attendees_count?: number;
+  my_attendance?: TeamMeetingAttendee | null;
+}
+
+export interface TeamMeetingAttendee {
+  id: string;
+  meeting_id: string;
+  profile_id: string;
+  status: TeamMeetingAttendanceStatus;
+  check_in_time: string | null;
+  marked_by: string | null;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+  profile?: {
+    id: string;
+    full_name: string;
+    email: string;
+    avatar_url: string | null;
+    role: UserRole;
+    department?: {
+      name: string;
+      code: string;
+    } | null;
+  } | null;
+}
 
 export * from './command-center';
 

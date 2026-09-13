@@ -89,6 +89,24 @@ interface MemberProfileViewProps {
   facultyOptions?: Array<{ id: string; name_ar: string; name_en: string }>;
   isDedicatedProfilePage?: boolean;
   departments?: Array<{ id: string; name: string; code: string; branch: string }>;
+  meetingAttendanceStats?: {
+    totalInvited: number;
+    presentCount: number;
+    lateCount: number;
+    excusedCount: number;
+    absentCount: number;
+    attendanceRate: number;
+  };
+  meetingAttendanceRecords?: Array<{
+    meetingId: string;
+    title: string;
+    meetingDate: string;
+    startTime: string;
+    type: string;
+    status: string;
+    notes: string | null;
+    checkInTime: string | null;
+  }>;
 }
 
 export function MemberProfileView({
@@ -105,6 +123,8 @@ export function MemberProfileView({
   facultyOptions = [],
   isDedicatedProfilePage = false,
   departments = [],
+  meetingAttendanceStats,
+  meetingAttendanceRecords,
 }: MemberProfileViewProps) {
   const [currentMember, setCurrentMember] = useState<MemberProfileData>(initialMember);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -1180,6 +1200,8 @@ export function MemberProfileView({
           reviews={performanceReviews}
           eventsAttendedCount={eventsAttendedCount}
           totalCompletedEventsCount={totalCompletedEventsCount}
+          meetingAttendanceStats={meetingAttendanceStats}
+          meetingAttendanceRecords={meetingAttendanceRecords}
         />
       ) : null}
 
