@@ -557,12 +557,7 @@ export async function getMeetingsList(filter?: {
 
     let query = admin
       .from('team_meetings')
-      .select(`
-        *,
-        creator:profiles!team_meetings_created_by_fkey(id, full_name, avatar_url, role),
-        facilitator:profiles!team_meetings_facilitator_id_fkey(id, full_name, avatar_url),
-        target_department:departments(id, name, code, branch)
-      `)
+      .select('*')
       .order('meeting_date', { ascending: filter?.tab === 'past' ? false : true })
       .order('start_time', { ascending: true });
 
@@ -586,7 +581,29 @@ export async function getMeetingsList(filter?: {
       return { success: false, meetings: [], canSchedule: false, error: error.message };
     }
 
-    const meetingIds = (meetingsData || []).map((m) => m.id);
+    const rawMeetings = meetingsData || [];
+    const meetingIds = rawMeetings.map((m) => m.id);
+
+    // Collect related IDs for creators and departments
+    const creatorIds = Array.from(new Set(rawMeetings.map((m) => m.created_by).filter(Boolean)));
+    const facilitatorIds = Array.from(new Set(rawMeetings.map((m) => m.facilitator_id).filter(Boolean)));
+    const allProfileIds = Array.from(new Set([...creatorIds, ...facilitatorIds]));
+    const departmentIds = Array.from(new Set(rawMeetings.map((m) => m.target_department_id).filter(Boolean)));
+
+    const [profilesRes, departmentsRes] = await Promise.all([
+      allProfileIds.length > 0
+        ? admin.from('profiles').select('id, full_name, avatar_url, role').in('id', allProfileIds)
+        : Promise.resolve({ data: [] }),
+      departmentIds.length > 0
+        ? admin.from('departments').select('id, name, code, branch').in('id', departmentIds)
+        : Promise.resolve({ data: [] }),
+    ]);
+
+    const profilesMap = new Map<string, any>();
+    (profilesRes.data || []).forEach((p) => profilesMap.set(p.id, p));
+
+    const departmentsMap = new Map<string, any>();
+    (departmentsRes.data || []).forEach((d) => departmentsMap.set(d.id, d));
 
     // Fetch attendees count & user's attendance
     let attendeesCountMap = new Map<string, number>();
@@ -606,8 +623,11 @@ export async function getMeetingsList(filter?: {
       });
     }
 
-    let finalMeetings: TeamMeeting[] = (meetingsData || []).map((m) => ({
+    let finalMeetings: TeamMeeting[] = rawMeetings.map((m) => ({
       ...m,
+      creator: profilesMap.get(m.created_by) || null,
+      facilitator: profilesMap.get(m.facilitator_id) || null,
+      target_department: departmentsMap.get(m.target_department_id) || null,
       attendees_count: attendeesCountMap.get(m.id) || 0,
       my_attendance: myAttendanceMap.get(m.id) || null,
     }));
@@ -656,12 +676,7 @@ export async function getMeetingDetails(meetingId: string): Promise<{
     const admin = createAdminClient();
     const { data: meeting, error: meetingErr } = await admin
       .from('team_meetings')
-      .select(`
-        *,
-        creator:profiles!team_meetings_created_by_fkey(id, full_name, avatar_url, role),
-        facilitator:profiles!team_meetings_facilitator_id_fkey(id, full_name, avatar_url),
-        target_department:departments(id, name, code, branch)
-      `)
+      .select('*')
       .eq('id', meetingId)
       .single();
 
@@ -669,26 +684,54 @@ export async function getMeetingDetails(meetingId: string): Promise<{
       return { success: false, error: 'Meeting not found.' };
     }
 
-    // Fetch attendees with profiles and departments
-    const { data: attendeesData, error: attErr } = await admin
+    // Fetch creator, facilitator, and department in parallel
+    const [creatorRes, facilitatorRes, deptRes] = await Promise.all([
+      meeting.created_by
+        ? admin.from('profiles').select('id, full_name, avatar_url, role').eq('id', meeting.created_by).maybeSingle()
+        : Promise.resolve({ data: null }),
+      meeting.facilitator_id
+        ? admin.from('profiles').select('id, full_name, avatar_url').eq('id', meeting.facilitator_id).maybeSingle()
+        : Promise.resolve({ data: null }),
+      meeting.target_department_id
+        ? admin.from('departments').select('id, name, code, branch').eq('id', meeting.target_department_id).maybeSingle()
+        : Promise.resolve({ data: null }),
+    ]);
+
+    // Fetch attendees cleanly with select('*')
+    const { data: rawAttendees, error: attErr } = await admin
       .from('team_meeting_attendees')
-      .select(`
-        *,
-        profile:profiles(
-          id,
-          full_name,
-          email,
-          avatar_url,
-          role,
-          department:departments(name, code)
-        )
-      `)
+      .select('*')
       .eq('meeting_id', meetingId)
       .order('created_at', { ascending: true });
 
     if (attErr) {
       console.error('getMeetingDetails attendees error:', attErr);
     }
+
+    const attendeesList = rawAttendees || [];
+    const profileIds = Array.from(new Set(attendeesList.map((a) => a.profile_id)));
+
+    let attendeesProfilesMap = new Map<string, any>();
+    if (profileIds.length > 0) {
+      const { data: profs } = await admin
+        .from('profiles')
+        .select(`
+          id,
+          full_name,
+          email,
+          avatar_url,
+          role,
+          department:departments(name, code)
+        `)
+        .in('id', profileIds);
+
+      (profs || []).forEach((p) => attendeesProfilesMap.set(p.id, p));
+    }
+
+    const hydratedAttendees: TeamMeetingAttendee[] = attendeesList.map((a) => ({
+      ...a,
+      profile: attendeesProfilesMap.get(a.profile_id) || null,
+    }));
 
     const canManageAttendance = canRecordAttendance(context.profile, meeting);
     const isPresident = context.profile.role === 'president' || context.profile.role === 'co_president';
@@ -698,9 +741,12 @@ export async function getMeetingDetails(meetingId: string): Promise<{
       success: true,
       meeting: {
         ...meeting,
-        attendees_count: (attendeesData || []).length,
+        creator: creatorRes.data || null,
+        facilitator: facilitatorRes.data || null,
+        target_department: deptRes.data || null,
+        attendees_count: hydratedAttendees.length,
       },
-      attendees: (attendeesData || []) as TeamMeetingAttendee[],
+      attendees: hydratedAttendees,
       canManageAttendance,
       canEditMeeting: canManageAttendance,
       canDeleteMeeting: isPresident || isCreator,
