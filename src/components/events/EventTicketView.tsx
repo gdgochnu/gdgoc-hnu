@@ -112,23 +112,36 @@ export function EventTicketView({ registration }: EventTicketViewProps) {
     year: 'numeric',
   });
 
-  // Google Calendar URL Generator
-  const generateGoogleCalendarUrl = () => {
-    const origin = typeof window !== 'undefined' ? window.location.origin : '';
-    const title = encodeURIComponent(event.title);
+  // Google Calendar URL Generator (Stable SSR + Client hydration match)
+  const [calendarUrl, setCalendarUrl] = useState<string>(() => {
+    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://gdgoc-hnu.vercel.app';
+    const title = encodeURIComponent(event.title || '');
     const details = encodeURIComponent(
-      `${event.description || ''}\n\nMy Registration ID: ${registration.qr_code}\nEvent Page: ${origin}/events/${event.slug}`
+      `${event.description || ''}\n\nMy Registration ID: ${registration.qr_code}\nEvent Page: ${baseUrl}/events/${event.slug || event.id}`
     );
     const location = encodeURIComponent(event.venue || 'Helwan National University');
-
-    // Parse start and end time (format YYYYMMDDTHHmmssZ)
-    const dateClean = event.event_date.replace(/-/g, '');
+    const dateClean = (event.event_date || '').replace(/-/g, '');
     const startTimeClean = (event.start_time || '10:00').replace(/:/g, '') + '00';
     const endTimeClean = (event.end_time || '14:00').replace(/:/g, '') + '00';
     const dates = `${dateClean}T${startTimeClean}/${dateClean}T${endTimeClean}`;
-
     return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${title}&dates=${dates}&details=${details}&location=${location}`;
-  };
+  });
+
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.location.origin) {
+      const origin = window.location.origin;
+      const title = encodeURIComponent(event.title || '');
+      const details = encodeURIComponent(
+        `${event.description || ''}\n\nMy Registration ID: ${registration.qr_code}\nEvent Page: ${origin}/events/${event.slug || event.id}`
+      );
+      const location = encodeURIComponent(event.venue || 'Helwan National University');
+      const dateClean = (event.event_date || '').replace(/-/g, '');
+      const startTimeClean = (event.start_time || '10:00').replace(/:/g, '') + '00';
+      const endTimeClean = (event.end_time || '14:00').replace(/:/g, '') + '00';
+      const dates = `${dateClean}T${startTimeClean}/${dateClean}T${endTimeClean}`;
+      setCalendarUrl(`https://calendar.google.com/calendar/render?action=TEMPLATE&text=${title}&dates=${dates}&details=${details}&location=${location}`);
+    }
+  }, [event, registration]);
 
   return (
     <div style={{
@@ -204,9 +217,10 @@ export function EventTicketView({ registration }: EventTicketViewProps) {
           </button>
 
           <a
-            href={generateGoogleCalendarUrl()}
+            href={calendarUrl}
             target="_blank"
             rel="noopener noreferrer"
+            suppressHydrationWarning
             style={{
               display: 'inline-flex',
               alignItems: 'center',
@@ -432,7 +446,7 @@ export function EventTicketView({ registration }: EventTicketViewProps) {
                     <Calendar size={13} color="#60A5FA" />
                     <span>Date</span>
                   </div>
-                  <div style={{ fontWeight: 700, fontSize: '0.92rem', color: '#F1F5F9' }}>
+                  <div style={{ fontWeight: 700, fontSize: '0.92rem', color: '#F1F5F9' }} suppressHydrationWarning>
                     {formattedDate}
                   </div>
                 </div>
