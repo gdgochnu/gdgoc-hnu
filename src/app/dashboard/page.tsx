@@ -365,10 +365,12 @@ async function DashboardDataLoader() {
   );
 }
 
-export default function DashboardPage() {
+export default async function DashboardPage() {
+  const context = await getUserContext();
+
   return (
     <AppShell>
-      <Suspense fallback={<DashboardSkeleton />}>
+      <Suspense fallback={<DashboardSkeleton role={context.profile?.role} />}>
         <DashboardDataLoader />
       </Suspense>
     </AppShell>

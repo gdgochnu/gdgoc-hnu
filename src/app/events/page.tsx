@@ -119,10 +119,14 @@ export default async function EventsPage() {
     );
   }
 
+  const canCreate = context.profile?.role
+    ? ['president', 'co_president', 'branch_head', 'committee_head', 'committee_co_head'].includes(context.profile.role)
+    : false;
+
   return (
     <AppShell>
       <div style={{ padding: '2.5rem 2rem 5rem', maxWidth: '1240px', margin: '0 auto', width: '100%' }} suppressHydrationWarning>
-        <Suspense fallback={<EventsSkeleton />}>
+        <Suspense fallback={<EventsSkeleton canCreate={canCreate} />}>
           <EventsDataLoader profile={context.profile} userId={context.user.id} />
         </Suspense>
       </div>

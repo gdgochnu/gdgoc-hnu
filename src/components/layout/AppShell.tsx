@@ -18,10 +18,12 @@ export async function AppShell({ children }: AppShellProps) {
         <header className="header-nav">
           <div className="nav-content">
             <Link href="/" className="brand-badge">
-              <div className="brand-logo-wrap">
-                <span style={{ fontWeight: 800, fontSize: '1.1rem', background: 'linear-gradient(135deg, #4285F4, #34A853)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-                  &lt;&gt;
-                </span>
+              <div className="brand-logo-wrap" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '4px' }}>
+                <img
+                  src="/icons/icon.svg"
+                  alt="GDGoC Logo"
+                  style={{ width: '100%', height: 'auto', maxHeight: '20px', objectFit: 'contain' }}
+                />
               </div>
               <div>
                 <div className="brand-title">GDGoC HNU OS</div>

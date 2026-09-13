@@ -8,7 +8,11 @@ import {
   ChevronRight 
 } from 'lucide-react';
 
-export function EventsSkeleton() {
+interface EventsSkeletonProps {
+  canCreate?: boolean;
+}
+
+export function EventsSkeleton({ canCreate = false }: EventsSkeletonProps = {}) {
   const tabs = ['All', 'Drafts', 'In Review', 'Published', 'Completed'];
 
   return (
@@ -43,21 +47,23 @@ export function EventsSkeleton() {
           </p>
         </div>
 
-        <div
-          className="btn-primary"
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.5rem',
-            padding: '0.75rem 1.5rem',
-            fontSize: '0.92rem',
-            fontWeight: 700,
-            opacity: 0.8,
-          }}
-        >
-          <Plus size={18} />
-          <span>Create New Event</span>
-        </div>
+        {canCreate && (
+          <div
+            className="btn-primary"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.5rem',
+              padding: '0.75rem 1.5rem',
+              fontSize: '0.92rem',
+              fontWeight: 700,
+              opacity: 0.8,
+            }}
+          >
+            <Plus size={18} />
+            <span>Create New Event</span>
+          </div>
+        )}
       </div>
 
       {/* 4 Stats Cards Row - exact match with colored left borders */}

@@ -125,6 +125,13 @@ export default async function CertificatesPage() {
   }
 
   const userEmail = context.profile.email || context.user.email || '';
+  const isLeadership = [
+    'president',
+    'co_president',
+    'branch_head',
+    'committee_head',
+    'committee_co_head',
+  ].includes(context.profile.role);
 
   return (
     <AppShell>
@@ -139,7 +146,7 @@ export default async function CertificatesPage() {
           width: '100%',
         }}
       >
-        <Suspense fallback={<CertificatesSkeleton />}>
+        <Suspense fallback={<CertificatesSkeleton isLeadership={isLeadership} />}>
           <CertificatesDataLoader
             currentUserId={context.profile.id}
             userEmail={userEmail}

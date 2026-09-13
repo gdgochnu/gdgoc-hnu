@@ -48,7 +48,21 @@ const ENTITY_CONFIG: Record<
   },
 };
 
-export function GlobalSearchBar() {
+interface GlobalSearchBarProps {
+  autoFocus?: boolean;
+  onClose?: () => void;
+  isMobileOverlay?: boolean;
+  placeholder?: string;
+  className?: string;
+}
+
+export function GlobalSearchBar({
+  autoFocus,
+  onClose,
+  isMobileOverlay,
+  placeholder,
+  className,
+}: GlobalSearchBarProps = {}) {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<GlobalSearchResult[]>([]);
   const [isOpen, setIsOpen] = useState(false);
@@ -56,6 +70,12 @@ export function GlobalSearchBar() {
   const router = useRouter();
   const searchRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (autoFocus && inputRef.current) {
+      inputRef.current.focus();
+    }
+  }, [autoFocus]);
 
   // Global hotkey: Cmd+K or Ctrl+K or '/' focuses the search bar
   useEffect(() => {
@@ -128,10 +148,11 @@ export function GlobalSearchBar() {
   return (
     <div
       ref={searchRef}
+      className={className}
       style={{
         position: 'relative',
         width: '100%',
-        maxWidth: '380px',
+        maxWidth: isMobileOverlay ? '100%' : '380px',
       }}
     >
       <form onSubmit={handleSubmit} style={{ position: 'relative', width: '100%' }}>
@@ -150,7 +171,7 @@ export function GlobalSearchBar() {
         <input
           ref={inputRef}
           type="text"
-          placeholder="Search everything... (⌘K)"
+          placeholder={placeholder || (isMobileOverlay ? "Search tasks, members, events..." : "Search everything... (⌘K)")}
           value={query}
           onChange={(e) => {
             setQuery(e.target.value);
@@ -161,20 +182,20 @@ export function GlobalSearchBar() {
           }}
           style={{
             width: '100%',
-            padding: '0.45rem 2.2rem 0.45rem 2.3rem',
+            padding: isMobileOverlay ? '0.6rem 2.8rem 0.6rem 2.3rem' : '0.45rem 2.2rem 0.45rem 2.3rem',
             borderRadius: '0.65rem',
-            backgroundColor: 'rgba(255, 255, 255, 0.05)',
+            backgroundColor: isMobileOverlay ? 'rgba(255, 255, 255, 0.08)' : 'rgba(255, 255, 255, 0.05)',
             border: isOpen
               ? '1px solid var(--google-blue, #4285F4)'
-              : '1px solid rgba(255, 255, 255, 0.1)',
+              : '1px solid rgba(255, 255, 255, 0.12)',
             color: '#fff',
-            fontSize: '0.85rem',
+            fontSize: isMobileOverlay ? '0.92rem' : '0.85rem',
             outline: 'none',
             transition: 'all 0.15s ease',
           }}
         />
 
-        {/* Right action inside input: Spinner or Clear or Shortcut badge */}
+        {/* Right action inside input: Spinner or Clear or Shortcut badge or Close */}
         <div
           style={{
             position: 'absolute',
@@ -183,7 +204,7 @@ export function GlobalSearchBar() {
             transform: 'translateY(-50%)',
             display: 'flex',
             alignItems: 'center',
-            gap: '0.25rem',
+            gap: '0.35rem',
           }}
         >
           {isLoading ? (
@@ -204,10 +225,11 @@ export function GlobalSearchBar() {
                 padding: '0.15rem',
                 display: 'flex',
               }}
+              title="Clear search"
             >
               <X size={14} />
             </button>
-          ) : (
+          ) : !isMobileOverlay ? (
             <kbd
               style={{
                 display: 'inline-flex',
@@ -224,7 +246,32 @@ export function GlobalSearchBar() {
             >
               <span>⌘K</span>
             </kbd>
-          )}
+          ) : null}
+
+          {isMobileOverlay && onClose ? (
+            <button
+              type="button"
+              onClick={() => {
+                setIsOpen(false);
+                onClose();
+              }}
+              style={{
+                background: 'rgba(255, 255, 255, 0.08)',
+                border: 'none',
+                borderRadius: '50%',
+                width: '24px',
+                height: '24px',
+                color: '#E2E8F0',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+              title="Close search"
+            >
+              <X size={14} />
+            </button>
+          ) : null}
         </div>
       </form>
 

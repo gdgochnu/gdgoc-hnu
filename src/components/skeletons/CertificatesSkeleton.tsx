@@ -1,7 +1,11 @@
 import React from 'react';
 import { Award, Plus, Search, CheckCircle2 } from 'lucide-react';
 
-export function CertificatesSkeleton() {
+interface CertificatesSkeletonProps {
+  isLeadership?: boolean;
+}
+
+export function CertificatesSkeleton({ isLeadership = false }: CertificatesSkeletonProps = {}) {
   return (
     <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '2rem 1.5rem', width: '100%', display: 'flex', flexDirection: 'column', gap: '2rem' }}>
       {/* Header */}
@@ -20,10 +24,12 @@ export function CertificatesSkeleton() {
           </p>
         </div>
 
-        <div style={{ display: 'flex', gap: '0.75rem' }}>
-          <div className="skeleton-pulse" style={{ height: '40px', width: '140px', borderRadius: '10px' }} />
-          <div className="skeleton-pulse" style={{ height: '40px', width: '140px', borderRadius: '10px' }} />
-        </div>
+        {isLeadership ? (
+          <div style={{ display: 'flex', gap: '0.75rem' }}>
+            <div className="skeleton-pulse" style={{ height: '40px', width: '140px', borderRadius: '10px' }} />
+            <div className="skeleton-pulse" style={{ height: '40px', width: '140px', borderRadius: '10px' }} />
+          </div>
+        ) : null}
       </div>
 
       {/* 3 Metric Cards */}
@@ -49,9 +55,11 @@ export function CertificatesSkeleton() {
           <div style={{ padding: '0.45rem 1rem', borderRadius: '8px', background: 'rgba(66, 133, 244, 0.2)', color: '#93C5FD', fontWeight: 600, fontSize: '0.85rem' }}>
             Issued Credentials
           </div>
-          <div style={{ padding: '0.45rem 1rem', borderRadius: '8px', color: 'var(--text-secondary)', fontWeight: 600, fontSize: '0.85rem' }}>
-            Templates Builder
-          </div>
+          {isLeadership ? (
+            <div style={{ padding: '0.45rem 1rem', borderRadius: '8px', color: 'var(--text-secondary)', fontWeight: 600, fontSize: '0.85rem' }}>
+              Templates Builder
+            </div>
+          ) : null}
         </div>
       </div>
 

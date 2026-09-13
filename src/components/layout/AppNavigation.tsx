@@ -29,6 +29,7 @@ import {
   ExternalLink,
   Activity,
   BarChart3,
+  Search,
 } from 'lucide-react';
 import { GlobalSearchBar } from './GlobalSearchBar';
 import { NotificationCenter } from '@/components/notifications/NotificationCenter';
@@ -63,8 +64,15 @@ export function AppNavigation({
   const router = useRouter();
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
+  const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
   const sidebarNavRef = useRef<HTMLDivElement | null>(null);
+
+  // Close mobile overlays on navigation
+  useEffect(() => {
+    setIsMobileSearchOpen(false);
+    setIsMobileOpen(false);
+  }, [pathname]);
 
   // Preserve sidebar scroll position across route transitions
   useEffect(() => {
@@ -342,38 +350,102 @@ export function AppNavigation({
 
         {/* Brand Header */}
         <div style={{
-          padding: isCollapsed ? '1.25rem 0.5rem' : '1.25rem 1.25rem',
+          padding: isCollapsed ? '1.1rem 0.5rem' : '1.15rem 1.15rem',
           display: 'flex',
           alignItems: 'center',
           justifyContent: isCollapsed ? 'center' : 'space-between',
-          borderBottom: '1px solid rgba(255, 255, 255, 0.06)',
+          borderBottom: '1px solid rgba(255, 255, 255, 0.07)',
+          background: 'linear-gradient(180deg, rgba(255, 255, 255, 0.02) 0%, transparent 100%)',
         }}>
-          <Link href="/dashboard" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', textDecoration: 'none' }}>
+          <Link
+            href="/dashboard"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.75rem',
+              textDecoration: 'none',
+              minWidth: 0,
+            }}
+            title="GDGoC HNU OS"
+          >
             <div style={{
-              width: '36px',
-              height: '36px',
-              borderRadius: '10px',
-              background: 'linear-gradient(135deg, rgba(66, 133, 244, 0.2), rgba(52, 168, 83, 0.2))',
-              border: '1px solid rgba(66, 133, 244, 0.3)',
+              width: isCollapsed ? '42px' : '44px',
+              height: '38px',
+              borderRadius: '11px',
+              background: 'radial-gradient(circle at 30% 30%, rgba(66, 133, 244, 0.16), rgba(15, 20, 32, 0.85))',
+              border: '1px solid rgba(255, 255, 255, 0.12)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              fontSize: '1rem',
-              fontWeight: 800,
-              backgroundClip: 'text',
               flexShrink: 0,
+              padding: '4px 6px',
+              boxShadow: '0 4px 14px rgba(0, 0, 0, 0.35), 0 0 16px rgba(66, 133, 244, 0.12)',
+              transition: 'all 0.2s ease',
             }}>
-              <span style={{ background: 'linear-gradient(135deg, #4285F4, #34A853)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-                &lt;&gt;
-              </span>
+              <img
+                src="/icons/icon.svg"
+                alt="GDGoC Logo"
+                style={{
+                  width: '100%',
+                  height: 'auto',
+                  maxHeight: '22px',
+                  objectFit: 'contain',
+                  filter: 'drop-shadow(0 1px 4px rgba(0, 0, 0, 0.4))',
+                }}
+              />
             </div>
             {!isCollapsed ? (
-              <div>
-                <div style={{ fontSize: '0.95rem', fontWeight: 800, color: '#FFFFFF', letterSpacing: '-0.02em', whiteSpace: 'nowrap' }}>
-                  GDGoC HNU OS
+              <div style={{ minWidth: 0, overflow: 'hidden' }}>
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.35rem',
+                  fontSize: '0.94rem',
+                  fontWeight: 800,
+                  color: '#FFFFFF',
+                  letterSpacing: '-0.025em',
+                  whiteSpace: 'nowrap',
+                }}>
+                  <span>GDGoC</span>
+                  <span style={{
+                    background: 'linear-gradient(90deg, #4285F4, #34A853)',
+                    WebkitBackgroundClip: 'text',
+                    WebkitTextFillColor: 'transparent',
+                  }}>
+                    HNU
+                  </span>
+                  <span style={{
+                    fontSize: '0.62rem',
+                    fontWeight: 700,
+                    padding: '0.08rem 0.32rem',
+                    borderRadius: '4px',
+                    background: 'rgba(66, 133, 244, 0.18)',
+                    color: '#93C5FD',
+                    border: '1px solid rgba(66, 133, 244, 0.35)',
+                    letterSpacing: '0.04em',
+                    lineHeight: 1,
+                  }}>
+                    OS
+                  </span>
                 </div>
-                <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 500, whiteSpace: 'nowrap' }}>
-                  Chapter Platform
+                <div style={{
+                  fontSize: '0.68rem',
+                  color: 'var(--text-muted)',
+                  fontWeight: 500,
+                  whiteSpace: 'nowrap',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.35rem',
+                  marginTop: '2px',
+                }}>
+                  <span style={{
+                    width: '6px',
+                    height: '6px',
+                    borderRadius: '50%',
+                    background: '#34A853',
+                    boxShadow: '0 0 6px #34A853',
+                  }} />
+                  <span>Chapter Platform</span>
                 </div>
               </div>
             ) : null}
@@ -383,12 +455,16 @@ export function AppNavigation({
             <button
               onClick={() => setIsCollapsed(true)}
               style={{
-                background: 'rgba(255, 255, 255, 0.05)',
-                border: 'none',
-                borderRadius: '6px',
+                background: 'rgba(255, 255, 255, 0.04)',
+                border: '1px solid rgba(255, 255, 255, 0.08)',
+                borderRadius: '8px',
                 color: 'var(--text-muted)',
-                padding: '0.35rem',
+                padding: '0.4rem',
                 cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                transition: 'all 0.15s ease',
               }}
               title="Collapse sidebar"
             >
@@ -629,6 +705,7 @@ export function AppNavigation({
       >
         {/* Fixed Top Header Bar */}
         <header
+          className="app-topbar"
           style={{
             height: '64px',
             background: 'rgba(11, 15, 25, 0.92)',
@@ -637,7 +714,7 @@ export function AppNavigation({
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
-            padding: '0 1.75rem',
+            padding: '0 1.5rem',
             position: 'fixed',
             top: 0,
             left: isCollapsed ? '78px' : '260px',
@@ -647,104 +724,218 @@ export function AppNavigation({
             boxShadow: '0 4px 20px rgba(0, 0, 0, 0.2)',
           }}
         >
-          {/* Left: Mobile Menu Toggle, Breadcrumbs & Department Pill */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-            <button
-              onClick={() => setIsMobileOpen(true)}
-              className="mobile-only-btn"
-              style={{
-                background: 'rgba(255, 255, 255, 0.05)',
-                border: '1px solid rgba(255, 255, 255, 0.1)',
-                borderRadius: '8px',
-                padding: '0.5rem',
-                color: '#FFFFFF',
-                cursor: 'pointer',
-              }}
-            >
-              <Menu size={20} />
-            </button>
-
-            {/* Breadcrumb Indicator */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem' }}>
-              <span style={{ color: 'var(--text-muted)' }}>GDGoC OS</span>
-              <span style={{ color: 'rgba(255, 255, 255, 0.2)' }}>/</span>
-              <span style={{ color: '#FFFFFF', fontWeight: 600 }}>{currentPageTitle}</span>
-            </div>
-
-            {/* Department Badge if assigned */}
-            {profile.department ? (
-              <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.5rem',
-                padding: '0.3rem 0.7rem',
-                borderRadius: '8px',
-                background: profile.department.branch === 'tech'
-                  ? 'rgba(66, 133, 244, 0.12)'
-                  : 'rgba(52, 168, 83, 0.12)',
-                border: profile.department.branch === 'tech'
-                  ? '1px solid rgba(66, 133, 244, 0.25)'
-                  : '1px solid rgba(52, 168, 83, 0.25)',
-                fontSize: '0.78rem',
-                color: profile.department.branch === 'tech' ? '#93C5FD' : '#86EFAC',
-                fontWeight: 600,
-              }}>
-                <span style={{
-                  width: '6px',
-                  height: '6px',
-                  borderRadius: '50%',
-                  background: profile.department.branch === 'tech' ? 'var(--google-blue)' : 'var(--google-green)',
-                }} />
-                <span>{profile.department.name}</span>
+          {isMobileSearchOpen ? (
+            /* Mobile Full-Width Search Input Mode */
+            <div style={{ display: 'flex', alignItems: 'center', width: '100%', gap: '0.65rem' }}>
+              <button
+                type="button"
+                onClick={() => setIsMobileSearchOpen(false)}
+                style={{
+                  background: 'rgba(255, 255, 255, 0.06)',
+                  border: '1px solid rgba(255, 255, 255, 0.1)',
+                  borderRadius: '8px',
+                  width: '36px',
+                  height: '36px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: '#E2E8F0',
+                  cursor: 'pointer',
+                  flexShrink: 0,
+                }}
+                title="Back to Navigation"
+              >
+                <ChevronLeft size={20} />
+              </button>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <GlobalSearchBar
+                  autoFocus
+                  isMobileOverlay
+                  onClose={() => setIsMobileSearchOpen(false)}
+                  placeholder="Search tasks, members, events..."
+                />
               </div>
-            ) : null}
-          </div>
+            </div>
+          ) : (
+            /* Standard Header Bar */
+            <>
+              {/* Left: Mobile Menu Toggle, Brand on Mobile, Breadcrumbs & Department Pill */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', minWidth: 0 }}>
+                <button
+                  type="button"
+                  onClick={() => setIsMobileOpen(true)}
+                  className="mobile-only-btn"
+                  style={{
+                    background: 'rgba(255, 255, 255, 0.05)',
+                    border: '1px solid rgba(255, 255, 255, 0.1)',
+                    borderRadius: '8px',
+                    width: '36px',
+                    height: '36px',
+                    color: '#FFFFFF',
+                    cursor: 'pointer',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    flexShrink: 0,
+                  }}
+                  title="Open Navigation Menu"
+                >
+                  <Menu size={19} />
+                </button>
 
-          {/* Center: Global Search Bar with Hotkey */}
-          <div style={{ flex: '1', maxWidth: '420px', margin: '0 1.25rem' }}>
-            <GlobalSearchBar />
-          </div>
+                {/* Mobile Logo Mark */}
+                <Link
+                  href="/dashboard"
+                  className="mobile-logo-brand"
+                  style={{
+                    display: 'none',
+                    alignItems: 'center',
+                    flexShrink: 0,
+                    textDecoration: 'none',
+                  }}
+                  title="GDGoC HNU OS"
+                >
+                  <div style={{
+                    width: '32px',
+                    height: '28px',
+                    borderRadius: '7px',
+                    background: 'rgba(255, 255, 255, 0.05)',
+                    border: '1px solid rgba(255, 255, 255, 0.1)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    padding: '2px 4px',
+                  }}>
+                    <img
+                      src="/icons/icon.svg"
+                      alt="GDGoC Logo"
+                      style={{
+                        width: '100%',
+                        height: 'auto',
+                        maxHeight: '16px',
+                        objectFit: 'contain',
+                      }}
+                    />
+                  </div>
+                </Link>
 
-          {/* Right Controls: Notifications & Quick Access */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-            {/* In-App Notification Center */}
-            <NotificationCenter
-              initialUnreadCount={unreadNotificationsCount}
-              profileId={profile.id}
-            />
+                {/* Breadcrumb Indicator */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', fontSize: '0.86rem', minWidth: 0, overflow: 'hidden' }}>
+                  <span className="breadcrumb-prefix" style={{ color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
+                    GDGoC OS
+                  </span>
+                  <span className="breadcrumb-separator" style={{ color: 'rgba(255, 255, 255, 0.2)' }}>/</span>
+                  <span
+                    className="breadcrumb-title"
+                    style={{
+                      color: '#FFFFFF',
+                      fontWeight: 700,
+                      letterSpacing: '-0.01em',
+                    }}
+                  >
+                    {currentPageTitle}
+                  </span>
+                </div>
 
-            {/* Quick Visit Public Stats */}
-            <Link
-              href="/stats"
-              className="btn-secondary"
-              style={{
-                fontSize: '0.8rem',
-                padding: '0.4rem 0.8rem',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.4rem',
-              }}
-            >
-              <span>Public Stats</span>
-              <BarChart3 size={13} />
-            </Link>
+                {/* Department Badge if assigned (hidden on mobile to prevent overflow) */}
+                {profile.department ? (
+                  <div
+                    className="topbar-dept-badge"
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.45rem',
+                      padding: '0.28rem 0.65rem',
+                      borderRadius: '8px',
+                      background: profile.department.branch === 'tech'
+                        ? 'rgba(66, 133, 244, 0.12)'
+                        : 'rgba(52, 168, 83, 0.12)',
+                      border: profile.department.branch === 'tech'
+                        ? '1px solid rgba(66, 133, 244, 0.25)'
+                        : '1px solid rgba(52, 168, 83, 0.25)',
+                      fontSize: '0.76rem',
+                      color: profile.department.branch === 'tech' ? '#93C5FD' : '#86EFAC',
+                      fontWeight: 600,
+                      whiteSpace: 'nowrap',
+                      flexShrink: 0,
+                    }}
+                  >
+                    <span style={{
+                      width: '6px',
+                      height: '6px',
+                      borderRadius: '50%',
+                      background: profile.department.branch === 'tech' ? 'var(--google-blue)' : 'var(--google-green)',
+                      boxShadow: profile.department.branch === 'tech' ? '0 0 6px rgba(66, 133, 244, 0.8)' : '0 0 6px rgba(52, 168, 83, 0.8)',
+                    }} />
+                    <span>{profile.department.name}</span>
+                  </div>
+                ) : null}
+              </div>
 
-            {/* Quick Visit Public Site */}
-            <Link
-              href="/"
-              className="btn-secondary"
-              style={{
-                fontSize: '0.8rem',
-                padding: '0.4rem 0.8rem',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.4rem',
-              }}
-            >
-              <span>Public Site</span>
-              <ExternalLink size={13} />
-            </Link>
-          </div>
+              {/* Center: Global Search Bar with Hotkey (Desktop & Tablet) */}
+              <div
+                className="desktop-search-container"
+                style={{ flex: '1', maxWidth: '380px', margin: '0 1rem' }}
+              >
+                <GlobalSearchBar />
+              </div>
+
+              {/* Right Controls: Search Toggle, Notifications & Public Site */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', flexShrink: 0 }}>
+                {/* Mobile Search Trigger Button (Only visible on small screens) */}
+                <button
+                  type="button"
+                  onClick={() => setIsMobileSearchOpen(true)}
+                  className="mobile-search-btn"
+                  style={{
+                    background: 'rgba(255, 255, 255, 0.05)',
+                    border: '1px solid rgba(255, 255, 255, 0.08)',
+                    borderRadius: '8px',
+                    width: '36px',
+                    height: '36px',
+                    color: 'var(--text-secondary)',
+                    cursor: 'pointer',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    transition: 'all 0.15s ease',
+                    flexShrink: 0,
+                  }}
+                  title="Search (Tasks, Members, Events)"
+                >
+                  <Search size={18} />
+                </button>
+
+                {/* In-App Notification Center */}
+                <NotificationCenter
+                  initialUnreadCount={unreadNotificationsCount}
+                  profileId={profile.id}
+                />
+
+                {/* Quick Visit Public Site (Adaptive Label on Mobile) */}
+                <Link
+                  href="/"
+                  className="topbar-public-site-btn"
+                  title="View Chapter Public Site"
+                  style={{
+                    fontSize: '0.8rem',
+                    fontWeight: 600,
+                    padding: '0.42rem 0.8rem',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.42rem',
+                    background: 'rgba(255, 255, 255, 0.05)',
+                    border: '1px solid rgba(255, 255, 255, 0.1)',
+                    borderRadius: '8px',
+                    color: '#E2E8F0',
+                    textDecoration: 'none',
+                    transition: 'all 0.15s ease',
+                  }}
+                >
+                  <span className="public-site-label">Public Site</span>
+                  <ExternalLink size={13} style={{ color: 'var(--google-blue)' }} />
+                </Link>
+              </div>
+            </>
+          )}
         </header>
 
         {/* Page Content with top clearance for fixed header */}
@@ -763,40 +954,123 @@ export function AppNavigation({
           left: 0,
           right: 0,
           bottom: 0,
-          background: 'rgba(0, 0, 0, 0.75)',
-          backdropFilter: 'blur(8px)',
+          background: 'rgba(0, 0, 0, 0.78)',
+          backdropFilter: 'blur(10px)',
           zIndex: 1000,
           display: 'flex',
         }}>
           <div style={{
-            width: '280px',
-            maxWidth: '85vw',
+            width: '290px',
+            maxWidth: '86vw',
             background: '#0F1420',
             borderRight: '1px solid rgba(255, 255, 255, 0.1)',
             display: 'flex',
             flexDirection: 'column',
             height: '100%',
+            boxShadow: '8px 0 32px rgba(0, 0, 0, 0.5)',
           }}>
-            {/* Top Bar */}
+            {/* Google Accent Strip */}
             <div style={{
               height: '3px',
               background: 'linear-gradient(90deg, #4285F4 25%, #EA4335 25% 50%, #FBBC04 50% 75%, #34A853 75%)',
             }} />
+
+            {/* Mobile Drawer Header with Actual Icon */}
             <div style={{
-              padding: '1.25rem',
+              padding: '1.1rem 1.15rem',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'space-between',
               borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
+              background: 'linear-gradient(180deg, rgba(255, 255, 255, 0.02) 0%, transparent 100%)',
             }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <span style={{ fontWeight: 800, fontSize: '1rem', color: '#FFFFFF' }}>GDGoC HNU OS</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+                <div style={{
+                  width: '38px',
+                  height: '34px',
+                  borderRadius: '9px',
+                  background: 'radial-gradient(circle at 30% 30%, rgba(66, 133, 244, 0.2), rgba(15, 20, 32, 0.85))',
+                  border: '1px solid rgba(255, 255, 255, 0.12)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  padding: '3px 5px',
+                  boxShadow: '0 2px 10px rgba(0, 0, 0, 0.35)',
+                  flexShrink: 0,
+                }}>
+                  <img
+                    src="/icons/icon.svg"
+                    alt="GDGoC Logo"
+                    style={{
+                      width: '100%',
+                      height: 'auto',
+                      maxHeight: '20px',
+                      objectFit: 'contain',
+                    }}
+                  />
+                </div>
+                <div>
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.3rem',
+                    fontWeight: 800,
+                    fontSize: '0.94rem',
+                    color: '#FFFFFF',
+                    letterSpacing: '-0.02em',
+                  }}>
+                    <span>GDGoC</span>
+                    <span style={{
+                      background: 'linear-gradient(90deg, #4285F4, #34A853)',
+                      WebkitBackgroundClip: 'text',
+                      WebkitTextFillColor: 'transparent',
+                    }}>
+                      HNU
+                    </span>
+                    <span style={{
+                      fontSize: '0.6rem',
+                      fontWeight: 700,
+                      padding: '0.08rem 0.3rem',
+                      borderRadius: '4px',
+                      background: 'rgba(66, 133, 244, 0.18)',
+                      color: '#93C5FD',
+                      border: '1px solid rgba(66, 133, 244, 0.35)',
+                    }}>
+                      OS
+                    </span>
+                  </div>
+                  <div style={{
+                    fontSize: '0.66rem',
+                    color: 'var(--text-muted)',
+                    fontWeight: 500,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.3rem',
+                    marginTop: '2px',
+                  }}>
+                    <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: '#34A853' }} />
+                    <span>Chapter Platform</span>
+                  </div>
+                </div>
               </div>
               <button
+                type="button"
                 onClick={() => setIsMobileOpen(false)}
-                style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}
+                style={{
+                  background: 'rgba(255, 255, 255, 0.05)',
+                  border: '1px solid rgba(255, 255, 255, 0.08)',
+                  borderRadius: '7px',
+                  color: 'var(--text-muted)',
+                  cursor: 'pointer',
+                  width: '32px',
+                  height: '32px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+                title="Close drawer"
               >
-                <X size={20} />
+                <X size={18} />
               </button>
             </div>
 
@@ -850,6 +1124,30 @@ export function AppNavigation({
                   })}
                 </div>
               ))}
+
+              {/* Public Site Link in Mobile Drawer */}
+              <div style={{ marginTop: '0.5rem', paddingTop: '0.75rem', borderTop: '1px solid rgba(255, 255, 255, 0.06)' }}>
+                <Link
+                  href="/"
+                  onClick={() => setIsMobileOpen(false)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.75rem',
+                    padding: '0.65rem 0.85rem',
+                    borderRadius: '8px',
+                    textDecoration: 'none',
+                    color: '#93C5FD',
+                    background: 'rgba(66, 133, 244, 0.08)',
+                    border: '1px solid rgba(66, 133, 244, 0.2)',
+                    fontSize: '0.86rem',
+                    fontWeight: 600,
+                  }}
+                >
+                  <ExternalLink size={16} color="var(--google-blue)" />
+                  <span style={{ flex: 1 }}>Visit Public Site</span>
+                </Link>
+              </div>
             </div>
 
             {/* Mobile Footer */}
@@ -883,9 +1181,9 @@ export function AppNavigation({
                     profile.full_name?.charAt(0) || 'U'
                   )}
                 </div>
-                <div>
-                  <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#FFFFFF' }}>{profile.full_name}</div>
-                  <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>{roleLabel} • View &amp; Edit Profile</div>
+                <div style={{ overflow: 'hidden' }}>
+                  <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#FFFFFF', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>{profile.full_name}</div>
+                  <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>{roleLabel} • View &amp; Edit Profile</div>
                 </div>
               </Link>
               <button
@@ -901,7 +1199,9 @@ export function AppNavigation({
           </div>
         </div>
       ) : null}
+
       <style>{`
+        /* Responsive Topbar & Sidebar Styles */
         @media (max-width: 768px) {
           .desktop-sidebar {
             display: none !important;
@@ -909,15 +1209,63 @@ export function AppNavigation({
           .main-content-wrapper {
             margin-left: 0 !important;
           }
-          header {
+          header.app-topbar {
             left: 0 !important;
+            padding: 0 0.85rem !important;
           }
           .mobile-only-btn {
             display: flex !important;
           }
+          .mobile-logo-brand {
+            display: flex !important;
+          }
+          .breadcrumb-prefix {
+            display: none !important;
+          }
+          .breadcrumb-separator {
+            display: none !important;
+          }
+          .topbar-dept-badge {
+            display: none !important;
+          }
+          .breadcrumb-title {
+            max-width: 140px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            display: block;
+          }
         }
         @media (min-width: 769px) {
           .mobile-only-btn {
+            display: none !important;
+          }
+          .mobile-logo-brand {
+            display: none !important;
+          }
+          .mobile-search-btn {
+            display: none !important;
+          }
+        }
+        @media (max-width: 640px) {
+          .desktop-search-container {
+            display: none !important;
+          }
+          .mobile-search-btn {
+            display: flex !important;
+          }
+          .public-site-label {
+            display: none !important;
+          }
+          .topbar-public-site-btn {
+            padding: 0.5rem !important;
+            width: 36px !important;
+            height: 36px !important;
+            justify-content: center !important;
+          }
+        }
+        @media (min-width: 641px) {
+          .mobile-search-btn {
             display: none !important;
           }
         }

@@ -10,7 +10,11 @@ import {
   Calendar 
 } from 'lucide-react';
 
-export function TasksSkeleton() {
+interface TasksSkeletonProps {
+  canCreate?: boolean;
+}
+
+export function TasksSkeleton({ canCreate = false }: TasksSkeletonProps = {}) {
   const columns = [
     { label: 'To Do', color: '#4285F4', icon: CircleDot },
     { label: 'In Progress', color: '#FBBC04', icon: Clock },
@@ -81,21 +85,23 @@ export function TasksSkeleton() {
         {/* Task Counter and Create Button */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
           <div className="skeleton-pulse" style={{ height: '18px', width: '110px', borderRadius: '4px' }} />
-          <div
-            className="btn-primary"
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.5rem',
-              padding: '0.65rem 1.25rem',
-              fontSize: '0.88rem',
-              fontWeight: 700,
-              opacity: 0.8,
-            }}
-          >
-            <Plus size={16} />
-            <span>New Task</span>
-          </div>
+          {canCreate && (
+            <div
+              className="btn-primary"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+                padding: '0.65rem 1.25rem',
+                fontSize: '0.88rem',
+                fontWeight: 700,
+                opacity: 0.8,
+              }}
+            >
+              <Plus size={16} />
+              <span>New Task</span>
+            </div>
+          )}
         </div>
       </div>
 

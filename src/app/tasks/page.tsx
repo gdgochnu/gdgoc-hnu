@@ -122,6 +122,8 @@ export default async function TasksPage(props: TasksPageProps) {
   const isPresident = role === 'president' || role === 'co_president';
   const isBranchHead = role === 'branch_head';
 
+  const isLeadership = ['president', 'co_president', 'branch_head', 'committee_head', 'committee_co_head'].includes(role);
+
   return (
     <AppShell>
       <div style={{ padding: '2.5rem 2rem', maxWidth: '1400px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '2rem' }}>
@@ -156,7 +158,7 @@ export default async function TasksPage(props: TasksPageProps) {
         </div>
 
         {/* Kanban Board Component wrapped in Suspense with TasksSkeleton */}
-        <Suspense fallback={<TasksSkeleton />}>
+        <Suspense fallback={<TasksSkeleton canCreate={isLeadership} />}>
           <TasksDataLoader
             initialDepartmentId={initialDepartmentId}
             initialTaskId={initialTaskId}
