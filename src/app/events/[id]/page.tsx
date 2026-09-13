@@ -33,7 +33,8 @@ import {
   Globe,
   Star,
   Wallet,
-  QrCode
+  QrCode,
+  Ticket
 } from 'lucide-react';
 
 export const dynamic = 'force-dynamic';
@@ -234,6 +235,48 @@ export default async function EventDetailPage({ params, searchParams }: EventDet
     const isCapacityFull = capacity !== null && capacity > 0 && totalRegistered >= capacity;
     const spotsRemaining = capacity !== null && capacity > 0 ? Math.max(0, capacity - totalRegistered) : null;
 
+    // Check if logged-in user already has a registration for this event and fetch full profile
+    let existingRegistration: any = null;
+    let fullProfile: any = null;
+
+    if (context.user) {
+      const userEmail = context.profile?.email || context.user.email || '';
+
+      const [profileRes, regRes] = await Promise.all([
+        admin
+          .from('profiles')
+          .select('id, full_name, email, phone, university, faculty, academic_year, custom_fields')
+          .eq('id', context.user.id)
+          .maybeSingle(),
+        admin
+          .from('event_registrations')
+          .select('*')
+          .eq('event_id', event.id)
+          .or(`profile_id.eq.${context.user.id}${userEmail ? `,email.eq.${userEmail}` : ''}`)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle(),
+      ]);
+
+      fullProfile = profileRes.data;
+
+      if (regRes.data) {
+        // Check if attendee is already checked in
+        const { data: att } = await admin
+          .from('attendance')
+          .select('id, check_in_time, method')
+          .eq('event_id', event.id)
+          .eq('registration_id', regRes.data.id)
+          .maybeSingle();
+
+        existingRegistration = {
+          ...regRes.data,
+          isCheckedIn: !!att,
+          checkInTime: att?.check_in_time || null,
+        };
+      }
+    }
+
     return (
       <PublicEventView
         event={event}
@@ -242,10 +285,15 @@ export default async function EventDetailPage({ params, searchParams }: EventDet
         isCapacityFull={isCapacityFull}
         spotsRemaining={spotsRemaining}
         isPreview={event.status !== 'published'}
+        existingRegistration={existingRegistration}
         userContext={{
-          isLoggedIn: !!context.profile,
-          fullName: context.profile?.full_name,
-          email: context.user?.email,
+          isLoggedIn: !!context.user,
+          fullName: fullProfile?.full_name || context.profile?.full_name || '',
+          email: fullProfile?.email || context.profile?.email || context.user?.email || '',
+          phone: fullProfile?.phone || (fullProfile?.custom_fields as any)?.phone || '',
+          university: fullProfile?.university || (fullProfile?.custom_fields as any)?.university || 'Helwan National University',
+          faculty: fullProfile?.faculty || (fullProfile?.custom_fields as any)?.faculty || '',
+          academicYear: fullProfile?.academic_year || (fullProfile?.custom_fields as any)?.academic_year || '',
           role: context.profile?.role,
         }}
       />
@@ -418,6 +466,15 @@ export default async function EventDetailPage({ params, searchParams }: EventDet
               {canManage && (
                 <EditEventButton event={event} departments={departments} />
               )}
+              <Link
+                href={`/events/${event.id}/attendees`}
+                className="btn-secondary"
+                style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.82rem', padding: '0.45rem 0.85rem' }}
+                title="View Ticket Holders & Live Attendance Stats"
+              >
+                <Ticket size={14} color="var(--google-blue)" />
+                <span>Ticket Holders & Stats</span>
+              </Link>
               <Link
                 href={`/events/${event.id}/tasks`}
                 className="btn-secondary"

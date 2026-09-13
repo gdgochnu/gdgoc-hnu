@@ -81,23 +81,45 @@ export default async function EventConfirmationPage({ params, searchParams }: Co
     }
   }
 
-  // Attempt C: By logged-in profile ID
+  // Attempt C: By logged-in profile ID or email
   if (!registration && context.user) {
-    const { data: myReg } = await admin
+    const userEmail = context.profile?.email || context.user.email;
+    let myRegQuery = admin
       .from('event_registrations')
       .select('*, event:events(*, department:departments(id, name, code, branch))')
-      .eq('event_id', eventData.id)
-      .eq('profile_id', context.user.id)
-      .maybeSingle();
+      .eq('event_id', eventData.id);
+
+    if (context.user.id && userEmail) {
+      myRegQuery = myRegQuery.or(`profile_id.eq.${context.user.id},email.eq.${userEmail}`);
+    } else {
+      myRegQuery = myRegQuery.eq('profile_id', context.user.id);
+    }
+
+    const { data: myReg } = await myRegQuery.order('created_at', { ascending: false }).limit(1).maybeSingle();
 
     if (myReg) {
       registration = myReg;
     }
   }
 
-  // If registration is found, render the Ticket Pass
+  // If registration is found, check single-use attendance status and render the Ticket Pass
   if (registration) {
-    return <EventTicketView registration={registration} />;
+    const { data: att } = await admin
+      .from('attendance')
+      .select('id, check_in_time, method')
+      .eq('event_id', eventData.id)
+      .eq('registration_id', registration.id)
+      .maybeSingle();
+
+    return (
+      <EventTicketView
+        registration={{
+          ...registration,
+          isCheckedIn: !!att,
+          checkInTime: att?.check_in_time || null,
+        }}
+      />
+    );
   }
 
   // If no registration is found, render the Lookup Form

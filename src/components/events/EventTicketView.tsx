@@ -12,17 +12,18 @@ import {
   CheckCircle2,
   AlertCircle,
   Download,
-  Share2,
+  FileText,
+  Image as ImageIcon,
   ExternalLink,
   Printer,
-  Copy,
   ChevronRight,
   ShieldCheck,
   Building2,
   ArrowLeft,
   CalendarPlus,
   Ticket,
-  UserCheck
+  UserCheck,
+  Loader2
 } from 'lucide-react';
 
 interface EventTicketViewProps {
@@ -34,16 +35,19 @@ interface EventTicketViewProps {
         branch: string;
       } | null;
     };
+    isCheckedIn?: boolean;
+    checkInTime?: string | null;
   };
 }
 
 export function EventTicketView({ registration }: EventTicketViewProps) {
   const { event } = registration;
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
-  const [copiedLink, setCopiedLink] = useState(false);
+  const [isDownloadingPng, setIsDownloadingPng] = useState(false);
   const ticketRef = useRef<HTMLDivElement>(null);
 
   const isWaitlisted = registration.status === 'waitlisted';
+  const isCheckedIn = !!registration.isCheckedIn;
 
   // Generate branded QR Code data URL with Google corners & center logo
   useEffect(() => {
@@ -72,22 +76,32 @@ export function EventTicketView({ registration }: EventTicketViewProps) {
     }
   };
 
-  // Handle Copy Link
-  const handleCopyLink = () => {
-    if (typeof window !== 'undefined') {
-      navigator.clipboard.writeText(window.location.href);
-      setCopiedLink(true);
-      setTimeout(() => setCopiedLink(false), 2500);
+  // Download Ticket as PNG Image
+  const handleDownloadPng = async () => {
+    if (!ticketRef.current) return;
+    setIsDownloadingPng(true);
+    try {
+      const { toPng } = await import('html-to-image');
+      const dataUrl = await toPng(ticketRef.current, {
+        quality: 0.98,
+        pixelRatio: 2.5,
+        backgroundColor: '#0B0F19',
+      });
+      const link = document.createElement('a');
+      link.download = `GDGoC_Ticket_${event.slug || 'event'}_${registration.qr_code}.png`;
+      link.href = dataUrl;
+      link.click();
+    } catch (err) {
+      console.error('Failed to download ticket as PNG image:', err);
+      alert('Could not generate image. Please use Print Ticket to save as PDF.');
+    } finally {
+      setIsDownloadingPng(false);
     }
   };
 
-  // WhatsApp Share
-  const handleWhatsAppShare = () => {
-    if (typeof window === 'undefined') return;
-    const text = encodeURIComponent(
-      `🎉 I just registered for "${event.title}" with GDGoC Helwan National University! Join me: ${window.location.origin}/events/${event.slug}`
-    );
-    window.open(`https://wa.me/?text=${text}`, '_blank');
+  // Download Ticket as PDF
+  const handleDownloadPdf = () => {
+    window.open(`/api/events/ticket/${registration.id}/pdf`, '_blank');
   };
 
   // Format date
@@ -304,28 +318,68 @@ export function EventTicketView({ registration }: EventTicketViewProps) {
               </div>
             </div>
 
-            {/* Status Badge */}
-            <div>
-              <span style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '0.4rem',
-                padding: '0.35rem 0.85rem',
-                borderRadius: '20px',
-                background: isWaitlisted ? 'rgba(251, 188, 4, 0.15)' : 'rgba(52, 168, 83, 0.15)',
-                color: isWaitlisted ? '#FBBF24' : '#4ADE80',
-                fontSize: '0.82rem',
-                fontWeight: 700,
-                border: `1px solid ${isWaitlisted ? 'rgba(251, 188, 4, 0.35)' : 'rgba(52, 168, 83, 0.35)'}`,
-              }}>
+            {/* Status & Single-Use Badges */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+              {isCheckedIn ? (
                 <span style={{
-                  width: '7px',
-                  height: '7px',
-                  borderRadius: '50%',
-                  background: isWaitlisted ? '#FBBC04' : '#34A853',
-                }} />
-                {isWaitlisted ? 'WAITLISTED' : 'CONFIRMED ATTENDEE'}
-              </span>
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.4rem',
+                  padding: '0.35rem 0.85rem',
+                  borderRadius: '20px',
+                  background: 'rgba(234, 67, 53, 0.15)',
+                  color: '#FCA5A5',
+                  fontSize: '0.82rem',
+                  fontWeight: 700,
+                  border: '1px solid rgba(234, 67, 53, 0.35)',
+                }}>
+                  <span style={{
+                    width: '7px',
+                    height: '7px',
+                    borderRadius: '50%',
+                    background: 'var(--google-red)',
+                  }} />
+                  USED • CHECKED IN
+                </span>
+              ) : (
+                <>
+                  <span style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '0.4rem',
+                    padding: '0.35rem 0.85rem',
+                    borderRadius: '20px',
+                    background: isWaitlisted ? 'rgba(251, 188, 4, 0.15)' : 'rgba(52, 168, 83, 0.15)',
+                    color: isWaitlisted ? '#FBBF24' : '#4ADE80',
+                    fontSize: '0.82rem',
+                    fontWeight: 700,
+                    border: `1px solid ${isWaitlisted ? 'rgba(251, 188, 4, 0.35)' : 'rgba(52, 168, 83, 0.35)'}`,
+                  }}>
+                    <span style={{
+                      width: '7px',
+                      height: '7px',
+                      borderRadius: '50%',
+                      background: isWaitlisted ? '#FBBC04' : '#34A853',
+                    }} />
+                    {isWaitlisted ? 'WAITLISTED' : 'CONFIRMED ATTENDEE'}
+                  </span>
+
+                  <span style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '0.4rem',
+                    padding: '0.35rem 0.75rem',
+                    borderRadius: '20px',
+                    background: 'rgba(66, 133, 244, 0.12)',
+                    color: '#93C5FD',
+                    fontSize: '0.78rem',
+                    fontWeight: 600,
+                    border: '1px solid rgba(66, 133, 244, 0.25)',
+                  }}>
+                    SINGLE-USE PASS (1 SCAN)
+                  </span>
+                </>
+              )}
             </div>
           </div>
 
@@ -469,11 +523,13 @@ export function EventTicketView({ registration }: EventTicketViewProps) {
 
               <div style={{
                 fontSize: '0.76rem',
-                color: '#64748B',
+                color: isCheckedIn ? '#FCA5A5' : '#94A3B8',
                 marginTop: '1rem',
                 lineHeight: 1.4,
               }}>
-                Present this QR code to the reception desk for instant badge check-in.
+                {isCheckedIn
+                  ? `🔒 This ticket has already been used and verified for entrance${registration.checkInTime ? ` on ${new Date(registration.checkInTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : ''}. Single-use admission has concluded.`
+                  : '⚠️ Single-Use Ticket: Valid for exactly 1 entrance check-in at the reception desk.'}
               </div>
             </div>
           </div>
@@ -500,84 +556,99 @@ export function EventTicketView({ registration }: EventTicketViewProps) {
           </div>
         </div>
 
-        {/* Action Cards Grid */}
+        {/* Action Cards Grid: PNG & PDF Downloads */}
         <div className="no-print" style={{
           display: 'grid',
           gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
           gap: '1rem',
           marginBottom: '3rem',
         }}>
-          {/* Share on WhatsApp */}
+          {/* Download PNG Image */}
           <button
             type="button"
-            onClick={handleWhatsAppShare}
+            onClick={handleDownloadPng}
+            disabled={isDownloadingPng}
             className="glass-panel"
             style={{
               display: 'flex',
               alignItems: 'center',
-              gap: '0.75rem',
+              gap: '0.85rem',
               padding: '1.25rem',
               borderRadius: '14px',
-              border: '1px solid rgba(37, 211, 102, 0.25)',
-              background: 'rgba(37, 211, 102, 0.08)',
-              cursor: 'pointer',
+              border: '1px solid rgba(66, 133, 244, 0.3)',
+              background: 'rgba(66, 133, 244, 0.08)',
+              cursor: isDownloadingPng ? 'not-allowed' : 'pointer',
               textAlign: 'left',
               color: '#F1F5F9',
+              transition: 'all 0.2s',
             }}
           >
             <div style={{
-              width: '38px',
-              height: '38px',
-              borderRadius: '10px',
-              background: 'rgba(37, 211, 102, 0.2)',
+              width: '42px',
+              height: '42px',
+              borderRadius: '12px',
+              background: 'rgba(66, 133, 244, 0.2)',
+              border: '1px solid rgba(66, 133, 244, 0.35)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               flexShrink: 0,
             }}>
-              <Share2 size={18} color="#4ADE80" />
+              {isDownloadingPng ? (
+                <Loader2 size={20} color="#60A5FA" className="animate-spin" />
+              ) : (
+                <ImageIcon size={20} color="#60A5FA" />
+              )}
             </div>
             <div>
-              <div style={{ fontWeight: 700, fontSize: '0.92rem' }}>Share on WhatsApp</div>
-              <div style={{ fontSize: '0.78rem', color: '#94A3B8' }}>Invite classmates & friends</div>
+              <div style={{ fontWeight: 800, fontSize: '0.95rem', color: '#FFFFFF' }}>
+                {isDownloadingPng ? 'Generating PNG...' : 'Download Ticket (PNG)'}
+              </div>
+              <div style={{ fontSize: '0.78rem', color: '#94A3B8' }}>
+                Save high-resolution image with QR code
+              </div>
             </div>
           </button>
 
-          {/* Copy Ticket Link */}
+          {/* Download PDF */}
           <button
             type="button"
-            onClick={handleCopyLink}
+            onClick={handleDownloadPdf}
             className="glass-panel"
             style={{
               display: 'flex',
               alignItems: 'center',
-              gap: '0.75rem',
+              gap: '0.85rem',
               padding: '1.25rem',
               borderRadius: '14px',
-              border: '1px solid rgba(255, 255, 255, 0.1)',
-              background: 'rgba(19, 27, 46, 0.6)',
+              border: '1px solid rgba(234, 67, 53, 0.3)',
+              background: 'rgba(234, 67, 53, 0.08)',
               cursor: 'pointer',
               textAlign: 'left',
               color: '#F1F5F9',
+              transition: 'all 0.2s',
             }}
           >
             <div style={{
-              width: '38px',
-              height: '38px',
-              borderRadius: '10px',
-              background: 'rgba(255, 255, 255, 0.08)',
+              width: '42px',
+              height: '42px',
+              borderRadius: '12px',
+              background: 'rgba(234, 67, 53, 0.2)',
+              border: '1px solid rgba(234, 67, 53, 0.35)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               flexShrink: 0,
             }}>
-              <Copy size={18} color={copiedLink ? '#4ADE80' : '#94A3B8'} />
+              <FileText size={20} color="#F87171" />
             </div>
             <div>
-              <div style={{ fontWeight: 700, fontSize: '0.92rem' }}>
-                {copiedLink ? 'Ticket Link Copied!' : 'Copy Ticket Link'}
+              <div style={{ fontWeight: 800, fontSize: '0.95rem', color: '#FFFFFF' }}>
+                Download Ticket (PDF)
               </div>
-              <div style={{ fontSize: '0.78rem', color: '#94A3B8' }}>Save this link to access your pass anytime</div>
+              <div style={{ fontSize: '0.78rem', color: '#94A3B8' }}>
+                Official printable admission document
+              </div>
             </div>
           </button>
         </div>

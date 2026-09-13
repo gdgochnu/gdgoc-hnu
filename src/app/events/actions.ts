@@ -1764,7 +1764,7 @@ export async function recordQrCheckin(input: RecordQrCheckinInput) {
 
       return {
         success: false,
-        error: 'Duplicate scan! This attendee has already been checked in.',
+        error: 'Single-Use Ticket Error: This ticket has already been used and checked in.',
         code: 'DUPLICATE_CHECKIN',
         alreadyCheckedIn: true,
         checkInTime: existingAttendance.check_in_time,

@@ -37,10 +37,25 @@ interface PublicEventViewProps {
   isCapacityFull: boolean;
   spotsRemaining: number | null;
   isPreview?: boolean;
+  existingRegistration?: {
+    id: string;
+    qr_code: string;
+    status: string;
+    full_name: string;
+    email: string;
+    phone?: string | null;
+    created_at: string;
+    isCheckedIn?: boolean;
+    checkInTime?: string | null;
+  } | null;
   userContext?: {
     isLoggedIn: boolean;
     fullName?: string;
     email?: string;
+    phone?: string;
+    university?: string;
+    faculty?: string;
+    academicYear?: string;
     role?: string;
   };
 }
@@ -52,25 +67,60 @@ export function PublicEventView({
   isCapacityFull: initialIsCapacityFull,
   spotsRemaining: initialSpotsRemaining,
   isPreview = false,
+  existingRegistration,
   userContext,
 }: PublicEventViewProps) {
   const router = useRouter();
 
-  // Registration form state
+  // Registration form state with auto-fill from user profile
   const [fullName, setFullName] = useState(userContext?.fullName || '');
   const [email, setEmail] = useState(userContext?.email || '');
-  const [phone, setPhone] = useState('');
-  const [customAnswers, setCustomAnswers] = useState<Record<string, any>>({});
+  const [phone, setPhone] = useState(userContext?.phone || '');
+  const [customAnswers, setCustomAnswers] = useState<Record<string, any>>(() => {
+    const initial: Record<string, any> = {};
+    if (userContext && event.registration_fields) {
+      event.registration_fields.forEach((field) => {
+        const label = (field.label || '').toLowerCase();
+        if (label.includes('university') || label.includes('جامعة')) {
+          initial[field.id] = userContext.university || 'Helwan National University';
+        } else if (label.includes('faculty') || label.includes('college') || label.includes('كلية')) {
+          if (userContext.faculty) initial[field.id] = userContext.faculty;
+        } else if (label.includes('year') || label.includes('grade') || label.includes('فرقة') || label.includes('سنة')) {
+          if (userContext.academicYear) initial[field.id] = userContext.academicYear;
+        }
+      });
+    }
+    return initial;
+  });
   
+  // Confirmed pass (from existing registration on mount or upon submission)
+  const [confirmedPass, setConfirmedPass] = useState<{
+    id: string;
+    qrCode: string;
+    status: 'registered' | 'waitlisted';
+    fullName?: string;
+    email?: string;
+    isCheckedIn?: boolean;
+    checkInTime?: string | null;
+  } | null>(() => {
+    if (existingRegistration) {
+      return {
+        id: existingRegistration.id,
+        qrCode: existingRegistration.qr_code,
+        status: existingRegistration.status as 'registered' | 'waitlisted',
+        fullName: existingRegistration.full_name,
+        email: existingRegistration.email,
+        isCheckedIn: existingRegistration.isCheckedIn,
+        checkInTime: existingRegistration.checkInTime,
+      };
+    }
+    return null;
+  });
+
   // UI state
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [copiedLink, setCopiedLink] = useState(false);
-  const [registrationSuccess, setRegistrationSuccess] = useState<{
-    qrCode: string;
-    status: 'registered' | 'waitlisted';
-    regId: string;
-  } | null>(null);
 
   // Live countdown state
   const [timeLeft, setTimeLeft] = useState<{
@@ -146,10 +196,14 @@ export function PublicEventView({
       }
 
       if (res.registration) {
-        setRegistrationSuccess({
+        setConfirmedPass({
+          id: res.registration.id,
           qrCode: res.registration.qr_code,
           status: res.registration.status as 'registered' | 'waitlisted',
-          regId: res.registration.id,
+          fullName: res.registration.full_name || fullName,
+          email: res.registration.email || email,
+          isCheckedIn: false,
+          checkInTime: null,
         });
 
         // Scroll to success banner
@@ -846,71 +900,159 @@ export function PublicEventView({
                 </p>
               </div>
 
-              {/* Success Banner if already submitted */}
-              {registrationSuccess ? (
+              {/* Confirmed Ticket Card (Persistent for logged in and newly registered users) */}
+              {confirmedPass ? (
                 <div style={{ textAlign: 'center', padding: '1rem 0' }}>
                   <div style={{
-                    width: '56px',
-                    height: '56px',
+                    width: '60px',
+                    height: '60px',
                     borderRadius: '50%',
-                    background: 'rgba(52, 168, 83, 0.15)',
-                    border: '2px solid rgba(52, 168, 83, 0.4)',
+                    background: confirmedPass.isCheckedIn ? 'rgba(234, 67, 53, 0.15)' : 'rgba(52, 168, 83, 0.15)',
+                    border: `2px solid ${confirmedPass.isCheckedIn ? 'rgba(234, 67, 53, 0.4)' : 'rgba(52, 168, 83, 0.4)'}`,
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    margin: '0 auto 1rem',
+                    margin: '0 auto 1.25rem',
                   }}>
-                    <CheckCircle2 size={32} color="#4ADE80" />
+                    {confirmedPass.isCheckedIn ? (
+                      <CheckCircle2 size={34} color="var(--google-red)" />
+                    ) : (
+                      <CheckCircle2 size={34} color="#4ADE80" />
+                    )}
                   </div>
 
-                  <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#F8FAFC', marginBottom: '0.5rem' }}>
-                    {registrationSuccess.status === 'waitlisted' ? 'Added to Waitlist!' : 'Registration Confirmed!'}
+                  <div style={{ marginBottom: '0.75rem' }}>
+                    <span style={{
+                      display: 'inline-block',
+                      padding: '0.3rem 0.85rem',
+                      borderRadius: '999px',
+                      background: confirmedPass.isCheckedIn
+                        ? 'rgba(234, 67, 53, 0.15)'
+                        : confirmedPass.status === 'waitlisted'
+                        ? 'rgba(251, 188, 4, 0.15)'
+                        : 'rgba(52, 168, 83, 0.15)',
+                      color: confirmedPass.isCheckedIn
+                        ? '#FCA5A5'
+                        : confirmedPass.status === 'waitlisted'
+                        ? '#FDE047'
+                        : '#86EFAC',
+                      fontSize: '0.8rem',
+                      fontWeight: 800,
+                      letterSpacing: '0.05em',
+                      textTransform: 'uppercase',
+                      border: `1px solid ${confirmedPass.isCheckedIn ? 'rgba(234, 67, 53, 0.3)' : confirmedPass.status === 'waitlisted' ? 'rgba(251, 188, 4, 0.3)' : 'rgba(52, 168, 83, 0.3)'}`,
+                    }}>
+                      {confirmedPass.isCheckedIn
+                        ? 'USED / CHECKED IN'
+                        : confirmedPass.status === 'waitlisted'
+                        ? 'ON WAITLIST'
+                        : 'CONFIRMED ADMISSION PASS'}
+                    </span>
+                  </div>
+
+                  <h3 style={{ fontSize: '1.35rem', fontWeight: 800, color: '#F8FAFC', marginBottom: '0.5rem' }}>
+                    {confirmedPass.status === 'waitlisted'
+                      ? 'Added to Priority Waitlist!'
+                      : (confirmedPass.isCheckedIn ? 'Welcome! Ticket Verified & Checked In' : "You're Registered!")}
                   </h3>
 
-                  <p style={{ fontSize: '0.88rem', color: '#CBD5E1', lineHeight: 1.6, marginBottom: '1.5rem' }}>
-                    {registrationSuccess.status === 'waitlisted'
-                      ? 'You have been added to the waitlist. If a spot opens up, we will contact you via email immediately.'
-                      : 'You are all set! Your personal check-in QR code has been generated.'}
+                  <p style={{ fontSize: '0.88rem', color: '#CBD5E1', lineHeight: 1.6, maxWidth: '420px', margin: '0 auto 1.5rem' }}>
+                    {confirmedPass.isCheckedIn
+                      ? `Your single-use ticket has been scanned and verified at the campus entrance.`
+                      : `Your admission spot is permanently reserved under your account.`}
                   </p>
 
                   <div style={{
                     background: 'rgba(0, 0, 0, 0.4)',
-                    padding: '1rem',
-                    borderRadius: '12px',
+                    padding: '1.25rem',
+                    borderRadius: '14px',
                     border: '1px dashed rgba(66, 133, 244, 0.3)',
                     marginBottom: '1.5rem',
+                    textAlign: 'left',
                   }}>
-                    <div style={{ fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#94A3B8', marginBottom: '0.35rem' }}>
-                      Registration Pass ID
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem', fontSize: '0.82rem' }}>
+                      <span style={{ color: '#94A3B8' }}>Attendee:</span>
+                      <span style={{ color: '#FFFFFF', fontWeight: 700 }}>{confirmedPass.fullName || fullName}</span>
                     </div>
-                    <code style={{ fontSize: '0.9rem', color: '#60A5FA', fontWeight: 700, wordBreak: 'break-all' }}>
-                      {registrationSuccess.qrCode}
-                    </code>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem', fontSize: '0.82rem' }}>
+                      <span style={{ color: '#94A3B8' }}>Pass Code:</span>
+                      <span style={{ fontFamily: 'monospace', color: '#60A5FA', fontWeight: 700 }}>{confirmedPass.qrCode}</span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.82rem', paddingTop: '0.5rem', borderTop: '1px solid rgba(255, 255, 255, 0.08)' }}>
+                      <span style={{ color: '#94A3B8' }}>Single-Use Status:</span>
+                      <span style={{ color: confirmedPass.isCheckedIn ? '#FCA5A5' : '#86EFAC', fontWeight: 700 }}>
+                        {confirmedPass.isCheckedIn ? 'Used for Admission' : 'Valid (1 scan only)'}
+                      </span>
+                    </div>
                   </div>
 
-                  <Link
-                    href={`/events/${event.slug}/confirmation?reg=${registrationSuccess.regId}`}
-                    className="btn-primary"
-                    style={{
-                      width: '100%',
-                      padding: '0.85rem 1.5rem',
-                      fontSize: '0.95rem',
-                      fontWeight: 700,
-                      borderRadius: '10px',
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: '0.5rem',
-                      textDecoration: 'none',
-                    }}
-                  >
-                    <span>View Registration Pass & QR</span>
-                    <ArrowRight size={16} />
-                  </Link>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                    <Link
+                      href={`/events/${event.slug}/confirmation?reg=${confirmedPass.id}`}
+                      className="btn-primary"
+                      style={{
+                        width: '100%',
+                        padding: '0.85rem 1.5rem',
+                        fontSize: '0.95rem',
+                        fontWeight: 700,
+                        borderRadius: '10px',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '0.5rem',
+                        textDecoration: 'none',
+                      }}
+                    >
+                      <Ticket size={16} />
+                      <span>View & Download My Ticket</span>
+                      <ArrowRight size={16} />
+                    </Link>
+
+                    <a
+                      href={`/api/events/ticket/${confirmedPass.id}/pdf`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="btn-secondary"
+                      style={{
+                        width: '100%',
+                        padding: '0.75rem 1.25rem',
+                        fontSize: '0.88rem',
+                        fontWeight: 600,
+                        borderRadius: '10px',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '0.5rem',
+                        textDecoration: 'none',
+                      }}
+                    >
+                      <span>Download Printable PDF</span>
+                    </a>
+                  </div>
                 </div>
               ) : (
                 /* Registration Form */
                 <form onSubmit={handleSubmitRegistration}>
+                  {userContext?.isLoggedIn && (
+                    <div style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.65rem',
+                      padding: '0.75rem 1rem',
+                      borderRadius: '10px',
+                      background: 'rgba(66, 133, 244, 0.1)',
+                      border: '1px solid rgba(66, 133, 244, 0.25)',
+                      marginBottom: '1.25rem',
+                      fontSize: '0.82rem',
+                      color: '#93C5FD',
+                    }}>
+                      <Sparkles size={16} color="var(--google-blue)" style={{ flexShrink: 0 }} />
+                      <span>
+                        Logged in as <strong>{userContext.fullName || userContext.email}</strong>. Details auto-filled from your profile.
+                      </span>
+                    </div>
+                  )}
+
                   {errorMessage && (
                     <div style={{
                       display: 'flex',
