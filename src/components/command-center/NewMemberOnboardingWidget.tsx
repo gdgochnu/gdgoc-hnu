@@ -291,7 +291,7 @@ export function NewMemberOnboardingWidget({ initialSummary }: NewMemberOnboardin
 
       <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 'auto', paddingTop: '0.5rem' }}>
         <Link
-          href="/onboarding"
+          href="/approvals"
           style={{
             fontSize: '0.75rem',
             color: 'var(--google-blue)',
@@ -302,7 +302,7 @@ export function NewMemberOnboardingWidget({ initialSummary }: NewMemberOnboardin
             fontWeight: 600,
           }}
         >
-          <span>Manage Onboarding Checklists</span>
+          <span>Manage Approvals & Onboarding</span>
           <ArrowUpRight size={13} />
         </Link>
       </div>

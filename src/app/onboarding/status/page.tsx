@@ -28,6 +28,7 @@ export const metadata = {
 };
 
 export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 export default async function OnboardingStatusPage() {
   const supabase = await createClient();
@@ -104,7 +105,7 @@ export default async function OnboardingStatusPage() {
             </div>
           </Link>
 
-          <OnboardingStatusClient />
+          <OnboardingStatusClient userId={user.id} initialStatus={profile.status} />
         </div>
       </header>
 

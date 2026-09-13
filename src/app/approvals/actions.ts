@@ -248,6 +248,9 @@ export async function approveAccount(
 
     revalidatePath('/approvals');
     revalidatePath('/members');
+    revalidatePath('/onboarding/status');
+    revalidatePath('/onboarding/complete-profile');
+    revalidatePath('/');
     return { success: true };
   } catch (err: unknown) {
     console.error('Approve account error:', err);
@@ -315,6 +318,10 @@ export async function rejectAccount(profileId: string, reason: string) {
     }
 
     revalidatePath('/approvals');
+    revalidatePath('/members');
+    revalidatePath('/onboarding/status');
+    revalidatePath('/onboarding/complete-profile');
+    revalidatePath('/');
     return { success: true };
   } catch (err: unknown) {
     console.error('Reject account error:', err);
@@ -382,6 +389,10 @@ export async function requestAccountChanges(profileId: string, notes: string) {
     }
 
     revalidatePath('/approvals');
+    revalidatePath('/members');
+    revalidatePath('/onboarding/status');
+    revalidatePath('/onboarding/complete-profile');
+    revalidatePath('/');
     return { success: true };
   } catch (err: unknown) {
     console.error('Request changes error:', err);
@@ -1035,6 +1046,7 @@ export async function updateMemberPositionAndRole({
     revalidatePath(`/members/${targetProfileId}`);
     revalidatePath('/approvals');
     revalidatePath('/dashboard');
+    revalidatePath('/onboarding/status');
 
     return {
       success: true,

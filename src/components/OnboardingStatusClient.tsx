@@ -1,30 +1,76 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { RefreshCw, LogOut, Loader2 } from 'lucide-react';
 
-export function OnboardingStatusClient() {
-  const router = useRouter();
+interface OnboardingStatusClientProps {
+  userId?: string;
+  initialStatus?: string;
+}
+
+export function OnboardingStatusClient({ userId, initialStatus }: OnboardingStatusClientProps) {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
 
-  const handleRefresh = async () => {
+  const handleRefresh = () => {
     setIsRefreshing(true);
-    router.refresh();
-    setTimeout(() => {
-      setIsRefreshing(false);
-    }, 800);
+    // Hard refresh to immediately bypass all client router caches and fetch the fresh status from server
+    window.location.reload();
   };
 
   const handleSignOut = async () => {
     setIsSigningOut(true);
     const supabase = createClient();
     await supabase.auth.signOut();
-    router.push('/');
-    router.refresh();
+    window.location.href = '/';
   };
+
+  // Real-time listener: automatically reload the page when the profile status changes in Supabase
+  useEffect(() => {
+    if (!userId) return;
+    const supabase = createClient();
+
+    // 1. Supabase Realtime channel
+    const channel = supabase
+      .channel(`profile-status-${userId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'profiles',
+          filter: `id=eq.${userId}`,
+        },
+        (payload: any) => {
+          if (payload.new && payload.new.status !== initialStatus) {
+            window.location.reload();
+          }
+        }
+      )
+      .subscribe();
+
+    // 2. Periodic polling fallback every 6 seconds while review is pending
+    let interval: NodeJS.Timeout | null = null;
+    if (initialStatus === 'pending_review' || !initialStatus) {
+      interval = setInterval(async () => {
+        const { data } = await supabase
+          .from('profiles')
+          .select('status')
+          .eq('id', userId)
+          .maybeSingle();
+
+        if (data && data.status && data.status !== 'pending_review') {
+          window.location.reload();
+        }
+      }, 6000);
+    }
+
+    return () => {
+      supabase.removeChannel(channel);
+      if (interval) clearInterval(interval);
+    };
+  }, [userId, initialStatus]);
 
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
