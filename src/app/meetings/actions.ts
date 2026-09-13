@@ -713,19 +713,31 @@ export async function getMeetingDetails(meetingId: string): Promise<{
 
     let attendeesProfilesMap = new Map<string, any>();
     if (profileIds.length > 0) {
-      const { data: profs } = await admin
-        .from('profiles')
-        .select(`
-          id,
-          full_name,
-          email,
-          avatar_url,
-          role,
-          department:departments(name, code)
-        `)
-        .in('id', profileIds);
+      const [{ data: profs, error: profsErr }, { data: depts }] = await Promise.all([
+        admin
+          .from('profiles')
+          .select('id, full_name, full_name_en, full_name_ar, email, avatar_url, role, department_id')
+          .in('id', profileIds),
+        admin
+          .from('departments')
+          .select('id, name, code, branch'),
+      ]);
 
-      (profs || []).forEach((p) => attendeesProfilesMap.set(p.id, p));
+      if (profsErr) {
+        console.error('getMeetingDetails profiles error:', profsErr);
+      }
+
+      const deptMap = new Map<string, any>();
+      (depts || []).forEach((d) => deptMap.set(d.id, d));
+
+      (profs || []).forEach((p) => {
+        const primaryName = p.full_name || p.full_name_en || p.full_name_ar || p.email || 'Member';
+        attendeesProfilesMap.set(p.id, {
+          ...p,
+          full_name: primaryName,
+          department: p.department_id ? deptMap.get(p.department_id) || null : null,
+        });
+      });
     }
 
     const hydratedAttendees: TeamMeetingAttendee[] = attendeesList.map((a) => ({
