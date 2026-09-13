@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import React, { useState } from 'react';
 import Link from 'next/link';
 import { UserRole, ProfileStatus, PerformanceReview, Certificate } from '@/types';
 import { MemberPerformanceTab } from '@/components/profile/MemberPerformanceTab';
@@ -26,8 +26,12 @@ import {
   Instagram,
   Globe,
   IdCard,
-  BookOpen
+  BookOpen,
+  Pencil,
+  Sliders,
 } from 'lucide-react';
+import { EditProfileModal, getPlatformIcon } from '@/components/profile/EditProfileModal';
+import { EditMemberPositionModal } from '@/components/profile/EditMemberPositionModal';
 
 export interface MemberProfileData {
   id: string;
@@ -65,40 +69,91 @@ export interface MemberProfileData {
     branch: string;
     description: string | null;
   } | null;
+  custom_fields?: {
+    social_links?: Array<{ platform: string; label: string; url: string }>;
+    [key: string]: any;
+  } | null;
 }
 
 interface MemberProfileViewProps {
   member: MemberProfileData;
   callerRole?: string;
   callerId?: string;
+  callerDepartmentId?: string | null;
+  callerBranch?: string | null;
   canViewNationalId?: boolean;
   performanceReviews?: PerformanceReview[];
   certificates?: Certificate[];
   eventsAttendedCount?: number;
   totalCompletedEventsCount?: number;
+  facultyOptions?: Array<{ id: string; name_ar: string; name_en: string }>;
+  isDedicatedProfilePage?: boolean;
+  departments?: Array<{ id: string; name: string; code: string; branch: string }>;
 }
 
 export function MemberProfileView({
-  member,
+  member: initialMember,
   callerRole,
   callerId,
+  callerDepartmentId,
+  callerBranch,
   canViewNationalId = false,
   performanceReviews = [],
   certificates = [],
   eventsAttendedCount = 0,
   totalCompletedEventsCount = 0,
+  facultyOptions = [],
+  isDedicatedProfilePage = false,
+  departments = [],
 }: MemberProfileViewProps) {
+  const [currentMember, setCurrentMember] = useState<MemberProfileData>(initialMember);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isPositionModalOpen, setIsPositionModalOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'overview' | 'skills' | 'performance' | 'certificates'>('overview');
 
-  const isTech = member.department?.branch === 'tech';
-  const isSuspended = member.status === 'suspended';
+  const isSelfView = currentMember.id === callerId;
+  const isPresident = currentMember.role === 'president';
+  const isCoPresident = currentMember.role === 'co_president';
+  const isTech = currentMember.department?.branch === 'tech';
+  const isSuspended = currentMember.status === 'suspended';
+
+  // Permission Logic: Strictly Heads & Presidents only
+  // - President/Co-President can manage all members across branches
+  // - Branch Head can only manage members in their branch (Tech vs Non-Tech) and cannot modify Presidents or other Branch Heads
+  // - Committee Head can only manage members in their specific committee
+  const isPresidential = ['president', 'co_president'].includes(callerRole || '');
+  const isTargetPresidential = ['president', 'co_president'].includes(currentMember.role);
+  const isTargetBranchHead = currentMember.role === 'branch_head';
+  const isSameBranch = !!callerBranch && currentMember.department?.branch === callerBranch;
+  const isSameDept = !!callerDepartmentId && currentMember.department?.id === callerDepartmentId;
+
+  let canManagePosition = false;
+  if (isPresidential) {
+    canManagePosition = true;
+  } else if (callerRole === 'branch_head') {
+    canManagePosition = isSameBranch && (!isTargetPresidential && !isTargetBranchHead);
+  } else if (callerRole === 'committee_head') {
+    canManagePosition = isSameDept && (!isTargetPresidential && !isTargetBranchHead && currentMember.role !== 'committee_head');
+  }
 
   const getRoleBadge = (role: UserRole) => {
     switch (role) {
       case 'president':
-        return { label: 'President', bg: 'rgba(66, 133, 244, 0.2)', color: '#93C5FD', border: 'rgba(66, 133, 244, 0.4)' };
+        return {
+          label: '👑 Chapter President',
+          bg: 'linear-gradient(135deg, rgba(251, 188, 4, 0.25), rgba(66, 133, 244, 0.25))',
+          color: '#FDE047',
+          border: 'rgba(251, 188, 4, 0.65)',
+          boxShadow: '0 0 16px rgba(251, 188, 4, 0.35)',
+        };
       case 'co_president':
-        return { label: 'Co-President', bg: 'rgba(251, 188, 4, 0.2)', color: '#FDE047', border: 'rgba(251, 188, 4, 0.4)' };
+        return {
+          label: '👑 Chapter Co-President',
+          bg: 'linear-gradient(135deg, rgba(251, 188, 4, 0.2), rgba(52, 168, 83, 0.2))',
+          color: '#FDE047',
+          border: 'rgba(251, 188, 4, 0.55)',
+          boxShadow: '0 0 12px rgba(251, 188, 4, 0.25)',
+        };
       case 'branch_head':
         return { label: 'Branch Head', bg: 'rgba(52, 168, 83, 0.2)', color: '#86EFAC', border: 'rgba(52, 168, 83, 0.4)' };
       case 'committee_head':
@@ -110,36 +165,80 @@ export function MemberProfileView({
     }
   };
 
+  const getDisplayPosition = () => {
+    if (isPresident) {
+      if (!currentMember.position || currentMember.position.toLowerCase() === 'member') {
+        return 'Chapter President & Executive Community Lead';
+      }
+      return currentMember.position;
+    }
+    if (isCoPresident) {
+      if (!currentMember.position || currentMember.position.toLowerCase() === 'member') {
+        return 'Chapter Co-President & Executive Lead';
+      }
+      return currentMember.position;
+    }
+    if (currentMember.role === 'branch_head') {
+      if (
+        !currentMember.position ||
+        currentMember.position.toLowerCase() === 'member' ||
+        currentMember.position.toLowerCase() === 'head of branch' ||
+        currentMember.position.toLowerCase().startsWith('head of ')
+      ) {
+        return isTech ? 'Technical Branch Head' : 'Non-Technical Branch Head';
+      }
+      return currentMember.position;
+    }
+    if (currentMember.role === 'committee_head') {
+      if (!currentMember.position || currentMember.position.toLowerCase() === 'member' || currentMember.position === 'Head of Committee') {
+        return currentMember.department ? `Head of ${currentMember.department.name}` : 'Committee Head';
+      }
+      return currentMember.position;
+    }
+    if (currentMember.role === 'committee_co_head') {
+      if (!currentMember.position || currentMember.position.toLowerCase() === 'member' || currentMember.position === 'Co-Head of Committee') {
+        return currentMember.department ? `Co-Head of ${currentMember.department.name}` : 'Committee Co-Head';
+      }
+      return currentMember.position;
+    }
+    if (currentMember.position && currentMember.position.toLowerCase() !== 'member') {
+      return currentMember.position;
+    }
+    return currentMember.department ? `Member of ${currentMember.department.name}` : 'General Chapter Member';
+  };
+
   const getAcademicYearLabel = (year: string | number | null) => {
     if (!year) return 'Not specified';
     const num = Number(year);
     switch (num) {
       case 1:
-        return '1st Year (الفرقة الأولى)';
+        return '1st Year';
       case 2:
-        return '2nd Year (الفرقة الثانية)';
+        return '2nd Year';
       case 3:
-        return '3rd Year (الفرقة الثالثة)';
+        return '3rd Year';
       case 4:
-        return '4th Year (الفرقة الرابعة)';
+        return '4th Year';
       case 5:
-        return '5th Year (الفرقة الخامسة)';
+        return '5th Year';
       default:
         return `Year ${year}`;
     }
   };
 
-  const roleBadge = getRoleBadge(member.role);
-  const primaryName = member.full_name_en || member.full_name;
-  const secondaryName = member.full_name_ar;
-  const whatsappContact = member.whatsapp_number || member.phone;
+  const roleBadge = getRoleBadge(currentMember.role);
+  const primaryName = currentMember.full_name_en || currentMember.full_name;
+  const secondaryName = currentMember.full_name_ar;
+  const whatsappContact = currentMember.whatsapp_number || currentMember.phone;
+  // Alias member to currentMember so all subsequent UI blocks automatically reflect live edits
+  const member = currentMember;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
       {/* Back Navigation Bar */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.75rem' }}>
         <Link
-          href="/members"
+          href={isDedicatedProfilePage ? '/dashboard' : '/members'}
           style={{
             display: 'inline-flex',
             alignItems: 'center',
@@ -152,13 +251,37 @@ export function MemberProfileView({
           }}
         >
           <ArrowLeft size={16} />
-          <span>Back to Members Directory</span>
+          <span>{isDedicatedProfilePage ? 'Back to Dashboard' : 'Back to Members Directory'}</span>
         </Link>
 
-        {member.id === callerId ? (
-          <span style={{ fontSize: '0.8rem', padding: '0.2rem 0.6rem', borderRadius: '6px', background: 'rgba(255, 255, 255, 0.1)', color: 'var(--text-secondary)' }}>
-            Your Profile
-          </span>
+        {isSelfView ? (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            <span style={{ fontSize: '0.78rem', padding: '0.25rem 0.65rem', borderRadius: '8px', background: isPresident ? 'rgba(251, 188, 4, 0.15)' : 'rgba(255, 255, 255, 0.08)', color: isPresident ? '#FDE047' : 'var(--text-secondary)', fontWeight: 700 }}>
+              {isPresident ? '👑 Executive Account' : 'Your Account'}
+            </span>
+            <button
+              type="button"
+              onClick={() => setIsEditModalOpen(true)}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.45rem',
+                padding: '0.5rem 1.15rem',
+                borderRadius: '10px',
+                background: 'linear-gradient(135deg, #4285F4, #1a73e8)',
+                color: '#fff',
+                border: 'none',
+                fontWeight: 700,
+                fontSize: '0.84rem',
+                cursor: 'pointer',
+                boxShadow: '0 4px 12px rgba(66, 133, 244, 0.3)',
+                transition: 'all 0.2s',
+              }}
+            >
+              <Pencil size={14} />
+              <span>Edit Profile</span>
+            </button>
+          </div>
         ) : null}
       </div>
 
@@ -170,6 +293,11 @@ export function MemberProfileView({
         display: 'flex',
         flexDirection: 'column',
         gap: '1.5rem',
+        background: isPresident 
+          ? 'radial-gradient(ellipse at top left, rgba(251, 188, 4, 0.14) 0%, rgba(66, 133, 244, 0.09) 45%, var(--surface-primary, #13151b) 100%)'
+          : undefined,
+        border: isPresident ? '1px solid rgba(251, 188, 4, 0.35)' : undefined,
+        boxShadow: isPresident ? '0 12px 40px rgba(251, 188, 4, 0.08), 0 20px 48px rgba(0, 0, 0, 0.4)' : undefined,
       }}>
         {/* Top Google 4-Color Accent Strip */}
         <div style={{
@@ -193,11 +321,13 @@ export function MemberProfileView({
           {/* Identity Info */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', flexWrap: 'wrap' }}>
             <div style={{
-              width: '84px',
-              height: '84px',
+              width: isPresident ? '92px' : '84px',
+              height: isPresident ? '92px' : '84px',
               borderRadius: '50%',
-              background: 'linear-gradient(135deg, rgba(66, 133, 244, 0.3), rgba(52, 168, 83, 0.3))',
-              border: '2px solid rgba(255, 255, 255, 0.2)',
+              background: isPresident
+                ? 'linear-gradient(135deg, #FBBC04, #4285F4)'
+                : 'linear-gradient(135deg, rgba(66, 133, 244, 0.3), rgba(52, 168, 83, 0.3))',
+              border: isPresident ? '3px solid #FBBC04' : '2px solid rgba(255, 255, 255, 0.2)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
@@ -205,12 +335,29 @@ export function MemberProfileView({
               fontWeight: 800,
               color: '#FFFFFF',
               flexShrink: 0,
-              boxShadow: '0 8px 24px rgba(0, 0, 0, 0.3)',
+              boxShadow: isPresident
+                ? '0 0 28px rgba(251, 188, 4, 0.45), 0 8px 24px rgba(0, 0, 0, 0.5)'
+                : '0 8px 24px rgba(0, 0, 0, 0.3)',
+              position: 'relative',
             }}>
               {member.avatar_url ? (
                 <img src={member.avatar_url} alt="" style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} />
               ) : (
                 primaryName?.charAt(0) || 'M'
+              )}
+              {isPresident && (
+                <div
+                  title="Chapter President"
+                  style={{
+                    position: 'absolute',
+                    top: '-8px',
+                    right: '-6px',
+                    fontSize: '1.25rem',
+                    filter: 'drop-shadow(0 2px 8px rgba(0, 0, 0, 0.7))',
+                  }}
+                >
+                  👑
+                </div>
               )}
             </div>
 
@@ -222,13 +369,14 @@ export function MemberProfileView({
                 <span style={{
                   fontSize: '0.75rem',
                   fontWeight: 700,
-                  padding: '0.2rem 0.65rem',
+                  padding: '0.25rem 0.75rem',
                   borderRadius: '999px',
                   background: roleBadge.bg,
                   color: roleBadge.color,
                   border: `1px solid ${roleBadge.border}`,
                   textTransform: 'uppercase',
                   letterSpacing: '0.05em',
+                  boxShadow: (roleBadge as any).boxShadow,
                 }}>
                   {roleBadge.label}
                 </span>
@@ -261,14 +409,38 @@ export function MemberProfileView({
                 </div>
               )}
 
-              <div style={{ color: 'var(--text-secondary)', fontSize: '0.95rem', marginTop: '0.35rem' }}>
-                {member.position || (member.department ? `Member of ${member.department.name}` : 'General Chapter Member')}
+              {/* Position / Executive Title */}
+              <div style={{ color: isPresident ? '#E5E7EB' : 'var(--text-secondary)', fontSize: '0.98rem', fontWeight: isPresident ? 700 : 500, marginTop: '0.35rem' }}>
+                {getDisplayPosition()}
               </div>
 
-              {member.department ? (
+              {/* Department / Executive Oversight Scope */}
+              {isPresident ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.5rem', fontSize: '0.88rem' }}>
+                  <Building2 size={16} color="var(--google-yellow)" />
+                  <span style={{ color: '#FDE047', fontWeight: 800 }}>Executive Chapter Board</span>
+                  <span style={{ color: 'var(--text-secondary)' }}>• Supreme Oversight over All Branches &amp; Committees (Tech &amp; Non-Tech)</span>
+                </div>
+              ) : isCoPresident ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.5rem', fontSize: '0.88rem' }}>
+                  <Building2 size={16} color="var(--google-yellow)" />
+                  <span style={{ color: '#FDE047', fontWeight: 800 }}>Executive Chapter Board</span>
+                  <span style={{ color: 'var(--text-secondary)' }}>• Executive Oversight (All Branches &amp; Committees)</span>
+                </div>
+              ) : currentMember.role === 'branch_head' ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.5rem', fontSize: '0.88rem' }}>
+                  <Building2 size={16} color={isTech ? 'var(--google-blue)' : 'var(--google-green)'} />
+                  <span style={{ color: isTech ? '#93C5FD' : '#86EFAC', fontWeight: 800 }}>
+                    {isTech ? 'Technical Branch Leadership' : 'Non-Technical Branch Leadership'}
+                  </span>
+                  <span style={{ color: 'var(--text-secondary)' }}>
+                    • Executive Oversight over {isTech ? 'Technical Committees' : 'Non-Technical Committees'}
+                  </span>
+                </div>
+              ) : currentMember.department ? (
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.5rem', fontSize: '0.85rem' }}>
                   <Building2 size={15} color={isTech ? 'var(--google-blue)' : 'var(--google-green)'} />
-                  <span style={{ color: '#FFFFFF', fontWeight: 600 }}>{member.department.name}</span>
+                  <span style={{ color: '#FFFFFF', fontWeight: 600 }}>{currentMember.department.name}</span>
                   <span style={{ color: 'var(--text-muted)' }}>• {isTech ? 'Tech Branch' : 'Non-Tech Branch'}</span>
                 </div>
               ) : null}
@@ -277,6 +449,55 @@ export function MemberProfileView({
 
           {/* Quick Contact & Social Actions */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', flexWrap: 'wrap' }}>
+            {isSelfView && (
+              <button
+                type="button"
+                onClick={() => setIsEditModalOpen(true)}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.45rem',
+                  padding: '0.55rem 1.15rem',
+                  fontSize: '0.85rem',
+                  borderRadius: '10px',
+                  background: 'linear-gradient(135deg, #4285F4, #1a73e8)',
+                  color: '#fff',
+                  border: 'none',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  boxShadow: '0 4px 12px rgba(66, 133, 244, 0.3)',
+                }}
+              >
+                <Pencil size={15} />
+                <span>Edit Profile</span>
+              </button>
+            )}
+            {canManagePosition && (
+              <button
+                type="button"
+                onClick={() => setIsPositionModalOpen(true)}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.45rem',
+                  padding: '0.55rem 1.15rem',
+                  fontSize: '0.85rem',
+                  borderRadius: '10px',
+                  background: 'linear-gradient(135deg, rgba(251, 188, 4, 0.18), rgba(66, 133, 244, 0.18))',
+                  color: '#FDE047',
+                  border: '1px solid rgba(251, 188, 4, 0.45)',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  boxShadow: '0 4px 12px rgba(251, 188, 4, 0.15)',
+                  transition: 'all 0.2s',
+                }}
+                title="Change member position title, authority role, or committee"
+              >
+                <Sliders size={15} color="#FDE047" />
+                <span>Edit Position</span>
+              </button>
+            )}
+
             {member.email ? (
               <a
                 href={`mailto:${member.email}`}
@@ -291,7 +512,7 @@ export function MemberProfileView({
 
             {whatsappContact ? (
               <a
-                href={`https://wa.me/${whatsappContact.replace(/[^0-9]/g, '')}`}
+                href={`https://wa.me/${String(whatsappContact).replace(/[^0-9]/g, '')}`}
                 target="_blank"
                 rel="noreferrer"
                 className="btn-secondary"
@@ -357,6 +578,24 @@ export function MemberProfileView({
                 <ExternalLink size={14} />
               </a>
             ) : null}
+
+            {/* Custom Social Channels in Quick Action Bar */}
+            {Array.isArray(member.custom_fields?.social_links) && member.custom_fields.social_links.filter((sl) =>
+              sl?.platform && typeof sl.platform === 'string' && !['linkedin', 'facebook', 'instagram', 'portfolio'].includes(sl.platform.toLowerCase())
+            ).map((sl, i) => (
+              <a
+                key={`hero-custom-${sl.platform}-${i}`}
+                href={sl.url}
+                target="_blank"
+                rel="noreferrer"
+                className="btn-secondary"
+                style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', padding: '0.55rem 0.95rem', fontSize: '0.85rem' }}
+                title={sl.label}
+              >
+                {getPlatformIcon(sl.platform, 15)}
+                <span>{sl.label}</span>
+              </a>
+            ))}
           </div>
         </div>
       </div>
@@ -522,7 +761,7 @@ export function MemberProfileView({
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.35rem' }}>
                   <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem', textTransform: 'uppercase', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
                     <IdCard size={14} color={canViewNationalId ? 'var(--google-green)' : 'var(--text-muted)'} />
-                    <span>National ID (الرقم القومي)</span>
+                    <span>National ID</span>
                   </div>
 
                   {canViewNationalId ? (
@@ -591,6 +830,28 @@ export function MemberProfileView({
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', fontSize: '0.9rem' }}>
+              {isPresident && (
+                <div style={{
+                  padding: '0.85rem 1rem',
+                  borderRadius: '10px',
+                  background: 'rgba(251, 188, 4, 0.08)',
+                  border: '1px solid rgba(251, 188, 4, 0.25)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.65rem',
+                }}>
+                  <Sparkles size={18} color="var(--google-yellow)" />
+                  <div>
+                    <div style={{ color: '#FDE047', fontWeight: 800, fontSize: '0.84rem' }}>
+                      Supreme Chapter Leadership
+                    </div>
+                    <div style={{ color: 'var(--text-secondary)', fontSize: '0.78rem', marginTop: '2px' }}>
+                      Overseeing GDGoC HNU chapter strategy, leadership appointments, and cross-functional committees.
+                    </div>
+                  </div>
+                </div>
+              )}
+
               <div>
                 <div style={{ color: 'var(--text-muted)', fontSize: '0.78rem', textTransform: 'uppercase', fontWeight: 600 }}>
                   Why GDGoC HNU? (Motivation)
@@ -602,11 +863,11 @@ export function MemberProfileView({
 
               <div>
                 <div style={{ color: 'var(--text-muted)', fontSize: '0.78rem', textTransform: 'uppercase', fontWeight: 600 }}>
-                  Member Since
+                  {isPresident ? 'Leading Chapter Since' : 'Member Since'}
                 </div>
                 <div style={{ color: '#FFFFFF', fontWeight: 700, marginTop: '2px', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
                   <Calendar size={15} color="var(--google-yellow)" />
-                  <span>{new Date(member.join_date || member.created_at).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</span>
+                  <span suppressHydrationWarning>{new Date(member.join_date || member.created_at).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</span>
                 </div>
               </div>
 
@@ -715,7 +976,33 @@ export function MemberProfileView({
                       <span>Portfolio</span>
                     </a>
                   )}
-                  {!member.linkedin_url && !member.facebook_url && !member.instagram_url && !member.portfolio_url && (
+                  {/* Custom Social Links Pills */}
+                  {Array.isArray(member.custom_fields?.social_links) && member.custom_fields.social_links.filter((sl) =>
+                    sl?.platform && typeof sl.platform === 'string' && !['linkedin', 'facebook', 'instagram', 'portfolio'].includes(sl.platform.toLowerCase())
+                  ).map((sl, i) => (
+                    <a
+                      key={`overview-custom-${sl.platform}-${i}`}
+                      href={sl.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '0.35rem',
+                        fontSize: '0.78rem',
+                        padding: '0.3rem 0.6rem',
+                        borderRadius: '6px',
+                        background: 'rgba(255, 255, 255, 0.05)',
+                        color: '#fff',
+                        textDecoration: 'none',
+                        border: '1px solid rgba(255, 255, 255, 0.12)',
+                      }}
+                    >
+                      {getPlatformIcon(sl.platform, 13)}
+                      <span>{sl.label}</span>
+                    </a>
+                  ))}
+                  {!member.linkedin_url && !member.facebook_url && !member.instagram_url && !member.portfolio_url && (!member.custom_fields?.social_links || member.custom_fields.social_links.length === 0) && (
                     <span style={{ color: 'var(--text-muted)', fontSize: '0.82rem' }}>No external links linked</span>
                   )}
                 </div>
@@ -838,6 +1125,49 @@ export function MemberProfileView({
                   </a>
                 </div>
               )}
+
+              {/* Custom Social / Code Profiles */}
+              {Array.isArray(member.custom_fields?.social_links) && member.custom_fields.social_links.filter((sl) =>
+                sl?.platform && typeof sl.platform === 'string' && !['linkedin', 'portfolio'].includes(sl.platform.toLowerCase())
+              ).map((sl, i) => (
+                <div
+                  key={`portfolio-custom-${sl.platform}-${i}`}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    padding: '1.25rem',
+                    borderRadius: '12px',
+                    background: 'rgba(255, 255, 255, 0.04)',
+                    border: '1px solid rgba(255, 255, 255, 0.08)',
+                    flexWrap: 'wrap',
+                    gap: '1rem',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                    <div style={{ width: '36px', height: '36px', borderRadius: '8px', background: 'rgba(255, 255, 255, 0.06)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      {getPlatformIcon(sl.platform, 18)}
+                    </div>
+                    <div>
+                      <div style={{ fontWeight: 700, fontSize: '0.95rem', color: '#FFFFFF' }}>{sl.label}</div>
+                      <div style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', wordBreak: 'break-all' }}>
+                        {sl.url}
+                      </div>
+                    </div>
+                  </div>
+
+                  <a
+                    href={sl.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="btn-secondary"
+                    style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.55rem 1.15rem', fontSize: '0.85rem' }}
+                  >
+                    <span>Open {sl.label}</span>
+                    <ExternalLink size={14} />
+                  </a>
+                </div>
+              ))}
             </div>
           </div>
         </div>
@@ -860,6 +1190,50 @@ export function MemberProfileView({
           memberName={primaryName}
         />
       ) : null}
+
+      {/* Modal for editing own profile */}
+      {isSelfView && (
+        <EditProfileModal
+          isOpen={isEditModalOpen}
+          onClose={() => setIsEditModalOpen(false)}
+          member={currentMember}
+          facultyOptions={facultyOptions}
+          onSuccess={(updated) => {
+            setCurrentMember((prev) => ({ ...prev, ...updated }));
+          }}
+        />
+      )}
+
+      {/* Modal for managing member position & role (Leadership) */}
+      {canManagePosition && (
+        <EditMemberPositionModal
+          isOpen={isPositionModalOpen}
+          onClose={() => setIsPositionModalOpen(false)}
+          member={currentMember}
+          departments={departments}
+          callerRole={callerRole}
+          callerBranch={callerBranch || undefined}
+          onSuccess={(updated) => {
+            setCurrentMember((prev) => ({
+              ...prev,
+              position: updated.position,
+              role: updated.role,
+              department_id: updated.department_id,
+              department: updated.department
+                ? {
+                    id: updated.department.id,
+                    name: updated.department.name,
+                    code: updated.department.code,
+                    branch: updated.department.branch,
+                    description: updated.department.description ?? (prev.department?.description || null),
+                  }
+                : updated.department === null
+                ? null
+                : prev.department,
+            }));
+          }}
+        />
+      )}
     </div>
   );
 }

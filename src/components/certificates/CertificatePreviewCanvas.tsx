@@ -65,6 +65,7 @@ export function CertificatePreviewCanvas({
   return (
     <div
       ref={canvasRef}
+      id="certificate-preview-canvas"
       style={{
         position: 'relative',
         width: '100%',

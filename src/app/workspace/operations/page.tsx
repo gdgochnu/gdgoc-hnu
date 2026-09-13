@@ -1,11 +1,25 @@
+import React, { Suspense } from 'react';
 import { AppShell } from '@/components/layout/AppShell';
 import { getUserContext } from '@/lib/auth/get-user-context';
 import { getAllOperationsEventsSummary } from '@/app/events/operations-actions';
 import { OperationsWorkspaceClient } from '@/components/workspace/OperationsWorkspaceClient';
+import { OperationsSkeleton } from '@/components/skeletons/OperationsSkeleton';
 import Link from 'next/link';
 import { ShieldAlert } from 'lucide-react';
 
 export const dynamic = 'force-dynamic';
+
+async function OperationsDataLoader({ canManage }: { canManage: boolean }) {
+  const { events, overallStats } = await getAllOperationsEventsSummary();
+
+  return (
+    <OperationsWorkspaceClient
+      initialEvents={events}
+      overallStats={overallStats}
+      canManage={canManage}
+    />
+  );
+}
 
 export default async function OperationsWorkspacePage() {
   const context = await getUserContext();
@@ -50,15 +64,12 @@ export default async function OperationsWorkspacePage() {
   }
 
   const canManage = isLeadership || ['committee_head', 'committee_co_head'].includes(profile.role);
-  const { events, overallStats } = await getAllOperationsEventsSummary();
 
   return (
     <AppShell>
-      <OperationsWorkspaceClient
-        initialEvents={events}
-        overallStats={overallStats}
-        canManage={canManage}
-      />
+      <Suspense fallback={<OperationsSkeleton />}>
+        <OperationsDataLoader canManage={canManage} />
+      </Suspense>
     </AppShell>
   );
 }

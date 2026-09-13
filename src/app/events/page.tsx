@@ -1,19 +1,91 @@
+import React, { Suspense } from 'react';
 import { AppShell } from '@/components/layout/AppShell';
-import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getUserContext } from '@/lib/auth/get-user-context';
 import { EventsListClient } from '@/components/events/EventsListClient';
+import { EventsSkeleton } from '@/components/skeletons/EventsSkeleton';
 import { Event } from '@/types';
 import { checkAndAutoTransitionPastEvents } from '@/app/events/actions';
 import Link from 'next/link';
-import { Calendar, ShieldAlert } from 'lucide-react';
+import { ShieldAlert } from 'lucide-react';
 
 export const dynamic = 'force-dynamic';
 
+async function EventsDataLoader({
+  profile,
+  userId,
+}: {
+  profile: any;
+  userId: string;
+}) {
+  const admin = createAdminClient();
+
+  // 1. Fetch departments
+  const { data: departmentsData } = await admin
+    .from('departments')
+    .select('id, name, code, branch')
+    .order('name', { ascending: true });
+
+  const departments = departmentsData || [];
+
+  // 2. Fetch active members for event owner assignment
+  const { data: membersData } = await admin
+    .from('profiles')
+    .select('id, full_name, full_name_en, email, avatar_url, department_id')
+    .eq('status', 'active')
+    .order('full_name', { ascending: true });
+
+  const members = (membersData || []).map((m) => ({
+    id: m.id,
+    full_name: m.full_name,
+    full_name_en: m.full_name_en,
+    email: m.email,
+    avatar_url: m.avatar_url,
+    department_id: m.department_id,
+  }));
+
+  // 3. Auto-transition any past due events to 'completed' (§4.3 item 7)
+  await checkAndAutoTransitionPastEvents();
+
+  // 4. Fetch events based on role and RLS scope
+  const isPresidential = ['president', 'co_president'].includes(profile.role);
+  let eventsQuery = admin
+    .from('events')
+    .select('*, department:departments(id, name, code, branch)')
+    .order('event_date', { ascending: false });
+
+  if (!isPresidential) {
+    if (profile.role === 'branch_head' && profile.department?.branch) {
+      const branchDepts = departments.filter((d) => d.branch === profile.department?.branch).map((d) => d.id);
+      eventsQuery = eventsQuery.or(`department_id.in.(${branchDepts.join(',')}),status.in.(published,closed,completed)`);
+    } else if (profile.department_id) {
+      eventsQuery = eventsQuery.or(`department_id.eq.${profile.department_id},status.in.(published,closed,completed)`);
+    } else {
+      eventsQuery = eventsQuery.in('status', ['published', 'closed', 'completed']);
+    }
+  }
+
+  const { data: eventsData } = await eventsQuery;
+  const initialEvents: Event[] = (eventsData || []).map((e: any) => ({
+    ...e,
+    registration_fields: Array.isArray(e.registration_fields) ? e.registration_fields : [],
+    owners: Array.isArray(e.owners) ? e.owners : [],
+  }));
+
+  return (
+    <EventsListClient
+      initialEvents={initialEvents}
+      departments={departments}
+      members={members}
+      currentUserRole={profile.role}
+      currentUserId={userId}
+      userDepartmentId={profile.department_id}
+    />
+  );
+}
+
 export default async function EventsPage() {
   const context = await getUserContext();
-  const supabase = await createClient();
-  const admin = createAdminClient();
 
   if (!context.user || !context.profile) {
     return (
@@ -47,70 +119,12 @@ export default async function EventsPage() {
     );
   }
 
-  // 1. Fetch departments
-  const { data: departmentsData } = await admin
-    .from('departments')
-    .select('id, name, code, branch')
-    .order('name', { ascending: true });
-
-  const departments = departmentsData || [];
-
-  // 2. Fetch active members for event owner assignment
-  const { data: membersData } = await admin
-    .from('profiles')
-    .select('id, full_name, full_name_en, email, avatar_url, department_id')
-    .eq('status', 'active')
-    .order('full_name', { ascending: true });
-
-  const members = (membersData || []).map(m => ({
-    id: m.id,
-    full_name: m.full_name,
-    full_name_en: m.full_name_en,
-    email: m.email,
-    avatar_url: m.avatar_url,
-    department_id: m.department_id,
-  }));
-
-  // 3. Auto-transition any past due events to 'completed' (§4.3 item 7)
-  await checkAndAutoTransitionPastEvents();
-
-  const profile = context.profile;
-  // 4. Fetch events based on role and RLS scope
-  const isPresidential = ['president', 'co_president'].includes(profile.role);
-  let eventsQuery = admin
-    .from('events')
-    .select('*, department:departments(id, name, code, branch)')
-    .order('event_date', { ascending: false });
-
-  if (!isPresidential) {
-    if (profile.role === 'branch_head' && profile.department?.branch) {
-      const branchDepts = departments.filter(d => d.branch === profile.department?.branch).map(d => d.id);
-      eventsQuery = eventsQuery.or(`department_id.in.(${branchDepts.join(',')}),status.in.(published,closed,completed)`);
-    } else if (profile.department_id) {
-      eventsQuery = eventsQuery.or(`department_id.eq.${profile.department_id},status.in.(published,closed,completed)`);
-    } else {
-      eventsQuery = eventsQuery.in('status', ['published', 'closed', 'completed']);
-    }
-  }
-
-  const { data: eventsData, error: eventsErr } = await eventsQuery;
-  const initialEvents: Event[] = (eventsData || []).map((e: any) => ({
-    ...e,
-    registration_fields: Array.isArray(e.registration_fields) ? e.registration_fields : [],
-    owners: Array.isArray(e.owners) ? e.owners : [],
-  }));
-
   return (
     <AppShell>
-      <div style={{ padding: '2.5rem 2rem 5rem', maxWidth: '1240px', margin: '0 auto' }} suppressHydrationWarning>
-        <EventsListClient
-          initialEvents={initialEvents}
-          departments={departments}
-          members={members}
-          currentUserRole={context.profile.role}
-          currentUserId={context.user.id}
-          userDepartmentId={context.profile.department_id}
-        />
+      <div style={{ padding: '2.5rem 2rem 5rem', maxWidth: '1240px', margin: '0 auto', width: '100%' }} suppressHydrationWarning>
+        <Suspense fallback={<EventsSkeleton />}>
+          <EventsDataLoader profile={context.profile} userId={context.user.id} />
+        </Suspense>
       </div>
     </AppShell>
   );

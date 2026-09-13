@@ -270,17 +270,14 @@ export async function updateEventDetails(
 
       originalSlug = event.slug;
 
-      // 2. Permission Check
+      // 2. Permission Check: Strictly leadership only (Presidential, Branch Head, or Committee Head of this department)
       const role = context.profile.role;
       const isPresidential = ['president', 'co_president'].includes(role);
-      const isCreator = event.created_by === context.user.id;
-      const isOwner = Array.isArray(event.owners) && event.owners.some(
-        (o: any) => o.profile_id === context.profile?.id
-      );
-      const isDeptHead = context.profile.department_id === event.department_id && ['committee_head', 'committee_co_head', 'branch_head'].includes(role);
+      const isBranchHead = role === 'branch_head';
+      const isDeptHead = context.profile.department_id === event.department_id && ['committee_head', 'committee_co_head'].includes(role);
 
-      if (!isPresidential && !isCreator && !isOwner && !isDeptHead) {
-        return { success: false, error: 'Forbidden: Insufficient permissions to edit this event.' };
+      if (!isPresidential && !isBranchHead && !isDeptHead) {
+        return { success: false, error: 'Forbidden: Regular members cannot edit events. Only Chapter Leadership and Committee Leads can edit event details.' };
       }
     } else {
       const { data: event } = await admin
@@ -725,12 +722,12 @@ export async function deleteEventDraft(eventId: string) {
       return { success: false, error: 'Only draft events can be deleted.' };
     }
 
-    const isPresidential = ['president', 'co_president'].includes(context.profile.role);
-    const isCreator = event.created_by === context.user.id;
-    const isDeptHead = context.profile.department_id === event.department_id && ['committee_head', 'committee_co_head'].includes(context.profile.role);
+    const role = context.profile.role;
+    const isPresidential = ['president', 'co_president'].includes(role);
+    const isDeptHead = context.profile.department_id === event.department_id && ['committee_head', 'committee_co_head', 'branch_head'].includes(role);
 
-    if (!isPresidential && !isCreator && !isDeptHead) {
-      return { success: false, error: 'Forbidden: You do not have permission to delete this event.' };
+    if (!isPresidential && !isDeptHead) {
+      return { success: false, error: 'Forbidden: Regular members cannot delete events. Only Committee Heads and Presidential Leadership can delete draft events.' };
     }
 
     // Unlink tasks attached to this event before deletion so tasks are preserved

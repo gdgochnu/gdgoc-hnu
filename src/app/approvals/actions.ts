@@ -720,4 +720,212 @@ export async function reactivateFromAlumni(profileId: string) {
   }
 }
 
+/**
+ * Update any member's position title, system role, and committee assignment
+ * Authorized for Chapter Leadership (President, Co-President, and Committee Heads within department)
+ */
+export async function updateMemberPositionAndRole({
+  targetProfileId,
+  position,
+  role,
+  departmentId,
+}: {
+  targetProfileId: string;
+  position: string;
+  role?: UserRole;
+  departmentId?: string | null;
+}) {
+  try {
+    const supabase = await createClient();
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError || !user) {
+      return { success: false, error: 'Authentication required.' };
+    }
+
+    const admin = createAdminClient();
+    const { data: caller } = await admin
+      .from('profiles')
+      .select('id, role, status, department_id')
+      .eq('id', user.id)
+      .single();
+
+    if (!caller || caller.status !== 'active') {
+      return { success: false, error: 'Active profile required.' };
+    }
+
+    const isPresidential = ['president', 'co_president'].includes(caller.role);
+    const isBranchHead = caller.role === 'branch_head';
+    const isCommitteeHead = ['committee_head', 'committee_co_head'].includes(caller.role);
+
+    if (!isPresidential && !isBranchHead && !isCommitteeHead) {
+      return { success: false, error: 'Unauthorized: Only chapter leadership (Heads & Presidents) can edit positions.' };
+    }
+
+    // Fetch target member
+    const { data: target, error: targetError } = await admin
+      .from('profiles')
+      .select('id, full_name, email, role, position, department_id')
+      .eq('id', targetProfileId)
+      .single();
+
+    if (targetError || !target) {
+      return { success: false, error: 'Target member profile not found.' };
+    }
+
+    // Resolve branches for caller and target
+    let callerBranch: string | null = null;
+    let targetBranch: string | null = null;
+
+    if (caller.department_id) {
+      const { data: cDept } = await admin.from('departments').select('branch').eq('id', caller.department_id).maybeSingle();
+      callerBranch = cDept?.branch || null;
+    }
+
+    const effectiveTargetDeptId = departmentId !== undefined ? departmentId : target.department_id;
+    if (effectiveTargetDeptId) {
+      const { data: tDept } = await admin.from('departments').select('branch').eq('id', effectiveTargetDeptId).maybeSingle();
+      targetBranch = tDept?.branch || null;
+    }
+
+    // 1. Branch Head Scoping:
+    // Can only manage members in their own branch (Tech vs Non-Tech) and cannot modify other Branch Heads or Presidential leadership
+    if (isBranchHead) {
+      if (['president', 'co_president', 'branch_head'].includes(target.role) && target.id !== caller.id) {
+        return { success: false, error: 'Branch Heads cannot modify positions of other Branch Heads or Presidential leadership.' };
+      }
+
+      if (callerBranch && targetBranch && callerBranch !== targetBranch) {
+        const branchLabel = callerBranch === 'tech' ? 'Technical' : 'Non-Technical';
+        return {
+          success: false,
+          error: `Cross-branch restriction: As ${branchLabel} Branch Head, you can only manage members within your branch.`,
+        };
+      }
+
+      if (role && ['president', 'co_president', 'branch_head'].includes(role)) {
+        return { success: false, error: 'Branch Heads cannot assign presidential or branch head roles.' };
+      }
+    }
+
+    // 2. Committee Head Scoping:
+    // Can only manage members strictly within their assigned committee
+    if (isCommitteeHead) {
+      if (target.department_id !== caller.department_id) {
+        return { success: false, error: 'Committee Heads can only update members within their assigned committee.' };
+      }
+      if (['president', 'co_president', 'branch_head', 'committee_head'].includes(target.role) && target.id !== caller.id) {
+        return { success: false, error: 'Committee Heads cannot modify positions of other leadership members.' };
+      }
+      if (role && ['president', 'co_president', 'branch_head', 'committee_head'].includes(role)) {
+        return { success: false, error: 'Committee Heads cannot assign leadership roles.' };
+      }
+      if (departmentId !== undefined && departmentId !== caller.department_id) {
+        return { success: false, error: 'Committee Heads cannot transfer members to another committee.' };
+      }
+    }
+
+    let cleanPosition = position.trim();
+    if (!cleanPosition) {
+      return { success: false, error: 'Position title cannot be empty.' };
+    }
+
+    // Automatically normalize position title if role is branch_head
+    const targetRole = role || target.role;
+    if (targetRole === 'branch_head') {
+      if (
+        !cleanPosition ||
+        cleanPosition.toLowerCase() === 'member' ||
+        cleanPosition.toLowerCase().startsWith('head of ') ||
+        cleanPosition.toLowerCase() === 'head of branch'
+      ) {
+        cleanPosition = targetBranch === 'tech' ? 'Technical Branch Head' : 'Non-Technical Branch Head';
+      }
+    }
+
+    const now = new Date().toISOString();
+    const updatePayload: Record<string, unknown> = {
+      position: cleanPosition,
+      updated_at: now,
+    };
+
+    if (role) {
+      updatePayload.role = role;
+    }
+
+    if (departmentId !== undefined) {
+      updatePayload.department_id = departmentId;
+    }
+
+    const { error: updateError } = await admin
+      .from('profiles')
+      .update(updatePayload)
+      .eq('id', targetProfileId);
+
+    if (updateError) {
+      throw updateError;
+    }
+
+    // Fetch department details if set
+    let department = null;
+    const finalDeptId = departmentId !== undefined ? departmentId : target.department_id;
+    if (finalDeptId) {
+      const { data: dept } = await admin
+        .from('departments')
+        .select('id, name, code, branch')
+        .eq('id', finalDeptId)
+        .maybeSingle();
+      department = dept;
+    }
+
+    // Audit log
+    await admin.from('audit_logs').insert({
+      actor_id: user.id,
+      action: 'member_position_updated',
+      entity_type: 'profile',
+      entity_id: targetProfileId,
+      metadata: {
+        target_name: target.full_name,
+        target_email: target.email,
+        old_position: target.position,
+        new_position: cleanPosition,
+        old_role: target.role,
+        new_role: role || target.role,
+        old_department_id: target.department_id,
+        new_department_id: departmentId !== undefined ? departmentId : target.department_id,
+        caller_role: caller.role,
+      },
+    });
+
+    // Notify the member about their new appointment / position
+    await admin.from('notifications').insert({
+      profile_id: targetProfileId,
+      type: 'position_updated',
+      title: 'Chapter Position Updated 🎉',
+      message: `Your position at GDGoC HNU has been updated to "${cleanPosition}"${role ? ` (${role.replace('_', ' ')})` : ''}.`,
+      related_entity_type: 'profile',
+      related_entity_id: targetProfileId,
+      is_read: false,
+    });
+
+    revalidatePath('/members');
+    revalidatePath(`/members/${targetProfileId}`);
+    revalidatePath('/approvals');
+    revalidatePath('/dashboard');
+
+    return {
+      success: true,
+      updated: {
+        position: cleanPosition,
+        role: role || target.role,
+        department_id: departmentId !== undefined ? departmentId : target.department_id,
+        department,
+      },
+    };
+  } catch (err: unknown) {
+    console.error('Update member position error:', err);
+    return { success: false, error: err instanceof Error ? err.message : 'Failed to update member position.' };
+  }
+}
+
+
 

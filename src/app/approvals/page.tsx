@@ -1,12 +1,86 @@
+import React, { Suspense } from 'react';
 import { AppShell } from '@/components/layout/AppShell';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import Link from 'next/link';
 import { LeadershipDashboardTabs } from '@/components/LeadershipDashboardTabs';
+import { ApprovalsSkeleton } from '@/components/skeletons/ApprovalsSkeleton';
 import { SignInWithGoogleButton } from '@/components/SignInWithGoogleButton';
-import { ShieldAlert, Users } from 'lucide-react';
+import { ShieldAlert } from 'lucide-react';
 
 export const dynamic = 'force-dynamic';
+
+async function ApprovalsDataLoader({
+  callerProfile,
+  userId,
+}: {
+  callerProfile: any;
+  userId: string;
+}) {
+  const admin = createAdminClient();
+  const isPresidential = ['president', 'co_president'].includes(callerProfile.role);
+
+  // Fetch departments first to establish branch mapping
+  const { data: rawDepts } = await admin.from('departments').select('id, name, code, branch').order('name');
+  const deptList = rawDepts || [];
+  const deptMap = new Map(deptList.map(d => [d.id, d]));
+
+  const callerDept = callerProfile.department_id ? deptMap.get(callerProfile.department_id) : null;
+  const callerBranch = callerDept?.branch || null;
+
+  let pendingQuery = admin
+    .from('profiles')
+    .select('*')
+    .eq('status', 'pending_review')
+    .order('created_at', { ascending: false });
+
+  let managedQuery = admin
+    .from('profiles')
+    .select('*')
+    .in('status', ['active', 'suspended'])
+    .order('created_at', { ascending: false });
+
+  // Scoped views:
+  // - Branch Head: strictly see members and applications within their branch (Tech vs Non-Tech)
+  // - Committee Head: strictly see members and applications within their specific committee
+  if (!isPresidential) {
+    if (callerProfile.role === 'branch_head' && callerBranch) {
+      const branchDeptIds = deptList.filter(d => d.branch === callerBranch).map(d => d.id);
+      pendingQuery = pendingQuery.in('department_id', branchDeptIds);
+      managedQuery = managedQuery.in('department_id', branchDeptIds);
+    } else if (['committee_head', 'committee_co_head'].includes(callerProfile.role) && callerProfile.department_id) {
+      pendingQuery = pendingQuery.eq('department_id', callerProfile.department_id);
+      managedQuery = managedQuery.eq('department_id', callerProfile.department_id);
+    }
+  }
+
+  const [pendingRes, managedRes] = await Promise.all([
+    pendingQuery,
+    managedQuery,
+  ]);
+
+  const pendingAccounts = (pendingRes.data || []).map(acc => ({
+    ...acc,
+    departments: acc.department_id ? deptMap.get(acc.department_id) || null : null,
+  }));
+
+  const managedMembers = (managedRes.data || []).map(acc => ({
+    ...acc,
+    departments: acc.department_id ? deptMap.get(acc.department_id) || null : null,
+  }));
+
+  return (
+    <LeadershipDashboardTabs
+      pendingAccounts={pendingAccounts || []}
+      managedMembers={managedMembers || []}
+      departments={deptList}
+      currentUserId={userId}
+      currentUserRole={callerProfile.role}
+      currentUserDepartmentId={callerProfile.department_id || undefined}
+      currentUserBranch={callerBranch || undefined}
+    />
+  );
+}
 
 export default async function ApprovalsPage() {
   const supabase = await createClient();
@@ -60,8 +134,14 @@ export default async function ApprovalsPage() {
         .from('profiles')
         .update({ role: 'president', status: 'active' })
         .eq('id', user.id);
-      callerProfile = { id: user.id, role: 'president', status: 'active', department_id: null };
+
       hasAuthority = true;
+      callerProfile = {
+        id: user.id,
+        role: 'president',
+        status: 'active',
+        department_id: null,
+      };
     }
   }
 
@@ -91,47 +171,6 @@ export default async function ApprovalsPage() {
     );
   }
 
-  // 1. Fetch departments, pending accounts, and managed accounts in parallel
-  const isPresidential = ['president', 'co_president'].includes(callerProfile.role);
-
-  let pendingQuery = admin
-    .from('profiles')
-    .select('*')
-    .eq('status', 'pending_review')
-    .order('created_at', { ascending: false });
-
-  let managedQuery = admin
-    .from('profiles')
-    .select('*')
-    .in('status', ['active', 'suspended'])
-    .order('created_at', { ascending: false });
-
-  if (!isPresidential && callerProfile.department_id) {
-    if (['committee_head', 'committee_co_head'].includes(callerProfile.role)) {
-      pendingQuery = pendingQuery.eq('department_id', callerProfile.department_id);
-      managedQuery = managedQuery.eq('department_id', callerProfile.department_id);
-    }
-  }
-
-  const [deptRes, pendingRes, managedRes] = await Promise.all([
-    admin.from('departments').select('id, name, code, branch').order('name'),
-    pendingQuery,
-    managedQuery,
-  ]);
-
-  const deptList = deptRes.data || [];
-  const deptMap = new Map(deptList.map(d => [d.id, d]));
-
-  const pendingAccounts = (pendingRes.data || []).map(acc => ({
-    ...acc,
-    departments: acc.department_id ? deptMap.get(acc.department_id) || null : null,
-  }));
-
-  const managedMembers = (managedRes.data || []).map(acc => ({
-    ...acc,
-    departments: acc.department_id ? deptMap.get(acc.department_id) || null : null,
-  }));
-
   const roleTitle = callerProfile.role === 'president' 
     ? 'Presidential Portal'
     : callerProfile.role === 'co_president'
@@ -157,15 +196,10 @@ export default async function ApprovalsPage() {
           </span>
         </div>
 
-        <LeadershipDashboardTabs
-          pendingAccounts={pendingAccounts || []}
-          managedMembers={managedMembers || []}
-          departments={deptList}
-          currentUserId={user.id}
-          currentUserRole={callerProfile.role}
-        />
+        <Suspense fallback={<ApprovalsSkeleton />}>
+          <ApprovalsDataLoader callerProfile={callerProfile} userId={user.id} />
+        </Suspense>
       </div>
     </AppShell>
   );
 }
-

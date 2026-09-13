@@ -1,3 +1,4 @@
+import React, { Suspense } from 'react';
 import { redirect } from 'next/navigation';
 import { AppShell } from '@/components/layout/AppShell';
 import { getUserContext } from '@/lib/auth/get-user-context';
@@ -6,6 +7,7 @@ import { ReportsClient } from './ReportsClient';
 import { EventAnalyticsClient } from './EventAnalyticsClient';
 import { BarChart3, ShieldCheck } from 'lucide-react';
 import { ReportsPageTabs } from './ReportsPageTabs';
+import { ReportsSkeleton } from '@/components/skeletons/ReportsSkeleton';
 
 export const dynamic = 'force-dynamic';
 
@@ -14,6 +16,80 @@ export const metadata = {
   description:
     'Weekly and monthly committee performance reports, event analytics, attendance insights, feedback scores, and budget summaries.',
 };
+
+async function ReportsDataLoader({ access }: { access: any }) {
+  const { departments } = await getAccessibleDepartments();
+
+  return (
+    <div style={{ maxWidth: '980px', margin: '0 auto', padding: '2rem 1.5rem', width: '100%' }}>
+      {/* Page header */}
+      <div style={{ marginBottom: '2rem' }}>
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.875rem',
+            marginBottom: '0.5rem',
+          }}
+        >
+          <div
+            style={{
+              width: '48px',
+              height: '48px',
+              borderRadius: '14px',
+              background:
+                'linear-gradient(135deg, rgba(66,133,244,0.25), rgba(66,133,244,0.1))',
+              border: '1px solid rgba(66,133,244,0.3)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: '#4285f4',
+            }}
+          >
+            <BarChart3 size={24} />
+          </div>
+          <div>
+            <h1
+              style={{
+                margin: 0,
+                fontSize: '1.75rem',
+                fontWeight: 800,
+                background:
+                  'linear-gradient(135deg, var(--text-primary), var(--google-blue))',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+                backgroundClip: 'text',
+              }}
+            >
+              Reports &amp; Analytics
+            </h1>
+            <p style={{ margin: 0, fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+              Committee performance · Event analytics · Spec §4.12
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Tabbed content — client component handles tab state */}
+      <ReportsPageTabs
+        committeeTab={
+          <ReportsClient
+            departments={departments}
+            initialDeptId={access.departmentId || departments[0]?.id || ''}
+            isPresidential={access.isPresidential}
+          />
+        }
+        eventTab={
+          <EventAnalyticsClient
+            departments={departments}
+            initialDeptId={access.departmentId || departments[0]?.id || ''}
+            isPresidential={access.isPresidential}
+          />
+        }
+      />
+    </div>
+  );
+}
 
 export default async function ReportsPage() {
   const [context, access] = await Promise.all([
@@ -82,77 +158,11 @@ export default async function ReportsPage() {
     );
   }
 
-  const { departments } = await getAccessibleDepartments();
-
   return (
     <AppShell>
-      <div style={{ maxWidth: '980px', margin: '0 auto', padding: '2rem 1.5rem' }}>
-        {/* Page header */}
-        <div style={{ marginBottom: '2rem' }}>
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.875rem',
-              marginBottom: '0.5rem',
-            }}
-          >
-            <div
-              style={{
-                width: '48px',
-                height: '48px',
-                borderRadius: '14px',
-                background:
-                  'linear-gradient(135deg, rgba(66,133,244,0.25), rgba(66,133,244,0.1))',
-                border: '1px solid rgba(66,133,244,0.3)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                color: '#4285f4',
-              }}
-            >
-              <BarChart3 size={24} />
-            </div>
-            <div>
-              <h1
-                style={{
-                  margin: 0,
-                  fontSize: '1.75rem',
-                  fontWeight: 800,
-                  background:
-                    'linear-gradient(135deg, var(--text-primary), var(--google-blue))',
-                  WebkitBackgroundClip: 'text',
-                  WebkitTextFillColor: 'transparent',
-                  backgroundClip: 'text',
-                }}
-              >
-                Reports &amp; Analytics
-              </h1>
-              <p style={{ margin: 0, fontSize: '0.82rem', color: 'var(--text-muted)' }}>
-                Committee performance · Event analytics · Spec §4.12
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* Tabbed content — client component handles tab state */}
-        <ReportsPageTabs
-          committeeTab={
-            <ReportsClient
-              departments={departments}
-              initialDeptId={access.departmentId || departments[0]?.id || ''}
-              isPresidential={access.isPresidential}
-            />
-          }
-          eventTab={
-            <EventAnalyticsClient
-              departments={departments}
-              initialDeptId={access.departmentId || departments[0]?.id || ''}
-              isPresidential={access.isPresidential}
-            />
-          }
-        />
-      </div>
+      <Suspense fallback={<ReportsSkeleton />}>
+        <ReportsDataLoader access={access} />
+      </Suspense>
     </AppShell>
   );
 }

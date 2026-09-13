@@ -1,3 +1,4 @@
+import React, { Suspense } from 'react';
 import { AppShell } from '@/components/layout/AppShell';
 import { getUserContext } from '@/lib/auth/get-user-context';
 import {
@@ -17,90 +18,14 @@ import { WeeklyReviewsWidget } from '@/components/command-center/WeeklyReviewsWi
 import { UnifiedApprovalsQueue } from '@/components/command-center/UnifiedApprovalsQueue';
 import { NewMemberOnboardingWidget } from '@/components/command-center/NewMemberOnboardingWidget';
 import { EventSatisfactionWidget } from '@/components/command-center/EventSatisfactionWidget';
+import { CommandCenterSkeleton } from '@/components/skeletons/CommandCenterSkeleton';
 import { redirect } from 'next/navigation';
 import { ShieldCheck, Activity, Compass, AlertCircle, MessageSquareQuote, Star, UserCheck } from 'lucide-react';
 import Link from 'next/link';
 
 export const dynamic = 'force-dynamic';
 
-export default async function CommandCenterPage() {
-  const [context, access] = await Promise.all([
-    getUserContext(),
-    canAccessCommandCenter(),
-  ]);
-
-  if (!context.user || !context.profile) {
-    redirect('/auth/login?redirect=/command-center');
-  }
-
-  if (context.profile.status !== 'active') {
-    redirect('/onboarding');
-  }
-
-  if (!access.hasAccess) {
-    return (
-      <AppShell>
-        <div style={{ maxWidth: '720px', margin: '5rem auto', padding: '0 1.5rem', textAlign: 'center' }}>
-          <div
-            className="glass-panel"
-            style={{
-              padding: '3rem 2rem',
-              borderRadius: '24px',
-              border: '1px solid rgba(234, 67, 53, 0.3)',
-              background: 'rgba(234, 67, 53, 0.05)',
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              gap: '1.25rem',
-            }}
-          >
-            <div
-              style={{
-                width: '64px',
-                height: '64px',
-                borderRadius: '18px',
-                background: 'rgba(234, 67, 53, 0.15)',
-                border: '1px solid rgba(234, 67, 53, 0.35)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                color: '#EA4335',
-              }}
-            >
-              <AlertCircle size={32} />
-            </div>
-            <h2 style={{ fontSize: '1.5rem', fontWeight: 800, color: '#fff', margin: 0 }}>
-              Access Restricted
-            </h2>
-            <p style={{ fontSize: '0.95rem', color: 'var(--text-secondary)', maxWidth: '480px', lineHeight: 1.6, margin: 0 }}>
-              The Command Center is reserved for Chapter Leadership (President, Co-President, Branch Heads, and Committee Heads).
-            </p>
-            <Link
-              href="/dashboard"
-              style={{
-                marginTop: '1rem',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '0.5rem',
-                padding: '0.75rem 1.75rem',
-                borderRadius: '12px',
-                background: 'rgba(255, 255, 255, 0.08)',
-                color: '#fff',
-                textDecoration: 'none',
-                fontSize: '0.9rem',
-                fontWeight: 600,
-                border: '1px solid rgba(255, 255, 255, 0.15)',
-                transition: 'all 0.2s ease',
-              }}
-            >
-              Return to Dashboard
-            </Link>
-          </div>
-        </div>
-      </AppShell>
-    );
-  }
-
+async function CommandCenterDataLoader({ isPresident, isCoPresident }: { isPresident: boolean; isCoPresident: boolean }) {
   // Fetch committee health scorecards (16.1), Needs Attention (16.2), Upcoming feed (16.3), Weekly Reviews (16.4), Unified Approvals (16.5), Onboarding & Event Satisfaction (16.6)
   const [
     scorecardsRes,
@@ -120,21 +45,17 @@ export default async function CommandCenterPage() {
     getEventSatisfactionTrend(),
   ]);
 
-  const isPresident = context.profile.role === 'president';
-  const isCoPresident = context.profile.role === 'co_president';
-
   return (
-    <AppShell>
-      <div
-        style={{
-          maxWidth: '1380px',
-          margin: '0 auto',
-          padding: '2.5rem 2rem',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '2.25rem',
-        }}
-      >
+    <div
+      style={{
+        maxWidth: '1380px',
+        margin: '0 auto',
+        padding: '2.5rem 2rem',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '2.25rem',
+      }}
+    >
         {/* Executive Header Banner */}
         <div
           className="glass-panel"
@@ -340,6 +261,95 @@ export default async function CommandCenterPage() {
           <UpcomingTimeline initialSummary={upcomingRes.summary} />
         </section>
       </div>
+  );
+}
+
+export default async function CommandCenterPage() {
+  const [context, access] = await Promise.all([
+    getUserContext(),
+    canAccessCommandCenter(),
+  ]);
+
+  if (!context.user || !context.profile) {
+    redirect('/auth/login?redirect=/command-center');
+  }
+
+  if (context.profile.status !== 'active') {
+    redirect('/onboarding');
+  }
+
+  if (!access.hasAccess) {
+    return (
+      <AppShell>
+        <div style={{ maxWidth: '720px', margin: '5rem auto', padding: '0 1.5rem', textAlign: 'center' }}>
+          <div
+            className="glass-panel"
+            style={{
+              padding: '3rem 2rem',
+              borderRadius: '24px',
+              border: '1px solid rgba(234, 67, 53, 0.3)',
+              background: 'rgba(234, 67, 53, 0.05)',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: '1.25rem',
+            }}
+          >
+            <div
+              style={{
+                width: '64px',
+                height: '64px',
+                borderRadius: '18px',
+                background: 'rgba(234, 67, 53, 0.15)',
+                border: '1px solid rgba(234, 67, 53, 0.35)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: '#EA4335',
+              }}
+            >
+              <AlertCircle size={32} />
+            </div>
+            <h2 style={{ fontSize: '1.5rem', fontWeight: 800, color: '#fff', margin: 0 }}>
+              Access Restricted
+            </h2>
+            <p style={{ fontSize: '0.95rem', color: 'var(--text-secondary)', maxWidth: '480px', lineHeight: 1.6, margin: 0 }}>
+              The Command Center is reserved for Chapter Leadership (President, Co-President, Branch Heads, and Committee Heads).
+            </p>
+            <Link
+              href="/dashboard"
+              style={{
+                marginTop: '1rem',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+                padding: '0.75rem 1.75rem',
+                borderRadius: '12px',
+                background: 'rgba(255, 255, 255, 0.08)',
+                color: '#fff',
+                textDecoration: 'none',
+                fontSize: '0.9rem',
+                fontWeight: 600,
+                border: '1px solid rgba(255, 255, 255, 0.15)',
+                transition: 'all 0.2s ease',
+              }}
+            >
+              Return to Dashboard
+            </Link>
+          </div>
+        </div>
+      </AppShell>
+    );
+  }
+
+  const isPresident = context.profile.role === 'president';
+  const isCoPresident = context.profile.role === 'co_president';
+
+  return (
+    <AppShell>
+      <Suspense fallback={<CommandCenterSkeleton />}>
+        <CommandCenterDataLoader isPresident={isPresident} isCoPresident={isCoPresident} />
+      </Suspense>
     </AppShell>
   );
 }

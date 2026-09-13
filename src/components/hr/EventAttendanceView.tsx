@@ -275,6 +275,34 @@ export function EventAttendanceView({ initialData }: EventAttendanceViewProps) {
               />
             </div>
 
+            {/* Live QR Scanner Button */}
+            {data.event && (
+              <Link
+                href={`/events/${data.event.id}/attendance`}
+                id="open-live-qr-scanner-btn"
+                style={{
+                  background: 'linear-gradient(135deg, #34A853, #16A34A)',
+                  border: '1px solid rgba(52, 168, 83, 0.4)',
+                  color: '#FFFFFF',
+                  padding: '0.55rem 1.15rem',
+                  borderRadius: '10px',
+                  fontSize: '0.82rem',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.45rem',
+                  textDecoration: 'none',
+                  boxShadow: '0 4px 14px rgba(52, 168, 83, 0.25)',
+                  transition: 'all 0.2s ease',
+                }}
+                title="Open Live Camera QR Scanner & Manual Check-in for this event"
+              >
+                <QrCode size={15} />
+                <span>Open Live QR Scanner</span>
+              </Link>
+            )}
+
             {/* Export CSV Button */}
             <button
               onClick={handleExportCsv}

@@ -1,5 +1,5 @@
-import { redirect } from 'next/navigation';
+import HrAttendancePage from './attendance/page';
 
-export default function HrPage() {
-  redirect('/hr/attendance');
-}
+export const dynamic = 'force-dynamic';
+
+export default HrAttendancePage;

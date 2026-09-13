@@ -11,6 +11,8 @@ interface LeadershipDashboardTabsProps {
   departments: DepartmentItem[];
   currentUserId: string;
   currentUserRole?: string;
+  currentUserDepartmentId?: string;
+  currentUserBranch?: string;
 }
 
 export function LeadershipDashboardTabs({
@@ -19,6 +21,8 @@ export function LeadershipDashboardTabs({
   departments,
   currentUserId,
   currentUserRole,
+  currentUserDepartmentId,
+  currentUserBranch,
 }: LeadershipDashboardTabsProps) {
   const [activeTab, setActiveTab] = useState<'pending' | 'roster'>('pending');
 
@@ -149,6 +153,8 @@ export function LeadershipDashboardTabs({
             departments={departments}
             currentUserId={currentUserId}
             currentUserRole={currentUserRole}
+            currentUserDepartmentId={currentUserDepartmentId}
+            currentUserBranch={currentUserBranch}
           />
         </div>
       )}

@@ -4,6 +4,9 @@ import { renderCertificatePDFBuffer } from '@/lib/certificates/issue-engine';
 
 export const dynamic = 'force-dynamic';
 
+const pdfCache = new Map<string, { buffer: Buffer; expiresAt: number }>();
+const CACHE_TTL_MS = 10 * 60 * 1000; // 10 minutes
+
 /**
  * GET /api/certificates/[id]/download
  * Renders and streams the official PDF certificate for download
@@ -14,6 +17,20 @@ export async function GET(
 ) {
   try {
     const { id } = await params;
+
+    // Check in-memory cache for instant response
+    const cached = pdfCache.get(id);
+    if (cached && cached.expiresAt > Date.now()) {
+      return new NextResponse(new Blob([cached.buffer as any]), {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/pdf',
+          'Content-Disposition': `attachment; filename="Certificate_${id.substring(0, 8)}.pdf"`,
+          'Cache-Control': 'public, max-age=3600',
+        },
+      });
+    }
+
     const admin = createAdminClient();
 
     // 1. Fetch certificate record
@@ -71,6 +88,11 @@ export async function GET(
       verificationCode: cert.verification_code,
       fieldLayout: template?.field_layout,
       backgroundImageUrl: template?.background_image_drive_file_id,
+    });
+
+    pdfCache.set(id, {
+      buffer,
+      expiresAt: Date.now() + CACHE_TTL_MS,
     });
 
     const safeFilename = `Certificate_${cert.certificate_number}.pdf`;

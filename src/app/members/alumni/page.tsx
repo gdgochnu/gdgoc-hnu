@@ -1,5 +1,4 @@
 import { redirect } from 'next/navigation';
-import { AppShell } from '@/components/layout/AppShell';
 import { getUserContext } from '@/lib/auth/get-user-context';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { AlumniDirectoryClient, AlumnusItem } from '@/components/AlumniDirectoryClient';
@@ -90,31 +89,29 @@ export default async function AlumniDirectoryPage() {
   );
 
   return (
-    <AppShell>
-      <div style={{ padding: '2.5rem 2rem', maxWidth: '1200px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '2rem' }}>
-        {/* Header */}
-        <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
-            <span style={{ fontSize: '0.8rem', padding: '0.2rem 0.6rem', borderRadius: '999px', background: 'rgba(251, 188, 4, 0.15)', color: '#FDE047', fontWeight: 700 }}>
-              Chapter Legacy Archive
-            </span>
-          </div>
-          <h1 style={{ fontSize: '2.2rem', fontWeight: 800, letterSpacing: '-0.02em', margin: 0, marginBottom: '0.4rem' }}>
-            Alumni Archive & Past Contributors
-          </h1>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '0.95rem', margin: 0 }}>
-            Preserved records, achievements, and tenure history of past GDGoC HNU members and leaders.
-          </p>
+    <div style={{ padding: '2.5rem 2rem', maxWidth: '1200px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+      {/* Header */}
+      <div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
+          <span style={{ fontSize: '0.8rem', padding: '0.2rem 0.6rem', borderRadius: '999px', background: 'rgba(251, 188, 4, 0.15)', color: '#FDE047', fontWeight: 700 }}>
+            Chapter Legacy Archive
+          </span>
         </div>
-
-        {/* Directory Client */}
-        <AlumniDirectoryClient
-          initialAlumni={alumniWithStats}
-          departments={departments}
-          currentUserRole={role}
-          currentUserId={context.profile?.id}
-        />
+        <h1 style={{ fontSize: '2.2rem', fontWeight: 800, letterSpacing: '-0.02em', margin: 0, marginBottom: '0.4rem' }}>
+          Alumni Archive & Past Contributors
+        </h1>
+        <p style={{ color: 'var(--text-secondary)', fontSize: '0.95rem', margin: 0 }}>
+          Preserved records, achievements, and tenure history of past GDGoC HNU members and leaders.
+        </p>
       </div>
-    </AppShell>
+
+      {/* Directory Client */}
+      <AlumniDirectoryClient
+        initialAlumni={alumniWithStats}
+        departments={departments}
+        currentUserRole={role}
+        currentUserId={context.profile?.id}
+      />
+    </div>
   );
 }

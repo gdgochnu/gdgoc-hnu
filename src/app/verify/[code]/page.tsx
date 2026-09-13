@@ -1,6 +1,7 @@
 import React from 'react';
 import { Metadata } from 'next';
 import Link from 'next/link';
+import { redirect } from 'next/navigation';
 import { generateStyledQRDataURL } from '@/lib/certificates/qr-generator';
 import { createAdminClient } from '@/lib/supabase/admin';
 import {
@@ -9,9 +10,7 @@ import {
   Calendar,
   User,
   Hash,
-  Download,
   Building,
-  ExternalLink,
   CheckCircle2,
   AlertTriangle,
   ArrowLeft,
@@ -20,15 +19,17 @@ import {
 } from 'lucide-react';
 import type { CertificateFieldLayout } from '@/types/certificates';
 import { CertificatePreviewCanvas } from '@/components/certificates/CertificatePreviewCanvas';
+import { CertificateDownloadActions } from '@/components/certificates/CertificateDownloadActions';
 
 interface VerifyPageProps {
   params: Promise<{ code: string }>;
 }
 
 export async function generateMetadata({ params }: VerifyPageProps): Promise<Metadata> {
-  const { code } = await params;
+  const { code: rawCode } = await params;
+  const code = decodeURIComponent(rawCode).trim();
   return {
-    title: `Verify Certificate (${code.substring(0, 8)}...) — GDGoC HNU`,
+    title: `Verify Certificate (${code}) — GDGoC HNU`,
     description: 'Public credential verification portal for Google Developer Groups on Campus - Helwan National University.',
   };
 }
@@ -36,11 +37,12 @@ export async function generateMetadata({ params }: VerifyPageProps): Promise<Met
 export const dynamic = 'force-dynamic';
 
 export default async function CertificateVerificationPage({ params }: VerifyPageProps) {
-  const { code } = await params;
+  const { code: rawCode } = await params;
+  const code = decodeURIComponent(rawCode).trim();
   const admin = createAdminClient();
 
-  // Query certificate by verification_code
-  const { data: cert } = await admin
+  // 1. Query certificate by certificate_number first (case-insensitive)
+  let { data: cert } = await admin
     .from('certificates')
     .select(`
       id,
@@ -54,13 +56,12 @@ export default async function CertificateVerificationPage({ params }: VerifyPage
       event_id,
       issued_by
     `)
-    .eq('verification_code', code)
+    .ilike('certificate_number', code)
     .maybeSingle();
 
-  // If not found by verification_code, check certificate_number (e.g. GDGOC-2026-XXXXXX)
-  let certificate = cert;
-  if (!certificate && code.toUpperCase().startsWith('GDGOC-')) {
-    const { data: byNum } = await admin
+  // 2. If not found by certificate_number, check verification_code (legacy UUID)
+  if (!cert) {
+    const { data: byCode } = await admin
       .from('certificates')
       .select(`
         id,
@@ -74,12 +75,40 @@ export default async function CertificateVerificationPage({ params }: VerifyPage
         event_id,
         issued_by
       `)
-      .eq('certificate_number', code.toUpperCase())
+      .eq('verification_code', code)
       .maybeSingle();
-    certificate = byNum;
+    cert = byCode;
   }
 
-  // Fetch optional event, template, and issuer info without exposing PII
+  // 3. Fallback: check by database ID
+  if (!cert) {
+    const { data: byId } = await admin
+      .from('certificates')
+      .select(`
+        id,
+        title,
+        certificate_number,
+        verification_code,
+        issue_date,
+        recipient_name,
+        pdf_drive_url,
+        template_id,
+        event_id,
+        issued_by
+      `)
+      .eq('id', code)
+      .maybeSingle();
+    cert = byId;
+  }
+
+  const certificate = cert;
+
+  // 4. CANONICAL REDIRECT: If accessed via UUID or legacy code, redirect to canonical serial number URL
+  if (certificate && certificate.certificate_number && code !== certificate.certificate_number) {
+    redirect(`/verify/${encodeURIComponent(certificate.certificate_number)}`);
+  }
+
+  // Fetch event, template, issuer info, and QR code concurrently in parallel
   let eventTitle: string | null = null;
   let issuerName: string | null = null;
   let templateBg: string | null = null;
@@ -89,63 +118,41 @@ export default async function CertificateVerificationPage({ params }: VerifyPage
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
 
   if (certificate) {
-    const verifyUrl = `${baseUrl}/verify/${certificate.verification_code}`;
-    try {
-      qrCodeDataUrl = await generateStyledQRDataURL(verifyUrl, 200);
-    } catch (e) {
-      console.warn('QR generation fallback:', e);
+    // QR code encodes canonical serial number URL
+    const verifyUrl = `${baseUrl}/verify/${encodeURIComponent(certificate.certificate_number)}`;
+
+    const [qrResult, eventResult, tmplResult, defaultTmplResult, issuerResult] = await Promise.all([
+      generateStyledQRDataURL(verifyUrl, 200).catch((e) => {
+        console.warn('QR generation fallback:', e);
+        return '';
+      }),
+      certificate.event_id
+        ? admin.from('events').select('title').eq('id', certificate.event_id).maybeSingle()
+        : Promise.resolve({ data: null }),
+      certificate.template_id
+        ? admin.from('certificate_templates').select('background_image_drive_file_id, field_layout').eq('id', certificate.template_id).maybeSingle()
+        : Promise.resolve({ data: null }),
+      !certificate.template_id
+        ? admin.from('certificate_templates').select('background_image_drive_file_id, field_layout').order('created_at', { ascending: false }).limit(1).maybeSingle()
+        : Promise.resolve({ data: null }),
+      certificate.issued_by
+        ? admin.from('profiles').select('full_name, role').eq('id', certificate.issued_by).maybeSingle()
+        : Promise.resolve({ data: null }),
+    ]);
+
+    qrCodeDataUrl = qrResult || '';
+    if (eventResult?.data?.title) eventTitle = eventResult.data.title;
+
+    const activeTmpl = tmplResult?.data || defaultTmplResult?.data;
+    if (activeTmpl?.background_image_drive_file_id) {
+      templateBg = activeTmpl.background_image_drive_file_id;
+    }
+    if (activeTmpl?.field_layout) {
+      fieldLayout = activeTmpl.field_layout as CertificateFieldLayout;
     }
 
-    if (certificate.event_id) {
-      const { data: eventData } = await admin
-        .from('events')
-        .select('title')
-        .eq('id', certificate.event_id)
-        .maybeSingle();
-      if (eventData) eventTitle = eventData.title;
-    }
-
-    if (certificate.template_id) {
-      const { data: tmplData } = await admin
-        .from('certificate_templates')
-        .select('background_image_drive_file_id, field_layout')
-        .eq('id', certificate.template_id)
-        .maybeSingle();
-      if (tmplData?.background_image_drive_file_id) {
-        templateBg = tmplData.background_image_drive_file_id;
-      }
-      if (tmplData?.field_layout) {
-        fieldLayout = tmplData.field_layout as CertificateFieldLayout;
-      }
-    }
-
-    // Fallback if no template linked to certificate: check active/latest template
-    if (!fieldLayout) {
-      const { data: defaultTmpl } = await admin
-        .from('certificate_templates')
-        .select('background_image_drive_file_id, field_layout')
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      if (defaultTmpl) {
-        if (!templateBg && defaultTmpl.background_image_drive_file_id) {
-          templateBg = defaultTmpl.background_image_drive_file_id;
-        }
-        if (defaultTmpl.field_layout) {
-          fieldLayout = defaultTmpl.field_layout as CertificateFieldLayout;
-        }
-      }
-    }
-
-    if (certificate.issued_by) {
-      const { data: issuerData } = await admin
-        .from('profiles')
-        .select('full_name, role')
-        .eq('id', certificate.issued_by)
-        .maybeSingle();
-      if (issuerData) {
-        issuerName = `${issuerData.full_name} (${issuerData.role.replace('_', ' ')})`;
-      }
+    if (issuerResult?.data) {
+      issuerName = `${issuerResult.data.full_name} (${issuerResult.data.role.replace('_', ' ')})`;
     }
   }
 
@@ -223,45 +230,6 @@ export default async function CertificateVerificationPage({ params }: VerifyPage
             </div>
           </div>
         </Link>
-
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-          <Link
-            href="/stats"
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '0.4rem',
-              fontSize: '0.82rem',
-              color: '#94a3b8',
-              textDecoration: 'none',
-              padding: '0.4rem 0.8rem',
-              borderRadius: '8px',
-              background: 'rgba(255, 255, 255, 0.05)',
-              border: '1px solid rgba(255, 255, 255, 0.1)',
-            }}
-          >
-            <span>Chapter Stats</span>
-          </Link>
-
-          <Link
-            href="/"
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '0.4rem',
-              fontSize: '0.82rem',
-              color: '#94a3b8',
-              textDecoration: 'none',
-              padding: '0.4rem 0.8rem',
-              borderRadius: '8px',
-              background: 'rgba(255, 255, 255, 0.05)',
-              border: '1px solid rgba(255, 255, 255, 0.1)',
-            }}
-          >
-            <ArrowLeft size={14} />
-            <span>Home</span>
-          </Link>
-        </div>
       </header>
 
       {/* Main Verification Container */}
@@ -434,62 +402,12 @@ export default async function CertificateVerificationPage({ params }: VerifyPage
             </div>
 
             {/* Actions Bar */}
-            <div
-              style={{
-                display: 'flex',
-                justifyContent: 'center',
-                alignItems: 'center',
-                flexWrap: 'wrap',
-                gap: '1rem',
-                paddingTop: '0.5rem',
-              }}
-            >
-              <a
-                href={`/api/certificates/${certificate.id}/download`}
-                download
-                id="btn-download-verified-pdf"
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '0.5rem',
-                  padding: '0.85rem 1.75rem',
-                  borderRadius: '12px',
-                  background: 'linear-gradient(135deg, #4285F4, #2b6cb0)',
-                  color: '#fff',
-                  fontWeight: 700,
-                  fontSize: '0.92rem',
-                  textDecoration: 'none',
-                  boxShadow: '0 4px 14px rgba(66, 133, 244, 0.4)',
-                  transition: 'transform 0.15s ease',
-                }}
-              >
-                <Download size={18} />
-                <span>Download Official PDF</span>
-              </a>
-
-              {certificate.pdf_drive_url && (
-                <a
-                  href={certificate.pdf_drive_url}
-                  target="_blank"
-                  rel="noreferrer"
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '0.5rem',
-                    padding: '0.85rem 1.5rem',
-                    borderRadius: '12px',
-                    background: 'rgba(255, 255, 255, 0.06)',
-                    border: '1px solid rgba(255, 255, 255, 0.12)',
-                    color: '#e2e8f0',
-                    fontWeight: 600,
-                    fontSize: '0.88rem',
-                    textDecoration: 'none',
-                  }}
-                >
-                  <span>Google Drive Archive</span>
-                  <ExternalLink size={14} />
-                </a>
-              )}
+            <div style={{ paddingTop: '0.5rem', width: '100%' }}>
+              <CertificateDownloadActions
+                certificateId={certificate.id}
+                certificateNumber={certificate.certificate_number}
+                recipientName={certificate.recipient_name}
+              />
             </div>
 
             {/* Privacy & Anti-Tamper Notice (Spec §4.14) */}

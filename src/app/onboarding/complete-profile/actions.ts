@@ -87,11 +87,11 @@ export async function submitProfileCompletion(formData: ProfileFormData) {
   const nameArTrimmed = formData.fullNameAr?.trim() || '';
   const nameArWords = nameArTrimmed.split(/\s+/).filter(Boolean);
   if (nameArWords.length < 4) {
-    return { success: false, error: 'الاسم الرباعي باللغة العربية يجب أن يتكون من 4 أسماء على الأقل (Full name in Arabic must contain at least 4 parts).' };
+    return { success: false, error: 'Full name in Arabic script must contain at least 4 names.' };
   }
   // Check that it contains Arabic characters
   if (!/^[\u0600-\u06FF\s]+$/.test(nameArTrimmed)) {
-    return { success: false, error: 'الاسم بالعربية يجب أن يحتوي على أحرف عربية فقط (Arabic name must contain Arabic letters only).' };
+    return { success: false, error: 'Arabic name must contain Arabic characters only.' };
   }
 
   // 2. Validation: English 4-part name (min 4 words)
@@ -107,34 +107,34 @@ export async function submitProfileCompletion(formData: ProfileFormData) {
   // 3. Validation: 14-digit Egyptian National ID
   const nationalIdTrimmed = formData.nationalId?.trim() || '';
   if (!/^[23]\d{13}$/.test(nationalIdTrimmed)) {
-    return { success: false, error: 'الرقم القومي غير صحيح. يجب أن يتكون من 14 رقماً ويبدأ بـ 2 أو 3 (National ID must be 14 digits starting with 2 or 3).' };
+    return { success: false, error: 'National ID is invalid. It must be 14 digits starting with 2 or 3.' };
   }
 
   // 4. Validation: Mobile & WhatsApp numbers
   const normalizedPhone = normalizeEgyptianPhone(formData.phone?.trim() || '');
   if (!normalizedPhone) {
-    return { success: false, error: 'رقم الهاتف غير صحيح. يجب أن يكون رقم محمول مصري صحيح (e.g. 01012345678).' };
+    return { success: false, error: 'Invalid mobile phone number. Must be a valid Egyptian number (e.g. 01012345678).' };
   }
 
   const normalizedWhatsapp = normalizeEgyptianPhone(formData.whatsappNumber?.trim() || '') || normalizedPhone;
   if (!normalizedWhatsapp) {
-    return { success: false, error: 'رقم الواتساب غير صحيح. يجب أن يكون رقم محمول مصري صحيح (e.g. 01012345678).' };
+    return { success: false, error: 'Invalid WhatsApp number. Must be a valid Egyptian number (e.g. 01012345678).' };
   }
 
   // 5. Validation: Faculty must be chosen from faculty_options
   if (!formData.faculty?.trim()) {
-    return { success: false, error: 'يرجى اختيار الكلية (Faculty/College selection is required).' };
+    return { success: false, error: 'Faculty / College selection is required.' };
   }
 
   // 6. Validation: Department / Major (free text)
   if (!formData.departmentMajor?.trim() || formData.departmentMajor.trim().length < 2) {
-    return { success: false, error: 'يرجى إدخال القسم أو التخصص الأكاديمي (Department/Major is required).' };
+    return { success: false, error: 'Department / Academic Major is required.' };
   }
 
   // 7. Validation: Academic year (1-5)
   const yearNum = Number(formData.academicYear);
   if (![1, 2, 3, 4, 5].includes(yearNum)) {
-    return { success: false, error: 'السنة الدراسية غير صحيحة (Academic year must be between 1st and 5th year).' };
+    return { success: false, error: 'Academic year must be between 1st and 5th year.' };
   }
 
   // 8. Validation: Target committee
@@ -164,7 +164,7 @@ export async function submitProfileCompletion(formData: ProfileFormData) {
       .maybeSingle();
 
     if (existingWithNid) {
-      return { success: false, error: 'الرقم القومي مسجل بالفعل لحساب آخر (This National ID is already registered to another account).' };
+      return { success: false, error: 'This National ID is already registered to another account.' };
     }
 
     // Verify faculty exists in faculty_options

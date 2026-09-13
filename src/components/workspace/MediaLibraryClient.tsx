@@ -541,7 +541,7 @@ export function MediaLibraryClient({
   const totalSize = files.reduce((sum, f) => sum + (f.size || 0), 0);
 
   return (
-    <div style={{ padding: '2rem', maxWidth: '1400px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', width: '100%' }}>
 
       {/* Floating Notification Toast */}
       {notification && (
@@ -687,7 +687,7 @@ export function MediaLibraryClient({
 
                 <div style={{ flex: 1, minWidth: '260px' }}>
                   <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.3rem' }}>
-                    File Name (يمكنك تعديل اسم الملف قبل الرفع):
+                    File Name (customize file name before upload):
                   </label>
                   <input
                     id="media-upload-name-input"

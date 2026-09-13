@@ -32,7 +32,8 @@ import {
   Lock,
   Globe,
   Star,
-  Wallet
+  Wallet,
+  QrCode
 } from 'lucide-react';
 
 export const dynamic = 'force-dynamic';
@@ -323,12 +324,15 @@ export default async function EventDetailPage({ params, searchParams }: EventDet
     department_id: m.department_id,
   }));
 
-  const isPresidential = context.profile?.role ? ['president', 'co_president'].includes(context.profile.role) : false;
-  const isDeptHead = context.profile?.department_id === event.department_id;
-  const isOwner = Array.isArray(event.owners) && event.owners.some(
-    (o: any) => o.profile_id === context.profile?.id
-  );
-  const canManage = isPresidential || isDeptHead || isOwner;
+  const userRole = context.profile?.role || '';
+  const isPresidential = ['president', 'co_president'].includes(userRole);
+  const isBranchHead = userRole === 'branch_head';
+  const isDeptHead = context.profile?.department_id === event.department_id && ['committee_head', 'committee_co_head'].includes(userRole);
+  const canManage = isPresidential || isBranchHead || isDeptHead;
+
+  const userDeptCode = (context.profile?.department as any)?.code || departments.find((d: any) => d.id === context.profile?.department_id)?.code;
+  const isHrMember = userDeptCode === 'HR' || isPresidential;
+  const hasCheckinAccess = isHrMember || (Array.isArray(event.checkin_access_profile_ids) && event.checkin_access_profile_ids.includes(context.profile?.id || ''));
 
   // 4. Fetch profiles with Check-in Access (Step 8.3)
   const checkinProfileIds: string[] = Array.isArray(event.checkin_access_profile_ids)
@@ -388,6 +392,29 @@ export default async function EventDetailPage({ params, searchParams }: EventDet
             </Link>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+              {hasCheckinAccess && ['published', 'completed'].includes(event.status) && (
+                <Link
+                  href={`/events/${event.id}/attendance`}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '0.45rem',
+                    fontSize: '0.82rem',
+                    padding: '0.45rem 1rem',
+                    background: 'linear-gradient(135deg, #34A853, #16A34A)',
+                    color: '#FFFFFF',
+                    borderRadius: '8px',
+                    fontWeight: 700,
+                    textDecoration: 'none',
+                    boxShadow: '0 4px 14px rgba(52, 168, 83, 0.3)',
+                    transition: 'all 0.15s ease',
+                  }}
+                  title="Open Live QR Attendance Scanner & Fast Check-in"
+                >
+                  <QrCode size={15} />
+                  <span>Live QR Scanner</span>
+                </Link>
+              )}
               {canManage && (
                 <EditEventButton event={event} departments={departments} />
               )}

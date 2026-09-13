@@ -81,11 +81,11 @@ export function AccountApprovalsList({
   const formatAcademicYear = (year: string | number | null) => {
     if (!year) return 'N/A';
     const n = Number(year);
-    if (n === 1) return '1st Year (أولى)';
-    if (n === 2) return '2nd Year (ثانية)';
-    if (n === 3) return '3rd Year (ثالثة)';
-    if (n === 4) return '4th Year (رابعة)';
-    if (n === 5) return '5th Year (خامسة)';
+    if (n === 1) return '1st Year';
+    if (n === 2) return '2nd Year';
+    if (n === 3) return '3rd Year';
+    if (n === 4) return '4th Year';
+    if (n === 5) return '5th Year';
     return `Year ${year}`;
   };
 
@@ -278,7 +278,7 @@ export function AccountApprovalsList({
                 </span>
               </div>
               <div>
-                <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', display: 'block' }}>NATIONAL ID (الرقم القومي)</span>
+                <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', display: 'block' }}>NATIONAL ID</span>
                 <span style={{ fontSize: '0.86rem', fontWeight: 700, fontFamily: 'monospace', color: '#86EFAC' }}>
                   {acc.national_id || 'N/A'}
                 </span>

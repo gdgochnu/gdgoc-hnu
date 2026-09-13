@@ -30,6 +30,21 @@ export interface LeaderboardResult {
   myRanking?: LeaderboardMember | null;
 }
 
+interface CachedLeaderboard {
+  expiresAt: number;
+  result: LeaderboardResult;
+  allMembers: LeaderboardMember[];
+}
+
+const seasonalCache = new Map<string, CachedLeaderboard>();
+const allTimeCache = new Map<string, CachedLeaderboard>();
+const LEADERBOARD_CACHE_TTL = 60 * 1000; // 60 seconds
+
+export function invalidateLeaderboardCache() {
+  seasonalCache.clear();
+  allTimeCache.clear();
+}
+
 /**
  * Fetches the Seasonal Leaderboard (resets each semester).
  * Honors profiles.leaderboard_opt_in (§4.13).
@@ -40,9 +55,22 @@ export async function getSeasonalLeaderboard(params: {
   currentUserId?: string;
   limit?: number;
 }): Promise<LeaderboardResult> {
-  const admin = createAdminClient();
   const season = params.season || getCurrentSeason();
   const limit = params.limit || 100;
+  const cacheKey = `${season}:${params.departmentId || 'all'}:${limit}`;
+
+  const cached = seasonalCache.get(cacheKey);
+  if (cached && cached.expiresAt > Date.now()) {
+    const myRanking = params.currentUserId
+      ? cached.allMembers.find((m) => m.profileId === params.currentUserId) || null
+      : null;
+    return {
+      ...cached.result,
+      myRanking,
+    };
+  }
+
+  const admin = createAdminClient();
 
   // 1. Fetch points_log entries for the given season
   let pointsQuery = admin
@@ -64,7 +92,13 @@ export async function getSeasonalLeaderboard(params: {
 
   const profileIds = Array.from(pointsMap.keys());
   if (profileIds.length === 0) {
-    return { season, isAllTime: false, totalParticipants: 0, podium: [], rankings: [] };
+    const emptyResult = { season, isAllTime: false, totalParticipants: 0, podium: [], rankings: [] };
+    seasonalCache.set(cacheKey, {
+      expiresAt: Date.now() + LEADERBOARD_CACHE_TTL,
+      result: emptyResult,
+      allMembers: [],
+    });
+    return emptyResult;
   }
 
   // 2. Fetch profiles for these members
@@ -140,12 +174,23 @@ export async function getSeasonalLeaderboard(params: {
     ? allMembers.find((m) => m.profileId === params.currentUserId) || null
     : null;
 
-  return {
+  const baseResult: LeaderboardResult = {
     season,
     isAllTime: false,
     totalParticipants: publicRankings.length,
     podium,
     rankings: publicRankings,
+    myRanking: null,
+  };
+
+  seasonalCache.set(cacheKey, {
+    expiresAt: Date.now() + LEADERBOARD_CACHE_TTL,
+    result: baseResult,
+    allMembers,
+  });
+
+  return {
+    ...baseResult,
     myRanking,
   };
 }
@@ -158,8 +203,21 @@ export async function getAllTimeLeaderboard(params: {
   currentUserId?: string;
   limit?: number;
 }): Promise<LeaderboardResult> {
-  const admin = createAdminClient();
   const limit = params.limit || 100;
+  const cacheKey = `${params.departmentId || 'all'}:${limit}`;
+
+  const cached = allTimeCache.get(cacheKey);
+  if (cached && cached.expiresAt > Date.now()) {
+    const myRanking = params.currentUserId
+      ? cached.allMembers.find((m) => m.profileId === params.currentUserId) || null
+      : null;
+    return {
+      ...cached.result,
+      myRanking,
+    };
+  }
+
+  const admin = createAdminClient();
 
   // 1. Fetch profiles ordered by overall_score desc
   let query = admin
@@ -226,11 +284,22 @@ export async function getAllTimeLeaderboard(params: {
     ? allMembers.find((m) => m.profileId === params.currentUserId) || null
     : null;
 
-  return {
+  const baseResult: LeaderboardResult = {
     isAllTime: true,
     totalParticipants: publicRankings.length,
     podium,
     rankings: publicRankings,
+    myRanking: null,
+  };
+
+  allTimeCache.set(cacheKey, {
+    expiresAt: Date.now() + LEADERBOARD_CACHE_TTL,
+    result: baseResult,
+    allMembers,
+  });
+
+  return {
+    ...baseResult,
     myRanking,
   };
 }

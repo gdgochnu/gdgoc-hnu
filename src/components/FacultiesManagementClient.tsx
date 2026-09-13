@@ -373,7 +373,7 @@ export function FacultiesManagementClient({ initialFaculties }: FacultiesManagem
             <thead>
               <tr style={{ background: 'rgba(255, 255, 255, 0.03)', borderBottom: '1px solid var(--border-subtle)', color: 'var(--text-secondary)', fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                 <th style={{ padding: '1rem 1.25rem', width: '90px' }}>Order</th>
-                <th style={{ padding: '1rem 1.25rem' }}>Arabic Name (الاسم العربي)</th>
+                <th style={{ padding: '1rem 1.25rem' }}>Arabic Name</th>
                 <th style={{ padding: '1rem 1.25rem' }}>English Name</th>
                 <th style={{ padding: '1rem 1.25rem', width: '130px' }}>Status</th>
                 <th style={{ padding: '1rem 1.25rem', textAlign: 'right', width: '160px' }}>Actions</th>
@@ -546,7 +546,7 @@ export function FacultiesManagementClient({ initialFaculties }: FacultiesManagem
             <form onSubmit={handleCreate} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
               <div>
                 <label style={{ display: 'block', fontSize: '0.88rem', fontWeight: 600, marginBottom: '0.4rem' }}>
-                  اسم الكلية بالعربية (Arabic Name) <span style={{ color: 'var(--google-red)' }}>*</span>
+                  Arabic Name <span style={{ color: 'var(--google-red)' }}>*</span>
                 </label>
                 <input
                   type="text"
@@ -554,7 +554,7 @@ export function FacultiesManagementClient({ initialFaculties }: FacultiesManagem
                   required
                   value={nameAr}
                   onChange={(e) => setNameAr(e.target.value)}
-                  placeholder="مثال: كلية الهندسة بحلوان"
+                  placeholder="e.g. كلية الهندسة بحلوان"
                   style={{
                     width: '100%',
                     padding: '0.75rem 1rem',
@@ -679,7 +679,7 @@ export function FacultiesManagementClient({ initialFaculties }: FacultiesManagem
             <form onSubmit={handleUpdate} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
               <div>
                 <label style={{ display: 'block', fontSize: '0.88rem', fontWeight: 600, marginBottom: '0.4rem' }}>
-                  اسم الكلية بالعربية (Arabic Name) <span style={{ color: 'var(--google-red)' }}>*</span>
+                  Arabic Name <span style={{ color: 'var(--google-red)' }}>*</span>
                 </label>
                 <input
                   type="text"

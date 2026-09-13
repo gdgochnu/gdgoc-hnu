@@ -211,7 +211,7 @@ export function AppNavigation({
     if (isPresident || isCoPresident || deptCode === 'HR') {
       workspaceItems.push({
         label: 'HR & Attendance',
-        href: '/hr',
+        href: '/hr/attendance',
         icon: UserCheck,
       });
     }
@@ -262,9 +262,9 @@ export function AppNavigation({
   const roleLabel = useMemo(() => {
     switch (profile.role) {
       case 'president':
-        return 'Chapter President';
+        return '👑 Chapter President';
       case 'co_president':
-        return 'Co-President';
+        return '👑 Co-President';
       case 'branch_head':
         return 'Branch Head';
       case 'committee_head':
@@ -279,9 +279,9 @@ export function AppNavigation({
   const roleBadgeStyle = useMemo(() => {
     switch (profile.role) {
       case 'president':
-        return { bg: 'rgba(66, 133, 244, 0.2)', color: '#93C5FD', border: 'rgba(66, 133, 244, 0.4)' };
+        return { bg: 'linear-gradient(135deg, rgba(251, 188, 4, 0.25), rgba(66, 133, 244, 0.2))', color: '#FDE047', border: 'rgba(251, 188, 4, 0.6)' };
       case 'co_president':
-        return { bg: 'rgba(251, 188, 4, 0.2)', color: '#FDE047', border: 'rgba(251, 188, 4, 0.4)' };
+        return { bg: 'linear-gradient(135deg, rgba(251, 188, 4, 0.2), rgba(52, 168, 83, 0.2))', color: '#FDE047', border: 'rgba(251, 188, 4, 0.5)' };
       case 'branch_head':
       case 'committee_head':
         return { bg: 'rgba(52, 168, 83, 0.2)', color: '#86EFAC', border: 'rgba(52, 168, 83, 0.4)' };
@@ -445,8 +445,8 @@ export function AppNavigation({
               ) : null}
 
               {group.items.map((item) => {
-                const isExact = pathname === item.href || (item.href === '/gamification' && pathname === '/leaderboard');
-                const isSub = item.href !== '/' && item.href !== '/dashboard' && (pathname.startsWith(item.href + '/') || pathname.startsWith(item.href + '?') || (item.href === '/gamification' && pathname.startsWith('/leaderboard')));
+                const isExact = pathname === item.href || (item.href === '/gamification' && pathname === '/leaderboard') || (item.href === '/hr/attendance' && (pathname === '/hr' || pathname === '/hr/attendance'));
+                const isSub = item.href !== '/' && item.href !== '/dashboard' && (pathname.startsWith(item.href + '/') || pathname.startsWith(item.href + '?') || (item.href === '/gamification' && pathname.startsWith('/leaderboard')) || (item.href === '/hr/attendance' && pathname.startsWith('/hr/')));
                 const isActive = isExact || isSub;
                 const IconComponent = item.icon;
 
@@ -532,7 +532,19 @@ export function AppNavigation({
           gap: '0.75rem',
           justifyContent: isCollapsed ? 'center' : 'space-between',
         }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', overflow: 'hidden' }}>
+          <Link
+            href="/profile"
+            title="View & Edit My Profile"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.65rem',
+              overflow: 'hidden',
+              textDecoration: 'none',
+              cursor: 'pointer',
+              flex: 1,
+            }}
+          >
             <div style={{
               width: '34px',
               height: '34px',
@@ -577,7 +589,7 @@ export function AppNavigation({
                 </span>
               </div>
             ) : null}
-          </div>
+          </Link>
 
           {!isCollapsed ? (
             <button
@@ -798,7 +810,7 @@ export function AppNavigation({
                     </div>
                   ) : null}
                   {group.items.map((item) => {
-                    const isActive = pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href));
+                    const isActive = pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href)) || (item.href === '/hr/attendance' && (pathname === '/hr' || pathname.startsWith('/hr/')));
                     const IconComponent = item.icon;
 
                     return (
@@ -842,7 +854,18 @@ export function AppNavigation({
 
             {/* Mobile Footer */}
             <div style={{ padding: '1rem', borderTop: '1px solid rgba(255, 255, 255, 0.08)' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.75rem' }}>
+              <Link
+                href="/profile"
+                onClick={() => setIsMobileOpen(false)}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.75rem',
+                  marginBottom: '0.75rem',
+                  textDecoration: 'none',
+                  cursor: 'pointer',
+                }}
+              >
                 <div style={{
                   width: '36px',
                   height: '36px',
@@ -854,13 +877,17 @@ export function AppNavigation({
                   fontWeight: 700,
                   color: '#FFFFFF',
                 }}>
-                  {profile.full_name?.charAt(0) || 'U'}
+                  {profile.avatar_url ? (
+                    <img src={profile.avatar_url} alt="" style={{ width: '100%', height: '100%', borderRadius: '50%' }} />
+                  ) : (
+                    profile.full_name?.charAt(0) || 'U'
+                  )}
                 </div>
                 <div>
                   <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#FFFFFF' }}>{profile.full_name}</div>
-                  <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{roleLabel}</div>
+                  <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>{roleLabel} • View &amp; Edit Profile</div>
                 </div>
-              </div>
+              </Link>
               <button
                 onClick={handleSignOut}
                 disabled={isSigningOut}

@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useTransition } from 'react';
+import Link from 'next/link';
 import {
   GraduationCap,
   PlusCircle,
@@ -18,6 +19,10 @@ import {
   Plus,
   Trash2,
   Layers,
+  Award,
+  Copy,
+  Check,
+  Sparkles,
 } from 'lucide-react';
 import { RecipientSelector } from '@/components/certificates/RecipientSelector';
 import { TemplateBuilder } from '@/components/certificates/TemplateBuilder';
@@ -32,27 +37,33 @@ interface CertificateRecord {
   verification_code: string;
   issue_date: string;
   recipient_name: string;
-  recipient_email?: string;
-  pdf_drive_url?: string;
-  event_id?: string;
-  issued_by?: string;
+  recipient_email?: string | null;
+  recipient_profile_id?: string | null;
+  pdf_drive_url?: string | null;
+  event_id?: string | null;
+  issued_by?: string | null;
   created_at: string;
+  event?: { id: string; title: string } | null;
 }
 
 interface CertificatesClientProps {
   initialCertificates: CertificateRecord[];
+  myCertificates?: CertificateRecord[];
   templates: CertificateTemplate[];
   events: Array<{ id: string; title: string }>;
   userRole: string;
   currentUserId: string;
+  userEmail?: string;
 }
 
 export function CertificatesClient({
   initialCertificates,
+  myCertificates = [],
   templates,
   events,
   userRole,
   currentUserId,
+  userEmail,
 }: CertificatesClientProps) {
   const isLeadership = [
     'president',
@@ -62,7 +73,23 @@ export function CertificatesClient({
     'committee_co_head',
   ].includes(userRole);
 
-  const [activeTab, setActiveTab] = useState<'issued' | 'issue' | 'templates'>('issued');
+  // Regular members default to 'my-certs', leadership defaults to 'my-certs' if they have certs, else 'issued'
+  const [activeTab, setActiveTab] = useState<'my-certs' | 'issued' | 'issue' | 'templates'>(
+    !isLeadership || myCertificates.length > 0 ? 'my-certs' : 'issued'
+  );
+  const [myCerts, setMyCerts] = useState<CertificateRecord[]>(myCertificates);
+  const [myCertsSearch, setMyCertsSearch] = useState('');
+  const [copiedCode, setCopiedCode] = useState<string | null>(null);
+
+  const handleCopyLink = (code: string) => {
+    if (typeof window !== 'undefined') {
+      const url = `${window.location.origin}/verify/${code}`;
+      navigator.clipboard.writeText(url);
+      setCopiedCode(code);
+      setTimeout(() => setCopiedCode(null), 2200);
+    }
+  };
+
   const [searchQuery, setSearchQuery] = useState('');
   const [certificates, setCertificates] = useState<CertificateRecord[]>(initialCertificates);
   const [deletingCertId, setDeletingCertId] = useState<string | null>(null);
@@ -121,6 +148,18 @@ export function CertificatesClient({
     );
   });
 
+  const filteredMyCerts = myCerts.filter((c) => {
+    if (!myCertsSearch.trim()) return true;
+    const q = myCertsSearch.toLowerCase();
+    return (
+      c.title?.toLowerCase().includes(q) ||
+      c.certificate_number?.toLowerCase().includes(q) ||
+      c.verification_code?.toLowerCase().includes(q) ||
+      c.recipient_name?.toLowerCase().includes(q) ||
+      c.event?.title?.toLowerCase().includes(q)
+    );
+  });
+
   const handleIssueSubmit = () => {
     if (!selectedTemplateId) {
       alert('Please select a certificate template.');
@@ -149,19 +188,37 @@ export function CertificatesClient({
             message: `Successfully issued ${res.totalIssued} certificate(s)!`,
           });
           // Prepend newly issued records
-          const newRecords: CertificateRecord[] = res.issuedCertificates.map((ic) => ({
-            id: ic.id,
-            title: certTitle,
-            certificate_number: ic.certificateNumber,
-            verification_code: ic.verificationCode,
-            issue_date: new Date().toISOString().split('T')[0],
-            recipient_name: ic.recipientName,
-            recipient_email: '',
-            pdf_drive_url: ic.pdfUrl || undefined,
-            event_id: selectedEventId || undefined,
-            created_at: new Date().toISOString(),
-          }));
+          const newRecords: CertificateRecord[] = res.issuedCertificates.map((ic) => {
+            const matchedInput = selectedRecipients.find(
+              (sr) => sr.name.trim().toLowerCase() === ic.recipientName.trim().toLowerCase()
+            );
+            return {
+              id: ic.id,
+              title: certTitle,
+              certificate_number: ic.certificateNumber,
+              verification_code: ic.verificationCode,
+              issue_date: new Date().toISOString().split('T')[0],
+              recipient_name: ic.recipientName,
+              recipient_email: matchedInput?.email || '',
+              recipient_profile_id: matchedInput?.profileId || null,
+              pdf_drive_url: ic.pdfUrl || undefined,
+              event_id: selectedEventId || undefined,
+              created_at: new Date().toISOString(),
+              event: selectedEventId ? events.find((ev) => ev.id === selectedEventId) || null : null,
+            };
+          });
           setCertificates((prev) => [...newRecords, ...prev]);
+
+          // Also check if any belong to current user
+          const myNewRecords = newRecords.filter(
+            (nr) =>
+              (currentUserId && nr.recipient_profile_id === currentUserId) ||
+              (userEmail && nr.recipient_email && nr.recipient_email.toLowerCase() === userEmail.toLowerCase())
+          );
+          if (myNewRecords.length > 0) {
+            setMyCerts((prev) => [...myNewRecords, ...prev]);
+          }
+
           setSelectedRecipients([]);
         } else {
           setIssueResult({
@@ -294,8 +351,8 @@ export function CertificatesClient({
             </div>
           </div>
 
-          {/* Quick Stats Pill */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+          {/* Quick Stats Pills */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
             <div
               className="glass-panel"
               style={{
@@ -304,18 +361,43 @@ export function CertificatesClient({
                 display: 'flex',
                 alignItems: 'center',
                 gap: '0.75rem',
+                border: '1px solid rgba(251, 188, 4, 0.25)',
+                background: 'rgba(251, 188, 4, 0.06)',
               }}
             >
-              <FileText size={18} color="var(--google-blue)" />
+              <Award size={18} color="#FBBC04" />
               <div>
                 <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700 }}>
-                  Total Issued
+                  My Certificates
                 </div>
-                <div style={{ fontSize: '1.1rem', fontWeight: 800, color: '#fff' }}>
-                  {certificates.length}
+                <div style={{ fontSize: '1.1rem', fontWeight: 800, color: '#FBBC04' }}>
+                  {myCerts.length}
                 </div>
               </div>
             </div>
+
+            {isLeadership && (
+              <div
+                className="glass-panel"
+                style={{
+                  padding: '0.6rem 1.2rem',
+                  borderRadius: '14px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.75rem',
+                }}
+              >
+                <FileText size={18} color="var(--google-blue)" />
+                <div>
+                  <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700 }}>
+                    Chapter Issued
+                  </div>
+                  <div style={{ fontSize: '1.1rem', fontWeight: 800, color: '#fff' }}>
+                    {certificates.length}
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -332,29 +414,52 @@ export function CertificatesClient({
           overflowX: 'auto',
         }}
       >
+        {/* Tab 1: My Certificates (All Members) */}
         <button
-          onClick={() => setActiveTab('issued')}
+          onClick={() => setActiveTab('my-certs')}
           style={{
             display: 'inline-flex',
             alignItems: 'center',
             gap: '0.5rem',
             padding: '0.7rem 1.25rem',
             borderRadius: '12px',
-            border: activeTab === 'issued' ? '1px solid var(--google-blue)' : '1px solid transparent',
-            background: activeTab === 'issued' ? 'rgba(66, 133, 244, 0.12)' : 'transparent',
-            color: activeTab === 'issued' ? '#fff' : 'var(--text-secondary)',
+            border: activeTab === 'my-certs' ? '1px solid #FBBC04' : '1px solid transparent',
+            background: activeTab === 'my-certs' ? 'rgba(251, 188, 4, 0.12)' : 'transparent',
+            color: activeTab === 'my-certs' ? '#FBBC04' : 'var(--text-secondary)',
             fontSize: '0.85rem',
             fontWeight: 700,
             cursor: 'pointer',
             transition: 'all 0.2s',
           }}
         >
-          <GraduationCap size={16} color={activeTab === 'issued' ? 'var(--google-blue)' : 'currentColor'} />
-          <span>Issued Credentials ({certificates.length})</span>
+          <Award size={16} color={activeTab === 'my-certs' ? '#FBBC04' : 'currentColor'} />
+          <span>My Certificates ({myCerts.length})</span>
         </button>
 
+        {/* Leadership-only Tabs: Chapter Registry, Issue Batch, Templates */}
         {isLeadership && (
           <>
+            <button
+              onClick={() => setActiveTab('issued')}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+                padding: '0.7rem 1.25rem',
+                borderRadius: '12px',
+                border: activeTab === 'issued' ? '1px solid var(--google-blue)' : '1px solid transparent',
+                background: activeTab === 'issued' ? 'rgba(66, 133, 244, 0.12)' : 'transparent',
+                color: activeTab === 'issued' ? '#fff' : 'var(--text-secondary)',
+                fontSize: '0.85rem',
+                fontWeight: 700,
+                cursor: 'pointer',
+                transition: 'all 0.2s',
+              }}
+            >
+              <GraduationCap size={16} color={activeTab === 'issued' ? 'var(--google-blue)' : 'currentColor'} />
+              <span>Chapter Registry ({certificates.length})</span>
+            </button>
+
             <button
               onClick={() => setActiveTab('issue')}
               style={{
@@ -400,8 +505,402 @@ export function CertificatesClient({
         )}
       </div>
 
-      {/* TAB 1: ISSUED CREDENTIALS */}
-      {activeTab === 'issued' && (
+      {/* TAB: MY CERTIFICATES */}
+      {activeTab === 'my-certs' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+          {/* Search bar & summary */}
+          <div
+            className="glass-panel"
+            style={{
+              padding: '1rem 1.5rem',
+              borderRadius: '18px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              flexWrap: 'wrap',
+              gap: '1rem',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flex: '1 1 300px' }}>
+              <Search size={18} color="var(--text-muted)" />
+              <input
+                type="text"
+                placeholder="Search my certificates by title, event, or serial number..."
+                value={myCertsSearch}
+                onChange={(e) => setMyCertsSearch(e.target.value)}
+                style={{
+                  flex: 1,
+                  background: 'transparent',
+                  border: 'none',
+                  outline: 'none',
+                  color: 'var(--text-primary)',
+                  fontSize: '0.9rem',
+                }}
+              />
+              {myCertsSearch && (
+                <button
+                  onClick={() => setMyCertsSearch('')}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: 'var(--text-muted)',
+                    cursor: 'pointer',
+                    fontSize: '0.8rem',
+                  }}
+                >
+                  Clear
+                </button>
+              )}
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', color: '#FBBC04', fontWeight: 700 }}>
+                <Sparkles size={16} />
+                {myCerts.length} Credential{myCerts.length === 1 ? '' : 's'} Earned
+              </span>
+            </div>
+          </div>
+
+          {/* Certificates Grid / Empty State */}
+          {filteredMyCerts.length === 0 ? (
+            <div
+              className="glass-panel"
+              style={{
+                padding: '4rem 2rem',
+                borderRadius: '24px',
+                textAlign: 'center',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                gap: '1.25rem',
+                maxWidth: '680px',
+                margin: '1.5rem auto',
+                position: 'relative',
+                overflow: 'hidden',
+              }}
+            >
+              <div
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  height: '4px',
+                  background:
+                    'linear-gradient(90deg, #4285F4 25%, #EA4335 25% 50%, #FBBC04 50% 75%, #34A853 75%)',
+                }}
+              />
+              <div
+                style={{
+                  width: '76px',
+                  height: '76px',
+                  borderRadius: '24px',
+                  background: 'linear-gradient(135deg, rgba(251, 188, 4, 0.2), rgba(66, 133, 244, 0.2))',
+                  border: '1px solid rgba(251, 188, 4, 0.4)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: '#FBBC04',
+                  boxShadow: '0 8px 24px rgba(251, 188, 4, 0.15)',
+                }}
+              >
+                <Award size={40} />
+              </div>
+              <div>
+                <h3 style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--text-primary)', margin: '0 0 0.5rem' }}>
+                  {myCertsSearch ? 'No Matching Certificates' : 'No Certificates Issued Yet'}
+                </h3>
+                <p style={{ fontSize: '0.92rem', color: 'var(--text-secondary)', lineHeight: 1.6, margin: 0 }}>
+                  {myCertsSearch
+                    ? `No certificates matched your search "${myCertsSearch}". Try a different keyword.`
+                    : 'You have not received any certificates yet. Attend GDGoC Al-Hussein Bin Talal University workshops, hackathons, and technical sessions to earn official verified credentials!'}
+                </p>
+              </div>
+              <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', justifyContent: 'center', marginTop: '0.5rem' }}>
+                <Link
+                  href="/events"
+                  className="btn-google-primary"
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '0.5rem',
+                    padding: '0.75rem 1.4rem',
+                    borderRadius: '12px',
+                    fontWeight: 700,
+                    textDecoration: 'none',
+                    fontSize: '0.9rem',
+                  }}
+                >
+                  <Calendar size={16} />
+                  <span>Browse Chapter Events</span>
+                </Link>
+                {isLeadership && (
+                  <button
+                    onClick={() => setActiveTab('issued')}
+                    className="btn-google-ghost"
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '0.5rem',
+                      padding: '0.75rem 1.4rem',
+                      borderRadius: '12px',
+                      fontWeight: 600,
+                      border: '1px solid rgba(255, 255, 255, 0.12)',
+                      background: 'rgba(255, 255, 255, 0.05)',
+                      color: 'var(--text-primary)',
+                      cursor: 'pointer',
+                      fontSize: '0.9rem',
+                    }}
+                  >
+                    <GraduationCap size={16} />
+                    <span>Browse Chapter Registry</span>
+                  </button>
+                )}
+              </div>
+            </div>
+          ) : (
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))',
+                gap: '1.5rem',
+              }}
+            >
+              {filteredMyCerts.map((cert) => {
+                const isCopied = copiedCode === cert.verification_code;
+                return (
+                  <div
+                    key={cert.id}
+                    className="glass-panel"
+                    style={{
+                      borderRadius: '20px',
+                      overflow: 'hidden',
+                      position: 'relative',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      justifyContent: 'space-between',
+                      border: '1px solid rgba(255, 255, 255, 0.08)',
+                      transition: 'transform 0.2s, box-shadow 0.2s',
+                    }}
+                  >
+                    {/* 4-Color Google Strip */}
+                    <div
+                      style={{
+                        height: '4px',
+                        width: '100%',
+                        background:
+                          'linear-gradient(90deg, #4285F4 25%, #EA4335 25% 50%, #FBBC04 50% 75%, #34A853 75%)',
+                      }}
+                    />
+
+                    {/* Card Body */}
+                    <div style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem', flex: 1 }}>
+                      {/* Top badges row */}
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem' }}>
+                        <span
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '0.35rem',
+                            padding: '0.3rem 0.65rem',
+                            borderRadius: '20px',
+                            background: 'rgba(52, 168, 83, 0.15)',
+                            border: '1px solid rgba(52, 168, 83, 0.3)',
+                            color: 'var(--google-green)',
+                            fontSize: '0.72rem',
+                            fontWeight: 700,
+                            letterSpacing: '0.04em',
+                            textTransform: 'uppercase',
+                          }}
+                        >
+                          <CheckCircle2 size={13} />
+                          Verified Credential
+                        </span>
+
+                        <span
+                          style={{
+                            fontFamily: 'monospace',
+                            fontSize: '0.72rem',
+                            color: 'var(--text-muted)',
+                            background: 'rgba(255, 255, 255, 0.05)',
+                            padding: '0.2rem 0.5rem',
+                            borderRadius: '6px',
+                            border: '1px solid rgba(255, 255, 255, 0.08)',
+                          }}
+                        >
+                          {cert.certificate_number}
+                        </span>
+                      </div>
+
+                      {/* Title & Event */}
+                      <div>
+                        <h4
+                          style={{
+                            fontSize: '1.2rem',
+                            fontWeight: 800,
+                            color: 'var(--text-primary)',
+                            margin: '0 0 0.35rem 0',
+                            lineHeight: 1.3,
+                          }}
+                        >
+                          {cert.title}
+                        </h4>
+                        {cert.event?.title && (
+                          <div
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '0.4rem',
+                              fontSize: '0.8rem',
+                              color: 'var(--google-blue)',
+                              fontWeight: 600,
+                            }}
+                          >
+                            <Calendar size={13} />
+                            <span>{cert.event.title}</span>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Recipient & Metadata Box */}
+                      <div
+                        style={{
+                          background: 'rgba(255, 255, 255, 0.03)',
+                          border: '1px solid rgba(255, 255, 255, 0.06)',
+                          borderRadius: '12px',
+                          padding: '0.85rem 1rem',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: '0.4rem',
+                          marginTop: 'auto',
+                        }}
+                      >
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem' }}>
+                          <span style={{ color: 'var(--text-muted)' }}>Issued To:</span>
+                          <span style={{ fontWeight: 700, color: 'var(--text-primary)' }}>{cert.recipient_name}</span>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem' }}>
+                          <span style={{ color: 'var(--text-muted)' }}>Issue Date:</span>
+                          <span style={{ color: 'var(--text-secondary)', fontWeight: 600 }}>{cert.issue_date}</span>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.8rem', paddingTop: '0.25rem', borderTop: '1px dashed rgba(255, 255, 255, 0.08)' }}>
+                          <span style={{ color: 'var(--text-muted)' }}>Verification Code:</span>
+                          <button
+                            onClick={() => handleCopyLink(cert.verification_code)}
+                            title="Click to copy verification URL"
+                            style={{
+                              background: isCopied ? 'rgba(52, 168, 83, 0.2)' : 'rgba(66, 133, 244, 0.1)',
+                              border: isCopied ? '1px solid var(--google-green)' : '1px solid rgba(66, 133, 244, 0.25)',
+                              borderRadius: '6px',
+                              padding: '0.2rem 0.5rem',
+                              fontFamily: 'monospace',
+                              fontSize: '0.75rem',
+                              fontWeight: 700,
+                              color: isCopied ? 'var(--google-green)' : 'var(--google-blue)',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '0.3rem',
+                              cursor: 'pointer',
+                              transition: 'all 0.15s',
+                            }}
+                          >
+                            {isCopied ? <Check size={12} /> : <Copy size={12} />}
+                            <span>{isCopied ? 'Copied Link!' : cert.verification_code}</span>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Card Actions Footer */}
+                    <div
+                      style={{
+                        padding: '0.85rem 1.25rem',
+                        background: 'rgba(0, 0, 0, 0.15)',
+                        borderTop: '1px solid rgba(255, 255, 255, 0.06)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        gap: '0.75rem',
+                      }}
+                    >
+                      <a
+                        href={`/api/certificates/${cert.id}/download`}
+                        download
+                        style={{
+                          flex: 1,
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: '0.45rem',
+                          padding: '0.55rem 1rem',
+                          borderRadius: '10px',
+                          background: 'linear-gradient(135deg, #4285F4, #1a73e8)',
+                          color: '#fff',
+                          fontWeight: 700,
+                          fontSize: '0.82rem',
+                          textDecoration: 'none',
+                          boxShadow: '0 4px 12px rgba(66, 133, 244, 0.25)',
+                          transition: 'all 0.2s',
+                        }}
+                      >
+                        <Download size={14} />
+                        <span>Download PDF</span>
+                      </a>
+
+                      <a
+                        href={`/verify/${cert.verification_code}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: '0.35rem',
+                          padding: '0.55rem 0.85rem',
+                          borderRadius: '10px',
+                          background: 'rgba(52, 168, 83, 0.12)',
+                          border: '1px solid rgba(52, 168, 83, 0.25)',
+                          color: 'var(--google-green)',
+                          fontWeight: 600,
+                          fontSize: '0.82rem',
+                          textDecoration: 'none',
+                          transition: 'all 0.2s',
+                        }}
+                        title="View official public verification certificate"
+                      >
+                        <Shield size={14} />
+                        <span>Verify</span>
+                      </a>
+
+                      <button
+                        onClick={() => handleCopyLink(cert.verification_code)}
+                        title="Share certificate verification link"
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          padding: '0.55rem 0.75rem',
+                          borderRadius: '10px',
+                          background: 'rgba(255, 255, 255, 0.05)',
+                          border: '1px solid rgba(255, 255, 255, 0.1)',
+                          color: isCopied ? 'var(--google-green)' : 'var(--text-secondary)',
+                          cursor: 'pointer',
+                          transition: 'all 0.2s',
+                        }}
+                      >
+                        {isCopied ? <Check size={14} /> : <Copy size={14} />}
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* TAB 2: ISSUED CREDENTIALS (CHAPTER REGISTRY - LEADERSHIP ONLY) */}
+      {isLeadership && activeTab === 'issued' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
           {/* Search bar */}
           <div

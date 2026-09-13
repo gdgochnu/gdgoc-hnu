@@ -56,10 +56,24 @@ export interface RecognitionWallData {
   totalShoutoutsThisMonth: number;
 }
 
+let recognitionCache: {
+  expiresAt: number;
+  data: RecognitionWallData;
+} | null = null;
+const RECOGNITION_CACHE_TTL = 60 * 1000; // 60 seconds
+
+export function invalidateRecognitionCache() {
+  recognitionCache = null;
+}
+
 /**
  * Fetches the complete Recognition Wall data including Member of the Month and Live Feed.
  */
 export async function getRecognitionWallData(limit: number = 20): Promise<RecognitionWallData> {
+  if (recognitionCache && recognitionCache.expiresAt > Date.now()) {
+    return recognitionCache.data;
+  }
+
   const admin = createAdminClient();
   const now = new Date();
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
@@ -261,11 +275,18 @@ export async function getRecognitionWallData(limit: number = 20): Promise<Recogn
     (item) => item.type === 'shoutout' && new Date(item.timestamp) >= new Date(startOfMonth)
   ).length;
 
-  return {
+  const result: RecognitionWallData = {
     memberOfTheMonth,
     feed: feedItems.slice(0, limit),
     totalShoutoutsThisMonth: countShoutoutsThisMonth,
   };
+
+  recognitionCache = {
+    expiresAt: Date.now() + RECOGNITION_CACHE_TTL,
+    data: result,
+  };
+
+  return result;
 }
 
 /**
@@ -299,28 +320,77 @@ export async function sendShoutOut(input: {
 
     if (!sender) return { success: false, error: 'Sender profile not found' };
 
+    // Prevent sending shout-out to oneself
+    if (input.targetProfileId === input.senderProfileId) {
+      return { success: false, error: 'You cannot send a shout-out to yourself.' };
+    }
+
+    const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+
+    // 3. Duplicate prevention: max 1 shout-out to the same peer per 24 hours
+    const { data: alreadySentToPeer } = await admin
+      .from('points_log')
+      .select('id')
+      .eq('action_key', 'shoutout')
+      .eq('profile_id', input.targetProfileId)
+      .eq('awarded_by', input.senderProfileId)
+      .gte('created_at', twentyFourHoursAgo)
+      .maybeSingle();
+
+    if (alreadySentToPeer) {
+      return {
+        success: false,
+        error: `You already sent a shout-out to ${target.full_name} today. Share the appreciation with other teammates!`,
+      };
+    }
+
+    // 4. Rate limit: max 5 shout-outs per 24 hours per member
+    const DAILY_LIMIT = 5;
+    const { count: dailyCount } = await admin
+      .from('points_log')
+      .select('id', { count: 'exact', head: true })
+      .eq('action_key', 'shoutout')
+      .eq('awarded_by', input.senderProfileId)
+      .gte('created_at', twentyFourHoursAgo);
+
+    if (dailyCount !== null && dailyCount >= DAILY_LIMIT) {
+      return {
+        success: false,
+        error: `Daily shout-out limit reached (${DAILY_LIMIT}/day). You can send more shout-outs tomorrow!`,
+      };
+    }
+
     const pts = input.points || 15; // default 15 bonus points for recognition
 
-    // 3. Award points via points engine
+    // 5. Award points via points engine
     const awardRes = await awardPoints({
       profileId: input.targetProfileId,
       actionKey: 'shoutout',
       customPoints: pts,
-      customReason: `Shout-out from ${sender.full_name}: "${input.message}"`,
+      customReason: `Shout-out from ${sender.full_name}: "${input.message.trim()}"`,
       awardedBy: input.senderProfileId,
     });
 
-    // 4. Create in-app notification for recipient
+    if (!awardRes.success) {
+      return {
+        success: false,
+        error: awardRes.error || awardRes.skipReason || 'Failed to award points for shout-out',
+      };
+    }
+
+    // 6. Create in-app notification for recipient
     await dispatchNotificationsSafely([
       {
         profileId: input.targetProfileId,
         type: 'gamification_award',
         title: `🌟 Shout-out from ${sender.full_name}!`,
-        message: `"${input.message}" (+${pts} points)`,
+        message: `"${input.message.trim()}" (+${pts} points)`,
         relatedEntityType: 'shoutout',
         relatedEntityId: input.targetProfileId,
       },
     ]);
+
+    invalidateRecognitionCache();
 
     return {
       success: true,

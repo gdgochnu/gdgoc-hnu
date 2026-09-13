@@ -32,10 +32,29 @@ export interface UserContext {
   unreadNotificationsCount: number;
 }
 
+interface UserContextCacheEntry {
+  context: UserContext;
+  expiresAt: number;
+}
+
+const userContextCache = new Map<string, UserContextCacheEntry>();
+const CONTEXT_CACHE_TTL_MS = 30 * 1000; // 30 seconds
+
+/**
+ * Clear cached user context on profile mutation or signout
+ */
+export function invalidateUserContextCache(userId?: string) {
+  if (userId) {
+    userContextCache.delete(userId);
+  } else {
+    userContextCache.clear();
+  }
+}
+
 /**
  * Highly optimized, per-request cached User Context.
  * Uses React cache() to deduplicate calls within the same render pass,
- * and Promise.all() to run database queries in parallel rather than sequentially.
+ * memory cache to accelerate navigations, and Promise.all() for parallelism.
  */
 export const getUserContext = cache(async (): Promise<UserContext> => {
   let user = null;
@@ -54,6 +73,12 @@ export const getUserContext = cache(async (): Promise<UserContext> => {
       pendingApprovalsCount: 0,
       unreadNotificationsCount: 0,
     };
+  }
+
+  // Fast memory cache check for rapid page-to-page navigation
+  const cached = userContextCache.get(user.id);
+  if (cached && cached.expiresAt > Date.now()) {
+    return cached.context;
   }
 
   const admin = createAdminClient();
@@ -122,7 +147,7 @@ export const getUserContext = cache(async (): Promise<UserContext> => {
     pendingApprovalsCount = count || 0;
   }
 
-  return {
+  const result: UserContext = {
     user: { id: user.id, email: user.email },
     profile: {
       ...profile,
@@ -131,4 +156,11 @@ export const getUserContext = cache(async (): Promise<UserContext> => {
     pendingApprovalsCount,
     unreadNotificationsCount: unreadResult.count || 0,
   };
+
+  userContextCache.set(user.id, {
+    context: result,
+    expiresAt: Date.now() + CONTEXT_CACHE_TTL_MS,
+  });
+
+  return result;
 });

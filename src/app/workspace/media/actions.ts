@@ -19,7 +19,7 @@ interface CachedMedia {
   folderUrl?: string;
 }
 let mediaCache: CachedMedia | null = null;
-const CACHE_TTL_MS = 60 * 1000; // 60 seconds
+const CACHE_TTL_MS = 10 * 60 * 1000; // 10 minutes
 
 export async function invalidateMediaCache() {
   mediaCache = null;
@@ -42,7 +42,7 @@ export async function getAllMediaFiles(
   }
 
   const fileMap = new Map<string, MediaFile>();
-  let rootFolderUrl: string | undefined;
+  let rootFolderUrl: string | undefined = mediaCache?.folderUrl;
   const admin = createAdminClient();
 
   // 1. Fetch departments and events metadata for clear labeling
@@ -63,11 +63,17 @@ export async function getAllMediaFiles(
       !m.drive_folder_id.startsWith('mock-')
   );
 
-  // 3. Query all valid mapped Drive folders sequentially to respect Google Apps Script concurrency
-  for (const mapping of validMappings) {
-    try {
-      let res = await listFilesInDrive(mapping.drive_folder_id);
+  // 3. Query all valid mapped Drive folders in parallel using Promise.allSettled for fast non-blocking response
+  const folderResults = await Promise.allSettled(
+    validMappings.map(async (mapping) => {
+      const res = await listFilesInDrive(mapping.drive_folder_id);
+      return { mapping, res };
+    })
+  );
 
+  for (const outcome of folderResults) {
+    if (outcome.status === 'fulfilled') {
+      const { mapping, res } = outcome.value;
       if (res.success && Array.isArray(res.files)) {
         if (mapping.entity_type === 'media_library' && !rootFolderUrl) {
           rootFolderUrl = mapping.drive_folder_url || res.folderUrl;
@@ -99,8 +105,6 @@ export async function getAllMediaFiles(
           }
         }
       }
-    } catch (folderErr: any) {
-      console.warn(`[getAllMediaFiles] Error fetching folder ${mapping.drive_folder_id}:`, folderErr.message);
     }
   }
 
@@ -135,9 +139,15 @@ export async function getAllMediaFiles(
     // Non-fatal
   }
 
-  const finalFiles = Array.from(fileMap.values()).sort(
+  let finalFiles = Array.from(fileMap.values()).sort(
     (a, b) => new Date(b.dateCreated || 0).getTime() - new Date(a.dateCreated || 0).getTime()
   );
+
+  // Fallback to previous cache if fetch returned 0 files due to temporary network issues
+  if (finalFiles.length === 0 && mediaCache && mediaCache.files.length > 0) {
+    finalFiles = mediaCache.files;
+    rootFolderUrl = rootFolderUrl || mediaCache.folderUrl;
+  }
 
   mediaCache = {
     timestamp: Date.now(),

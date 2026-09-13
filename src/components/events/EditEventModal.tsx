@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
 import { Event, EventRegistrationField } from '@/types';
 import { updateEventDetails, UpdateEventInput } from '@/app/events/actions';
@@ -34,7 +35,12 @@ export function EditEventModal({
   onClose,
 }: EditEventModalProps) {
   const router = useRouter();
+  const [mounted, setMounted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'general' | 'schedule' | 'registration'>('general');
@@ -53,7 +59,7 @@ export function EditEventModal({
     Array.isArray(event.registration_fields) ? event.registration_fields : []
   );
 
-  if (!isOpen) return null;
+  if (!isOpen || !mounted) return null;
 
   // Add custom question
   const handleAddField = () => {
@@ -99,7 +105,7 @@ export function EditEventModal({
       const res = await updateEventDetails(event.id, payload);
 
       if (!res.success) {
-        setErrorMsg(res.error || 'Failed to update event.');
+        setErrorMsg(res.error || 'Failed to update event details.');
         setIsSubmitting(false);
         return;
       }
@@ -116,16 +122,16 @@ export function EditEventModal({
     }
   };
 
-  return (
+  return createPortal(
     <div
       style={{
         position: 'fixed',
         inset: 0,
-        zIndex: 1000,
+        zIndex: 99999,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        background: 'rgba(5, 8, 16, 0.82)',
+        background: 'rgba(5, 8, 16, 0.85)',
         backdropFilter: 'blur(12px)',
         padding: '1rem',
       }}
@@ -623,6 +629,7 @@ export function EditEventModal({
           to { opacity: 1; transform: scale(1); }
         }
       `}</style>
-    </div>
+    </div>,
+    document.body
   );
 }

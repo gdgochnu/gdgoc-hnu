@@ -1,12 +1,93 @@
+import React, { Suspense } from 'react';
 import { AppShell } from '@/components/layout/AppShell';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import Link from 'next/link';
 import { CommitteesManagementClient } from '@/components/CommitteesManagementClient';
+import { CommitteesSkeleton } from '@/components/skeletons/CommitteesSkeleton';
 import { SignInWithGoogleButton } from '@/components/SignInWithGoogleButton';
 import { ShieldAlert, Building2, ChevronRight, Settings } from 'lucide-react';
 
 export const dynamic = 'force-dynamic';
+
+async function CommitteesDataLoader() {
+  const admin = createAdminClient();
+
+  // Fetch all departments
+  const { data: rawDepartments } = await admin
+    .from('departments')
+    .select('*')
+    .order('name');
+
+  // Fetch all active members for leadership assignment
+  const { data: rawMembers } = await admin
+    .from('profiles')
+    .select('id, full_name, email, avatar_url, role, department_id, position')
+    .eq('status', 'active')
+    .order('full_name');
+
+  const memberMap = new Map((rawMembers || []).map((m) => [m.id, m]));
+
+  const committees = (rawDepartments || []).map((dept) => {
+    const head = dept.head_id ? memberMap.get(dept.head_id) || null : null;
+    const coHead = dept.co_head_id ? memberMap.get(dept.co_head_id) || null : null;
+    return {
+      ...dept,
+      head: head
+        ? {
+            id: head.id,
+            full_name: head.full_name,
+            email: head.email,
+            avatar_url: head.avatar_url,
+            role: head.role,
+          }
+        : null,
+      co_head: coHead
+        ? {
+            id: coHead.id,
+            full_name: coHead.full_name,
+            email: coHead.email,
+            avatar_url: coHead.avatar_url,
+            role: coHead.role,
+          }
+        : null,
+    };
+  });
+
+  return (
+    <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '2rem 1.5rem 5rem', width: '100%' }}>
+      {/* Breadcrumb & Title */}
+      <div style={{ marginBottom: '2.5rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>
+          <Link href="/dashboard" style={{ color: 'inherit', textDecoration: 'none' }}>Dashboard</Link>
+          <ChevronRight size={14} />
+          <span>Administration</span>
+          <ChevronRight size={14} />
+          <span style={{ color: 'var(--text-primary)' }}>Committees</span>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem' }}>
+          <div>
+            <h1 style={{ fontSize: '2.2rem', fontWeight: 800, letterSpacing: '-0.02em', margin: '0 0 0.35rem', color: '#FFFFFF' }}>
+              Chapter Committees &amp; Departments
+            </h1>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '0.95rem', margin: 0 }}>
+              Manage the chapter's organizational chart, create new technical/non-technical tracks, and appoint Committee Heads and Co-Heads.
+            </p>
+          </div>
+          <span style={{ fontSize: '0.8rem', padding: '0.35rem 0.85rem', borderRadius: '999px', background: 'rgba(66, 133, 244, 0.15)', color: '#93C5FD', fontWeight: 600, border: '1px solid rgba(66, 133, 244, 0.3)' }}>
+            Leadership Only
+          </span>
+        </div>
+      </div>
+
+      {/* Committees Client */}
+      <CommitteesManagementClient
+        initialCommittees={committees}
+        eligibleMembers={rawMembers || []}
+      />
+    </div>
+  );
+}
 
 export default async function CommitteesSettingsPage() {
   const supabase = await createClient();
@@ -88,81 +169,11 @@ export default async function CommitteesSettingsPage() {
     );
   }
 
-  // 3. Fetch all departments
-  const { data: rawDepartments } = await admin
-    .from('departments')
-    .select('*')
-    .order('name');
-
-  // 4. Fetch all active members for leadership assignment
-  const { data: rawMembers } = await admin
-    .from('profiles')
-    .select('id, full_name, email, avatar_url, role, department_id, position')
-    .eq('status', 'active')
-    .order('full_name');
-
-  const memberMap = new Map((rawMembers || []).map((m) => [m.id, m]));
-
-  // Map heads and co-heads cleanly onto departments
-  const committees = (rawDepartments || []).map((dept) => {
-    const head = dept.head_id ? memberMap.get(dept.head_id) || null : null;
-    const coHead = dept.co_head_id ? memberMap.get(dept.co_head_id) || null : null;
-    return {
-      ...dept,
-      head: head
-        ? {
-            id: head.id,
-            full_name: head.full_name,
-            email: head.email,
-            avatar_url: head.avatar_url,
-            role: head.role,
-          }
-        : null,
-      co_head: coHead
-        ? {
-            id: coHead.id,
-            full_name: coHead.full_name,
-            email: coHead.email,
-            avatar_url: coHead.avatar_url,
-            role: coHead.role,
-          }
-        : null,
-    };
-  });
-
   return (
     <AppShell>
-      <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '2rem 1.5rem 5rem', width: '100%' }}>
-        {/* Breadcrumb & Title */}
-        <div style={{ marginBottom: '2.5rem' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>
-            <Link href="/dashboard" style={{ color: 'inherit', textDecoration: 'none' }}>Dashboard</Link>
-            <ChevronRight size={14} />
-            <span>Administration</span>
-            <ChevronRight size={14} />
-            <span style={{ color: 'var(--text-primary)' }}>Committees</span>
-          </div>
-          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem' }}>
-            <div>
-              <h1 style={{ fontSize: '2.2rem', fontWeight: 800, letterSpacing: '-0.02em', margin: '0 0 0.35rem', color: '#FFFFFF' }}>
-                Chapter Committees & Departments
-              </h1>
-              <p style={{ color: 'var(--text-secondary)', fontSize: '0.95rem', margin: 0 }}>
-                Manage the chapter's organizational chart, create new technical/non-technical tracks, and appoint Committee Heads and Co-Heads.
-              </p>
-            </div>
-            <span style={{ fontSize: '0.8rem', padding: '0.35rem 0.85rem', borderRadius: '999px', background: 'rgba(66, 133, 244, 0.15)', color: '#93C5FD', fontWeight: 600, border: '1px solid rgba(66, 133, 244, 0.3)' }}>
-              Leadership Only
-            </span>
-          </div>
-        </div>
-
-        {/* Committees Client */}
-        <CommitteesManagementClient
-          initialCommittees={committees}
-          eligibleMembers={rawMembers || []}
-        />
-      </div>
+      <Suspense fallback={<CommitteesSkeleton />}>
+        <CommitteesDataLoader />
+      </Suspense>
     </AppShell>
   );
 }

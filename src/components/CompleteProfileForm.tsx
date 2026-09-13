@@ -123,7 +123,7 @@ export function CompleteProfileForm({
 
     // Client-side quick checks
     if (arabicWordsCount < 4) {
-      setError('الاسم الرباعي باللغة العربية يجب أن يتكون من 4 أسماء على الأقل.');
+      setError('Full name in Arabic script must contain at least 4 names.');
       return;
     }
 
@@ -133,7 +133,7 @@ export function CompleteProfileForm({
     }
 
     if (!/^[23]\d{13}$/.test(nationalId.trim())) {
-      setError('الرقم القومي غير صحيح. يجب أن يتكون من 14 رقماً ويبدأ بـ 2 أو 3.');
+      setError('National ID is invalid. It must be 14 digits starting with 2 or 3.');
       return;
     }
 
@@ -229,7 +229,7 @@ export function CompleteProfileForm({
             <User size={20} color="var(--google-blue)" />
           </div>
           <div>
-            <h2 style={{ fontSize: '1.15rem', fontWeight: 700 }}>Personal Identity (البيانات الشخصية)</h2>
+            <h2 style={{ fontSize: '1.15rem', fontWeight: 700 }}>Personal Identity</h2>
             <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Official 4-part names and Egyptian National ID as required by university chapter rules.</p>
           </div>
         </div>
@@ -238,7 +238,7 @@ export function CompleteProfileForm({
           {/* Arabic 4-part name */}
           <div>
             <label style={{ display: 'block', fontSize: '0.88rem', fontWeight: 600, marginBottom: '0.5rem' }}>
-              الاسم باللغة العربية (رباعي) <span style={{ color: 'var(--google-red)' }}>*</span>
+              Full Name in Arabic Script <span style={{ color: 'var(--google-red)' }}>*</span>
             </label>
             <input
               type="text"
@@ -246,7 +246,7 @@ export function CompleteProfileForm({
               required
               value={fullNameAr}
               onChange={(e) => setFullNameAr(e.target.value)}
-              placeholder="مثال: أحمد محمد علي حسن"
+              placeholder="e.g. أحمد محمد علي حسن"
               style={{
                 width: '100%',
                 padding: '0.75rem 1rem',
@@ -259,8 +259,8 @@ export function CompleteProfileForm({
               }}
             />
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem', marginTop: '0.35rem', color: arabicWordsCount >= 4 ? 'var(--google-green)' : 'var(--text-secondary)' }}>
-              <span>يجب أن يتكون من 4 أسماء على الأقل</span>
-              <span>{arabicWordsCount}/4 أسماء</span>
+              <span>Must consist of at least 4 names</span>
+              <span>{arabicWordsCount}/4 names</span>
             </div>
           </div>
 
@@ -319,7 +319,7 @@ export function CompleteProfileForm({
           {/* National ID (14 digits) */}
           <div>
             <label style={{ display: 'block', fontSize: '0.88rem', fontWeight: 600, marginBottom: '0.5rem' }}>
-              الرقم القومي المصري (National ID) <span style={{ color: 'var(--google-red)' }}>*</span>
+              Egyptian National ID <span style={{ color: 'var(--google-red)' }}>*</span>
             </label>
             <div style={{ position: 'relative' }}>
               <input
@@ -328,7 +328,7 @@ export function CompleteProfileForm({
                 maxLength={14}
                 value={nationalId}
                 onChange={(e) => setNationalId(e.target.value.replace(/\D/g, ''))}
-                placeholder="14 رقماً قومياً (e.g. 3010101...)"
+                placeholder="14-digit National ID (e.g. 3010101...)"
                 style={{
                   width: '100%',
                   padding: '0.75rem 1rem',
@@ -344,8 +344,8 @@ export function CompleteProfileForm({
               />
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem', marginTop: '0.35rem', color: nationalId.length === 14 ? 'var(--google-green)' : 'var(--text-secondary)' }}>
-              <span>محفوظ بأمان ولا يُعرض إلا للقيادة وإدارة الموارد البشرية (HR)</span>
-              <span>{nationalId.length}/14 رقماً</span>
+              <span>Stored securely; accessible only by Chapter Leadership and HR</span>
+              <span>{nationalId.length}/14 digits</span>
             </div>
           </div>
         </div>
@@ -358,7 +358,7 @@ export function CompleteProfileForm({
             <Phone size={20} color="var(--google-green)" />
           </div>
           <div>
-            <h2 style={{ fontSize: '1.15rem', fontWeight: 700 }}>Contact & Communication (معلومات الاتصال)</h2>
+            <h2 style={{ fontSize: '1.15rem', fontWeight: 700 }}>Contact & Communication</h2>
             <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Egyptian phone numbers for chapter coordination and WhatsApp communication.</p>
           </div>
         </div>
@@ -367,7 +367,7 @@ export function CompleteProfileForm({
           {/* Mobile Phone */}
           <div>
             <label style={{ display: 'block', fontSize: '0.88rem', fontWeight: 600, marginBottom: '0.5rem' }}>
-              رقم الهاتف المحمول (Mobile Number) <span style={{ color: 'var(--google-red)' }}>*</span>
+              Mobile Phone Number <span style={{ color: 'var(--google-red)' }}>*</span>
             </label>
             <input
               type="tel"
@@ -387,7 +387,7 @@ export function CompleteProfileForm({
               }}
             />
             <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', display: 'block', marginTop: '0.35rem' }}>
-              رقم محمول مصري (010, 011, 012, 015)
+              Egyptian mobile number (010, 011, 012, 015)
             </span>
           </div>
 
@@ -395,7 +395,7 @@ export function CompleteProfileForm({
           <div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
               <label style={{ fontSize: '0.88rem', fontWeight: 600 }}>
-                رقم الواتساب (WhatsApp Number) <span style={{ color: 'var(--google-red)' }}>*</span>
+                WhatsApp Number <span style={{ color: 'var(--google-red)' }}>*</span>
               </label>
               <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.8rem', color: 'var(--text-secondary)', cursor: 'pointer' }}>
                 <input
@@ -407,7 +407,7 @@ export function CompleteProfileForm({
                   }}
                   style={{ accentColor: 'var(--google-green)', cursor: 'pointer' }}
                 />
-                نفس رقم الهاتف
+                Same as mobile phone
               </label>
             </div>
 
@@ -431,7 +431,7 @@ export function CompleteProfileForm({
               }}
             />
             <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', display: 'block', marginTop: '0.35rem' }}>
-              لإرسال إشعارات اللجان والمهام العاجلة
+              Used for urgent chapter notifications and tasks
             </span>
           </div>
         </div>
@@ -444,7 +444,7 @@ export function CompleteProfileForm({
             <GraduationCap size={20} color="var(--google-yellow)" />
           </div>
           <div>
-            <h2 style={{ fontSize: '1.15rem', fontWeight: 700 }}>Academic Details (البيانات الأكاديمية)</h2>
+            <h2 style={{ fontSize: '1.15rem', fontWeight: 700 }}>Academic Details</h2>
             <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Faculty, college department/major, and current academic year.</p>
           </div>
         </div>
@@ -453,7 +453,7 @@ export function CompleteProfileForm({
           {/* Faculty / College (Controlled dropdown from faculty_options) */}
           <div>
             <label style={{ display: 'block', fontSize: '0.88rem', fontWeight: 600, marginBottom: '0.5rem' }}>
-              الكلية (Faculty / College) <span style={{ color: 'var(--google-red)' }}>*</span>
+              Faculty / College <span style={{ color: 'var(--google-red)' }}>*</span>
             </label>
             <select
               required
@@ -475,27 +475,27 @@ export function CompleteProfileForm({
               ) : (
                 faculties.map((f) => (
                   <option key={f.id} value={f.name_ar}>
-                    {f.name_ar} ({f.name_en})
+                    {f.name_en ? `${f.name_en} (${f.name_ar})` : f.name_ar}
                   </option>
                 ))
               )}
             </select>
             <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', display: 'block', marginTop: '0.35rem' }}>
-              قائمة الكليات المعتمدة بجامعة حلوان
+              Accredited faculties at Helwan National University
             </span>
           </div>
 
           {/* Department / Major (Free text) */}
           <div>
             <label style={{ display: 'block', fontSize: '0.88rem', fontWeight: 600, marginBottom: '0.5rem' }}>
-              القسم / التخصص (Department / Major) <span style={{ color: 'var(--google-red)' }}>*</span>
+              Department / Academic Major <span style={{ color: 'var(--google-red)' }}>*</span>
             </label>
             <input
               type="text"
               required
               value={departmentMajor}
               onChange={(e) => setDepartmentMajor(e.target.value)}
-              placeholder="مثال: علوم الحاسب / هندسة البرمجيات"
+              placeholder="e.g. Computer Science / Software Engineering"
               style={{
                 width: '100%',
                 padding: '0.75rem 1rem',
@@ -508,14 +508,14 @@ export function CompleteProfileForm({
               }}
             />
             <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', display: 'block', marginTop: '0.35rem' }}>
-              أدخل اسم قسمك أو برنامجك الدراسي بحرية
+              Enter your academic major or department
             </span>
           </div>
 
           {/* Academic Year (1-5) */}
           <div>
             <label style={{ display: 'block', fontSize: '0.88rem', fontWeight: 600, marginBottom: '0.5rem' }}>
-              السنة الدراسية (Academic Year / Grade) <span style={{ color: 'var(--google-red)' }}>*</span>
+              Academic Year <span style={{ color: 'var(--google-red)' }}>*</span>
             </label>
             <select
               required
@@ -532,11 +532,11 @@ export function CompleteProfileForm({
                 outline: 'none',
               }}
             >
-              <option value={1}>الفرقة الأولى (1st Year - Freshman)</option>
-              <option value={2}>الفرقة الثانية (2nd Year - Sophomore)</option>
-              <option value={3}>الفرقة الثالثة (3rd Year - Junior)</option>
-              <option value={4}>الفرقة الرابعة (4th Year - Senior 1)</option>
-              <option value={5}>الفرقة الخامسة (5th Year - Senior 2 / Engineering)</option>
+              <option value={1}>1st Year (Freshman)</option>
+              <option value={2}>2nd Year (Sophomore)</option>
+              <option value={3}>3rd Year (Junior)</option>
+              <option value={4}>4th Year (Senior 1)</option>
+              <option value={5}>5th Year (Senior 2 / Engineering)</option>
             </select>
           </div>
         </div>
@@ -549,7 +549,7 @@ export function CompleteProfileForm({
             <Share2 size={20} color="var(--google-red)" />
           </div>
           <div>
-            <h2 style={{ fontSize: '1.15rem', fontWeight: 700 }}>Social Media & Professional Profiles (روابط التواصل - اختياري)</h2>
+            <h2 style={{ fontSize: '1.15rem', fontWeight: 700 }}>Social Media & Professional Profiles (Optional)</h2>
             <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Add your LinkedIn, Facebook, or Instagram profile URLs for networking.</p>
           </div>
         </div>
@@ -633,7 +633,7 @@ export function CompleteProfileForm({
             <Layers size={20} color="var(--google-blue)" />
           </div>
           <div>
-            <h2 style={{ fontSize: '1.15rem', fontWeight: 700 }}>Chapter Application Preferences (لجنة ورغبات العضوية)</h2>
+            <h2 style={{ fontSize: '1.15rem', fontWeight: 700 }}>Chapter Application Preferences</h2>
             <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Select the committee you are applying to and specify your availability.</p>
           </div>
         </div>
@@ -642,7 +642,7 @@ export function CompleteProfileForm({
           {/* Target Committee */}
           <div>
             <label style={{ display: 'block', fontSize: '0.88rem', fontWeight: 600, marginBottom: '0.5rem' }}>
-              اللجنة المستهدفة (Committee Applying To) <span style={{ color: 'var(--google-red)' }}>*</span>
+              Committee Applying To <span style={{ color: 'var(--google-red)' }}>*</span>
             </label>
             <select
               required
@@ -670,7 +670,7 @@ export function CompleteProfileForm({
           {/* Preferred Position */}
           <div>
             <label style={{ display: 'block', fontSize: '0.88rem', fontWeight: 600, marginBottom: '0.5rem' }}>
-              المنصب المفضل (Preferred Position)
+              Preferred Position
             </label>
             <input
               type="text"
@@ -693,7 +693,7 @@ export function CompleteProfileForm({
           {/* Availability (hours/week) */}
           <div>
             <label style={{ display: 'block', fontSize: '0.88rem', fontWeight: 600, marginBottom: '0.5rem' }}>
-              التفرغ الأسبوعي المتوقع (Availability hrs/week) <span style={{ color: 'var(--google-red)' }}>*</span>
+              Weekly Availability (hrs/week) <span style={{ color: 'var(--google-red)' }}>*</span>
             </label>
             <input
               type="number"
@@ -718,7 +718,7 @@ export function CompleteProfileForm({
           {/* How heard */}
           <div>
             <label style={{ display: 'block', fontSize: '0.88rem', fontWeight: 600, marginBottom: '0.5rem' }}>
-              كيف سمعت عنا؟ (How did you hear about us?)
+              How did you hear about us?
             </label>
             <select
               value={howHeard}
@@ -747,7 +747,7 @@ export function CompleteProfileForm({
         {/* Motivation */}
         <div style={{ marginTop: '1.5rem' }}>
           <label style={{ display: 'block', fontSize: '0.88rem', fontWeight: 600, marginBottom: '0.5rem' }}>
-            دافع الانضمام (Motivation — Why join GDGoC HNU?) <span style={{ color: 'var(--google-red)' }}>*</span>
+            Motivation — Why join GDGoC HNU? <span style={{ color: 'var(--google-red)' }}>*</span>
           </label>
           <textarea
             required

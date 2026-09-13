@@ -34,7 +34,8 @@ export async function renderCertificatePDFBuffer(
   input: RenderCertificateInput
 ): Promise<{ buffer: Buffer; verifyUrl: string; qrCodeDataUrl: string }> {
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
-  const verifyUrl = `${baseUrl}/verify/${input.verificationCode}`;
+  // Use distinctive serial number in verifyUrl so QR code points directly to canonical serial
+  const verifyUrl = `${baseUrl}/verify/${input.certificateNumber}`;
 
   // PNG so @react-pdf/renderer paints the center icon.svg mark
   const qrCodeDataUrl = await generateStyledQRDataURL(verifyUrl, 240, { forPdf: true });
@@ -99,9 +100,23 @@ export async function issueCertificatesBatch(
     const recipient = input.recipients[i];
     try {
       const verificationCode = crypto.randomUUID();
-      // Generate readable serial format: GDGOC-YYYY-XXXXXX
-      const certSeq = Math.floor(100000 + Math.random() * 900000);
-      const certificateNumber = `GDGOC-${currentYear}-${certSeq}`;
+      // Generate distinctive serial format: GDGoC-HNU-YYYY-XXXXXX (letters and digits)
+      const letters = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
+      const digits = '23456789';
+      const allChars = letters + digits;
+      const part = [
+        letters.charAt(Math.floor(Math.random() * letters.length)),
+        letters.charAt(Math.floor(Math.random() * letters.length)),
+        digits.charAt(Math.floor(Math.random() * digits.length)),
+        digits.charAt(Math.floor(Math.random() * digits.length)),
+        allChars.charAt(Math.floor(Math.random() * allChars.length)),
+        allChars.charAt(Math.floor(Math.random() * allChars.length)),
+      ];
+      for (let sIdx = part.length - 1; sIdx > 0; sIdx--) {
+        const rIdx = Math.floor(Math.random() * (sIdx + 1));
+        [part[sIdx], part[rIdx]] = [part[rIdx], part[sIdx]];
+      }
+      const certificateNumber = `GDGoC-HNU-${currentYear}-${part.join('')}`;
 
       // 2. Render PDF with embedded verification QR
       const { buffer, verifyUrl } = await renderCertificatePDFBuffer({

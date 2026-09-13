@@ -20,6 +20,28 @@ export const metadata: Metadata = {
   description: 'Chapter-wide attendance rates, event check-in metrics, and HR management for GDGoC Helwan National University.',
 };
 
+import { HrAttendanceSkeleton } from '@/components/skeletons/HrAttendanceSkeleton';
+import { Suspense } from 'react';
+
+async function HrAttendanceDataLoader() {
+  // 2. Fetch Dashboard KPIs, Event Attendance Data, Attendance Leaderboard, and Low Engagement Alerts in parallel
+  const [kpis, initialAttendance, initialLeaderboard, initialLowEngagement] = await Promise.all([
+    getHrDashboardKpis(),
+    getEventAttendanceDetails(),
+    getAttendanceLeaderboard(),
+    getLowEngagementAlerts(),
+  ]);
+
+  return (
+    <HrAttendanceHub
+      kpis={kpis}
+      initialAttendance={initialAttendance}
+      initialLeaderboard={initialLeaderboard}
+      initialLowEngagement={initialLowEngagement}
+    />
+  );
+}
+
 export default async function HrAttendancePage() {
   // 1. Access Check (Spec §1.1 & §4.5)
   const access = await canAccessHrDashboard();
@@ -59,14 +81,6 @@ export default async function HrAttendancePage() {
     );
   }
 
-  // 2. Fetch Dashboard KPIs, Event Attendance Data, Attendance Leaderboard, and Low Engagement Alerts in parallel
-  const [kpis, initialAttendance, initialLeaderboard, initialLowEngagement] = await Promise.all([
-    getHrDashboardKpis(),
-    getEventAttendanceDetails(),
-    getAttendanceLeaderboard(),
-    getLowEngagementAlerts(),
-  ]);
-
   return (
     <AppShell>
       <div
@@ -79,7 +93,7 @@ export default async function HrAttendancePage() {
           gap: '2rem',
         }}
       >
-        {/* Top Header */}
+        {/* Top Header (renders immediately) */}
         <div
           style={{
             display: 'flex',
@@ -137,13 +151,10 @@ export default async function HrAttendancePage() {
           </div>
         </div>
 
-        {/* HR Attendance Hub: Global KPIs + Tabs for Leaderboard, Event Attendance, and Low Engagement Alerts */}
-        <HrAttendanceHub
-          kpis={kpis}
-          initialAttendance={initialAttendance}
-          initialLeaderboard={initialLeaderboard}
-          initialLowEngagement={initialLowEngagement}
-        />
+        {/* HR Attendance Hub wrapped in Suspense with HrAttendanceSkeleton */}
+        <Suspense fallback={<HrAttendanceSkeleton />}>
+          <HrAttendanceDataLoader />
+        </Suspense>
       </div>
     </AppShell>
   );

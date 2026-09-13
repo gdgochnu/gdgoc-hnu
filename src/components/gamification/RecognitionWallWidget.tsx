@@ -12,6 +12,7 @@ import {
   CheckCircle2,
   AlertCircle,
   Zap,
+  Loader2,
 } from 'lucide-react';
 import type {
   RecognitionWallData,
@@ -40,6 +41,7 @@ export function RecognitionWallWidget({
   const [targetMemberId, setTargetMemberId] = useState('');
   const [shoutoutMessage, setShoutoutMessage] = useState('');
   const [isSending, setIsSending] = useState(false);
+  const [modalError, setModalError] = useState<string | null>(null);
   const [statusMsg, setStatusMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   const motm = data.memberOfTheMonth;
@@ -51,10 +53,19 @@ export function RecognitionWallWidget({
 
   const handleSendShoutOut = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!targetMemberId || !shoutoutMessage.trim()) return;
+    setModalError(null);
+
+    if (!targetMemberId) {
+      setModalError('Please select a teammate from the dropdown.');
+      return;
+    }
+
+    if (!shoutoutMessage.trim()) {
+      setModalError('Please write your appreciation message before publishing.');
+      return;
+    }
 
     setIsSending(true);
-    setStatusMsg(null);
 
     try {
       const res = await sendShoutOutAction({
@@ -70,13 +81,14 @@ export function RecognitionWallWidget({
         });
         setShoutoutMessage('');
         setTargetMemberId('');
+        setModalError(null);
         setIsModalOpen(false);
         if (onRefresh) onRefresh();
       } else {
-        setStatusMsg({ type: 'error', text: res.error || 'Failed to send shout-out' });
+        setModalError(res.error || 'Failed to send shout-out');
       }
     } catch (err: any) {
-      setStatusMsg({ type: 'error', text: err.message });
+      setModalError(err.message || 'An unexpected error occurred while sending the shout-out.');
     } finally {
       setIsSending(false);
     }
@@ -518,16 +530,40 @@ export function RecognitionWallWidget({
                 </div>
                 <div>
                   <h3 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 800, color: '#fff' }}>Send Peer Shout-out</h3>
-                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Awards +15 bonus points to your teammate</div>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                    Awards +15 bonus points to your teammate • Limit: 5/day
+                  </div>
                 </div>
               </div>
               <button
-                onClick={() => setIsModalOpen(false)}
+                onClick={() => {
+                  setIsModalOpen(false);
+                  setModalError(null);
+                }}
                 style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '1.25rem' }}
               >
                 ✕
               </button>
             </div>
+
+            {modalError && (
+              <div
+                style={{
+                  padding: '0.75rem 1rem',
+                  borderRadius: '12px',
+                  background: 'rgba(234, 67, 53, 0.15)',
+                  border: '1px solid rgba(234, 67, 53, 0.35)',
+                  color: '#fca5a5',
+                  fontSize: '0.82rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.5rem',
+                }}
+              >
+                <AlertCircle size={16} style={{ flexShrink: 0 }} />
+                <span>{modalError}</span>
+              </div>
+            )}
 
             <form onSubmit={handleSendShoutOut} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
               <div>
@@ -536,7 +572,10 @@ export function RecognitionWallWidget({
                 </label>
                 <select
                   value={targetMemberId}
-                  onChange={(e) => setTargetMemberId(e.target.value)}
+                  onChange={(e) => {
+                    setTargetMemberId(e.target.value);
+                    if (modalError) setModalError(null);
+                  }}
                   required
                   style={{
                     width: '100%',
@@ -566,7 +605,10 @@ export function RecognitionWallWidget({
                 </label>
                 <textarea
                   value={shoutoutMessage}
-                  onChange={(e) => setShoutoutMessage(e.target.value)}
+                  onChange={(e) => {
+                    setShoutoutMessage(e.target.value);
+                    if (modalError) setModalError(null);
+                  }}
                   placeholder="e.g. Outstanding dedication and support during yesterday's event setup!"
                   rows={3}
                   required
@@ -587,7 +629,10 @@ export function RecognitionWallWidget({
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '0.5rem' }}>
                 <button
                   type="button"
-                  onClick={() => setIsModalOpen(false)}
+                  onClick={() => {
+                    setIsModalOpen(false);
+                    setModalError(null);
+                  }}
                   style={{
                     padding: '0.65rem 1.25rem',
                     borderRadius: '10px',
@@ -603,7 +648,7 @@ export function RecognitionWallWidget({
                 </button>
                 <button
                   type="submit"
-                  disabled={isSending || !targetMemberId || !shoutoutMessage.trim()}
+                  disabled={isSending}
                   style={{
                     display: 'inline-flex',
                     alignItems: 'center',
@@ -611,16 +656,26 @@ export function RecognitionWallWidget({
                     padding: '0.65rem 1.5rem',
                     borderRadius: '10px',
                     border: 'none',
-                    background: 'linear-gradient(135deg, #ec4899, #8b5cf6)',
+                    background: (!targetMemberId || !shoutoutMessage.trim())
+                      ? 'rgba(236, 72, 153, 0.35)'
+                      : 'linear-gradient(135deg, #ec4899, #8b5cf6)',
                     color: '#ffffff',
                     fontSize: '0.85rem',
                     fontWeight: 700,
                     cursor: isSending ? 'not-allowed' : 'pointer',
-                    opacity: isSending ? 0.6 : 1,
+                    opacity: isSending ? 0.7 : 1,
+                    boxShadow: (!targetMemberId || !shoutoutMessage.trim())
+                      ? 'none'
+                      : '0 4px 14px rgba(236, 72, 153, 0.35)',
+                    transition: 'all 0.2s ease',
                   }}
                 >
-                  <Send size={14} />
-                  <span>{isSending ? 'Sending...' : 'Publish Shout-out (+15 pts)'}</span>
+                  {isSending ? (
+                    <Loader2 size={14} className="spin" />
+                  ) : (
+                    <Send size={14} />
+                  )}
+                  <span>{isSending ? 'Sending Shout-out...' : 'Publish Shout-out (+15 pts)'}</span>
                 </button>
               </div>
             </form>

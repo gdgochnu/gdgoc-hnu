@@ -121,9 +121,21 @@ export function MembersDirectoryClient({
   const getRoleBadge = (role: UserRole) => {
     switch (role) {
       case 'president':
-        return { label: 'President', bg: 'rgba(66, 133, 244, 0.2)', color: '#93C5FD', border: 'rgba(66, 133, 244, 0.4)' };
+        return {
+          label: '👑 PRESIDENT',
+          bg: 'linear-gradient(135deg, rgba(251, 188, 4, 0.25), rgba(66, 133, 244, 0.25))',
+          color: '#FDE047',
+          border: 'rgba(251, 188, 4, 0.65)',
+          boxShadow: '0 0 12px rgba(251, 188, 4, 0.3)',
+        };
       case 'co_president':
-        return { label: 'Co-President', bg: 'rgba(251, 188, 4, 0.2)', color: '#FDE047', border: 'rgba(251, 188, 4, 0.4)' };
+        return {
+          label: '👑 CO-PRESIDENT',
+          bg: 'linear-gradient(135deg, rgba(251, 188, 4, 0.2), rgba(52, 168, 83, 0.2))',
+          color: '#FDE047',
+          border: 'rgba(251, 188, 4, 0.55)',
+          boxShadow: '0 0 10px rgba(251, 188, 4, 0.2)',
+        };
       case 'branch_head':
         return { label: 'Branch Head', bg: 'rgba(52, 168, 83, 0.2)', color: '#86EFAC', border: 'rgba(52, 168, 83, 0.4)' };
       case 'committee_head':
@@ -144,8 +156,8 @@ export function MembersDirectoryClient({
             <Users size={20} color="var(--google-blue)" />
           </div>
           <div>
-            <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', fontWeight: 600 }}>Visible Members</div>
-            <div style={{ fontSize: '1.5rem', fontWeight: 800, color: '#FFFFFF' }}>{filteredMembers.length}</div>
+            <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase' }}>Visible Members</div>
+            <div style={{ fontSize: '1.5rem', fontWeight: 800, color: '#FFFFFF' }}>{members.length}</div>
           </div>
         </div>
 
@@ -154,8 +166,8 @@ export function MembersDirectoryClient({
             <Building2 size={20} color="var(--google-green)" />
           </div>
           <div>
-            <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', fontWeight: 600 }}>Departments</div>
-            <div style={{ fontSize: '1.5rem', fontWeight: 800, color: '#86EFAC' }}>{departments.length}</div>
+            <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase' }}>Departments</div>
+            <div style={{ fontSize: '1.5rem', fontWeight: 800, color: '#FFFFFF' }}>{departments.length}</div>
           </div>
         </div>
 
@@ -164,54 +176,51 @@ export function MembersDirectoryClient({
             <Sparkles size={20} color="var(--google-yellow)" />
           </div>
           <div>
-            <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', fontWeight: 600 }}>Leadership Roster</div>
-            <div style={{ fontSize: '1.5rem', fontWeight: 800, color: '#FDE047' }}>
-              {members.filter((m) => m.role !== 'member').length}
+            <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase' }}>Leadership Roster</div>
+            <div style={{ fontSize: '1.5rem', fontWeight: 800, color: '#FFFFFF' }}>
+              {members.filter((m) => ['president', 'co_president', 'branch_head', 'committee_head', 'committee_co_head'].includes(m.role)).length}
             </div>
           </div>
         </div>
       </div>
 
-      {/* Filter and Search Toolbar */}
-      <div className="glass-panel" style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-        {/* Top Search Input */}
-        <div style={{ position: 'relative', width: '100%' }}>
-          <Search size={18} style={{ position: 'absolute', left: '1.25rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-          <input
-            type="text"
-            placeholder="Search by member name, email, student ID, position, or skills (e.g. React, Python)..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="input-field"
-            style={{ paddingLeft: '3rem', height: '48px', width: '100%', fontSize: '0.95rem' }}
-          />
-        </div>
+      {/* Filter & Search Toolbar */}
+      <div className="glass-panel" style={{ padding: '1.25rem 1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
+          {/* Search Input */}
+          <div style={{ flex: 1, minWidth: '240px', position: 'relative' }}>
+            <Search size={16} color="var(--text-muted)" style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)' }} />
+            <input
+              type="text"
+              placeholder="Search by name, university ID, skill, or position..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="input-field"
+              style={{ width: '100%', paddingLeft: '2.5rem', height: '40px' }}
+            />
+          </div>
 
-        {/* Filter Controls Row */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap', justifyContent: 'space-between' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
-            {/* Department Dropdown */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-              <Filter size={15} color="var(--google-blue)" />
-              <select
-                value={deptFilter}
-                onChange={(e) => setDeptFilter(e.target.value)}
-                className="input-field"
-                style={{ height: '40px', fontSize: '0.85rem' }}
-              >
-                <option value="all">All Departments</option>
-                {departments.map((d) => (
-                  <option key={d.id} value={d.id}>
-                    {d.name}
-                  </option>
-                ))}
-              </select>
-            </div>
+          {/* Department Filter */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+            <Filter size={15} color="var(--text-muted)" />
+            <select
+              value={deptFilter}
+              onChange={(e) => setDeptFilter(e.target.value)}
+              className="input-field"
+              style={{ height: '40px', fontSize: '0.85rem' }}
+            >
+              <option value="all">All Committees</option>
+              {departments.map((d) => (
+                <option key={d.id} value={d.id}>
+                  {d.name}
+                </option>
+              ))}
+            </select>
 
             {/* Branch Filter */}
             <select
               value={branchFilter}
-              onChange={(e) => setBranchFilter(e.target.value as 'all' | 'tech' | 'non_tech')}
+              onChange={(e) => setBranchFilter(e.target.value as any)}
               className="input-field"
               style={{ height: '40px', fontSize: '0.85rem' }}
             >
@@ -254,20 +263,26 @@ export function MembersDirectoryClient({
         </div>
       </div>
 
-      {/* Members Directory Grid */}
+      {/* Members Grid */}
       {filteredMembers.length === 0 ? (
-        <div className="glass-panel" style={{ padding: '4rem 2rem', textAlign: 'center' }}>
-          <Users size={44} color="var(--text-muted)" style={{ margin: '0 auto 1rem' }} />
-          <h3 style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '0.5rem' }}>No members match your criteria</h3>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
-            Try broadening your search keywords or resetting your department filters.
+        <div className="glass-panel" style={{ padding: '3.5rem 2rem', textAlign: 'center' }}>
+          <Users size={40} color="var(--text-muted)" style={{ margin: '0 auto 1rem', opacity: 0.5 }} />
+          <h3 style={{ fontSize: '1.15rem', fontWeight: 700, margin: '0 0 0.5rem' }}>No Members Found</h3>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', margin: 0 }}>
+            Try clearing search filters or searching with a different term.
           </p>
         </div>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: '1.5rem' }}>
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))',
+          gap: '1.25rem',
+        }}>
           {filteredMembers.map((m) => {
             const roleBadge = getRoleBadge(m.role);
             const isTech = m.departments?.branch === 'tech';
+            const isPresident = m.role === 'president';
+            const isCoPresident = m.role === 'co_president';
 
             return (
               <div
@@ -281,6 +296,8 @@ export function MembersDirectoryClient({
                   position: 'relative',
                   overflow: 'hidden',
                   transition: 'transform 0.2s, border-color 0.2s',
+                  border: isPresident ? '1px solid rgba(251, 188, 4, 0.4)' : undefined,
+                  boxShadow: isPresident ? '0 8px 30px rgba(251, 188, 4, 0.12)' : undefined,
                 }}
               >
                 {/* Top Accent Strip */}
@@ -291,7 +308,11 @@ export function MembersDirectoryClient({
                     left: 0,
                     right: 0,
                     height: '3px',
-                    background: isTech ? 'var(--google-blue)' : 'var(--google-green)',
+                    background: isPresident
+                      ? 'linear-gradient(90deg, #FBBC04, #4285F4, #34A853, #EA4335)'
+                      : isCoPresident
+                      ? 'var(--google-yellow)'
+                      : isTech ? 'var(--google-blue)' : 'var(--google-green)',
                   }}
                 />
 
@@ -302,8 +323,11 @@ export function MembersDirectoryClient({
                       width: '48px',
                       height: '48px',
                       borderRadius: '50%',
-                      background: 'linear-gradient(135deg, rgba(66, 133, 244, 0.25), rgba(52, 168, 83, 0.25))',
-                      border: '1.5px solid rgba(255, 255, 255, 0.15)',
+                      background: isPresident
+                        ? 'linear-gradient(135deg, #FBBC04, #4285F4)'
+                        : 'linear-gradient(135deg, rgba(66, 133, 244, 0.25), rgba(52, 168, 83, 0.25))',
+                      border: isPresident ? '2px solid #FBBC04' : '1.5px solid rgba(255, 255, 255, 0.15)',
+                      boxShadow: isPresident ? '0 0 14px rgba(251, 188, 4, 0.4)' : undefined,
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
@@ -311,19 +335,41 @@ export function MembersDirectoryClient({
                       fontWeight: 700,
                       color: '#FFFFFF',
                       flexShrink: 0,
+                      position: 'relative',
                     }}>
                       {m.avatar_url ? (
                         <img src={m.avatar_url} alt="" style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} />
                       ) : (
                         m.full_name?.charAt(0) || 'M'
                       )}
+                      {isPresident && (
+                        <div style={{ position: 'absolute', top: '-6px', right: '-4px', fontSize: '0.85rem' }}>
+                          👑
+                        </div>
+                      )}
                     </div>
                     <div>
                       <h3 style={{ fontSize: '1.05rem', fontWeight: 800, color: '#FFFFFF', margin: 0 }}>
                         {m.full_name}
                       </h3>
-                      <div style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
-                        {m.position || m.departments?.name || 'Chapter Member'}
+                      <div style={{ fontSize: '0.82rem', color: isPresident ? '#FDE047' : 'var(--text-secondary)', fontWeight: isPresident ? 700 : 500, marginTop: '2px' }}>
+                        {isPresident
+                          ? (m.position && m.position.toLowerCase() !== 'member' ? m.position : 'Chapter President & Executive Lead')
+                          : isCoPresident
+                          ? (m.position && m.position.toLowerCase() !== 'member' ? m.position : 'Chapter Co-President & Executive Lead')
+                          : m.role === 'branch_head'
+                          ? (!m.position || m.position.toLowerCase() === 'member' || m.position.toLowerCase().startsWith('head of ') || m.position === 'Head of Branch'
+                              ? (isTech ? 'Technical Branch Head' : 'Non-Technical Branch Head')
+                              : m.position)
+                          : m.role === 'committee_head'
+                          ? (m.position && m.position.toLowerCase() !== 'member' && m.position !== 'Head of Committee'
+                              ? m.position
+                              : (m.departments?.name ? `Head of ${m.departments.name}` : 'Committee Head'))
+                          : m.role === 'committee_co_head'
+                          ? (m.position && m.position.toLowerCase() !== 'member' && m.position !== 'Co-Head of Committee'
+                              ? m.position
+                              : (m.departments?.name ? `Co-Head of ${m.departments.name}` : 'Committee Co-Head'))
+                          : (m.position && m.position.toLowerCase() !== 'member' ? m.position : (m.departments?.name ? `Member of ${m.departments.name}` : 'Chapter Member'))}
                       </div>
                     </div>
                   </div>
@@ -340,6 +386,7 @@ export function MembersDirectoryClient({
                       border: `1px solid ${roleBadge.border}`,
                       textTransform: 'uppercase',
                       letterSpacing: '0.04em',
+                      boxShadow: (roleBadge as any).boxShadow,
                       flexShrink: 0,
                     }}
                   >
@@ -347,8 +394,56 @@ export function MembersDirectoryClient({
                   </span>
                 </div>
 
-                {/* Department Badge */}
-                {m.departments ? (
+                {/* Department Badge / Executive Jurisdiction */}
+                {isPresident ? (
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.5rem',
+                    padding: '0.4rem 0.75rem',
+                    borderRadius: '8px',
+                    background: 'rgba(251, 188, 4, 0.1)',
+                    border: '1px solid rgba(251, 188, 4, 0.3)',
+                    fontSize: '0.82rem',
+                    color: '#FDE047',
+                    fontWeight: 700,
+                  }}>
+                    <Building2 size={14} color="var(--google-yellow)" />
+                    <span>Executive Board • All Branches &amp; Committees</span>
+                  </div>
+                ) : isCoPresident ? (
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.5rem',
+                    padding: '0.4rem 0.75rem',
+                    borderRadius: '8px',
+                    background: 'rgba(251, 188, 4, 0.1)',
+                    border: '1px solid rgba(251, 188, 4, 0.3)',
+                    fontSize: '0.82rem',
+                    color: '#FDE047',
+                    fontWeight: 700,
+                  }}>
+                    <Building2 size={14} color="var(--google-yellow)" />
+                    <span>Executive Board • Chapter Oversight</span>
+                  </div>
+                ) : m.role === 'branch_head' ? (
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.5rem',
+                    padding: '0.4rem 0.75rem',
+                    borderRadius: '8px',
+                    background: isTech ? 'rgba(66, 133, 244, 0.1)' : 'rgba(52, 168, 83, 0.1)',
+                    border: isTech ? '1px solid rgba(66, 133, 244, 0.3)' : '1px solid rgba(52, 168, 83, 0.3)',
+                    fontSize: '0.82rem',
+                    color: isTech ? '#93C5FD' : '#86EFAC',
+                    fontWeight: 700,
+                  }}>
+                    <Building2 size={14} />
+                    <span>{isTech ? 'Technical Branch' : 'Non-Technical Branch'} • Leadership &amp; Oversight</span>
+                  </div>
+                ) : m.departments ? (
                   <div style={{
                     display: 'flex',
                     alignItems: 'center',

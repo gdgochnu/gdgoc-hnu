@@ -1,15 +1,34 @@
-import React from 'react';
+import React, { Suspense } from 'react';
 import { Metadata } from 'next';
-import { redirect } from 'next/navigation';
 import { canAccessPrCrm, getPrContacts, getPrTeamMembers } from './actions';
 import { PrCrmHub } from '@/components/pr/PrCrmHub';
 import { AppShell } from '@/components/layout/AppShell';
+import { PrCrmSkeleton } from '@/components/skeletons/PrCrmSkeleton';
 import { ShieldAlert } from 'lucide-react';
+
+export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
   title: 'PR CRM & Outreach Pipeline | GDGoC HNU OS',
   description: 'Manage external speakers, chapter sponsors, venue partners, and outreach pipeline.',
 };
+
+async function PrCrmDataLoader({ role, isPresidential }: { role: string; isPresidential: boolean }) {
+  // Fetch initial contacts and team members in parallel
+  const [contactsResult, teamResult] = await Promise.all([
+    getPrContacts({}, { skipAuthCheck: true }),
+    getPrTeamMembers({ skipAuthCheck: true }),
+  ]);
+
+  return (
+    <PrCrmHub
+      initialContacts={contactsResult.data || []}
+      teamMembers={teamResult.data || []}
+      currentUserRole={role as any}
+      isPresidential={isPresidential}
+    />
+  );
+}
 
 export default async function PrCrmPage() {
   const access = await canAccessPrCrm();
@@ -47,7 +66,7 @@ export default async function PrCrmPage() {
             Access Restricted
           </h1>
           <p style={{ maxWidth: '440px', color: '#9aa0a6', fontSize: '0.95rem', lineHeight: 1.5 }}>
-            The PR CRM & Outreach Pipeline is reserved for the Chapter Leadership (President & Co-President)
+            The PR CRM &amp; Outreach Pipeline is reserved for the Chapter Leadership (President &amp; Co-President)
             and Public Relations (PR) committee members.
           </p>
         </div>
@@ -55,21 +74,12 @@ export default async function PrCrmPage() {
     );
   }
 
-  // Fetch initial contacts and team members in parallel
-  const [contactsResult, teamResult] = await Promise.all([
-    getPrContacts({}, { skipAuthCheck: true }),
-    getPrTeamMembers({ skipAuthCheck: true }),
-  ]);
-
   return (
     <AppShell>
       <div style={{ maxWidth: '1440px', margin: '0 auto', padding: '1.5rem 1rem' }}>
-        <PrCrmHub
-          initialContacts={contactsResult.data || []}
-          teamMembers={teamResult.data || []}
-          currentUserRole={access.role}
-          isPresidential={access.isPresidential}
-        />
+        <Suspense fallback={<PrCrmSkeleton />}>
+          <PrCrmDataLoader role={access.role || 'member'} isPresidential={access.isPresidential} />
+        </Suspense>
       </div>
     </AppShell>
   );

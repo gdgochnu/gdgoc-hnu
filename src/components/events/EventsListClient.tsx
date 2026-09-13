@@ -21,7 +21,8 @@ import {
   ChevronRight,
   Filter,
   CheckCircle2,
-  AlertCircle
+  AlertCircle,
+  QrCode
 } from 'lucide-react';
 
 interface DepartmentOption {
@@ -412,11 +413,15 @@ export function EventsListClient({
             const isDraft = event.status === 'draft';
             const dept = departments.find(d => d.id === event.department_id);
 
-            const canEditThisEvent =
-              ['president', 'co_president', 'branch_head'].includes(currentUserRole || '') ||
-              (userDepartmentId && userDepartmentId === event.department_id && ['committee_head', 'committee_co_head'].includes(currentUserRole || '')) ||
-              (Array.isArray(event.owners) && event.owners.some((o: any) => o.profile_id === currentUserId)) ||
-              event.created_by === currentUserId;
+            const isPresidential = ['president', 'co_president'].includes(currentUserRole || '');
+            const isBranchHead = currentUserRole === 'branch_head';
+            const isCommitteeLead = ['committee_head', 'committee_co_head'].includes(currentUserRole || '');
+            const isDeptLead = isCommitteeLead && userDepartmentId === event.department_id;
+            const canEditThisEvent = isPresidential || isBranchHead || isDeptLead;
+
+            const userDept = departments.find(d => d.id === userDepartmentId);
+            const isHrOfficer = userDept?.code === 'HR' || isPresidential;
+            const hasCheckinAccess = isHrOfficer || (Array.isArray(event.checkin_access_profile_ids) && event.checkin_access_profile_ids.includes(currentUserId || ''));
 
             return (
               <div
@@ -585,8 +590,8 @@ export function EventsListClient({
                   gap: '0.5rem',
                   flexWrap: 'wrap',
                 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    {isDraft && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                    {isDraft && canEditThisEvent && (
                       <button
                         type="button"
                         onClick={(e) => handleDeleteDraft(event.id, e)}
@@ -616,6 +621,30 @@ export function EventsListClient({
                         label="Edit"
                         variant="secondary"
                       />
+                    )}
+
+                    {hasCheckinAccess && ['published', 'completed'].includes(event.status) && (
+                      <Link
+                        href={`/events/${event.id}/attendance`}
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '0.35rem',
+                          fontSize: '0.78rem',
+                          fontWeight: 700,
+                          color: '#4ADE80',
+                          background: 'rgba(52, 168, 83, 0.15)',
+                          border: '1px solid rgba(52, 168, 83, 0.35)',
+                          borderRadius: '8px',
+                          padding: '0.3rem 0.65rem',
+                          textDecoration: 'none',
+                          transition: 'all 0.15s ease',
+                        }}
+                        title="Open Live QR Attendance Scanner"
+                      >
+                        <QrCode size={13} />
+                        <span>QR Scanner</span>
+                      </Link>
                     )}
                   </div>
 

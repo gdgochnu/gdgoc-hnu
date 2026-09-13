@@ -17,8 +17,10 @@ import {
   Mail, 
   Phone,
   GraduationCap,
-  Calendar
+  Calendar,
+  Sliders,
 } from 'lucide-react';
+import { EditMemberPositionModal } from '@/components/profile/EditMemberPositionModal';
 
 export interface ManagedMember {
   id: string;
@@ -48,14 +50,20 @@ interface ManagedMembersListProps {
   departments: Array<{ id: string; name: string; code: string; branch: string }>;
   currentUserRole?: string;
   currentUserId?: string;
+  currentUserDepartmentId?: string;
+  currentUserBranch?: string;
 }
 
 export function ManagedMembersList({
   initialMembers,
   departments,
   currentUserId,
+  currentUserRole = 'president',
+  currentUserDepartmentId,
+  currentUserBranch,
 }: ManagedMembersListProps) {
   const [members, setMembers] = useState<ManagedMember[]>(initialMembers);
+  const [positionModalMember, setPositionModalMember] = useState<ManagedMember | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [deptFilter, setDeptFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'suspended'>('all');
@@ -385,7 +393,23 @@ export function ManagedMembersList({
                         ) : null}
                       </div>
                       <div style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', marginTop: '2px' }}>
-                        {m.position || m.role}
+                        {m.role === 'president'
+                          ? (m.position && m.position.toLowerCase() !== 'member' ? m.position : 'Chapter President & Executive Lead')
+                          : m.role === 'co_president'
+                          ? (m.position && m.position.toLowerCase() !== 'member' ? m.position : 'Chapter Co-President & Executive Lead')
+                          : m.role === 'branch_head'
+                          ? (!m.position || m.position.toLowerCase() === 'member' || m.position.toLowerCase().startsWith('head of ') || m.position === 'Head of Branch'
+                              ? (m.departments?.branch === 'tech' ? 'Technical Branch Head' : 'Non-Technical Branch Head')
+                              : m.position)
+                          : m.role === 'committee_head'
+                          ? (m.position && m.position.toLowerCase() !== 'member' && m.position !== 'Head of Committee'
+                              ? m.position
+                              : (m.departments?.name ? `Head of ${m.departments.name}` : 'Committee Head'))
+                          : m.role === 'committee_co_head'
+                          ? (m.position && m.position.toLowerCase() !== 'member' && m.position !== 'Co-Head of Committee'
+                              ? m.position
+                              : (m.departments?.name ? `Co-Head of ${m.departments.name}` : 'Committee Co-Head'))
+                          : (m.position || 'Member')}
                       </div>
                     </div>
                   </div>
@@ -429,7 +453,15 @@ export function ManagedMembersList({
                   ) : null}
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                     <Building2 size={14} color="var(--google-yellow)" />
-                    <span>{m.departments?.name || 'General Chapter'}</span>
+                    <span>
+                      {m.role === 'president' || m.role === 'co_president'
+                        ? 'Executive Board (All Branches)'
+                        : m.role === 'branch_head'
+                        ? `${m.departments?.branch === 'tech' ? 'Technical Branch Leadership' : 'Non-Technical Branch Leadership'} (${m.departments?.branch === 'tech' ? 'Tech' : 'Non-Tech'})`
+                        : m.departments?.name
+                        ? `${m.departments.name} (${m.departments?.branch === 'tech' ? 'Tech' : 'Non-Tech'})`
+                        : 'General Chapter'}
+                    </span>
                   </div>
                   {m.university_id ? (
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
@@ -459,70 +491,124 @@ export function ManagedMembersList({
 
                 {/* Action Controls */}
                 <div style={{ marginTop: 'auto', paddingTop: '0.5rem', borderTop: '1px solid rgba(255, 255, 255, 0.06)' }}>
-                  {isPresident ? (
-                    <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', textAlign: 'center', padding: '0.4rem' }}>
-                      Chapter President (Protected)
-                    </div>
-                  ) : isCurrentCaller ? (
-                    <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', textAlign: 'center', padding: '0.4rem' }}>
-                      Self account cannot be modified
-                    </div>
-                  ) : isSuspended ? (
-                    <button
-                      onClick={() => setReactivateModalMember(m)}
-                      disabled={isActionBusy}
-                      className="btn-secondary"
-                      style={{
-                        width: '100%',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        gap: '0.5rem',
-                        fontSize: '0.85rem',
-                        padding: '0.55rem',
-                        borderColor: 'rgba(52, 168, 83, 0.4)',
-                        color: '#86EFAC',
-                      }}
-                    >
-                      {isActionBusy ? (
-                        <Loader2 size={16} className="animate-spin" />
-                      ) : (
-                        <UserCheck size={16} color="var(--google-green)" />
-                      )}
-                      <span>Reactivate Account</span>
-                    </button>
-                  ) : (
-                    <button
-                      onClick={() => {
-                        setSuspendModalMember(m);
-                        setSuspendReason('');
-                      }}
-                      disabled={isActionBusy}
-                      style={{
-                        width: '100%',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        gap: '0.5rem',
-                        fontSize: '0.85rem',
-                        padding: '0.55rem',
-                        borderRadius: '10px',
-                        background: 'rgba(234, 67, 53, 0.1)',
-                        border: '1px solid rgba(234, 67, 53, 0.3)',
-                        color: '#FCA5A5',
-                        fontWeight: 600,
-                        cursor: 'pointer',
-                        transition: 'all 0.2s',
-                      }}
-                    >
-                      {isActionBusy ? (
-                        <Loader2 size={16} className="animate-spin" />
-                      ) : (
-                        <UserX size={16} color="var(--google-red)" />
-                      )}
-                      <span>Suspend Account</span>
-                    </button>
-                  )}
+                  {(() => {
+                    const isCallerPresidential = ['president', 'co_president'].includes(currentUserRole);
+                    const isCallerBranchHead = currentUserRole === 'branch_head';
+                    const isCallerCommitteeHead = ['committee_head', 'committee_co_head'].includes(currentUserRole);
+
+                    let canManageThisMember = false;
+                    if (isCallerPresidential) {
+                      canManageThisMember = true;
+                    } else if (isCallerBranchHead) {
+                      const isTargetLeadership = ['president', 'co_president', 'branch_head'].includes(m.role);
+                      const isSameBranch = !!currentUserBranch && m.departments?.branch === currentUserBranch;
+                      canManageThisMember = isSameBranch && !isTargetLeadership;
+                    } else if (isCallerCommitteeHead) {
+                      const isTargetLeadership = ['president', 'co_president', 'branch_head', 'committee_head'].includes(m.role);
+                      const isSameDept = !!currentUserDepartmentId && m.department_id === currentUserDepartmentId;
+                      canManageThisMember = isSameDept && !isTargetLeadership;
+                    }
+
+                    if (isPresident) {
+                      return (
+                        <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', textAlign: 'center', padding: '0.4rem' }}>
+                          Chapter President (Protected)
+                        </div>
+                      );
+                    }
+
+                    if (isCurrentCaller) {
+                      return (
+                        <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', textAlign: 'center', padding: '0.4rem' }}>
+                          Self account cannot be modified
+                        </div>
+                      );
+                    }
+
+                    return (
+                      <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                        {canManageThisMember ? (
+                          <button
+                            type="button"
+                            onClick={() => setPositionModalMember(m)}
+                            disabled={isActionBusy}
+                            style={{
+                              flex: 1,
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              gap: '0.45rem',
+                              fontSize: '0.84rem',
+                              padding: '0.55rem',
+                              borderRadius: '10px',
+                              background: 'rgba(66, 133, 244, 0.12)',
+                              border: '1px solid rgba(66, 133, 244, 0.3)',
+                              color: '#93C5FD',
+                              fontWeight: 600,
+                              cursor: 'pointer',
+                              transition: 'all 0.2s',
+                            }}
+                            title="Change position title, role, or committee"
+                          >
+                            <Sliders size={14} color="var(--google-blue)" />
+                            <span>Edit Position</span>
+                          </button>
+                        ) : (
+                          <div style={{ flex: 1, fontSize: '0.75rem', color: 'var(--text-muted)', textAlign: 'center', padding: '0.4rem' }}>
+                            Restricted to {m.departments?.branch === 'tech' ? 'Tech' : 'Non-Tech'} Leadership
+                          </div>
+                        )}
+
+                        {isSuspended ? (
+                          <button
+                            type="button"
+                            onClick={() => setReactivateModalMember(m)}
+                            disabled={isActionBusy}
+                            className="btn-secondary"
+                            style={{
+                              flex: 1,
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              gap: '0.5rem',
+                              fontSize: '0.84rem',
+                              padding: '0.55rem',
+                              borderColor: 'rgba(52, 168, 83, 0.4)',
+                              color: '#86EFAC',
+                            }}
+                          >
+                            Reactivate
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSuspendModalMember(m);
+                              setSuspendReason('');
+                            }}
+                            disabled={isActionBusy}
+                            style={{
+                              padding: '0.55rem 0.85rem',
+                              borderRadius: '10px',
+                              background: 'rgba(234, 67, 53, 0.1)',
+                              border: '1px solid rgba(234, 67, 53, 0.3)',
+                              color: '#FCA5A5',
+                              fontSize: '0.82rem',
+                              cursor: 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              gap: '0.35rem',
+                            }}
+                            title="Suspend Account"
+                          >
+                            <UserX size={14} />
+                            <span>Suspend</span>
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })()}
                 </div>
               </div>
             );
@@ -624,7 +710,34 @@ export function ManagedMembersList({
         </div>
       ) : null}
 
-      {/* Reactivate Confirmation Modal */}
+      {/* Edit Member Position Modal */}
+      {positionModalMember && (
+        <EditMemberPositionModal
+          isOpen={Boolean(positionModalMember)}
+          onClose={() => setPositionModalMember(null)}
+          member={positionModalMember}
+          departments={departments}
+          callerRole={currentUserRole}
+          onSuccess={(updated) => {
+            setMembers((prev) =>
+              prev.map((item) =>
+                item.id === positionModalMember.id
+                  ? {
+                      ...item,
+                      position: updated.position,
+                      role: updated.role,
+                      department_id: updated.department_id,
+                      departments: updated.department ? updated.department : item.departments,
+                    }
+                  : item
+              )
+            );
+            setPositionModalMember(null);
+            setActionSuccess('Member position and role updated successfully!');
+            setTimeout(() => setActionSuccess(null), 3000);
+          }}
+        />
+      )}
       {reactivateModalMember ? (
         <div style={{
           position: 'fixed',
@@ -700,6 +813,41 @@ export function ManagedMembersList({
           </div>
         </div>
       ) : null}
+
+      {/* Position and Role Modal */}
+      {positionModalMember && (
+        <EditMemberPositionModal
+          isOpen={!!positionModalMember}
+          onClose={() => setPositionModalMember(null)}
+          member={positionModalMember}
+          departments={departments}
+          callerRole={currentUserRole}
+          callerBranch={currentUserBranch}
+          onSuccess={(updated) => {
+            setMembers((prev) =>
+              prev.map((item) =>
+                item.id === positionModalMember.id
+                  ? {
+                      ...item,
+                      position: updated.position,
+                      role: updated.role,
+                      department_id: updated.department_id,
+                      departments: updated.department
+                        ? {
+                            id: updated.department.id,
+                            name: updated.department.name,
+                            code: updated.department.code,
+                            branch: updated.department.branch,
+                          }
+                        : null,
+                    }
+                  : item
+              )
+            );
+            setPositionModalMember(null);
+          }}
+        />
+      )}
     </div>
   );
 }

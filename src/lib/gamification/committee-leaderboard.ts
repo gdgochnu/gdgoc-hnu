@@ -33,13 +33,32 @@ export interface CommitteeLeaderboardResult {
   topByAverage: CommitteeLeaderboardEntry[];
 }
 
+interface CachedCommitteeResult {
+  expiresAt: number;
+  result: CommitteeLeaderboardResult;
+}
+
+const committeeCache = new Map<string, CachedCommitteeResult>();
+const COMMITTEE_CACHE_TTL = 60 * 1000; // 60 seconds
+
+export function invalidateCommitteeLeaderboardCache() {
+  committeeCache.clear();
+}
+
 export async function getCommitteeLeaderboard(params: {
   branch?: 'tech' | 'non_tech' | 'all';
   season?: string;
 } = {}): Promise<CommitteeLeaderboardResult> {
-  const admin = createAdminClient();
   const season = params.season || getCurrentSeason();
   const branchFilter = params.branch || 'all';
+  const cacheKey = `${branchFilter}:${season}`;
+
+  const cached = committeeCache.get(cacheKey);
+  if (cached && cached.expiresAt > Date.now()) {
+    return cached.result;
+  }
+
+  const admin = createAdminClient();
 
   // 1. Fetch departments
   let deptQuery = admin
@@ -160,7 +179,7 @@ export async function getCommitteeLeaderboard(params: {
   const techCount = departments.filter((d) => d.branch === 'tech').length;
   const nonTechCount = departments.filter((d) => d.branch === 'non_tech').length;
 
-  return {
+  const result: CommitteeLeaderboardResult = {
     season,
     totalCommittees: departments.length,
     techCommittees: techCount,
@@ -168,4 +187,11 @@ export async function getCommitteeLeaderboard(params: {
     rankings: rankedByTotal,
     topByAverage: rankedByAvg,
   };
+
+  committeeCache.set(cacheKey, {
+    expiresAt: Date.now() + COMMITTEE_CACHE_TTL,
+    result,
+  });
+
+  return result;
 }
