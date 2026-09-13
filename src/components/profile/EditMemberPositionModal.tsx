@@ -28,6 +28,7 @@ export interface EditMemberPositionModalProps {
   departments: Array<{ id: string; name: string; code: string; branch: string; description?: string | null }>;
   callerRole?: string;
   callerBranch?: string;
+  existingBranchHeads?: Array<{ id: string; full_name: string; branch: 'tech' | 'non_tech' }>;
   onSuccess?: (updated: {
     position: string;
     role: UserRole;
@@ -56,30 +57,92 @@ export function EditMemberPositionModal({
   departments,
   callerRole = 'president',
   callerBranch,
+  existingBranchHeads,
   onSuccess,
 }: EditMemberPositionModalProps) {
   const isPresidential = ['president', 'co_president'].includes(callerRole);
   const isBranchHead = callerRole === 'branch_head';
   const isCommitteeHead = ['committee_head', 'committee_co_head'].includes(callerRole);
 
-  const availableDepartments = departments.filter((d) => {
+  const isLeadershipDept = (d: { code?: string; name: string }) =>
+    d.code === 'TECH_LEAD' || d.code === 'NON_TECH_LEAD' || d.name.toLowerCase().includes('branch leadership');
+
+  const rawLeadershipDepts = departments.filter(isLeadershipDept);
+  const leadershipDepartments = rawLeadershipDepts.length > 0 ? rawLeadershipDepts : [
+    { id: 'a8210a97-86d5-47d8-b222-f211ef27a324', code: 'TECH_LEAD', name: 'Technical Branch Leadership', branch: 'tech', description: 'Executive leadership and technical cross-committee oversight.' },
+    { id: 'dce12f40-baf7-47e3-a36f-db26572fa2bc', code: 'NON_TECH_LEAD', name: 'Non-Technical Branch Leadership', branch: 'non_tech', description: 'Executive leadership and organizational cross-committee oversight.' }
+  ];
+  const standardDepartments = departments.filter((d) => !isLeadershipDept(d));
+
+  const [role, setRole] = useState<UserRole>(member.role || 'member');
+  const [departmentId, setDepartmentId] = useState<string>(() => {
+    if (member.role === 'branch_head') {
+      const match = leadershipDepartments.find(d => d.id === member.department_id);
+      if (match) return match.id;
+      const curDept = departments.find(d => d.id === member.department_id);
+      const isTech = curDept ? curDept.branch === 'tech' : true;
+      return (leadershipDepartments.find(d => d.branch === (isTech ? 'tech' : 'non_tech')) || leadershipDepartments[0]).id;
+    }
+    return member.department_id || '';
+  });
+
+  const [position, setPosition] = useState<string>(() => {
+    if (member.role === 'branch_head') {
+      const curDept = departments.find(d => d.id === member.department_id);
+      const isTech = curDept ? curDept.branch === 'tech' : true;
+      return member.position && member.position !== 'Member' ? member.position : (isTech ? 'Technical Branch Head' : 'Non-Technical Branch Head');
+    }
+    return member.position || 'Member';
+  });
+
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  const [isPending, startTransition] = useTransition();
+
+  const roleAvailableDepartments = (role === 'branch_head' ? leadershipDepartments : standardDepartments).filter((d) => {
     if (isPresidential) return true;
     if (isBranchHead && callerBranch) return d.branch === callerBranch;
     return true;
   });
 
-  const [position, setPosition] = useState<string>(member.position || 'Member');
-  const [role, setRole] = useState<UserRole>(member.role || 'member');
-  const [departmentId, setDepartmentId] = useState<string>(member.department_id || '');
-  const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const [successMsg, setSuccessMsg] = useState<string | null>(null);
-  const [isPending, startTransition] = useTransition();
+  const currentDeptObj = [...departments, ...leadershipDepartments].find((d) => d.id === departmentId);
+  const isCurrentTech = currentDeptObj ? currentDeptObj.branch === 'tech' : true;
+  const existingHeadConflict = role === 'branch_head' && existingBranchHeads?.find(
+    (h) => h.id !== member.id && h.branch === (isCurrentTech ? 'tech' : 'non_tech')
+  );
+
+  const getPositionChips = () => {
+    if (role === 'branch_head') {
+      return ['Technical Branch Head', 'Non-Technical Branch Head'];
+    }
+    const curDept = departments.find((d) => d.id === departmentId);
+    if (role === 'committee_head') {
+      return [
+        curDept ? `Head of ${curDept.name}` : 'Committee Head',
+        'Executive Committee Lead',
+        'Interim Committee Head',
+      ];
+    }
+    if (role === 'committee_co_head') {
+      return [
+        curDept ? `Co-Head of ${curDept.name}` : 'Committee Co-Head',
+        'Vice Committee Head',
+        'Associate Lead',
+      ];
+    }
+    return COMMON_POSITIONS;
+  };
 
   if (!isOpen) return null;
 
   const handleSave = () => {
     setErrorMsg(null);
     setSuccessMsg(null);
+
+    if (role === 'branch_head' && existingHeadConflict) {
+      setErrorMsg(`Cannot assign Branch Head: ${existingHeadConflict.full_name} is already the active ${isCurrentTech ? 'Technical' : 'Non-Technical'} Branch Head. Each branch can only have one Branch Head.`);
+      return;
+    }
 
     const cleanPos = position.trim();
     if (!cleanPos) {
@@ -318,7 +381,7 @@ export function EditMemberPositionModal({
 
             {/* Quick Position Suggestion Chips */}
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', marginTop: '0.2rem' }}>
-              {COMMON_POSITIONS.map((chip) => (
+              {getPositionChips().map((chip) => (
                 <button
                   key={chip}
                   type="button"
@@ -352,23 +415,38 @@ export function EditMemberPositionModal({
               onChange={(e) => {
                 const newRole = e.target.value as UserRole;
                 setRole(newRole);
-                const selectedDept = departments.find((d) => d.id === departmentId);
-                const isTech = selectedDept?.branch === 'tech';
 
                 if (newRole === 'branch_head') {
-                  setPosition(isTech ? 'Technical Branch Head' : 'Non-Technical Branch Head');
+                  const curDept = departments.find((d) => d.id === departmentId);
+                  const isTech = curDept ? curDept.branch === 'tech' : true;
+                  const leadDept = leadershipDepartments.find((d) => d.branch === (isTech ? 'tech' : 'non_tech')) || leadershipDepartments[0];
+                  if (leadDept) {
+                    setDepartmentId(leadDept.id);
+                    setPosition(leadDept.branch === 'tech' ? 'Technical Branch Head' : 'Non-Technical Branch Head');
+                  } else {
+                    setPosition(isTech ? 'Technical Branch Head' : 'Non-Technical Branch Head');
+                  }
                 } else if (newRole === 'committee_head') {
-                  if (!position || position === 'Member' || position.includes('Branch Head')) {
-                    setPosition(selectedDept ? `Head of ${selectedDept.name}` : 'Committee Head');
+                  let curDept = departments.find((d) => d.id === departmentId);
+                  if (!curDept || isLeadershipDept(curDept)) {
+                    curDept = standardDepartments[0];
+                    if (curDept) setDepartmentId(curDept.id);
                   }
+                  setPosition(curDept ? `Head of ${curDept.name}` : 'Committee Head');
                 } else if (newRole === 'committee_co_head') {
-                  if (!position || position === 'Member' || position.includes('Branch Head')) {
-                    setPosition(selectedDept ? `Co-Head of ${selectedDept.name}` : 'Committee Co-Head');
+                  let curDept = departments.find((d) => d.id === departmentId);
+                  if (!curDept || isLeadershipDept(curDept)) {
+                    curDept = standardDepartments[0];
+                    if (curDept) setDepartmentId(curDept.id);
                   }
+                  setPosition(curDept ? `Co-Head of ${curDept.name}` : 'Committee Co-Head');
                 } else if (newRole === 'member') {
-                  if (position.includes('Branch Head') || position.startsWith('Head of ') || position.startsWith('Co-Head of ')) {
-                    setPosition('Member');
+                  let curDept = departments.find((d) => d.id === departmentId);
+                  if (curDept && isLeadershipDept(curDept)) {
+                    curDept = standardDepartments[0];
+                    if (curDept) setDepartmentId(curDept.id);
                   }
+                  setPosition('Member');
                 }
               }}
               style={{
@@ -400,7 +478,7 @@ export function EditMemberPositionModal({
           {/* 3. Assigned Committee / Department */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
             <label style={{ fontSize: '0.84rem', fontWeight: 700, color: 'var(--text-secondary)' }}>
-              Assigned Committee / Department {isBranchHead && callerBranch ? `(${callerBranch === 'tech' ? 'Technical' : 'Non-Technical'} Branch)` : ''}
+              {role === 'branch_head' ? 'Assigned Branch Leadership' : 'Assigned Committee / Department'} {isBranchHead && callerBranch ? `(${callerBranch === 'tech' ? 'Technical' : 'Non-Technical'} Branch)` : ''}
             </label>
             <select
               value={departmentId}
@@ -408,17 +486,17 @@ export function EditMemberPositionModal({
               onChange={(e) => {
                 const newDeptId = e.target.value;
                 setDepartmentId(newDeptId);
-                const selectedDept = departments.find((d) => d.id === newDeptId);
+                const selectedDept = [...departments, ...leadershipDepartments].find((d) => d.id === newDeptId);
                 const isTech = selectedDept?.branch === 'tech';
 
                 if (role === 'branch_head') {
                   setPosition(isTech ? 'Technical Branch Head' : 'Non-Technical Branch Head');
                 } else if (role === 'committee_head' && selectedDept) {
-                  if (!position || position === 'Member' || position.startsWith('Head of ')) {
+                  if (!position || position === 'Member' || position.startsWith('Head of ') || position.includes('Branch Head')) {
                     setPosition(`Head of ${selectedDept.name}`);
                   }
                 } else if (role === 'committee_co_head' && selectedDept) {
-                  if (!position || position === 'Member' || position.startsWith('Co-Head of ')) {
+                  if (!position || position === 'Member' || position.startsWith('Co-Head of ') || position.includes('Branch Head')) {
                     setPosition(`Co-Head of ${selectedDept.name}`);
                   }
                 }
@@ -427,7 +505,7 @@ export function EditMemberPositionModal({
                 padding: '0.75rem 1rem',
                 borderRadius: '10px',
                 background: '#1a1e29',
-                border: '1px solid rgba(255, 255, 255, 0.14)',
+                border: existingHeadConflict ? '1px solid #EF4444' : '1px solid rgba(255, 255, 255, 0.14)',
                 color: '#fff',
                 fontSize: '0.92rem',
                 outline: 'none',
@@ -435,13 +513,36 @@ export function EditMemberPositionModal({
                 cursor: isCommitteeHead ? 'not-allowed' : 'pointer',
               }}
             >
-              <option value="">No Department (General / Cross-Functional)</option>
-              {availableDepartments.map((dept) => (
-                <option key={dept.id} value={dept.id}>
-                  {dept.name} ({dept.branch === 'tech' ? 'Tech Branch' : 'Non-Tech Branch'})
-                </option>
-              ))}
+              {role !== 'branch_head' && <option value="">No Department (General / Cross-Functional)</option>}
+              {roleAvailableDepartments.map((dept) => {
+                const isDTech = dept.branch === 'tech';
+                const conflict = role === 'branch_head' && existingBranchHeads?.find(h => h.id !== member.id && h.branch === (isDTech ? 'tech' : 'non_tech'));
+                return (
+                  <option key={dept.id} value={dept.id}>
+                    {dept.name} ({dept.branch === 'tech' ? 'Tech Branch' : 'Non-Tech Branch'}) {conflict ? `⚠️ (Occupied: ${conflict.full_name})` : role === 'branch_head' ? '✓ (Available)' : ''}
+                  </option>
+                );
+              })}
             </select>
+            {existingHeadConflict && (
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.4rem',
+                fontSize: '0.78rem',
+                color: '#F87171',
+                background: 'rgba(239, 68, 68, 0.12)',
+                border: '1px solid rgba(239, 68, 68, 0.3)',
+                borderRadius: '6px',
+                padding: '0.4rem 0.65rem',
+                marginTop: '0.2rem'
+              }}>
+                <AlertCircle size={14} style={{ flexShrink: 0 }} />
+                <span>
+                  <strong>Single Branch Head Rule:</strong> {existingHeadConflict.full_name} is already the active {isCurrentTech ? 'Technical' : 'Non-Technical'} Branch Head. Each branch can only have one Branch Head.
+                </span>
+              </div>
+            )}
             {isCommitteeHead && (
               <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
                 Department transfers are restricted to Branch Heads &amp; Presidential leadership.
@@ -483,20 +584,21 @@ export function EditMemberPositionModal({
           <button
             type="button"
             onClick={handleSave}
-            disabled={isPending}
+            disabled={isPending || Boolean(existingHeadConflict)}
             style={{
               padding: '0.65rem 1.5rem',
               borderRadius: '10px',
-              background: 'linear-gradient(135deg, #4285F4, #1a73e8)',
+              background: existingHeadConflict ? 'rgba(255, 255, 255, 0.1)' : 'linear-gradient(135deg, #4285F4, #1a73e8)',
               border: 'none',
               color: '#fff',
               fontSize: '0.88rem',
               fontWeight: 700,
-              cursor: isPending ? 'not-allowed' : 'pointer',
+              cursor: (isPending || existingHeadConflict) ? 'not-allowed' : 'pointer',
+              opacity: existingHeadConflict ? 0.45 : 1,
               display: 'inline-flex',
               alignItems: 'center',
               gap: '0.5rem',
-              boxShadow: '0 4px 14px rgba(66, 133, 244, 0.35)',
+              boxShadow: existingHeadConflict ? 'none' : '0 4px 14px rgba(66, 133, 244, 0.35)',
             }}
           >
             {isPending ? (

@@ -80,6 +80,16 @@ export function ManagedMembersList({
   // Reactivate modal state
   const [reactivateModalMember, setReactivateModalMember] = useState<ManagedMember | null>(null);
 
+  const existingBranchHeads = useMemo(() => {
+    return members
+      .filter((m) => m.status === 'active' && m.role === 'branch_head')
+      .map((m) => ({
+        id: m.id,
+        full_name: m.full_name,
+        branch: (m.departments?.branch === 'tech' || (m.position?.toLowerCase().includes('technical') && !m.position?.toLowerCase().includes('non-technical')) ? 'tech' : 'non_tech') as 'tech' | 'non_tech',
+      }));
+  }, [members]);
+
   // Filtering
   const filteredMembers = useMemo(() => {
     return members.filter((m) => {
@@ -718,6 +728,8 @@ export function ManagedMembersList({
           member={positionModalMember}
           departments={departments}
           callerRole={currentUserRole}
+          callerBranch={currentUserBranch}
+          existingBranchHeads={existingBranchHeads}
           onSuccess={(updated) => {
             setMembers((prev) =>
               prev.map((item) =>
@@ -823,6 +835,7 @@ export function ManagedMembersList({
           departments={departments}
           callerRole={currentUserRole}
           callerBranch={currentUserBranch}
+          existingBranchHeads={existingBranchHeads}
           onSuccess={(updated) => {
             setMembers((prev) =>
               prev.map((item) =>

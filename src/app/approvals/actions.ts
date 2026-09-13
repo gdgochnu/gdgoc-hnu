@@ -64,6 +64,80 @@ export async function approveAccount(
     const { user } = await verifyLeadershipCaller();
     const admin = createAdminClient();
 
+    let targetBranch: string | null = null;
+    let effectiveDeptId = departmentId;
+    let cleanPosition = position ? position.trim() : '';
+
+    if (role === 'branch_head') {
+      // 1. Resolve branch
+      if (effectiveDeptId) {
+        const { data: dept } = await admin
+          .from('departments')
+          .select('id, code, name, branch')
+          .eq('id', effectiveDeptId)
+          .maybeSingle();
+        if (dept) {
+          targetBranch = dept.branch;
+        }
+      }
+
+      if (!targetBranch) {
+        const isTech = cleanPosition.toLowerCase().includes('technical') && !cleanPosition.toLowerCase().includes('non-technical');
+        targetBranch = isTech ? 'tech' : 'non_tech';
+      }
+
+      // 2. Ensure department points to the official Branch Leadership department
+      const { data: leadDept } = await admin
+        .from('departments')
+        .select('id, name, branch')
+        .eq('code', targetBranch === 'tech' ? 'TECH_LEAD' : 'NON_TECH_LEAD')
+        .maybeSingle();
+
+      if (leadDept) {
+        effectiveDeptId = leadDept.id;
+      }
+
+      // 3. Enforce single Branch Head per branch
+      const { data: existingBranchHeads } = await admin
+        .from('profiles')
+        .select('id, full_name, role, position, department_id, departments!profiles_department_id_fkey(id, name, branch)')
+        .eq('role', 'branch_head')
+        .eq('status', 'active')
+        .neq('id', profileId);
+
+      const conflictingHead = existingBranchHeads?.find((h: any) => {
+        const hBranch = h.departments?.branch || (h.position?.toLowerCase().includes('technical') && !h.position?.toLowerCase().includes('non-technical') ? 'tech' : 'non_tech');
+        return hBranch === targetBranch;
+      });
+
+      if (conflictingHead) {
+        const branchLabel = targetBranch === 'tech' ? 'Technical' : 'Non-Technical';
+        return {
+          success: false,
+          error: `A Branch Head already exists for this branch: ${conflictingHead.full_name} is already the active ${branchLabel} Branch Head. Each branch can only have one Branch Head.`,
+        };
+      }
+
+      if (!cleanPosition || cleanPosition.toLowerCase() === 'member' || cleanPosition.toLowerCase() === 'head of branch') {
+        cleanPosition = targetBranch === 'tech' ? 'Technical Branch Head' : 'Non-Technical Branch Head';
+      }
+    } else if (['committee_head', 'committee_co_head'].includes(role) && effectiveDeptId) {
+      const { data: dept } = await admin
+        .from('departments')
+        .select('name')
+        .eq('id', effectiveDeptId)
+        .maybeSingle();
+      if (dept) {
+        if (!cleanPosition || cleanPosition.toLowerCase() === 'member' || cleanPosition.toLowerCase().includes('branch head')) {
+          cleanPosition = role === 'committee_head' ? `Head of ${dept.name}` : `Co-Head of ${dept.name}`;
+        }
+      }
+    } else if (role === 'member') {
+      if (!cleanPosition || cleanPosition.toLowerCase().includes('branch head') || cleanPosition.startsWith('Head of ') || cleanPosition.startsWith('Co-Head of ')) {
+        cleanPosition = 'Member';
+      }
+    }
+
     // 1. Update profile to active
     const updatePayload: Record<string, unknown> = {
       status: 'active',
@@ -71,10 +145,10 @@ export async function approveAccount(
       approved_by: user.id,
       approved_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
+      position: cleanPosition || 'Member',
     };
 
-    if (departmentId) updatePayload.department_id = departmentId;
-    if (position) updatePayload.position = position;
+    if (effectiveDeptId) updatePayload.department_id = effectiveDeptId;
 
     const { error: profError } = await admin
       .from('profiles')
@@ -829,16 +903,66 @@ export async function updateMemberPositionAndRole({
       return { success: false, error: 'Position title cannot be empty.' };
     }
 
-    // Automatically normalize position title if role is branch_head
+    // Automatically normalize position title & enforce single Branch Head if role is branch_head
     const targetRole = role || target.role;
     if (targetRole === 'branch_head') {
+      let activeBranch = targetBranch;
+      if (!activeBranch) {
+        activeBranch = cleanPosition.toLowerCase().includes('technical') && !cleanPosition.toLowerCase().includes('non-technical') ? 'tech' : 'non_tech';
+      }
+
+      // Check if target has leadership department assigned or resolve it
+      if (departmentId !== undefined && departmentId) {
+        const { data: curDept } = await admin.from('departments').select('code, branch').eq('id', departmentId).maybeSingle();
+        if (curDept && curDept.code !== 'TECH_LEAD' && curDept.code !== 'NON_TECH_LEAD') {
+          const { data: leadDept } = await admin.from('departments').select('id').eq('code', activeBranch === 'tech' ? 'TECH_LEAD' : 'NON_TECH_LEAD').maybeSingle();
+          if (leadDept) {
+            departmentId = leadDept.id;
+          }
+        }
+      } else if (target.department_id) {
+        const { data: curDept } = await admin.from('departments').select('code, branch').eq('id', target.department_id).maybeSingle();
+        if (curDept && curDept.code !== 'TECH_LEAD' && curDept.code !== 'NON_TECH_LEAD') {
+          const { data: leadDept } = await admin.from('departments').select('id').eq('code', activeBranch === 'tech' ? 'TECH_LEAD' : 'NON_TECH_LEAD').maybeSingle();
+          if (leadDept) {
+            departmentId = leadDept.id;
+          }
+        }
+      } else if (!target.department_id) {
+        const { data: leadDept } = await admin.from('departments').select('id').eq('code', activeBranch === 'tech' ? 'TECH_LEAD' : 'NON_TECH_LEAD').maybeSingle();
+        if (leadDept) {
+          departmentId = leadDept.id;
+        }
+      }
+
+      // Enforce: only ONE active Branch Head per branch
+      const { data: existingBranchHeads } = await admin
+        .from('profiles')
+        .select('id, full_name, role, position, department_id, departments!profiles_department_id_fkey(id, name, branch)')
+        .eq('role', 'branch_head')
+        .eq('status', 'active')
+        .neq('id', targetProfileId);
+
+      const conflictingHead = existingBranchHeads?.find((h: any) => {
+        const hBranch = h.departments?.branch || (h.position?.toLowerCase().includes('technical') && !h.position?.toLowerCase().includes('non-technical') ? 'tech' : 'non_tech');
+        return hBranch === activeBranch;
+      });
+
+      if (conflictingHead) {
+        const branchLabel = activeBranch === 'tech' ? 'Technical' : 'Non-Technical';
+        return {
+          success: false,
+          error: `Cannot assign Branch Head: ${conflictingHead.full_name} is already the active ${branchLabel} Branch Head. Each branch can only have one Branch Head.`,
+        };
+      }
+
       if (
         !cleanPosition ||
         cleanPosition.toLowerCase() === 'member' ||
         cleanPosition.toLowerCase().startsWith('head of ') ||
         cleanPosition.toLowerCase() === 'head of branch'
       ) {
-        cleanPosition = targetBranch === 'tech' ? 'Technical Branch Head' : 'Non-Technical Branch Head';
+        cleanPosition = activeBranch === 'tech' ? 'Technical Branch Head' : 'Non-Technical Branch Head';
       }
     }
 

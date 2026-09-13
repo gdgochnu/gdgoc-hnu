@@ -135,6 +135,7 @@ export function LeadershipDashboardTabs({
           <AccountApprovalsList
             initialAccounts={pendingAccounts}
             departments={departments}
+            managedMembers={managedMembers}
           />
         </div>
       ) : (
