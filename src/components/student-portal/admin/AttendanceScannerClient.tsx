@@ -416,6 +416,28 @@ export function AttendanceScannerClient({
                 <span>Return to {activeSession.parent_title}</span>
               </Link>
             )}
+            {activeSession && (
+              <Link
+                href={`/student-portal/admin/attendance/sessions/${activeSession.id}`}
+                style={{
+                  marginLeft: '0.4rem',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.35rem',
+                  color: '#86EFAC',
+                  fontSize: '0.8rem',
+                  fontWeight: 700,
+                  textDecoration: 'none',
+                  padding: '0.2rem 0.6rem',
+                  borderRadius: '6px',
+                  background: 'rgba(52, 168, 83, 0.12)',
+                  border: '1px solid rgba(52, 168, 83, 0.25)',
+                }}
+              >
+                <Users size={13} />
+                <span>Attendance Sheet</span>
+              </Link>
+            )}
           </div>
           <h1 style={{ fontSize: '1.85rem', fontWeight: 900, color: '#FFFFFF', margin: '0.3rem 0 0 0', letterSpacing: '-0.5px' }}>
             Unified QR Attendance Scanner

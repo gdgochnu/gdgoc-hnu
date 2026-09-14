@@ -1068,6 +1068,26 @@ export function CourseSessionsClient({
                           <QrCode size={13} />
                           <span>Scan</span>
                         </Link>
+                        <Link
+                          href={`/student-portal/admin/attendance/sessions/${session.id}`}
+                          title="View Attendance Sheet & Manual Check-ins"
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '0.35rem',
+                            background: 'rgba(66, 133, 244, 0.12)',
+                            border: '1px solid rgba(66, 133, 244, 0.3)',
+                            borderRadius: '6px',
+                            color: '#93C5FD',
+                            padding: '0.35rem 0.65rem',
+                            fontSize: '0.78rem',
+                            fontWeight: 700,
+                            textDecoration: 'none',
+                          }}
+                        >
+                          <Users size={13} />
+                          <span>Sheet</span>
+                        </Link>
                         <button
                           onClick={() => openEditModal(session)}
                           title="Edit Session"
