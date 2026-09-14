@@ -31,6 +31,7 @@ import {
   BarChart3,
   Search,
   Video,
+  BookOpen,
 } from 'lucide-react';
 import { GlobalSearchBar } from './GlobalSearchBar';
 import { NotificationCenter } from '@/components/notifications/NotificationCenter';
@@ -186,6 +187,11 @@ export function AppNavigation({
         label: 'Certificates',
         href: '/certificates',
         icon: GraduationCap,
+      },
+      {
+        label: 'Student Portal',
+        href: '/student',
+        icon: BookOpen,
       }
     );
 
