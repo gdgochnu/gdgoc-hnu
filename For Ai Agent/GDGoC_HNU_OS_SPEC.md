@@ -1,9 +1,22 @@
-# GDGoC HNU OS — Full Product & Technical Specification (v4)
+# GDGoC HNU OS — Full Product & Technical Specification (v4.1)
 
 > **Purpose of this document:** This is a complete, self-contained specification meant to be handed to an AI coding agent (or a dev team) to build the **entire platform end-to-end**. It covers product scope, roles & permissions, database schema, features, workflows, dashboards, storage architecture, security, and non-functional requirements. Every ambiguous point has an explicit **assumption** flagged in §13 so the builder never has to guess silently.
 >
-> **v4 additions (new in this version):**
-> - **§S / §8** — Student Portal: a completely separate public-facing system for university students (not team members) to register, browse and enroll in courses (with sessions) and workshops, attend sessions via QR scanned by HR, submit tasks set by instructors (link or file), and receive certificates. Fully separate auth, DB tables, and routes from the Team OS.
+> **v4.1 additions (LATEST — expanded Student Portal):**
+> - **Team members can be students:** dual-role support via `student_profiles.team_profile_id` — team members can register and enroll in courses/workshops.
+> - **Committee-based course ownership:** each course belongs to a committee; Committee Heads assign Instructors + Mentors from their members.
+> - **Instructors & Mentors:** Instructors create lessons/tasks/quizzes and manage course structure; Mentors review submissions, track progress, and flag at-risk students.
+> - **Online & Offline Sessions:** sessions support `type` (offline=venue / online=YouTube link); materials uploaded as PDFs with embedded viewer.
+> - **Lessons System:** courses have lessons (tied to sessions or standalone) with rich content, YouTube embeds, PDF materials, attached tasks/quizzes.
+> - **Tasks & Submissions:** students submit links or upload files; mentors/instructors review with comments and grades; resubmission flow (`needs_revision` status).
+> - **Quizzes & Exams:** full quiz builder with auto-grading (MCQ/T-F) and manual grading (open-ended); timer enforcement, retake policies, analytics.
+> - **Mentorship Dashboard:** mentors track all mentees' progress (lessons, tasks, quizzes, attendance), leave private notes, flag at-risk students.
+> - **President-gated Certificates:** students cannot self-claim; President reviews eligibility (attendance %, task avg, quiz avg) and bulk-issues certificates.
+> - **PDF Viewer:** embedded viewer for course materials (slides, handouts) using `<iframe>` or React PDF library.
+> - **Multi-Session Workshops:** workshops can now have multiple sessions (not just single-session events).
+>
+> **v4 additions (original):**
+> - **§4.S / §8** — Student Portal: a public-facing learning management system for university students to register, browse/enroll in courses (with sessions) and workshops, attend sessions via QR scanned by HR, submit tasks set by instructors (link or file), take quizzes, and receive certificates. Fully integrated with Team OS.
 > - **§2.2** — Profile fields updated: Arabic 4-part name + English 4-part name, National ID (14-digit), Faculty as dropdown from `faculty_options` table, Department as free text, Academic year, Mobile, WhatsApp, Facebook, Instagram, LinkedIn.
 > - **§3.2** — `profiles` schema updated to reflect new fields.
 > - **§3 new** — `faculty_options` table added (President-managed list for the Faculty dropdown).
@@ -451,53 +464,64 @@ Designed to feel like a genuine, distinctive system rather than a bolted-on poin
 
 ## 4.S Student Portal — Full Feature Specification (v4 New)
 
-> The Student Portal is a **completely separate system** from the Team OS. It is a public-facing platform for **university students** (who are NOT GDGoC team members) to register, attend courses and workshops, submit tasks assigned by instructors, and track their own learning journey.
+> The Student Portal is a **comprehensive learning management system** integrated with the Team OS. It is a public-facing platform for **university students AND team members** to register, attend courses and workshops, submit tasks assigned by instructors, take quizzes, and track their learning journey.
 >
-> A team member (e.g. a Head or President) can be an Instructor in the Student Portal, but a student cannot access the Team OS, and a team member does not automatically become a student.
+> **Key Update (v4.1):** Team members can also be students — a team profile can register and enroll in courses/workshops just like external students, creating a unified learning ecosystem where committee members can both teach and learn.
 
 ### 4.S.1 Purpose & Audience
 
 | | |
 |---|---|
-| **Who uses it** | Any university student — not limited to GDGoC team members |
-| **What they do** | Register → browse & enroll in courses/workshops → attend sessions (HR scans their QR) → submit tasks → receive certificates |
-| **Who manages it** | GDGoC team members acting as Instructors or HR Admins via `/student-portal/admin` |
-| **Auth** | Students register with Google OAuth — stored in separate `student_profiles` table (NOT the same `profiles` table as team members) |
-| **Access** | Routes prefixed with `/student` — students never see the Team OS routes |
+| **Who uses it** | Any university student + GDGoC team members (dual role supported) |
+| **What they do** | Register → browse & enroll in courses/workshops → attend sessions (HR/Instructor scans their QR) → submit tasks/quizzes → receive President-approved certificates |
+| **Who manages it** | GDGoC team members designated as **Instructors** or **Mentors** per committee via `/student-portal/admin` |
+| **Auth** | Students register with Google OAuth — stored in `student_profiles` table; if email matches existing `profiles` row → auto-linked via `team_profile_id` |
+| **Access** | Routes prefixed with `/student` for learners; `/student-portal/admin` for instructors/mentors/HR |
 
-### 4.S.2 Student Registration & Profile
+### 4.S.2 Student Registration & Profile (Team Member Bridge)
 
 **Flow:**
 1. Student visits `/student` (Student Portal landing page).
 2. Clicks "سجّل الآن / Register" → Google sign-in.
-3. First sign-in → redirect to **"Complete Your Student Profile"** form (blocks until submitted).
-4. On submit → account is **immediately active** (no manual approval required — unlike team member onboarding).
-5. Student lands on their **Student Dashboard**.
+3. **Auto-Link Check:** if sign-in email matches a row in `profiles` table → link via `student_profiles.team_profile_id` (enables dual role: team member who is also a student).
+4. First sign-in → redirect to **"Complete Your Student Profile"** form (blocks until submitted). If already a team member, pre-fill name/email/phone/faculty from `profiles`.
+5. On submit → account is **immediately active** (no manual approval required — unlike team member onboarding).
+6. Student lands on their **Student Dashboard**. If they are also a team member, dashboard shows link to switch between student and team contexts.
 
 **Student Profile fields — same field set as §2.2 minus the committee/role-specific fields:**
-1. Full name in Arabic (4-part) — required
-2. Full name in English (4-part) — required
-3. National ID (14-digit) — required
+1. Full name in Arabic (4-part) — required (pre-filled if team member)
+2. Full name in English (4-part) — required (pre-filled if team member)
+3. National ID (14-digit) — required (pre-filled if team member)
 4. University — dropdown (HNU + others, configurable in portal settings)
-5. Faculty / College — dropdown (from same `faculty_options` table used by team profiles)
-6. Department / Major — free text
+5. Faculty / College — dropdown (from same `faculty_options` table used by team profiles) (pre-filled if team member)
+6. Department / Major — free text (pre-filled if team member)
 7. Academic year (1st–5th) — required
-8. Mobile number — required
+8. Mobile number — required (pre-filled if team member)
 9. WhatsApp number — required (pre-filled same as mobile, editable)
-10. Facebook URL — optional
-11. Instagram URL — optional
-12. LinkedIn URL — optional
+10. Facebook URL — optional (pre-filled if team member)
+11. Instagram URL — optional (pre-filled if team member)
+12. LinkedIn URL — optional (pre-filled if team member)
 
 ### 4.S.3 Content Types
 
-#### Courses (with Sessions)
-- **Course:** a structured multi-session learning program. Fields: title, description, instructor(s), capacity, cover image, category/track, enrollment_type (open/gated), status (draft/published/archived).
-- **Session:** one class within a course. Fields: session number, title, date, start/end time, venue or online link, qr_secret, status (scheduled/completed/cancelled).
+#### Courses (with Sessions, Lessons, Tasks & Quizzes)
+- **Course:** a structured multi-session learning program. Fields: title, description, owning `department_id` (committee), instructor(s)/mentor(s) assigned per committee, capacity, cover image, category/track, enrollment_type (open/gated), status (draft/published/archived).
+- **Committee Ownership:** each course belongs to one committee (e.g. Web course → Web committee, AI course → AI committee). Committee Head/Co-Head assigns **Instructors** and **Mentors** from their committee members.
+  - **Instructors:** can create/edit course content (lessons, sessions, tasks, quizzes), grade submissions, manage enrollments.
+  - **Mentors:** can review student submissions, track progress, leave feedback, but cannot edit course structure.
+- **Session:** one class within a course. Fields: session number, title, description, date, start/end time, **type** (`offline` = venue required / `online` = YouTube link), venue (text, if offline), `youtube_url` (text, if online), `materials` (array of PDF `drive_file_id` uploaded to Drive), `qr_secret`, status (scheduled/completed/cancelled).
+  - **Online sessions:** embed YouTube video player on course detail page.
+  - **Offline sessions:** show venue + map link.
+  - **Materials:** instructors upload PDF slides/handouts → stored in Drive → displayed with embedded **PDF viewer** on session page (use `<iframe>` or React PDF library like `react-pdf`).
+- **Lesson:** a learning unit within a course (can be tied to a session or standalone). Fields: title, content (rich text/markdown), optional YouTube video embed, attached PDF materials (Drive), optional session link. Lessons can have **tasks** and **quizzes** attached.
+- **Cross-Committee Collaboration:** a course can have instructors from multiple committees if the President/Committee Heads collaborate (e.g. a "Full-Stack" course co-taught by Web + Backend instructors).
 - Students **enroll** in a course once and then attend individual sessions separately.
 
-#### Workshops (Standalone)
-- A **Workshop** is a single-session event (not a course series). Fields: title, description, instructor(s), date, start/end time, venue, capacity, registration deadline, status, registration_open flag, qr_secret.
-- Students register for workshops individually; on registration → unique QR code shown + emailed.
+#### Workshops (Multi-Session Support)
+- A **Workshop** is a focused learning track that can be **single-session or multi-session** (updated from v4 — no longer limited to standalone events). Fields: title, description, owning `department_id`, instructor(s), capacity, cover image, registration deadline, status, registration_open flag.
+- **Workshop Sessions:** same structure as course sessions (offline/online, YouTube, PDFs).
+- **Use cases:** single-day workshops (e.g. "Intro to Flutter") or weekend bootcamps (e.g. "3-Day Web Dev Bootcamp" with 3 sessions).
+- Students register for workshops individually; on registration → unique QR code shown + emailed (used for attendance at each session).
 
 ### 4.S.4 Enrollment & Registration
 - **Course enrollment:** browse → enroll → if open: immediately confirmed; if gated: instructor approves → confirmation.
@@ -519,83 +543,212 @@ Designed to feel like a genuine, distinctive system rather than a bolted-on poin
 
 **Student QR:** each student has one **permanent QR** (`student_profiles.qr_code`) generated at account creation. This single QR is reused for every session and workshop — no separate QR per enrollment/event.
 
-### 4.S.6 Instructor Tasks
+### 4.S.6 Lessons, Instructor Tasks, Quizzes & Mentorship System
 
-Instructors assign **tasks** to students enrolled in a specific course or workshop (separate from the Team OS task system).
+#### Lessons
+Instructors create **lessons** within a course:
+- **Lesson fields:** title, content (rich text or markdown), optional YouTube video URL, attached PDF materials (uploaded to Drive), optional session link.
+- Lessons appear in the course syllabus; students navigate sequentially or jump freely (depending on course settings).
+- Each lesson can have **tasks** and **quizzes** attached.
 
-- **Task fields:** title, description, due date, course/workshop link, submission type (link / file), max score (optional), assigned_to (all enrolled / specific students).
-- **Student flow:** sees task at `/student/my-tasks` → submits a URL or uploads a file → instructor grades and leaves feedback → student notified.
-- **Task statuses:** `pending` → `submitted` → `graded` / `needs_revision` → `final`.
+#### Instructor Tasks (separate from Team OS tasks)
+Instructors assign **tasks** to students enrolled in a specific course or workshop.
+
+- **Task fields:** title, description, due date, course/workshop/lesson link, submission type (`link` = URL submission / `file` = file upload), max score (numeric, optional), assigned_to (`all_enrolled` / `specific_students` with ID array).
+- **Student flow:**
+  1. Student sees task at `/student/my-tasks` or within the course/lesson page.
+  2. Submits either:
+     - **Link:** paste URL (GitHub repo, deployed site, Google Doc, etc.)
+     - **File:** upload PDF/ZIP/image (stored in Drive under `/Student-Portal/Tasks/`)
+  3. On submit → `student_task_submissions` row created (`status='submitted'`) → **mentor** notified.
+- **Mentor Review Panel** (at `/student-portal/admin/courses/[id]/submissions`):
+  - List all submissions (filterable by task/student/status: pending/submitted/graded/needs_revision).
+  - Review UI: view submission (link preview or file download button), add **comments/feedback** (rich text), assign **grade** (numeric or pass/fail), mark as `graded` or `needs_revision`.
+  - Student receives **notification** with feedback → if `needs_revision`, can resubmit.
+- **Task statuses:** `pending` (not yet submitted) → `submitted` (awaiting review) → `graded` / `needs_revision` → `final` (after any revisions).
+- Tasks can be **lesson-specific** (tied to a specific lesson) or **standalone** (general course assignment).
+
+#### Quizzes & Exams
+Instructors create **quizzes** with auto-grading (multiple choice) or manual grading (open-ended).
+
+- **Quiz Builder** (at `/student-portal/admin/courses/[id]/quizzes`):
+  - Create quiz: title, description, time limit (minutes), passing score (%), attached to course/lesson (optional), publish/unpublish toggle.
+  - **Question Bank:** add/edit/reorder questions (stored as **jsonb array** in `quizzes.questions`).
+  - **Question types:**
+    - **Multiple Choice:** question text + 4 options (A/B/C/D) + correct answer → **auto-graded**.
+    - **True/False:** → auto-graded.
+    - **Short Answer / Essay:** open text field → **manual grading** by instructor.
+- **Student Quiz-Taking** (at `/student/courses/[id]/quizzes/[quizId]/take`):
+  - Timer countdown (enforced, auto-submits at 0:00).
+  - Question navigation (back/forward, mark for review).
+  - On submit → `quiz_attempts` row created.
+  - **Auto-grade** multiple choice/true-false immediately → show score.
+  - **Manual grading:** instructor reviews open-ended answers at `/student-portal/admin/courses/[id]/quizzes/[quizId]/review`, assigns points, leaves comments.
+  - Student sees final score + feedback after all grading complete.
+- **Quiz attempts:** students can retake (if instructor allows) — track best attempt or most recent (configurable per quiz).
+- **Analytics:** instructor sees per-quiz stats (average score, pass rate, hardest questions).
+
+#### Mentorship System
+**Mentors** (assigned per course by Committee Head/Instructor) actively track student progress:
+
+- **Mentor Dashboard** (at `/student-portal/admin/mentorship`):
+  - View all **mentees** (students in assigned courses): table with progress bars (lessons completed, tasks submitted/graded, quizzes passed, attendance rate).
+  - **Drill-down per student:** timeline of activity (submissions, quiz attempts, attendance), grade breakdown chart, **mentor notes** field (private notes for tracking).
+  - **Flag at-risk students:** mentor can flag a student (e.g. low attendance, missed deadlines) → notification sent to Committee Head + President.
+- **Mentor actions:**
+  - Review task submissions (same panel as instructors, but read-only on course structure).
+  - Leave feedback/comments on student work.
+  - Track weekly engagement (mentors get weekly summary of mentees' activity).
+- **Student view:** students see their assigned mentor's name on course page, can message mentor via in-app notification (optional future feature).
+
+#### Instructor vs Mentor Roles
+| Capability | Instructor | Mentor |
+|---|---|---|
+| Create/edit course structure (lessons, sessions) | ✅ | ❌ (read-only) |
+| Create tasks/quizzes | ✅ | ❌ |
+| Review & grade task submissions | ✅ | ✅ |
+| Grade quiz open-ended answers | ✅ | ✅ |
+| Track student progress dashboard | ✅ | ✅ |
+| Flag at-risk students | ✅ | ✅ |
+| Approve enrollments (gated courses) | ✅ | ❌ |
+| Issue certificates | ❌ (request only) | ❌ (request only) |
 
 ### 4.S.7 Student Dashboard (at `/student/dashboard`)
-- **My Courses:** progress bar per course (sessions attended / total), next session date
-- **My Workshops:** upcoming / attended / missed list
-- **My Tasks:** pending (with due date), submitted (awaiting grade), graded (with score)
-- **Attendance Summary:** overall rate + per-course breakdown
-- **Certificates:** received certificates with download links
-- **My QR Code:** large permanent QR with download button (for showing to HR on check-in day)
+- **My Courses:** progress cards per enrolled course:
+  - Progress bar: (lessons completed + sessions attended + tasks graded + quizzes passed) / total
+  - Next session date/time (if online → quick "Join" button to YouTube link)
+  - Pending tasks count with due dates
+  - Latest grade/feedback snippet
+- **My Workshops:** upcoming / attended / missed list with session breakdown
+- **My Tasks:** 
+  - "Pending" widget (due soon, sorted by deadline)
+  - "Submitted" widget (awaiting grade, shows submission timestamp)
+  - "Graded" feed (recent feedback with scores)
+- **Quizzes:**
+  - "Available Quizzes" widget (not yet taken, with deadlines if applicable)
+  - "Recent Attempts" feed (scores + pass/fail status)
+- **Attendance Summary:** 
+  - Overall attendance rate % across all courses/workshops
+  - Per-course breakdown (sessions attended / total per course)
+  - Attendance streak counter (consecutive sessions attended)
+- **Certificates:** gallery of received certificates with download/share buttons
+- **My QR Code:** large widget displaying permanent personal QR with download button (for showing to HR/Instructor on check-in day)
+- **Recent Feedback:** feed of latest mentor comments/grades on tasks/quizzes
+- **Achievements:** badges earned (e.g. "Perfect Attendance," "Task Master," "Quiz Ace") — optional gamification layer
 
-### 4.S.8 Student Certificates
-- When a course/workshop is marked completed, Instructor/President bulk-issues certificates to students with attendance ≥ configured threshold (default 75%).
+### 4.S.8 Student Certificates (President-Gated Issuance)
+- **Eligibility Criteria (configurable per course/workshop):** attendance ≥ X% (default 75%), tasks average ≥ Y% (default 70%), quizzes average ≥ Z% (default 70%).
+- **Certificate Eligibility Engine:** computes eligibility per student per course/workshop automatically when course/workshop status → `completed`.
+- **President Certificate Issuance Panel** (at `/student-portal/admin/certificates/pending`):
+  - List eligible students (grouped by course/workshop), show completion stats table (attendance %, task avg, quiz avg).
+  - **Bulk selection:** President selects eligible students (or all), clicks **"Issue Certificates"**.
+  - Behind the scenes: generates PDFs using `certificate_templates` (reuses Team OS §4.14 generator), stores in Drive under `/Student-Portal/Certificates/`, creates `student_certificates` rows with unique `verification_code` (UUID embedded as QR on PDF).
+  - Sends **notification + email** to students with download link.
+- **Students cannot claim certificates themselves** — only President (or delegated Co-President) can issue.
 - Uses the **same certificate template + PDF generation system** as Team OS (§4.14), but stored in `student_certificates` (separate table).
-- Student notified in-app + by email with download link.
-- Certificate appears on student dashboard + verified on public `/verify/[code]` page.
+- **Certificate content:** student name (Arabic + English), course/workshop title, completion date, attendance/grade summary (optional), President signature, verification QR.
+- Certificate appears on student dashboard (`/student/certificates`) + verified on public `/verify/[code]` page (same verification endpoint as team certificates, but pulls from `student_certificates` table).
 
 ### 4.S.9 Team Admin — Student Portal Management Panel
 
 At `/student-portal/admin`:
 
-| Action | President/Co-Pres | HR Head/Co-Head | Assigned Instructor | HR Member |
-|---|---|---|---|---|
-| Create/publish courses & workshops | ✅ | ✅ | ✅ (own only) | ❌ |
-| Scan student QR for check-in | ✅ | ✅ | ✅ (own sessions) | ✅ |
-| View all students | ✅ | ✅ | ✅ (own course/workshop) | ✅ |
-| Grade student tasks | ✅ | ❌ | ✅ (own course) | ❌ |
-| Issue student certificates | ✅ | ❌ | ❌ (request only) | ❌ |
-| Configure portal settings | ✅ | ❌ | ❌ | ❌ |
+| Action | President/Co-Pres | Committee Head/Co-Head | Assigned Instructor | Assigned Mentor | HR Role |
+|---|---|---|---|---|---|
+| Create/publish courses & workshops | ✅ | ✅ (own committee) | ✅ (assigned courses) | ❌ (read-only) | ❌ |
+| Assign instructors/mentors to courses | ✅ | ✅ (own committee) | ❌ | ❌ | ❌ |
+| Create lessons/tasks/quizzes | ✅ | ✅ (own committee) | ✅ (assigned courses) | ❌ | ❌ |
+| Edit course structure (sessions, materials) | ✅ | ✅ (own committee) | ✅ (assigned courses) | ❌ (read-only) | ❌ |
+| Review & grade task submissions | ✅ | ✅ (own committee) | ✅ (assigned courses) | ✅ (assigned courses) | ❌ |
+| Grade quiz open-ended answers | ✅ | ✅ (own committee) | ✅ (assigned courses) | ✅ (assigned courses) | ❌ |
+| Scan student QR for check-in | ✅ | ✅ | ✅ (assigned sessions) | ✅ (assigned sessions) | ✅ |
+| View all students directory | ✅ | ✅ (enrolled in own committee's courses) | ✅ (enrolled in assigned courses) | ✅ (assigned mentees) | ✅ |
+| View individual student progress | ✅ | ✅ (enrolled in own committee's courses) | ✅ (enrolled in assigned courses) | ✅ (assigned mentees) | ✅ |
+| Track mentees on mentor dashboard | ❌ | ❌ | ✅ (if also mentor) | ✅ | ❌ |
+| Flag at-risk students | ✅ | ✅ | ✅ | ✅ | ❌ |
+| Approve gated enrollments | ✅ | ✅ (own committee) | ✅ (assigned courses) | ❌ | ❌ |
+| Issue student certificates | ✅ | ❌ (request only) | ❌ (request only) | ❌ | ❌ |
+| Configure portal settings (thresholds, etc.) | ✅ | ❌ | ❌ | ❌ | ❌ |
+
+**Key workflows:**
+- **Committee Head** assigns 2 instructors + 1 mentor from their committee to a new course.
+- **Instructor** creates 8 lessons with embedded YouTube videos, uploads PDF slides, creates 5 tasks + 3 quizzes.
+- **Mentor** monitors 30 enrolled students' progress weekly, reviews task submissions, flags 2 at-risk students.
+- **HR Member** scans student QR codes at session check-in using mobile camera.
+- **President** reviews certificate eligibility list, bulk-issues 45 certificates for completed Web Dev course.
 
 ### 4.S.10 Student Portal — Database Schema
 
 **`student_profiles`**
-`id (= auth.users.id), full_name_ar, full_name_en, email (unique), avatar_url, national_id (text, 14 chars, unique), university, faculty, department_major, academic_year (smallint 1-5), phone, whatsapp_number, facebook_url, instagram_url, linkedin_url, qr_code (text unique — permanent QR identifier generated on account creation), status (incomplete/active/suspended), created_at, updated_at`
+`id (= auth.users.id), team_profile_id (uuid nullable FK profiles — links team members who are also students), full_name_ar, full_name_en, email (unique), avatar_url, national_id (text, 14 chars, unique), university, faculty, department_major, academic_year (smallint 1-5), phone, whatsapp_number, facebook_url, instagram_url, linkedin_url, qr_code (text unique — permanent QR identifier generated on account creation), status (incomplete/active/suspended), created_at, updated_at`
 
 **`courses`**
-`id, title, description, cover_image_url, category, instructor_ids (uuid[]), capacity (nullable), enrollment_type (open/gated), status (draft/published/archived), created_by, created_at`
+`id, title, description, cover_image_url, category, department_id (FK departments — owning committee), capacity (int nullable), enrollment_type (open/gated), syllabus (text nullable), status (draft/published/archived), created_by (FK profiles), created_at, updated_at`
+
+**`course_instructors`** *(maps instructors/mentors to courses)*
+`id, course_id (FK courses), profile_id (FK profiles — team member), role (instructor/mentor), assigned_at, assigned_by (FK profiles)`
+> Unique constraint: `(course_id, profile_id)`.
 
 **`course_sessions`**
-`id, course_id (FK courses), session_number (int), title, description, session_date, start_time, end_time, venue (text), online_link (nullable), qr_secret, status (scheduled/completed/cancelled), created_at`
+`id, course_id (FK courses), session_number (int), title, description, session_date, start_time, end_time, type (offline/online), venue (text nullable — required if type=offline), youtube_url (text nullable — required if type=online), materials (uuid[] — array of Drive file IDs for PDFs), qr_secret, status (scheduled/completed/cancelled), created_at, updated_at`
+
+**`course_lessons`** *(learning units within a course)*
+`id, course_id (FK courses), session_id (FK course_sessions nullable — can be tied to a session or standalone), lesson_number (int), title, content (text — markdown/HTML), youtube_url (text nullable), materials (uuid[] — Drive PDF file IDs), created_by (FK profiles), created_at, updated_at`
 
 **`course_enrollments`**
-`id, course_id, student_id (FK student_profiles), status (pending/confirmed/rejected/withdrawn/waitlisted), enrolled_at, confirmed_at, created_at`
+`id, course_id, student_id (FK student_profiles), status (pending/confirmed/rejected/withdrawn/waitlisted), enrolled_at, confirmed_at, confirmed_by (FK profiles nullable — instructor who approved), created_at, updated_at`
 
 **`workshops`**
-`id, title, description, cover_image_url, category, instructor_ids (uuid[]), date, start_time, end_time, venue, online_link (nullable), capacity (nullable), registration_deadline (timestamptz nullable), status (draft/published/archived/completed), registration_open (bool), qr_secret, created_by, created_at`
+`id, title, description, cover_image_url, category, department_id (FK departments), capacity (int nullable), registration_deadline (timestamptz nullable), status (draft/published/archived/completed), registration_open (bool), created_by (FK profiles), created_at, updated_at`
+
+**`workshop_instructors`** *(same structure as course_instructors)*
+`id, workshop_id (FK workshops), profile_id (FK profiles), role (instructor/mentor), assigned_at, assigned_by (FK profiles)`
+
+**`workshop_sessions`** *(multi-session workshop support)*
+`id, workshop_id (FK workshops), session_number (int), title, description, session_date, start_time, end_time, type (offline/online), venue (text nullable), youtube_url (text nullable), materials (uuid[]), qr_secret, status (scheduled/completed/cancelled), created_at, updated_at`
 
 **`workshop_registrations`**
-`id, workshop_id, student_id (FK student_profiles), qr_code (text unique — per-registration confirmation QR for the email), status (registered/waitlisted/cancelled), registered_at, created_at`
+`id, workshop_id, student_id (FK student_profiles), qr_code (text unique — per-registration confirmation QR for email + attendance), status (registered/waitlisted/cancelled), registered_at, created_at, updated_at`
 
 **`student_attendance`**
-`id, session_id (FK course_sessions, nullable — null when it's a workshop attendance), workshop_id (FK workshops, nullable), student_id (FK student_profiles), check_in_time, checked_in_by (FK profiles — the team member who scanned), method (qr/manual), created_at`
-> Unique constraints: `(session_id, student_id)` and `(workshop_id, student_id)`.
-> INSERT is allowed only by authenticated team members (HR/Instructor/President/Co-President) — students cannot self-insert.
+`id, session_id (FK course_sessions nullable — null when workshop attendance), workshop_session_id (FK workshop_sessions nullable), student_id (FK student_profiles), check_in_time, checked_in_by (FK profiles — team member who scanned), method (qr/manual), created_at`
+> Unique constraints: `(session_id, student_id)` and `(workshop_session_id, student_id)`.
+> INSERT allowed only by authenticated team members (HR/Instructor/Mentor/President/Co-President) — students cannot self-insert.
 
 **`student_tasks`**
-`id, course_id (FK courses, nullable), workshop_id (FK workshops, nullable), title, description, due_date, submission_type (link/file), max_score (numeric nullable), assigned_to (all_enrolled/specific), specific_student_ids (uuid[] nullable), status (active/closed), created_by (FK profiles — the instructor), created_at`
+`id, course_id (FK courses nullable), workshop_id (FK workshops nullable), lesson_id (FK course_lessons nullable — can be lesson-specific or standalone), title, description, due_date, submission_type (link/file), max_score (numeric nullable), assigned_to (all_enrolled/specific), specific_student_ids (uuid[] nullable), status (active/closed), created_by (FK profiles — instructor), created_at, updated_at`
 
 **`student_task_submissions`**
-`id, task_id (FK student_tasks), student_id (FK student_profiles), submission_link (nullable), submission_file_url (nullable), score (numeric nullable), feedback_comment (text nullable), status (submitted/graded/needs_revision/final), submitted_at, graded_at, graded_by (FK profiles — the instructor), created_at`
+`id, task_id (FK student_tasks), student_id (FK student_profiles), submission_link (text nullable), submission_file_drive_id (text nullable — Drive file ID), score (numeric nullable), feedback_comment (text nullable), status (pending/submitted/graded/needs_revision/final), submitted_at, graded_at, graded_by (FK profiles — instructor/mentor), created_at, updated_at`
+
+**`quizzes`**
+`id, course_id (FK courses nullable), lesson_id (FK course_lessons nullable), title, description, time_limit_minutes (int nullable), passing_score_percentage (numeric), questions (jsonb — array of question objects: {type, question_text, options[], correct_answer, points}), allow_retakes (bool default false), status (draft/published), created_by (FK profiles), created_at, updated_at`
+
+**`quiz_attempts`**
+`id, quiz_id (FK quizzes), student_id (FK student_profiles), answers (jsonb — array of student answers matching questions order), auto_graded_score (numeric nullable — for MCQ/T-F), manual_graded_score (numeric nullable — for open-ended), total_score (numeric nullable — sum of auto + manual), feedback (text nullable), status (in_progress/submitted/graded), started_at, submitted_at, graded_at, graded_by (FK profiles nullable — for manual grading), created_at, updated_at`
+
+**`mentor_notes`** *(private notes mentors keep about students)*
+`id, mentor_id (FK profiles), student_id (FK student_profiles), course_id (FK courses nullable), note (text), flagged_at_risk (bool default false), created_at, updated_at`
 
 **`student_certificates`**
-`id, template_id (FK certificate_templates — shared with Team OS), student_id (FK student_profiles), course_id (FK courses, nullable), workshop_id (FK workshops, nullable), title, issue_date, certificate_number (unique, format GDGOC-STU-2026-000001), verification_code (uuid — embedded as QR on the PDF, verified at /verify/[code]), pdf_drive_file_id, pdf_drive_url, issued_by (FK profiles — team member who issued), created_at`
+`id, template_id (FK certificate_templates — shared with Team OS), student_id (FK student_profiles), course_id (FK courses nullable), workshop_id (FK workshops nullable), title, issue_date, certificate_number (unique, format GDGOC-STU-YYYY-NNNNNN), verification_code (uuid — embedded as QR on PDF, verified at /verify/[code]), pdf_drive_file_id, pdf_drive_url, completion_stats (jsonb — attendance %, task avg, quiz avg), issued_by (FK profiles — President/Co-President), created_at`
 
 ### 4.S.11 Student Portal — RLS Principles
-- `student_profiles`: student reads/edits own row; HR + assigned Instructors + President/Co-President read all students.
-- `courses`, `workshops`: published ones readable by all authenticated users (students + team); drafts readable only by admins/instructors.
-- `course_enrollments`, `workshop_registrations`: student reads own records; instructors read their course's/workshop's records; HR + President read all.
-- `student_attendance`: student reads own records; instructors read records for their own sessions; HR + President read all; **INSERT strictly restricted to team members** (HR/Instructor/President) — students cannot self-record attendance.
-- `student_tasks`: active tasks readable by enrolled students; instructors + admins read/write all.
-- `student_task_submissions`: student reads/creates/edits own submission (until graded); instructors read all submissions for their course; HR + President read all; grade + feedback write only by instructors/President.
-- `student_certificates`: student reads own; President/Co-President read all; public `/verify/[code]` uses narrow security-definer RPC.
+- **`student_profiles`:** student reads/edits own row; assigned Instructors/Mentors read students enrolled in their courses; HR + President/Co-President read all students; `team_profile_id` link enables dual-role members to see their own student profile.
+- **`courses`, `workshops`:** published ones readable by all authenticated users (students + team + public `anon` via narrow RPC); drafts readable only by President/Co-President/Committee Head/assigned Instructors.
+- **`course_instructors`, `workshop_instructors`:** readable by course/workshop stakeholders (instructors, mentors, committee heads); writable only by President/Committee Head/assigned Instructors.
+- **`course_sessions`, `workshop_sessions`, `course_lessons`:** follow parent course/workshop visibility; writable only by assigned Instructors.
+- **`course_enrollments`, `workshop_registrations`:** student reads own records; instructors read records for their assigned courses/workshops; HR + President read all; gated enrollment approval write restricted to assigned Instructors + Committee Head + President.
+- **`student_attendance`:** student reads own records; instructors/mentors read records for their own sessions; HR + President read all; **INSERT strictly restricted to team members** (HR/Instructor/Mentor/President/Co-President) — students cannot self-record attendance.
+- **`student_tasks`, `quizzes`:** active tasks/quizzes readable by enrolled students; instructors/mentors + Committee Head + President read/write all; draft quizzes hidden from students.
+- **`student_task_submissions`, `quiz_attempts`:** student reads/creates/edits own submission (until graded); instructors/mentors read all submissions for their assigned courses; Committee Head + President read all; grade + feedback write only by instructors/mentors/President.
+- **`mentor_notes`:** writable/readable only by the mentor who created them + Committee Head + President (private notes, not visible to students).
+- **`student_certificates`:** student reads own; President/Co-President/assigned Instructors read all within their scope; public `/verify/[code]` uses narrow security-definer RPC returning only verification fields (name, course, date, authenticity status).
+
+**Key RLS Updates for Team Member Bridge:**
+- When a team member signs in to the Student Portal, `team_profile_id` link allows them to see **both** their team permissions (via `profiles` RLS) **and** their student data (via `student_profiles` RLS).
+- A Committee Head who is also a student in another committee's course: sees their own student dashboard + can manage their own committee's courses as an instructor.
+- RLS policies check **both** `profiles.id` (for team context) **and** `student_profiles.team_profile_id` (for student context) to grant appropriate access.
 
 ---
 
@@ -680,38 +833,55 @@ Authenticated app — Team OS (status = active):
   /settings/drive                 → President-only Drive/Apps-Script connection settings
   /settings/faculties             → President-only faculty/college list editor (v4 NEW)
 
-Student Portal — Student-facing (separate auth context):
-  /student                          → Student Portal landing page
-  /student/register                 → Google sign-in → student profile form
-  /student/onboarding               → Complete student profile (blocks until done)
-  /student/dashboard                → Student home: courses, tasks, attendance, QR
-  /student/courses                  → Browse all published courses
-  /student/courses/[id]             → Course detail + sessions list + enroll button
+Student Portal — Student-facing (separate auth context, but linked to team context if `team_profile_id` exists):
+  /student                          → Student Portal landing page (public showcase)
+  /student/register                 → Google sign-in → auto-link check → student profile form
+  /student/onboarding               → Complete student profile (blocks until done, pre-fills if team member)
+  /student/dashboard                → Student home: courses, workshops, tasks, quizzes, attendance, QR, certificates
+  /student/courses                  → Browse all published courses (cards with filters by committee/category)
+  /student/courses/[id]             → Course detail: description, instructors, syllabus, sessions (YouTube embeds for online), enroll button
+  /student/courses/[id]/lessons/[lessonId] → Lesson page: content, video, PDFs (embedded viewer), attached tasks/quizzes
   /student/workshops                → Browse all published workshops
-  /student/workshops/[id]           → Workshop detail + register button
-  /student/workshops/[id]/confirmation  → QR confirmation page after registration
-  /student/my-tasks                 → All assigned tasks + submission interface
-  /student/my-tasks/[taskId]        → Task detail + submission form (link or file upload)
-  /student/my-attendance            → Attendance history across all courses/workshops
-  /student/my-qr                    → Student's permanent personal QR code (full-screen, downloadable)
-  /student/certificates             → Certificates received
+  /student/workshops/[id]           → Workshop detail: sessions, register button
+  /student/workshops/[id]/confirmation  → QR confirmation page after registration (downloadable QR + calendar invite)
+  /student/my-tasks                 → All assigned tasks (pending/submitted/graded) + submission interface
+  /student/my-tasks/[taskId]        → Task detail + submission form (link paste or file upload)
+  /student/quizzes/[quizId]/take    → Quiz-taking interface (timer, questions, submit)
+  /student/quizzes/[quizId]/result  → Quiz result page (score, feedback, correct answers if allowed)
+  /student/my-attendance            → Attendance history across all courses/workshops (per-session breakdown)
+  /student/my-qr                    → Student's permanent personal QR code (full-screen, downloadable, instructions)
+  /student/certificates             → Certificates gallery (earned certificates with download/share buttons)
   /student/profile                  → Edit own student profile
+  /student/switch-to-team           → Link to switch to Team OS dashboard (only visible if `team_profile_id` exists)
 
 Student Portal — Team Admin-facing (authenticated team member with appropriate role):
-  /student-portal/admin                              → Admin home: stats + quick links
-  /student-portal/admin/courses                      → Course list (team view)
-  /student-portal/admin/courses/new
-  /student-portal/admin/courses/[id]                 → Edit course + manage sessions
-  /student-portal/admin/courses/[id]/tasks           → Tasks for this course + all submissions
-  /student-portal/admin/courses/[id]/tasks/[tid]/submissions → All student submissions + grading
+  /student-portal/admin                              → Admin home: KPI cards (total students, active courses, certificates issued), quick links
+  /student-portal/admin/courses                      → Course list (team view: own committee's courses or all if President)
+  /student-portal/admin/courses/new                  → Create new course form
+  /student-portal/admin/courses/[id]                 → Edit course: basic info, sessions, lessons, instructors/mentors, enrollments
+  /student-portal/admin/courses/[id]/sessions        → Manage course sessions (add/edit/delete, upload PDFs, mark completed)
+  /student-portal/admin/courses/[id]/lessons         → Manage lessons (add/edit/reorder, attach YouTube, PDFs, tasks, quizzes)
+  /student-portal/admin/courses/[id]/instructors     → Manage instructor/mentor roster (add/remove committee members, toggle role)
+  /student-portal/admin/courses/[id]/tasks           → Tasks for this course + all submissions table
+  /student-portal/admin/courses/[id]/tasks/[tid]     → Task detail + submissions list + grading panel
+  /student-portal/admin/courses/[id]/quizzes         → Quiz list + builder
+  /student-portal/admin/courses/[id]/quizzes/[qid]/edit  → Quiz editor (questions, options, correct answers, time limit)
+  /student-portal/admin/courses/[id]/quizzes/[qid]/review → Review quiz attempts (grade open-ended, see analytics)
+  /student-portal/admin/courses/[id]/enrollments     → Enrollment requests (approve/reject gated enrollments, waitlist management)
   /student-portal/admin/workshops                    → Workshop list (team view)
   /student-portal/admin/workshops/new
-  /student-portal/admin/workshops/[id]               → Edit workshop + manage registrations
-  /student-portal/admin/students                     → All students directory + search + export
-  /student-portal/admin/students/[id]                → Individual student: courses, attendance, tasks, certs
-  /student-portal/admin/attendance/[sessionId]       → Live QR scan screen + manual check-in
-  /student-portal/admin/certificates                 → Issue certificates to course/workshop attendees
-  /student-portal/admin/settings                     → Portal settings (roles, thresholds, etc.)
+  /student-portal/admin/workshops/[id]               → Edit workshop: sessions, registrations
+  /student-portal/admin/workshops/[id]/sessions      → Manage workshop sessions (multi-session workshop support)
+  /student-portal/admin/students                     → All students directory (search, filter, export CSV)
+  /student-portal/admin/students/[id]                → Individual student profile: enrolled courses, attendance, tasks, grades, mentor notes
+  /student-portal/admin/attendance/scan              → Unified QR scan screen (camera-based, mobile-optimized, select session dropdown)
+  /student-portal/admin/attendance/sessions/[sessionId] → Session-specific attendance sheet (enrolled students, check-in status, timestamps, manual mark-present)
+  /student-portal/admin/mentorship                   → Mentor Dashboard: mentees table, progress tracking, flag at-risk
+  /student-portal/admin/mentorship/students/[id]     → Mentee detail view: activity timeline, grades breakdown, mentor notes (private)
+  /student-portal/admin/certificates                 → President-only: certificate issuance panel (eligible students, bulk issue)
+  /student-portal/admin/certificates/pending         → Eligibility queue (grouped by course/workshop, completion stats table)
+  /student-portal/admin/settings                     → Portal settings (certificate thresholds, quiz retake policies, etc.)
+  /student-portal/admin/analytics                    → Portal-wide analytics (enrollment trends, completion rates, average grades)
 ```
 
 ---
@@ -719,11 +889,16 @@ Student Portal — Team Admin-facing (authenticated team member with appropriate
 ## 7. Non-Functional Requirements
 
 - **Mobile-first PWA**, installable, QR scanning smooth on phone cameras.
-- **Performance target:** event check-in under 10 seconds per attendee.
+- **Performance target:** event check-in under 10 seconds per attendee; quiz loading under 3 seconds; PDF viewer rendering under 5 seconds.
 - **Accessibility:** WCAG AA color contrast on all dashboard widgets.
 - **Theme:** Dark mode only — the platform ships a single, polished dark theme (no light/dark toggle), per project decision.
 - **Localization:** i18n-ready structure, default UI language English (flag if Arabic-first is actually required — see §12).
 - **Reliability:** every state-changing action that matters for accountability (approvals, delegations, certificate issuance, role changes) is logged to `audit_logs` and is never silently lost.
+- **PDF Viewer:** embedded PDF viewer for course materials, task submissions, and certificates using either:
+  - Browser-native `<iframe>` with PDF URL (simplest, works on most modern browsers).
+  - React PDF library (e.g. `react-pdf` or `@react-pdf-viewer/core`) for better UX (zoom, page navigation, annotations if needed).
+  - Must support mobile browsers (iOS Safari, Chrome Android).
+  - Fallback: direct download button if PDF embedding fails.
 
 ---
 
