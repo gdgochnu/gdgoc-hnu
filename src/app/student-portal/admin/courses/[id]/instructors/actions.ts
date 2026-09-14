@@ -141,7 +141,7 @@ export async function getCourseInstructorsRoster(courseId: string): Promise<{
           avatar_url,
           role,
           email,
-          department:departments(name, code)
+          department:departments!profiles_department_id_fkey(name, code)
         )
       `)
       .eq('course_id', courseId)
@@ -170,7 +170,7 @@ export async function getCourseInstructorsRoster(courseId: string): Promise<{
         role,
         department_id,
         email,
-        department:departments(name, code)
+        department:departments!profiles_department_id_fkey(name, code)
       `)
       .neq('role', 'alumni');
 
@@ -288,7 +288,7 @@ export async function assignCourseInstructor(
           avatar_url,
           role,
           email,
-          department:departments(name, code)
+          department:departments!profiles_department_id_fkey(name, code)
         )
       `)
       .single();
