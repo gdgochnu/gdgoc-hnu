@@ -337,11 +337,11 @@
 - [x] S.E.3 Build **Task Assignment** at `/student-portal/admin/courses/[id]/tasks` (or inline in lesson editor):
   - Instructors create tasks: title, description, deadline, submission type (link/file upload), max score, assigned to (entire course / specific students).
   - Tasks can be lesson-specific or standalone.
-- [ ] S.E.4 Build student task submission at `/student/courses/[id]/tasks/[taskId]`:
+- [x] S.E.4 Build student task submission at `/student/courses/[id]/tasks/[taskId]` (and directly on course page):
   - Show task details, deadline countdown.
   - Submission form: paste link OR upload file (PDF/ZIP, stored in Drive).
   - On submit → `student_task_submissions` row (`status='submitted'`) → notification to mentor.
-- [ ] S.E.5 Build **Mentor Review Panel** at `/student-portal/admin/courses/[id]/submissions`:
+- [x] S.E.5 Build **Mentor Review Panel** at `/student-portal/admin/courses/[id]/submissions`:
   - List all submissions (filterable by task/student/status).
   - Review UI: view submission (link preview or file download), add comments, assign grade (numeric or pass/fail), mark as `reviewed`/`needs_revision`.
   - Student receives notification with feedback.
