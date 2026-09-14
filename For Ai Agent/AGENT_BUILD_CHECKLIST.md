@@ -292,7 +292,7 @@
   - List all courses: show course name, owning committee, instructors, status (draft/published/archived), enrollment count.
   - **Access Control:** President/Co-President see all; Committee Head/Co-Head see courses owned by their committee; assigned Instructors see only courses they're assigned to.
   - Create/Edit Course: title, description, owning `department_id`, thumbnail, enrollment mode (open/gated/waitlist), capacity, instructor assignment (multi-select from committee members — creates `course_instructors` rows with `role='instructor'` or `role='mentor'`).
-- [ ] S.B.3 Build Session Management at `/student-portal/admin/courses/[id]/sessions`:
+- [x] S.B.3 Build Session Management at `/student-portal/admin/courses/[id]/sessions`:
   - Add/Edit/Delete Sessions: session number, title, description, date, start/end time, type (`offline`=venue required / `online`=YouTube link required), venue (if offline), youtube_url (if online), materials (upload PDFs to Drive, store `drive_file_id` array).
   - Mark session as `completed`/`cancelled`.
   - Inline PDF viewer for uploaded materials (use `<iframe>` or a React PDF library like `react-pdf`).
