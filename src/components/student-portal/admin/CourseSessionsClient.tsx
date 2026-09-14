@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import {
+  GraduationCap,
   Calendar,
   Clock,
   MapPin,
@@ -469,18 +470,86 @@ export function CourseSessionsClient({
   return (
     <div style={{ padding: '2.5rem 2rem', maxWidth: '1200px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '2rem' }}>
       {/* Breadcrumb & Navigation */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', fontSize: '0.86rem', color: '#94A3B8' }}>
-        <Link
-          href="/student-portal/admin/courses"
-          style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: '#60A5FA', textDecoration: 'none', fontWeight: 600 }}
-        >
-          <ArrowLeft size={16} />
-          Courses
-        </Link>
-        <span>/</span>
-        <span style={{ color: '#E2E8F0', fontWeight: 500 }}>{course.title}</span>
-        <span>/</span>
-        <span style={{ color: '#F8FAFC', fontWeight: 700 }}>Sessions Schedule</span>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', fontSize: '0.86rem', color: '#94A3B8' }}>
+          <Link
+            href="/student-portal/admin/courses"
+            style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: '#60A5FA', textDecoration: 'none', fontWeight: 600 }}
+          >
+            <ArrowLeft size={16} />
+            Courses
+          </Link>
+          <span>/</span>
+          <span style={{ color: '#E2E8F0', fontWeight: 500 }}>{course.title}</span>
+          <span>/</span>
+          <span style={{ color: '#F8FAFC', fontWeight: 700 }}>Sessions Schedule</span>
+        </div>
+
+        {/* Course Sub-Navigation Bar */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+          <Link
+            href={`/student-portal/admin/courses/${course.id}/instructors`}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.4rem',
+              padding: '0.45rem 0.85rem',
+              borderRadius: '8px',
+              background: 'rgba(255, 255, 255, 0.05)',
+              border: '1px solid rgba(255, 255, 255, 0.1)',
+              color: '#CBD5E1',
+              fontSize: '0.8rem',
+              fontWeight: 600,
+              textDecoration: 'none',
+            }}
+          >
+            <Users size={14} style={{ color: '#60A5FA' }} />
+            <span>Instructors</span>
+          </Link>
+
+          <Link
+            href={`/student-portal/admin/courses/${course.id}/enrollments`}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.4rem',
+              padding: '0.45rem 0.85rem',
+              borderRadius: '8px',
+              background: 'rgba(52, 168, 83, 0.15)',
+              border: '1px solid rgba(52, 168, 83, 0.35)',
+              color: '#86EFAC',
+              fontSize: '0.8rem',
+              fontWeight: 700,
+              textDecoration: 'none',
+            }}
+          >
+            <GraduationCap size={15} />
+            <span>Enrollments Roster</span>
+          </Link>
+
+          <Link
+            href={`/student/courses/${course.id}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.4rem',
+              padding: '0.45rem 0.85rem',
+              borderRadius: '8px',
+              background: 'rgba(255, 255, 255, 0.03)',
+              border: '1px solid rgba(255, 255, 255, 0.08)',
+              color: '#94A3B8',
+              fontSize: '0.8rem',
+              fontWeight: 600,
+              textDecoration: 'none',
+            }}
+            title="Preview Student LMS Classroom"
+          >
+            <ExternalLink size={13} />
+            <span>Student View</span>
+          </Link>
+        </div>
       </div>
 
       {/* Course Hero & Quick Stats */}

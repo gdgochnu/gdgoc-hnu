@@ -747,6 +747,27 @@ export function AdminCoursesClient({
                       <Users size={14} />
                       <span>Instructors</span>
                     </Link>
+
+                    <Link
+                      href={`/student-portal/admin/courses/${course.id}/enrollments`}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.35rem',
+                        padding: '0.4rem 0.75rem',
+                        borderRadius: '6px',
+                        background: 'rgba(52, 168, 83, 0.15)',
+                        border: '1px solid rgba(52, 168, 83, 0.3)',
+                        color: '#86EFAC',
+                        fontSize: '0.78rem',
+                        fontWeight: 700,
+                        textDecoration: 'none',
+                      }}
+                      title="Manage Enrolled Students & Applications"
+                    >
+                      <GraduationCap size={14} />
+                      <span>Enrollments ({course.enrollment_count})</span>
+                    </Link>
                   </div>
 
                   {isOwner && (

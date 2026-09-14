@@ -276,6 +276,29 @@ export function CourseEnrollmentsClient({
             <Users size={14} style={{ color: '#34A853' }} />
             Instructors & Mentors
           </Link>
+
+          <Link
+            href={`/student/courses/${header.id}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.4rem',
+              padding: '0.45rem 0.85rem',
+              borderRadius: '8px',
+              background: 'rgba(255, 255, 255, 0.03)',
+              border: '1px solid rgba(255, 255, 255, 0.08)',
+              color: '#94A3B8',
+              fontSize: '0.8rem',
+              fontWeight: 600,
+              textDecoration: 'none',
+            }}
+            title="Preview Student LMS Classroom"
+          >
+            <ExternalLink size={13} />
+            <span>Student View</span>
+          </Link>
         </div>
       </div>
 
