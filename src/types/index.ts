@@ -655,4 +655,5 @@ export interface TeamMeetingAttendee {
 }
 
 export * from './command-center';
+export * from './student';
 

@@ -1,11 +1,22 @@
-# GDGoC HNU OS — Agent Build Checklist (v3)
+# GDGoC HNU OS — Agent Build Checklist (v4.1)
 
-> Companion to `GDGoC_HNU_OS_SPEC.md` v4 (the full spec — read it first, and re-read the relevant section before each step below). This file is the **execution plan**: small, sequential, independently-verifiable steps.
+> Companion to `GDGoC_HNU_OS_SPEC.md` v4.1 (the full spec — read it first, and re-read the relevant section before each step below). This file is the **execution plan**: small, sequential, independently-verifiable steps.
 >
-> **v3 note:** Phases 0–7 below were already completed by a previous agent session (checked off with dates). New requirements arrived in v4:
+> **v4.1 note (LATEST — Student Portal Expansion):** Phase S has been significantly expanded with:
+> - Team member bridge (dual roles via `team_profile_id`)
+> - Committee-based instructor/mentor assignment
+> - Lessons system with YouTube embeds and PDF materials
+> - Full task submission & review flow with mentor feedback
+> - Quiz builder with auto-grading and manual grading
+> - Mentorship dashboard for tracking student progress
+> - President-gated certificate issuance
+> - Multi-session workshop support
+> - Embedded PDF viewer for all materials
+>
+> **v3 note (original):** Phases 0–7 below were already completed by a previous agent session (checked off with dates). New requirements arrived in v4:
 > 1. **Phase P — ACTIVE NOW:** Profile fields update (Arabic/English 4-part names, 14-digit National ID, Faculty dropdown, WhatsApp, social links) + `faculty_options` table + President faculty management (`/settings/faculties`). This is the immediate prerequisite.
 > 2. **Phases 8–24:** Core Team OS execution (Events, Attendance, CRM, Approvals, Gamification, Drive, etc.).
-> 3. **Phase S — UPCOMING / NOT ACTIVE NOW:** Student Portal System (spec §4.S) — completely separate system for university students (accounts, courses, workshops, QR check-in by HR, instructor tasks, certificates). Scheduled after Team OS completion.
+> 3. **Phase S — UPCOMING / NOT ACTIVE NOW:** Student Portal System (spec §4.S) — comprehensive learning management system for university students AND team members (dual role supported) covering accounts, courses (with lessons/tasks/quizzes), workshops, instructor/mentor-led education, QR check-in by HR, and President-approved certificates. Scheduled after Team OS completion.
 > 4. **Phase 25:** Final QA across all systems.
 >
 > **Execution Order:** Phase P ➡️ Phases 8–24 (Team OS) ➡️ Phase S (Student Portal: S.A → S.F) ➡️ Phase 25.
@@ -253,41 +264,115 @@
 ## Phase S — Student Portal System (Upcoming Milestone — NOT ACTIVE NOW)
 > ⏸️ **Status:** Scheduled for execution AFTER Team OS Phases 8–24 are completed and verified.
 > Spec Reference: `GDGoC_HNU_OS_SPEC.md` §4.S
-> Summary: Dedicated system for university students covering accounts, courses, workshops, HR QR attendance scanning, instructor tasks, and certificates.
+> Summary: Dedicated learning management system for university students and team members covering accounts, courses (with online/offline sessions & YouTube videos), workshops, instructor-led tasks/quizzes, mentorship tracking, HR QR attendance scanning, and President-approved certificates.
+>
+> **Key Points (v4 update):**
+> - **Team members can also be students** — team profiles can register and enroll in courses/workshops just like external students.
+> - **Instructors & Mentors** — committee members designated as instructors/mentors per course; instructors create lessons/tasks/quizzes, mentors review & track student progress.
+> - **Online & Offline Sessions** — sessions can be in-person (venue) or online (YouTube video link).
+> - **Tasks & Submissions** — instructors assign tasks (per lesson or standalone), students submit links or upload files, mentors review with comments/grades.
+> - **Quizzes/Exams** — instructors create quizzes with auto-grading (multiple choice) or manual grading (open-ended); stored as structured JSON.
+> - **President-gated certificates** — students cannot claim certificates; President reviews completion data and approves issuance.
+> - **PDF Viewer** — embedded viewer for uploaded PDF materials (slides, handouts).
 
-### Sub-Phase S.A: Student Auth & Profile
+### Sub-Phase S.A: Student Auth & Profile (Team Member Bridge)
 *Read spec §4.S.1, §4.S.2, §4.S.10 before starting.*
-- [ ] S.A.1 Create `student_profiles` table (spec §4.S.10) with all fields incl. `qr_code` (unique text, generated with `gen_random_uuid()` or similar on account creation); RLS as per spec §4.S.11.
-- [ ] S.A.2 Build the Student Portal landing page at `/student` — public page with overview of courses/workshops and a "Register / Sign In" button.
-- [ ] S.A.3 Wire Google sign-in for students: first sign-in → create `student_profiles` row (`status='incomplete'`) → redirect to `/student/onboarding`.
-- [ ] S.A.4 Build the "Complete Your Student Profile" form at `/student/onboarding` using the exact fields from spec §4.S.2; on submit → `status='active'` (no approval needed) → redirect to `/student/dashboard`.
-- [ ] S.A.5 Build the student dashboard skeleton at `/student/dashboard` with placeholder sections: My Courses, My Workshops, My Tasks, Attendance Summary, Certificates, My QR Code.
-- [ ] S.A.6 Build `/student/my-qr`: displays the student's `student_profiles.qr_code` as a large scannable QR (use a client-side QR library) with a download button.
-- [ ] S.A.7 Confirm end-to-end: student registers with Google → completes profile form → lands on dashboard → can see personal QR code.
+- [x] S.A.1 Create `student_profiles` table (spec §4.S.10) with `qr_code` (unique, auto-generated), `team_profile_id` (nullable FK to `profiles` — links team members who are also students); RLS as per spec §4.S.11.
+- [ ] S.A.2 Build the Student Portal landing page at `/student` — public page showcasing featured courses/workshops, stats, and "Register / Sign In" CTA.
+- [ ] S.A.3 Wire Google sign-in for students: first sign-in → check if email matches existing `profiles` row → if yes, auto-link `team_profile_id`; create `student_profiles` row (`status='incomplete'`) → redirect to `/student/onboarding`.
+- [ ] S.A.4 Build "Complete Your Student Profile" form at `/student/onboarding` (fields from spec §4.S.2 — if already a team member, pre-fill name/email/phone from `profiles`); on submit → `status='active'` (no approval, instant activation) → redirect to `/student/dashboard`.
+- [ ] S.A.5 Build student dashboard at `/student/dashboard` with: My Courses (progress cards), My Workshops (upcoming/past), My Tasks (pending/completed), Quizzes (due/taken), Attendance Summary, Certificates, My QR Code widget.
+- [ ] S.A.6 Build `/student/my-qr`: display student's `qr_code` as downloadable QR (scannable by HR for attendance).
+- [ ] S.A.7 Confirm end-to-end: new student registers → completes profile → sees dashboard; existing team member signs in → auto-linked → profile pre-filled → dashboard shows dual role (team + student).
 
-### Sub-Phase S.B: Courses & Sessions
+### Sub-Phase S.B: Courses, Sessions & Instructors/Mentors
 *Read spec §4.S.3, §4.S.4, §4.S.10 before starting.*
-- [ ] S.B.1 Create `courses`, `course_sessions`, `course_enrollments` tables (spec §4.S.10); RLS as per spec §4.S.11.
-- [ ] S.B.2 Build team admin Course CRUD at `/student-portal/admin/courses`: list, create, edit, publish, archive; access gated to HR Head/Co-Head + assigned Instructors (own courses only) + President/Co-President.
-- [ ] S.B.3 Build Session management within `/student-portal/admin/courses/[id]`: add/edit/delete sessions with session number, title, date, time, venue/link; mark sessions as completed/cancelled.
-- [ ] S.B.4 Build student-facing course browse at `/student/courses` and course detail at `/student/courses/[id]` (shows sessions list + Enroll button).
-- [ ] S.B.5 Wire enrollment flow: open enrollment → immediately `confirmed`; gated enrollment → `pending` → instructor approves via admin page. Waitlist when at capacity.
-- [ ] S.B.6 Show enrolled courses on student dashboard with progress bar (sessions attended / total) and next session info.
-- [ ] S.B.7 Confirm end-to-end: admin creates a published course with 3 sessions → student enrolls → student sees course on dashboard.
+- [ ] S.B.1 Create `courses`, `course_sessions`, `course_enrollments`, `course_instructors` tables (spec §4.S.10); RLS as per spec §4.S.11.
+- [ ] S.B.2 Build `/student-portal/admin/courses` (Committee Instructor Management):
+  - List all courses: show course name, owning committee, instructors, status (draft/published/archived), enrollment count.
+  - **Access Control:** President/Co-President see all; Committee Head/Co-Head see courses owned by their committee; assigned Instructors see only courses they're assigned to.
+  - Create/Edit Course: title, description, owning `department_id`, thumbnail, enrollment mode (open/gated/waitlist), capacity, instructor assignment (multi-select from committee members — creates `course_instructors` rows with `role='instructor'` or `role='mentor'`).
+- [ ] S.B.3 Build Session Management at `/student-portal/admin/courses/[id]/sessions`:
+  - Add/Edit/Delete Sessions: session number, title, description, date, start/end time, type (`offline`=venue required / `online`=YouTube link required), venue (if offline), youtube_url (if online), materials (upload PDFs to Drive, store `drive_file_id` array).
+  - Mark session as `completed`/`cancelled`.
+  - Inline PDF viewer for uploaded materials (use `<iframe>` or a React PDF library like `react-pdf`).
+- [ ] S.B.4 Build `/student-portal/admin/courses/[id]/instructors`: manage instructor/mentor roster — add/remove committee members, toggle role (instructor/mentor).
+- [ ] S.B.5 Build student-facing `/student/courses` (browse published courses, filter by committee/topic) and `/student/courses/[id]` (detail page: description, instructors, sessions schedule with YouTube embeds for online sessions, syllabus, Enroll button).
+- [ ] S.B.6 Wire Enrollment:
+  - Open enrollment → `confirmed` immediately.
+  - Gated enrollment → `pending` → instructor approves at `/student-portal/admin/courses/[id]/enrollments`.
+  - Waitlist when at capacity → auto-confirm when a spot opens.
+  - Notification on enrollment confirmation.
+- [ ] S.B.7 Show enrolled courses on student dashboard: progress card (sessions attended / total), next session info, quick link to course page.
+- [ ] S.B.8 Confirm end-to-end: Committee Head assigns 2 instructors + 1 mentor to a new Web Dev course → instructor creates 5 sessions (3 offline + 2 online with YouTube links, uploads PDF slides) → publishes → student enrolls → student sees sessions list with embedded YouTube videos and downloadable PDFs.
 
-### Sub-Phase S.C: Workshops
+### Sub-Phase S.C: Workshops (Multi-Session Support)
 *Read spec §4.S.3, §4.S.4, §4.S.10 before starting.*
-- [ ] S.C.1 Create `workshops`, `workshop_registrations` tables (spec §4.S.10); RLS as per spec §4.S.11.
-- [ ] S.C.2 Build team admin Workshop CRUD at `/student-portal/admin/workshops`: list, create, edit, publish, archive; toggle `registration_open`; same role-gating as courses.
-- [ ] S.C.3 Build student-facing workshop browse at `/student/workshops` and detail at `/student/workshops/[id]` with Register button (disabled when registration is closed or capacity full).
-- [ ] S.C.4 On registration: create `workshop_registrations` row with unique `qr_code`; show QR at `/student/workshops/[id]/confirmation`; send confirmation email with QR.
-- [ ] S.C.5 Show registered workshops on student dashboard under "My Workshops" with status (upcoming / attended / missed).
-- [ ] S.C.6 Confirm end-to-end: admin creates + publishes workshop → student registers → sees QR confirmation → admin sees student in registrations list.
+- [ ] S.C.1 Create `workshops`, `workshop_sessions`, `workshop_registrations`, `workshop_instructors` tables (spec §4.S.10); RLS as per spec §4.S.11.
+- [ ] S.C.2 Build `/student-portal/admin/workshops` (same access control as courses): list, create, edit, publish, archive, toggle `registration_open`.
+- [ ] S.C.3 Build Workshop Session Management at `/student-portal/admin/workshops/[id]/sessions`: same structure as course sessions (offline/online, YouTube, PDFs).
+- [ ] S.C.4 Build student-facing `/student/workshops` (browse) and `/student/workshops/[id]` (detail: sessions, Register button — disabled when closed or full).
+- [ ] S.C.5 Wire Registration: create `workshop_registrations` row with unique `qr_code` → show confirmation at `/student/workshops/[id]/confirmation` with QR + session details → send email with QR + calendar invite.
+- [ ] S.C.6 Show registered workshops on student dashboard: upcoming/past, attendance status per session.
+- [ ] S.C.7 Confirm end-to-end: instructor creates Flutter Workshop (2 sessions, 1 online + 1 offline) → publishes → student registers → receives QR → sees workshop on dashboard with session breakdown.
 
-### Sub-Phase S.D: Student Attendance (QR Scan by HR)
+### Sub-Phase S.D: Student Attendance (HR/Instructor QR Scanning)
 *Read spec §4.S.5, §4.S.10, §4.S.11 before starting.*
-- [ ] S.D.1 Create `student_attendance` table (spec §4.S.10); RLS: INSERT restricted to authenticated team members (HR/Instructor/President) — students cannot self-insert; students read own rows only.
-- [ ] S.D.2 Build team admin QR scan screen at `/student-portal/admin/attendance/[sessionId]` — mobile-optimised camera UI using a JS QR scanner library; access gated to HR role, the session's assigned instructor, and President/Co-President.
+- [ ] S.D.1 Create `student_attendance` table (spec §4.S.10); RLS: INSERT restricted to HR/Instructor/President/Co-President roles (from `profiles` table); students read own rows only.
+- [ ] S.D.2 Build `/student-portal/admin/attendance/scan` — unified mobile QR scanner:
+  - Camera-based scanner (use `react-qr-reader` or similar).
+  - Scans `student_profiles.qr_code` → prompts: "Select event type: Course Session / Workshop Session" → shows dropdown of today's sessions → confirm → creates `student_attendance` row.
+  - Duplicate-scan prevention (show existing check-in time if already scanned).
+  - Walk-in manual search (name/email/phone) as fallback.
+- [ ] S.D.3 Build `/student-portal/admin/attendance/sessions/[sessionId]` — session-specific attendance sheet: list all enrolled students, check-in status, timestamp, checked-in-by, manual mark-present action.
+- [ ] S.D.4 Wire attendance into student dashboard: Attendance Summary card (total sessions attended vs enrolled), attendance rate %, history list.
+- [ ] S.D.5 Confirm end-to-end: HR scans student QR at a course session → attendance recorded → student sees updated attendance on dashboard; instructor views session attendance sheet with timestamps.
+
+### Sub-Phase S.E: Lessons, Tasks, Quizzes & Mentorship
+*Read spec §4.S.6, §4.S.7, §4.S.10 before starting.*
+- [ ] S.E.1 Create `course_lessons`, `student_tasks`, `student_task_submissions`, `quizzes`, `quiz_attempts` tables (spec §4.S.10); RLS as per spec §4.S.11.
+- [ ] S.E.2 Build **Lesson Management** at `/student-portal/admin/courses/[id]/lessons`:
+  - Instructors create/edit/reorder lessons: title, content (rich text or markdown), attach YouTube video, upload PDF materials, link to session (optional).
+  - Each lesson can have attached tasks + quizzes (inline creation or link existing).
+- [ ] S.E.3 Build **Task Assignment** at `/student-portal/admin/courses/[id]/tasks` (or inline in lesson editor):
+  - Instructors create tasks: title, description, deadline, submission type (link/file upload), max score, assigned to (entire course / specific students).
+  - Tasks can be lesson-specific or standalone.
+- [ ] S.E.4 Build student task submission at `/student/courses/[id]/tasks/[taskId]`:
+  - Show task details, deadline countdown.
+  - Submission form: paste link OR upload file (PDF/ZIP, stored in Drive).
+  - On submit → `student_task_submissions` row (`status='submitted'`) → notification to mentor.
+- [ ] S.E.5 Build **Mentor Review Panel** at `/student-portal/admin/courses/[id]/submissions`:
+  - List all submissions (filterable by task/student/status).
+  - Review UI: view submission (link preview or file download), add comments, assign grade (numeric or pass/fail), mark as `reviewed`/`needs_revision`.
+  - Student receives notification with feedback.
+- [ ] S.E.6 Build **Quiz Builder** at `/student-portal/admin/courses/[id]/quizzes`:
+  - Create quiz: title, time limit, passing score, question bank (add/edit/reorder questions — stored as jsonb array).
+  - Question types: multiple choice (auto-graded), short answer (manual grading), true/false.
+  - Publish/unpublish toggle.
+- [ ] S.E.7 Build student quiz-taking at `/student/courses/[id]/quizzes/[quizId]/take`:
+  - Timer countdown, question navigation, submit → `quiz_attempts` row.
+  - Auto-grade multiple choice immediately; show "Pending review" for open-ended.
+  - Instructor reviews open-ended answers at `/student-portal/admin/courses/[id]/quizzes/[quizId]/review`.
+- [ ] S.E.8 Build **Mentor Dashboard** at `/student-portal/admin/mentorship`:
+  - View all mentees (students in assigned courses): progress table (lessons completed, tasks submitted, quizzes passed, attendance rate).
+  - Drill-down per student: timeline of activity, grade breakdown, notes field.
+  - Mentor can flag at-risk students → notification to Committee Head + President.
+- [ ] S.E.9 Show tasks/quizzes on student dashboard: "Pending Tasks" widget (due soon), "Quizzes Available" widget, "Recent Feedback" feed.
+- [ ] S.E.10 Confirm end-to-end: Instructor creates Lesson 3 → adds a task ("Build a landing page, submit GitHub link") + a 10-question quiz → student submits task link → mentor reviews, leaves comment "Good structure, improve responsiveness," grades 8/10 → student takes quiz, scores 9/10 → both visible on mentor dashboard and student profile.
+
+### Sub-Phase S.F: Student Certificates (President-Gated Issuance)
+*Read spec §4.S.8, §4.S.9, §4.S.10 before starting.*
+- [ ] S.F.1 Create `student_certificates` table (spec §4.S.10); RLS: students read own rows; President/Instructors read all.
+- [ ] S.F.2 Build **Certificate Eligibility Engine**:
+  - Computed per student per course/workshop: attendance ≥ X%, tasks average ≥ Y%, quizzes average ≥ Z% (thresholds configurable per course).
+  - Eligible students appear in President's certificate queue at `/student-portal/admin/certificates/pending`.
+- [ ] S.F.3 Build **President Certificate Issuance Panel** at `/student-portal/admin/certificates`:
+  - List eligible students (grouped by course/workshop), show completion stats.
+  - Bulk select + "Issue Certificates" → generates PDFs using `certificate_templates` (reuse §4.14 generator), stores in Drive, creates `student_certificates` rows with unique `verification_code`.
+  - Send notification + email to students with download link.
+- [ ] S.F.4 Build `/student/certificates` — student's certificate gallery: issued certificates with download/share buttons.
+- [ ] S.F.5 Extend public `/verify/[code]` page to handle `student_certificates` (same QR verification as team certificates).
+- [ ] S.F.6 Confirm end-to-end: Student completes Flutter course (95% attendance, 90% task avg, 88% quiz avg) → appears in President's queue → President bulk-issues certificates to 20 students → students receive email → certificate appears in student dashboard → public verification works via QR. using a JS QR scanner library; access gated to HR role, the session's assigned instructor, and President/Co-President.
 - [ ] S.D.3 Wire QR scan: reads `student_profiles.qr_code` → looks up student → creates `student_attendance` row → shows confirmation; block duplicate scans with a clear warning message.
 - [ ] S.D.4 Build manual check-in on the same screen: search student by name, national ID, or phone → same attendance row creation.
 - [ ] S.D.5 Build post-session summary panel on the scan screen: present count, absent list (enrolled but not scanned).
