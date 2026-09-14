@@ -304,7 +304,7 @@ export function CompleteStudentProfileForm({
           {/* Full Name in Arabic */}
           <div>
             <label style={labelStyle}>
-              Full Name in Arabic (الاسم رباعي بالعربية) <span style={{ color: '#F87171' }}>*</span>
+              Full Name in Arabic <span style={{ color: '#F87171' }}>*</span>
             </label>
             <div style={{ position: 'relative' }}>
               <User size={16} color="#94A3B8" style={{ position: 'absolute', left: '0.85rem', top: '50%', transform: 'translateY(-50%)' }} />
@@ -312,7 +312,7 @@ export function CompleteStudentProfileForm({
                 type="text"
                 value={fullNameAr}
                 onChange={(e) => setFullNameAr(e.target.value)}
-                placeholder="أحمد محمد علي حسن"
+                placeholder="Official 4-part Arabic Name"
                 dir="rtl"
                 required
                 style={{ ...inputStyle, paddingRight: '2.5rem', paddingLeft: '1rem', textAlign: 'right' }}
@@ -347,7 +347,7 @@ export function CompleteStudentProfileForm({
           {/* National ID */}
           <div>
             <label style={labelStyle}>
-              National ID (الرقم القومي - 14 رقم) <span style={{ color: '#F87171' }}>*</span>
+              National ID (14 digits) <span style={{ color: '#F87171' }}>*</span>
             </label>
             <div style={{ position: 'relative' }}>
               <CreditCard size={16} color="#94A3B8" style={{ position: 'absolute', left: '0.85rem', top: '50%', transform: 'translateY(-50%)' }} />
@@ -428,7 +428,7 @@ export function CompleteStudentProfileForm({
                   Helwan National University (HNU)
                 </option>
                 <option value="other" style={{ background: '#0F172A' }}>
-                  Other University / جامعة أخرى
+                  Other University / Institution
                 </option>
               </select>
             </div>
@@ -441,7 +441,7 @@ export function CompleteStudentProfileForm({
                     type="text"
                     value={customUniversity}
                     onChange={(e) => setCustomUniversity(e.target.value)}
-                    placeholder="Enter your university name / اسم الجامعة"
+                    placeholder="Enter your university name (e.g. Cairo University)"
                     required
                     style={{ ...inputStyle, borderColor: 'rgba(66, 133, 244, 0.4)' }}
                   />
@@ -456,7 +456,7 @@ export function CompleteStudentProfileForm({
               Faculty / College <span style={{ color: '#F87171' }}>*</span>
               {universityType === 'other' && (
                 <span style={{ fontSize: '0.74rem', color: '#94A3B8', fontWeight: 500, marginLeft: '0.35rem' }}>
-                  (اكتب كليتك)
+                  (Type your college name)
                 </span>
               )}
             </label>
@@ -474,11 +474,11 @@ export function CompleteStudentProfileForm({
                   </option>
                   {faculties.map((f) => (
                     <option key={f.id} value={f.name_en} style={{ background: '#0F172A' }}>
-                      {f.name_en} ({f.name_ar})
+                      {f.name_en}
                     </option>
                   ))}
                   <option value="Other Faculty" style={{ background: '#0F172A' }}>
-                    Other Faculty / كلية أخرى
+                    Other Faculty
                   </option>
                 </select>
               ) : (
@@ -486,7 +486,7 @@ export function CompleteStudentProfileForm({
                   type="text"
                   value={faculty}
                   onChange={(e) => setFaculty(e.target.value)}
-                  placeholder="Enter your faculty / اكتب كليتك (e.g. Faculty of Engineering)"
+                  placeholder="Enter your faculty / college (e.g. Faculty of Engineering)"
                   required
                   style={{ ...inputStyle, borderColor: 'rgba(66, 133, 244, 0.4)' }}
                 />
@@ -559,7 +559,7 @@ export function CompleteStudentProfileForm({
           {/* Phone */}
           <div>
             <label style={labelStyle}>
-              Mobile Number (رقم الهاتف) <span style={{ color: '#F87171' }}>*</span>
+              Mobile Number <span style={{ color: '#F87171' }}>*</span>
             </label>
             <div style={{ position: 'relative' }}>
               <Phone size={16} color="#94A3B8" style={{ position: 'absolute', left: '0.85rem', top: '50%', transform: 'translateY(-50%)' }} />
