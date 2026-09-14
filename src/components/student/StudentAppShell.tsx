@@ -101,7 +101,7 @@ export function StudentAppShell({ student, teamRole, children }: StudentAppShell
         },
         {
           label: 'Workshops & Bootcamps',
-          href: '/student#how-it-works',
+          href: '/student/workshops',
           icon: Calendar,
         },
       ],
