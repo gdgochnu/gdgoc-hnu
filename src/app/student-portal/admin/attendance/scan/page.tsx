@@ -12,7 +12,17 @@ export const metadata: Metadata = {
   description: 'Live mobile QR scanner and manual check-in console for GDGoC HNU course and workshop sessions.',
 };
 
-export default async function AttendanceScanPage() {
+interface PageProps {
+  searchParams: Promise<{
+    type?: string;
+    sessionId?: string;
+    courseId?: string;
+    workshopId?: string;
+  }>;
+}
+
+export default async function AttendanceScanPage({ searchParams }: PageProps) {
+  const params = await searchParams;
   const result = await getAttendanceScannerData();
 
   if (!result.success || !result.canScan) {
@@ -26,6 +36,9 @@ export default async function AttendanceScanPage() {
         officerName={result.officerName}
         officerRole={result.officerRole}
         canScan={result.canScan}
+        initialType={params.type === 'workshop' ? 'workshop' : params.type === 'course' ? 'course' : undefined}
+        initialSessionId={params.sessionId}
+        initialParentId={params.courseId || params.workshopId}
       />
     </AppShell>
   );

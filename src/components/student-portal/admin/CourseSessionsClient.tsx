@@ -27,6 +27,7 @@ import {
   Layers,
   ChevronRight,
   Sparkles,
+  QrCode,
 } from 'lucide-react';
 import {
   CourseDetailHeader,
@@ -528,6 +529,27 @@ export function CourseSessionsClient({
           </Link>
 
           <Link
+            href={`/student-portal/admin/attendance/scan?type=course&courseId=${course.id}${sessions.length > 0 ? `&sessionId=${sessions[0].id}` : ''}`}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.4rem',
+              padding: '0.45rem 0.85rem',
+              borderRadius: '8px',
+              background: 'linear-gradient(135deg, rgba(66, 133, 244, 0.2) 0%, rgba(52, 168, 83, 0.2) 100%)',
+              border: '1px solid rgba(66, 133, 244, 0.4)',
+              color: '#60A5FA',
+              fontSize: '0.8rem',
+              fontWeight: 700,
+              textDecoration: 'none',
+            }}
+            title="Scan student QR codes for this course"
+          >
+            <QrCode size={14} style={{ color: '#34A853' }} />
+            <span>Scan Attendance</span>
+          </Link>
+
+          <Link
             href={`/student/courses/${course.id}`}
             target="_blank"
             rel="noopener noreferrer"
@@ -1026,6 +1048,26 @@ export function CourseSessionsClient({
 
                     {canManage && (
                       <>
+                        <Link
+                          href={`/student-portal/admin/attendance/scan?type=course&sessionId=${session.id}&courseId=${course.id}`}
+                          title="Scan attendance for this session"
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '0.35rem',
+                            background: 'rgba(52, 168, 83, 0.15)',
+                            border: '1px solid rgba(52, 168, 83, 0.35)',
+                            borderRadius: '6px',
+                            color: '#86EFAC',
+                            padding: '0.35rem 0.65rem',
+                            fontSize: '0.78rem',
+                            fontWeight: 700,
+                            textDecoration: 'none',
+                          }}
+                        >
+                          <QrCode size={13} />
+                          <span>Scan</span>
+                        </Link>
                         <button
                           onClick={() => openEditModal(session)}
                           title="Edit Session"

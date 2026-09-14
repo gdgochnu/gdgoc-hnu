@@ -24,6 +24,7 @@ import {
   Mail,
   Phone,
   ArrowRight,
+  ArrowLeft,
   GraduationCap,
   Calendar,
   AlertTriangle,
@@ -46,6 +47,9 @@ interface AttendanceScannerClientProps {
   officerName: string;
   officerRole: string;
   canScan: boolean;
+  initialType?: 'course' | 'workshop';
+  initialSessionId?: string;
+  initialParentId?: string;
 }
 
 export function AttendanceScannerClient({
@@ -53,13 +57,30 @@ export function AttendanceScannerClient({
   officerName,
   officerRole,
   canScan,
+  initialType,
+  initialSessionId,
+  initialParentId,
 }: AttendanceScannerClientProps) {
+  // If initialSessionId is provided, find what type it is
+  const matchingSession = initialSessionId ? sessions.find((s) => s.id === initialSessionId) : null;
+  const parentMatchingSession = initialParentId ? sessions.find((s) => s.parent_id === initialParentId) : null;
+
+  const resolvedInitialType: 'course' | 'workshop' =
+    matchingSession?.target_type ||
+    parentMatchingSession?.target_type ||
+    initialType ||
+    'course';
+
   // Target Type & Session Selection
-  const [targetType, setTargetType] = useState<'course' | 'workshop'>('course');
+  const [targetType, setTargetType] = useState<'course' | 'workshop'>(resolvedInitialType);
   const availableSessions = sessions.filter((s) => s.target_type === targetType);
-  const [selectedSessionId, setSelectedSessionId] = useState<string>(
-    availableSessions.length > 0 ? availableSessions[0].id : ''
-  );
+
+  const resolvedInitialSessionId: string =
+    matchingSession?.id ||
+    (initialType && parentMatchingSession ? parentMatchingSession.id : '') ||
+    (availableSessions.length > 0 ? availableSessions[0].id : '');
+
+  const [selectedSessionId, setSelectedSessionId] = useState<string>(resolvedInitialSessionId);
 
   // When targetType switches, ensure a valid selected session
   useEffect(() => {
@@ -369,6 +390,32 @@ export function AttendanceScannerClient({
             </Link>
             <span>/</span>
             <span style={{ color: '#F8FAFC', fontWeight: 700 }}>Mobile Attendance Scanner</span>
+            {activeSession && (
+              <Link
+                href={
+                  activeSession.target_type === 'course'
+                    ? `/student-portal/admin/courses/${activeSession.parent_id}/sessions`
+                    : `/student-portal/admin/workshops/${activeSession.parent_id}/sessions`
+                }
+                style={{
+                  marginLeft: '0.5rem',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.35rem',
+                  color: '#60A5FA',
+                  fontSize: '0.8rem',
+                  fontWeight: 700,
+                  textDecoration: 'none',
+                  padding: '0.2rem 0.6rem',
+                  borderRadius: '6px',
+                  background: 'rgba(66, 133, 244, 0.12)',
+                  border: '1px solid rgba(66, 133, 244, 0.25)',
+                }}
+              >
+                <ArrowLeft size={13} />
+                <span>Return to {activeSession.parent_title}</span>
+              </Link>
+            )}
           </div>
           <h1 style={{ fontSize: '1.85rem', fontWeight: 900, color: '#FFFFFF', margin: '0.3rem 0 0 0', letterSpacing: '-0.5px' }}>
             Unified QR Attendance Scanner

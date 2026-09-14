@@ -828,6 +828,27 @@ export function AdminWorkshopsClient({
                       <QrCode size={13} />
                       <span>Registrations ({w.registrations_count})</span>
                     </Link>
+
+                    <Link
+                      href={`/student-portal/admin/attendance/scan?type=workshop&workshopId=${w.id}`}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.35rem',
+                        padding: '0.4rem 0.75rem',
+                        borderRadius: '6px',
+                        background: 'linear-gradient(135deg, rgba(66, 133, 244, 0.15) 0%, rgba(52, 168, 83, 0.15) 100%)',
+                        border: '1px solid rgba(66, 133, 244, 0.35)',
+                        color: '#60A5FA',
+                        fontSize: '0.78rem',
+                        fontWeight: 700,
+                        textDecoration: 'none',
+                      }}
+                      title="Scan Attendee QR Codes for Attendance"
+                    >
+                      <QrCode size={13} style={{ color: '#34A853' }} />
+                      <span>Scan</span>
+                    </Link>
                   </div>
 
                   {isOwner && (
