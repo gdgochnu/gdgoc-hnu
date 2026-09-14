@@ -171,7 +171,7 @@ export default async function StudentCourseDetailPage({ params }: PageProps) {
       </header>
 
       {/* Main Content Area */}
-      <main style={{ maxWidth: '1280px', margin: '0 auto', padding: '2rem 1.5rem' }}>
+      <main style={{ minHeight: 'calc(100vh - 64px)' }}>
         <StudentCourseDetailClient initialData={courseRes.data} />
       </main>
     </div>

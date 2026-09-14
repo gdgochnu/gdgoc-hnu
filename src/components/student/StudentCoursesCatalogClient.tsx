@@ -86,7 +86,17 @@ export function StudentCoursesCatalogClient({
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem', paddingBottom: '3rem' }}>
+    <div
+      style={{
+        padding: '2.5rem 2rem',
+        maxWidth: '1240px',
+        margin: '0 auto',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '2rem',
+        paddingBottom: '4rem',
+      }}
+    >
       {/* Onboarding Notice for incomplete profiles */}
       {isAuthenticated && needsOnboarding && (
         <div
