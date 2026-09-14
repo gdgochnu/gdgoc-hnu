@@ -435,3 +435,122 @@ export async function promoteWaitlistStudent(courseId: string, enrollmentId: str
     return { success: false, error: err.message || 'Failed to promote waitlisted student.' };
   }
 }
+
+/**
+ * 5. Delete an enrollment record completely (e.g. from Rejected list) so student can apply again
+ */
+export async function removeCourseEnrollment(courseId: string, enrollmentId: string): Promise<{
+  success: boolean;
+  error?: string;
+}> {
+  try {
+    const access = await verifyEnrollmentAccess(courseId);
+    if (!access.authorized || !access.course) {
+      return { success: false, error: access.error };
+    }
+
+    const { admin, course } = access;
+
+    // Check if enrollment exists and was confirmed
+    const { data: target } = await admin
+      .from('course_enrollments')
+      .select('status')
+      .eq('id', enrollmentId)
+      .eq('course_id', courseId)
+      .maybeSingle();
+
+    if (!target) {
+      return { success: false, error: 'Enrollment not found.' };
+    }
+
+    const wasConfirmed = target.status === 'confirmed';
+
+    const { error: delErr } = await admin
+      .from('course_enrollments')
+      .delete()
+      .eq('id', enrollmentId)
+      .eq('course_id', courseId);
+
+    if (delErr) {
+      console.error('removeCourseEnrollment error:', delErr);
+      return { success: false, error: delErr.message };
+    }
+
+    // If deleting a confirmed student, auto-advance next waitlisted student
+    if (wasConfirmed) {
+      await autoAdvanceWaitlist(admin, courseId, course.capacity);
+    }
+
+    revalidatePath(`/student-portal/admin/courses/${courseId}/enrollments`);
+    revalidatePath(`/student/courses/${courseId}`);
+    revalidatePath(`/student/courses`);
+    revalidatePath(`/student/dashboard`);
+
+    return { success: true };
+  } catch (err: any) {
+    console.error('removeCourseEnrollment exception:', err);
+    return { success: false, error: err.message || 'Failed to remove enrollment.' };
+  }
+}
+
+/**
+ * 6. Reset an enrollment status back to 'pending' (e.g. from Rejected or Waitlisted) for re-review
+ */
+export async function resetEnrollmentToPending(courseId: string, enrollmentId: string): Promise<{
+  success: boolean;
+  error?: string;
+}> {
+  try {
+    const access = await verifyEnrollmentAccess(courseId);
+    if (!access.authorized || !access.course) {
+      return { success: false, error: access.error };
+    }
+
+    const { admin, course } = access;
+
+    const { data: target } = await admin
+      .from('course_enrollments')
+      .select('status')
+      .eq('id', enrollmentId)
+      .eq('course_id', courseId)
+      .maybeSingle();
+
+    if (!target) {
+      return { success: false, error: 'Enrollment not found.' };
+    }
+
+    const wasConfirmed = target.status === 'confirmed';
+
+    const { error: updateErr } = await admin
+      .from('course_enrollments')
+      .update({
+        status: 'pending',
+        confirmed_at: null,
+        confirmed_by: null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', enrollmentId)
+      .eq('course_id', courseId);
+
+    if (updateErr) {
+      console.error('resetEnrollmentToPending error:', updateErr);
+      return { success: false, error: updateErr.message };
+    }
+
+    // If was confirmed, advance waitlist
+    if (wasConfirmed) {
+      await autoAdvanceWaitlist(admin, courseId, course.capacity);
+    }
+
+    revalidatePath(`/student-portal/admin/courses/${courseId}/enrollments`);
+    revalidatePath(`/student/courses/${courseId}`);
+    revalidatePath(`/student/courses`);
+    revalidatePath(`/student/dashboard`);
+
+    return { success: true };
+  } catch (err: any) {
+    console.error('resetEnrollmentToPending exception:', err);
+    return { success: false, error: err.message || 'Failed to reset enrollment.' };
+  }
+}
+

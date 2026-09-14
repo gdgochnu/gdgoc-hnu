@@ -530,6 +530,28 @@ export function StudentCourseDetailClient({ initialData }: StudentCourseDetailCl
                 )}
               </button>
             </div>
+          ) : myEnrollment?.status === 'rejected' ? (
+            /* Rejected Application Notice */
+            <div
+              className="glass-panel"
+              style={{
+                padding: '1.5rem',
+                borderRadius: '16px',
+                border: '1px solid rgba(234, 67, 53, 0.3)',
+                background: 'linear-gradient(135deg, rgba(234, 67, 53, 0.12) 0%, rgba(15, 23, 42, 0.9) 100%)',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '0.75rem',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#F87171', fontWeight: 700, fontSize: '0.92rem' }}>
+                <AlertCircle size={18} />
+                Application Not Accepted
+              </div>
+              <p style={{ margin: 0, fontSize: '0.84rem', color: '#CBD5E1', lineHeight: 1.5 }}>
+                Your previous application for this track was not accepted. If the course instructors remove your rejected record or reconsider your submission, you will be able to apply again.
+              </p>
+            </div>
           ) : null}
 
           {/* Modular Sessions Navigator List */}

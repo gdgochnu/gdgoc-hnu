@@ -25,6 +25,8 @@ import {
   ShieldCheck,
   ArrowUpRight,
   Filter,
+  RotateCcw,
+  Trash2,
 } from 'lucide-react';
 import {
   CourseEnrollmentsHeader,
@@ -32,6 +34,8 @@ import {
   approveCourseEnrollment,
   rejectCourseEnrollment,
   promoteWaitlistStudent,
+  removeCourseEnrollment,
+  resetEnrollmentToPending,
 } from '@/app/student-portal/admin/courses/[id]/enrollments/actions';
 import { EnrollmentStatus } from '@/types/student';
 
@@ -193,6 +197,70 @@ export function CourseEnrollmentsClient({
       setFeedback({
         type: 'success',
         text: `Promoted ${item.student.full_name_en} from waitlist to confirmed!`,
+      });
+    } catch (err: any) {
+      setFeedback({ type: 'error', text: err.message || 'An error occurred.' });
+    } finally {
+      setProcessingId(null);
+    }
+  };
+
+  const handleRemove = async (item: EnrollmentStudentItem) => {
+    if (
+      !confirm(
+        `Remove ${item.student.full_name_en} from the course roster? This will delete their record and allow the student to submit a fresh application.`
+      )
+    ) {
+      return;
+    }
+
+    try {
+      setProcessingId(item.id);
+      setFeedback(null);
+
+      const res = await removeCourseEnrollment(header.id, item.id);
+      if (!res.success) {
+        setFeedback({ type: 'error', text: res.error || 'Failed to remove enrollment.' });
+        return;
+      }
+
+      setEnrollments((prev) => prev.filter((e) => e.id !== item.id));
+      if (selectedStudent?.id === item.id) {
+        setSelectedStudent(null);
+      }
+
+      setFeedback({
+        type: 'success',
+        text: `Removed ${item.student.full_name_en} from the rejected list. The student can now apply again!`,
+      });
+    } catch (err: any) {
+      setFeedback({ type: 'error', text: err.message || 'An error occurred.' });
+    } finally {
+      setProcessingId(null);
+    }
+  };
+
+  const handleResetToPending = async (item: EnrollmentStudentItem) => {
+    try {
+      setProcessingId(item.id);
+      setFeedback(null);
+
+      const res = await resetEnrollmentToPending(header.id, item.id);
+      if (!res.success) {
+        setFeedback({ type: 'error', text: res.error || 'Failed to reset enrollment status.' });
+        return;
+      }
+
+      setEnrollments((prev) =>
+        prev.map((e) => (e.id === item.id ? { ...e, status: 'pending', confirmed_at: null } : e))
+      );
+      if (selectedStudent?.id === item.id) {
+        setSelectedStudent((prev) => (prev ? { ...prev, status: 'pending', confirmed_at: null } : null));
+      }
+
+      setFeedback({
+        type: 'success',
+        text: `Application for ${item.student.full_name_en} moved back to Pending review.`,
       });
     } catch (err: any) {
       setFeedback({ type: 'error', text: err.message || 'An error occurred.' });
@@ -876,6 +944,57 @@ export function CourseEnrollmentsClient({
                       Withdraw Spot
                     </button>
                   )}
+
+                  {/* Rejected / Withdrawn Student Actions */}
+                  {canManage && (item.status === 'rejected' || item.status === 'withdrawn') && (
+                    <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+                      <button
+                        type="button"
+                        disabled={isProcessing}
+                        onClick={() => handleResetToPending(item)}
+                        style={{
+                          padding: '0.45rem 0.75rem',
+                          borderRadius: '8px',
+                          background: 'rgba(251, 188, 4, 0.12)',
+                          border: '1px solid rgba(251, 188, 4, 0.3)',
+                          color: '#FBBF24',
+                          fontSize: '0.76rem',
+                          fontWeight: 600,
+                          cursor: isProcessing ? 'not-allowed' : 'pointer',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '0.35rem',
+                        }}
+                        title="Move back to Pending review"
+                      >
+                        <RotateCcw size={13} />
+                        Reconsider
+                      </button>
+
+                      <button
+                        type="button"
+                        disabled={isProcessing}
+                        onClick={() => handleRemove(item)}
+                        style={{
+                          padding: '0.45rem 0.75rem',
+                          borderRadius: '8px',
+                          background: 'rgba(234, 67, 53, 0.15)',
+                          border: '1px solid rgba(234, 67, 53, 0.35)',
+                          color: '#F87171',
+                          fontSize: '0.76rem',
+                          fontWeight: 700,
+                          cursor: isProcessing ? 'not-allowed' : 'pointer',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '0.35rem',
+                        }}
+                        title="Delete enrollment record so student can apply again"
+                      >
+                        <Trash2 size={13} />
+                        Remove & Allow Re-apply
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
             );
@@ -1062,6 +1181,139 @@ export function CourseEnrollmentsClient({
                   </a>
                 )}
               </div>
+
+              {/* Modal Management Actions */}
+              {canManage && (
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'flex-end',
+                    gap: '0.65rem',
+                    paddingTop: '0.75rem',
+                    borderTop: '1px solid rgba(255, 255, 255, 0.08)',
+                    flexWrap: 'wrap',
+                  }}
+                >
+                  {selectedStudent.status === 'pending' && (
+                    <>
+                      <button
+                        type="button"
+                        disabled={processingId === selectedStudent.id}
+                        onClick={() => handleApprove(selectedStudent)}
+                        style={{
+                          padding: '0.55rem 1.1rem',
+                          borderRadius: '8px',
+                          background: '#34A853',
+                          border: 'none',
+                          color: '#FFFFFF',
+                          fontSize: '0.82rem',
+                          fontWeight: 700,
+                          cursor: 'pointer',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '0.4rem',
+                        }}
+                      >
+                        <Check size={14} />
+                        Approve Application
+                      </button>
+                      <button
+                        type="button"
+                        disabled={processingId === selectedStudent.id}
+                        onClick={() => handleReject(selectedStudent)}
+                        style={{
+                          padding: '0.55rem 1.1rem',
+                          borderRadius: '8px',
+                          background: 'rgba(234, 67, 53, 0.15)',
+                          border: '1px solid rgba(234, 67, 53, 0.35)',
+                          color: '#F87171',
+                          fontSize: '0.82rem',
+                          fontWeight: 700,
+                          cursor: 'pointer',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '0.4rem',
+                        }}
+                      >
+                        <X size={14} />
+                        Reject Application
+                      </button>
+                    </>
+                  )}
+
+                  {(selectedStudent.status === 'rejected' || selectedStudent.status === 'withdrawn') && (
+                    <>
+                      <button
+                        type="button"
+                        disabled={processingId === selectedStudent.id}
+                        onClick={() => handleResetToPending(selectedStudent)}
+                        style={{
+                          padding: '0.55rem 1.1rem',
+                          borderRadius: '8px',
+                          background: 'rgba(251, 188, 4, 0.15)',
+                          border: '1px solid rgba(251, 188, 4, 0.35)',
+                          color: '#FBBF24',
+                          fontSize: '0.82rem',
+                          fontWeight: 700,
+                          cursor: 'pointer',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '0.4rem',
+                        }}
+                      >
+                        <RotateCcw size={14} />
+                        Move to Pending Review
+                      </button>
+                      <button
+                        type="button"
+                        disabled={processingId === selectedStudent.id}
+                        onClick={() => handleRemove(selectedStudent)}
+                        style={{
+                          padding: '0.55rem 1.1rem',
+                          borderRadius: '8px',
+                          background: 'rgba(234, 67, 53, 0.18)',
+                          border: '1px solid rgba(234, 67, 53, 0.4)',
+                          color: '#F87171',
+                          fontSize: '0.82rem',
+                          fontWeight: 700,
+                          cursor: 'pointer',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '0.4rem',
+                        }}
+                      >
+                        <Trash2 size={14} />
+                        Remove from Rejected & Allow Re-apply
+                      </button>
+                    </>
+                  )}
+
+                  {selectedStudent.status === 'confirmed' && (
+                    <button
+                      type="button"
+                      disabled={processingId === selectedStudent.id}
+                      onClick={() => handleReject(selectedStudent)}
+                      style={{
+                        padding: '0.55rem 1.1rem',
+                        borderRadius: '8px',
+                        background: 'rgba(234, 67, 53, 0.12)',
+                        border: '1px solid rgba(234, 67, 53, 0.3)',
+                        color: '#EA4335',
+                        fontSize: '0.82rem',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '0.4rem',
+                      }}
+                    >
+                      <UserX size={14} />
+                      Withdraw Spot
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         </div>
