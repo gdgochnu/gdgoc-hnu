@@ -122,3 +122,92 @@ export interface StudentDashboardData {
   }>;
 }
 
+// ==============================================================================
+// Course & Session Types (Spec §4.S.3, §4.S.4, §4.S.10)
+// ==============================================================================
+
+export type CourseStatus = 'draft' | 'published' | 'archived';
+export type EnrollmentType = 'open' | 'gated';
+export type CourseInstructorRole = 'instructor' | 'mentor';
+export type SessionType = 'offline' | 'online';
+export type SessionStatus = 'scheduled' | 'completed' | 'cancelled';
+export type EnrollmentStatus = 'pending' | 'confirmed' | 'rejected' | 'withdrawn' | 'waitlisted';
+
+export interface Course {
+  id: string;
+  title: string;
+  description: string | null;
+  cover_image_url: string | null;
+  category: string | null;
+  department_id: string | null;
+  capacity: number | null;
+  enrollment_type: EnrollmentType;
+  syllabus: string | null;
+  status: CourseStatus;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+  department?: {
+    id: string;
+    name: string;
+    code: string;
+    branch: string;
+  } | null;
+  instructors?: CourseInstructor[];
+  sessions_count?: number;
+  enrollments_count?: number;
+}
+
+export interface CourseInstructor {
+  id: string;
+  course_id: string;
+  profile_id: string;
+  role: CourseInstructorRole;
+  assigned_at: string;
+  assigned_by: string | null;
+  profile?: {
+    id: string;
+    full_name: string;
+    avatar_url: string | null;
+    role: string;
+    department?: {
+      name: string;
+      code: string;
+    } | null;
+  } | null;
+}
+
+export interface CourseSession {
+  id: string;
+  course_id: string;
+  session_number: number;
+  title: string;
+  description: string | null;
+  session_date: string;
+  start_time: string;
+  end_time: string;
+  type: SessionType;
+  venue: string | null;
+  youtube_url: string | null;
+  materials: string[];
+  qr_secret: string | null;
+  status: SessionStatus;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CourseEnrollment {
+  id: string;
+  course_id: string;
+  student_id: string;
+  status: EnrollmentStatus;
+  enrolled_at: string;
+  confirmed_at: string | null;
+  confirmed_by: string | null;
+  created_at: string;
+  updated_at: string;
+  course?: Course;
+  student?: StudentProfile;
+}
+
+
