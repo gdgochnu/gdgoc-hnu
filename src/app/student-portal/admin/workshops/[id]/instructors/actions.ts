@@ -156,7 +156,7 @@ export async function getWorkshopInstructorsRoster(workshopId: string): Promise<
           avatar_url,
           role,
           email,
-          department:departments(id, name, code)
+          department:departments!profiles_department_id_fkey(id, name, code)
         )
       `)
       .eq('workshop_id', workshopId)
@@ -194,7 +194,7 @@ export async function getWorkshopInstructorsRoster(workshopId: string): Promise<
         role,
         department_id,
         email,
-        department:departments(id, name, code)
+        department:departments!profiles_department_id_fkey(id, name, code)
       `)
       .order('full_name', { ascending: true });
 
