@@ -288,7 +288,7 @@
 ### Sub-Phase S.B: Courses, Sessions & Instructors/Mentors
 *Read spec §4.S.3, §4.S.4, §4.S.10 before starting.*
 - [x] S.B.1 Create `courses`, `course_sessions`, `course_enrollments`, `course_instructors` tables (spec §4.S.10); RLS as per spec §4.S.11.
-- [ ] S.B.2 Build `/student-portal/admin/courses` (Committee Instructor Management):
+- [x] S.B.2 Build `/student-portal/admin/courses` (Committee Instructor Management):
   - List all courses: show course name, owning committee, instructors, status (draft/published/archived), enrollment count.
   - **Access Control:** President/Co-President see all; Committee Head/Co-Head see courses owned by their committee; assigned Instructors see only courses they're assigned to.
   - Create/Edit Course: title, description, owning `department_id`, thumbnail, enrollment mode (open/gated/waitlist), capacity, instructor assignment (multi-select from committee members — creates `course_instructors` rows with `role='instructor'` or `role='mentor'`).

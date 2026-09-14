@@ -245,6 +245,15 @@ export function AppNavigation({
       });
     }
 
+    // Student Portal Course Management (Leadership + Committee Heads)
+    if (isLeadership) {
+      workspaceItems.push({
+        label: 'Course Management',
+        href: '/student-portal/admin/courses',
+        icon: BookOpen,
+      });
+    }
+
     if (workspaceItems.length > 0) {
       groups.push({
         groupTitle: 'Specialized Workspaces',
