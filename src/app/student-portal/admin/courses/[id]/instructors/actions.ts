@@ -172,7 +172,7 @@ export async function getCourseInstructorsRoster(courseId: string): Promise<{
         email,
         department:departments!profiles_department_id_fkey(name, code)
       `)
-      .neq('role', 'alumni');
+      .eq('status', 'active');
 
     if (!isPresident && course.department_id) {
       candidateQuery = candidateQuery.eq('department_id', course.department_id);
