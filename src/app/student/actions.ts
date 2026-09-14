@@ -406,7 +406,90 @@ export async function getStudentDashboardData(): Promise<{
       certificates = [];
     }
 
-    // 4. Query enrolled courses for this student
+    // 4. Query real attendance records for this student with session details
+    let attendance: StudentDashboardData['attendance'] = [];
+    const attendedCourseSessionIds = new Set<string>();
+    const attendedWorkshopSessionIds = new Set<string>();
+
+    try {
+      const { data: attData, error: attErr } = await admin
+        .from('student_attendance')
+        .select(`
+          id,
+          session_id,
+          workshop_session_id,
+          check_in_time,
+          method,
+          notes,
+          checked_in_by,
+          officer:profiles!student_attendance_checked_in_by_fkey(full_name),
+          course_session:course_sessions!student_attendance_session_id_fkey(
+            id,
+            session_number,
+            title,
+            session_date,
+            start_time,
+            type,
+            venue,
+            course:courses!course_sessions_course_id_fkey(title)
+          ),
+          workshop_session:workshop_sessions!student_attendance_workshop_session_id_fkey(
+            id,
+            session_number,
+            title,
+            session_date,
+            start_time,
+            type,
+            venue,
+            workshop:workshops!workshop_sessions_workshop_id_fkey(title)
+          )
+        `)
+        .eq('student_id', student.id)
+        .order('check_in_time', { ascending: false });
+
+      if (attErr) {
+        console.error('getStudentDashboardData attendance error:', attErr);
+      }
+
+      if (attData) {
+        attendance = attData.map((a: any) => {
+          const isCourse = !!a.session_id;
+          const officer = Array.isArray(a.officer) ? a.officer[0] : a.officer;
+          const cs = Array.isArray(a.course_session) ? a.course_session[0] : a.course_session;
+          const ws = Array.isArray(a.workshop_session) ? a.workshop_session[0] : a.workshop_session;
+          const c = cs?.course ? (Array.isArray(cs.course) ? cs.course[0] : cs.course) : null;
+          const w = ws?.workshop ? (Array.isArray(ws.workshop) ? ws.workshop[0] : ws.workshop) : null;
+
+          if (a.session_id) attendedCourseSessionIds.add(a.session_id);
+          if (a.workshop_session_id) attendedWorkshopSessionIds.add(a.workshop_session_id);
+
+          const eventTitle = isCourse ? (c?.title || 'Course Track') : (w?.title || 'Workshop');
+          const sessionTitle = isCourse
+            ? (cs?.title ? `Session ${cs.session_number}: ${cs.title}` : `Session ${cs?.session_number || ''}`)
+            : (ws?.title ? `Session ${ws.session_number}: ${ws.title}` : `Session ${ws?.session_number || ''}`);
+          const sessionNumber = isCourse ? cs?.session_number : ws?.session_number;
+          const date = isCourse ? (cs?.session_date || a.check_in_time) : (ws?.session_date || a.check_in_time);
+          const venue = isCourse ? cs?.venue : ws?.venue;
+
+          return {
+            id: a.id,
+            event_title: eventTitle,
+            type: isCourse ? ('course' as const) : ('workshop' as const),
+            session_title: sessionTitle,
+            session_number: sessionNumber,
+            date: date,
+            scanned_at: a.check_in_time,
+            method: a.method,
+            checked_in_by_name: officer?.full_name || 'GDGoC Officer',
+            venue: venue,
+          };
+        });
+      }
+    } catch (attEx) {
+      console.error('getStudentDashboardData attendance exception:', attEx);
+    }
+
+    // 5. Query enrolled courses for this student
     let courses: StudentDashboardData['courses'] = [];
     try {
       const { data: enrollmentRows } = await admin
@@ -435,13 +518,15 @@ export async function getStudentDashboardData(): Promise<{
             .filter((s: any) => s.status === 'scheduled')
             .sort((a: any, b: any) => new Date(a.session_date).getTime() - new Date(b.session_date).getTime())[0];
 
+          const courseAttendedCount = sList.filter((s: any) => attendedCourseSessionIds.has(s.id)).length;
+
           return {
             id: c?.id || e.id,
             title: c?.title || 'Enrolled Course',
             description: c?.description || '',
             committee_name: dept?.name,
             sessions_total: sList.length,
-            sessions_attended: 0,
+            sessions_attended: courseAttendedCount,
             next_session: nextSession
               ? {
                   title: nextSession.title,
@@ -463,7 +548,7 @@ export async function getStudentDashboardData(): Promise<{
       courses = [];
     }
 
-    // 5. Query registered workshops for this student
+    // 6. Query registered workshops for this student
     let workshops: StudentDashboardData['workshops'] = [];
     try {
       const { data: wsRows } = await admin
@@ -496,19 +581,6 @@ export async function getStudentDashboardData(): Promise<{
         .eq('status', 'registered');
 
       if (wsRows && wsRows.length > 0) {
-        let attendedWorkshopSessionIds = new Set<string>();
-        try {
-          const { data: attWs } = await admin
-            .from('student_attendance')
-            .select('session_id')
-            .eq('student_id', student.id);
-          if (attWs) {
-            attendedWorkshopSessionIds = new Set(attWs.map((a: any) => a.session_id));
-          }
-        } catch {
-          // ignore
-        }
-
         const today = new Date().toISOString().split('T')[0];
 
         workshops = wsRows.map((row: any) => {
@@ -574,30 +646,11 @@ export async function getStudentDashboardData(): Promise<{
 
     let tasks: StudentDashboardData['tasks'] = [];
     let quizzes: StudentDashboardData['quizzes'] = [];
-    let attendance: StudentDashboardData['attendance'] = [];
 
-    // Safely check if student_attendance table exists
-    try {
-      const { data: attData } = await admin
-        .from('student_attendance')
-        .select('*')
-        .eq('student_id', student.id)
-        .order('scanned_at', { ascending: false })
-        .limit(20);
-
-      if (attData) {
-        attendance = attData.map((a: any) => ({
-          id: a.id,
-          event_title: a.event_title || 'Session',
-          type: a.type || 'course',
-          session_title: a.session_title || 'Session',
-          date: a.date || a.scanned_at,
-          scanned_at: a.scanned_at,
-        }));
-      }
-    } catch {
-      // Table not yet migrated
-    }
+    // Calculate aggregate attendance rates
+    let totalSessionsExpected = 0;
+    courses.forEach((c) => (totalSessionsExpected += c.sessions_total));
+    workshops.forEach((w) => (totalSessionsExpected += w.sessions_count));
 
     const totalSessionsAttended = attendance.length;
     const enrolledCoursesCount = courses.length;
@@ -608,8 +661,14 @@ export async function getStudentDashboardData(): Promise<{
     const stats = {
       enrolledCoursesCount,
       workshopsCount,
-      attendanceRate: totalSessionsAttended > 0 ? 100 : 0,
+      attendanceRate:
+        totalSessionsExpected > 0
+          ? Math.round((totalSessionsAttended / totalSessionsExpected) * 100)
+          : totalSessionsAttended > 0
+          ? 100
+          : 0,
       totalSessionsAttended,
+      totalSessionsExpected,
       pendingTasksCount,
       certificatesCount,
     };

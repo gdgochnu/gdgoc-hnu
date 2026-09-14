@@ -325,7 +325,7 @@
   - Duplicate-scan prevention (show existing check-in time if already scanned).
   - Walk-in manual search (name/email/phone) as fallback.
 - [x] S.D.3 Build `/student-portal/admin/attendance/sessions/[sessionId]` — session-specific attendance sheet: list all enrolled students, check-in status, timestamp, checked-in-by, manual mark-present action.
-- [ ] S.D.4 Wire attendance into student dashboard: Attendance Summary card (total sessions attended vs enrolled), attendance rate %, history list.
+- [x] S.D.4 Wire attendance into student dashboard: Attendance Summary card (total sessions attended vs enrolled), attendance rate %, history list.
 - [ ] S.D.5 Confirm end-to-end: HR scans student QR at a course session → attendance recorded → student sees updated attendance on dashboard; instructor views session attendance sheet with timestamps.
 
 ### Sub-Phase S.E: Lessons, Tasks, Quizzes & Mentorship

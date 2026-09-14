@@ -312,45 +312,68 @@ export function StudentDashboardClient({ initialData }: StudentDashboardClientPr
         </div>
 
         {/* Card 3: Attendance Summary */}
-        <Link href="/student/my-qr" style={{ textDecoration: 'none' }}>
-          <div
-            className="glass-panel"
-            style={{
-              padding: '1.5rem',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '0.75rem',
-              height: '100%',
-              transition: 'all 0.2s',
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary, #94A3B8)', fontWeight: 600 }}>
-                Attendance Sessions
-              </span>
-              <div
-                style={{
-                  width: '38px',
-                  height: '38px',
-                  borderRadius: '10px',
-                  background: 'rgba(251, 188, 4, 0.15)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}
-              >
-                <UserCheck size={20} color="var(--google-yellow, #FBBC04)" />
-              </div>
-            </div>
-            <div style={{ fontSize: '2rem', fontWeight: 800, color: '#FDE047' }}>
-              {stats.totalSessionsAttended}
-            </div>
-            <div style={{ fontSize: '0.8rem', color: 'var(--text-muted, #64748B)', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-              <span>Scanned via permanent QR</span>
-              <ChevronRight size={13} />
+        <div
+          onClick={() => setActiveTab('attendance')}
+          className="glass-panel"
+          style={{
+            padding: '1.5rem',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '0.75rem',
+            height: '100%',
+            cursor: 'pointer',
+            transition: 'all 0.2s',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary, #94A3B8)', fontWeight: 600 }}>
+              Attendance Rate
+            </span>
+            <div
+              style={{
+                width: '38px',
+                height: '38px',
+                borderRadius: '10px',
+                background: 'rgba(251, 188, 4, 0.15)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <UserCheck size={20} color="var(--google-yellow, #FBBC04)" />
             </div>
           </div>
-        </Link>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.5rem' }}>
+            <div style={{ fontSize: '2rem', fontWeight: 800, color: '#FDE047' }}>
+              {stats.attendanceRate}%
+            </div>
+            <span style={{ fontSize: '0.82rem', color: '#94A3B8', fontWeight: 600 }}>
+              ({stats.totalSessionsAttended} / {stats.totalSessionsExpected || stats.totalSessionsAttended} Attended)
+            </span>
+          </div>
+          <div
+            style={{
+              height: '5px',
+              background: 'rgba(255, 255, 255, 0.08)',
+              borderRadius: '999px',
+              overflow: 'hidden',
+              marginTop: '-0.2rem',
+            }}
+          >
+            <div
+              style={{
+                height: '100%',
+                width: `${stats.attendanceRate}%`,
+                background: 'linear-gradient(90deg, #FBBC04 0%, #34A853 100%)',
+                borderRadius: '999px',
+              }}
+            />
+          </div>
+          <div style={{ fontSize: '0.8rem', color: 'var(--text-muted, #64748B)', display: 'flex', alignItems: 'center', gap: '0.35rem', marginTop: '0.1rem' }}>
+            <span>View Attendance History</span>
+            <ChevronRight size={13} />
+          </div>
+        </div>
 
         {/* Card 4: Deliverables & Tasks */}
         <div
@@ -1384,7 +1407,63 @@ export function StudentDashboardClient({ initialData }: StudentDashboardClientPr
 
           {/* TAB 5: ATTENDANCE HISTORY */}
           {activeTab === 'attendance' && (
-            <div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+              {/* Tab Header Summary Strip */}
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+                  gap: '1rem',
+                  padding: '1.25rem',
+                  borderRadius: '12px',
+                  background: 'rgba(255, 255, 255, 0.02)',
+                  border: '1px solid rgba(255, 255, 255, 0.06)',
+                }}
+              >
+                <div>
+                  <div style={{ fontSize: '0.74rem', color: '#94A3B8', fontWeight: 700, textTransform: 'uppercase' }}>
+                    Total Sessions Attended
+                  </div>
+                  <div style={{ fontSize: '1.6rem', fontWeight: 900, color: '#86EFAC', marginTop: '0.2rem' }}>
+                    {stats.totalSessionsAttended}
+                    <span style={{ fontSize: '0.85rem', color: '#94A3B8', fontWeight: 600, marginLeft: '0.35rem' }}>
+                      / {stats.totalSessionsExpected || stats.totalSessionsAttended} Expected
+                    </span>
+                  </div>
+                </div>
+
+                <div>
+                  <div style={{ fontSize: '0.74rem', color: '#94A3B8', fontWeight: 700, textTransform: 'uppercase' }}>
+                    Attendance Rate
+                  </div>
+                  <div style={{ fontSize: '1.6rem', fontWeight: 900, color: '#FDE047', marginTop: '0.2rem' }}>
+                    {stats.attendanceRate}%
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-start' }}>
+                  <Link
+                    href="/student/my-qr"
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '0.45rem',
+                      padding: '0.6rem 1.1rem',
+                      borderRadius: '8px',
+                      background: 'rgba(66, 133, 244, 0.15)',
+                      border: '1px solid rgba(66, 133, 244, 0.35)',
+                      color: '#93C5FD',
+                      fontSize: '0.84rem',
+                      fontWeight: 700,
+                      textDecoration: 'none',
+                    }}
+                  >
+                    <QrCode size={16} />
+                    <span>Open Attendance Pass</span>
+                  </Link>
+                </div>
+              </div>
+
               {attendance.length === 0 ? (
                 <div style={{ textAlign: 'center', padding: '3rem 1.5rem', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem' }}>
                   <div
@@ -1427,22 +1506,97 @@ export function StudentDashboardClient({ initialData }: StudentDashboardClientPr
                   </Link>
                 </div>
               ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
                   {attendance.map((att) => (
                     <div
                       key={att.id}
                       className="glass-panel"
-                      style={{ padding: '0.85rem 1.25rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
+                      style={{
+                        padding: '1rem 1.35rem',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        gap: '1rem',
+                        flexWrap: 'wrap',
+                      }}
                     >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                        <CheckCircle2 size={18} color="#34D399" />
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                        <div
+                          style={{
+                            width: '40px',
+                            height: '40px',
+                            borderRadius: '10px',
+                            background: 'rgba(52, 168, 83, 0.15)',
+                            border: '1px solid rgba(52, 168, 83, 0.3)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            color: '#34A853',
+                            flexShrink: 0,
+                          }}
+                        >
+                          <CheckCircle2 size={20} />
+                        </div>
                         <div>
-                          <div style={{ fontSize: '0.92rem', fontWeight: 700, color: '#FFFFFF' }}>{att.event_title}</div>
-                          <div style={{ fontSize: '0.76rem', color: 'var(--text-muted, #64748B)' }}>{att.session_title}</div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                            <span
+                              style={{
+                                fontSize: '0.7rem',
+                                fontWeight: 700,
+                                padding: '0.15rem 0.45rem',
+                                borderRadius: '4px',
+                                background: att.type === 'course' ? 'rgba(66, 133, 244, 0.15)' : 'rgba(234, 67, 53, 0.15)',
+                                color: att.type === 'course' ? '#93C5FD' : '#FCA5A5',
+                                textTransform: 'uppercase',
+                                letterSpacing: '0.04em',
+                              }}
+                            >
+                              {att.type === 'course' ? 'Course Track' : 'Workshop'}
+                            </span>
+                            <span style={{ fontSize: '0.94rem', fontWeight: 800, color: '#FFFFFF' }}>
+                              {att.event_title}
+                            </span>
+                          </div>
+                          <div style={{ fontSize: '0.82rem', color: '#CBD5E1', marginTop: '0.2rem', fontWeight: 600 }}>
+                            {att.session_title}
+                            {att.venue ? ` • ${att.venue}` : ''}
+                          </div>
                         </div>
                       </div>
-                      <div style={{ textAlign: 'right', fontSize: '0.8rem', color: 'var(--text-secondary, #94A3B8)' }}>
-                        {att.date}
+
+                      <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.25rem' }}>
+                        <div style={{ fontSize: '0.82rem', fontWeight: 700, color: '#FFFFFF' }}>
+                          {new Date(att.scanned_at || att.date).toLocaleDateString('en-US', {
+                            weekday: 'short',
+                            month: 'short',
+                            day: 'numeric',
+                          })}{' '}
+                          at{' '}
+                          {new Date(att.scanned_at || att.date).toLocaleTimeString([], {
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })}
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                          <span
+                            style={{
+                              fontSize: '0.68rem',
+                              fontWeight: 700,
+                              padding: '0.1rem 0.35rem',
+                              borderRadius: '3px',
+                              background: att.method === 'qr' ? 'rgba(66, 133, 244, 0.15)' : 'rgba(255, 255, 255, 0.06)',
+                              color: att.method === 'qr' ? '#60A5FA' : '#CBD5E1',
+                              textTransform: 'uppercase',
+                            }}
+                          >
+                            {att.method === 'qr' ? 'QR Code Pass' : 'Manual Entry'}
+                          </span>
+                          {att.checked_in_by_name && (
+                            <span style={{ fontSize: '0.74rem', color: 'var(--text-muted, #64748B)' }}>
+                              by {att.checked_in_by_name}
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </div>
                   ))}

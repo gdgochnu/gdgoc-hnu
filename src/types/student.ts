@@ -59,6 +59,7 @@ export interface StudentDashboardData {
     workshopsCount: number;
     attendanceRate: number;
     totalSessionsAttended: number;
+    totalSessionsExpected?: number;
     pendingTasksCount: number;
     certificatesCount: number;
   };
@@ -140,8 +141,12 @@ export interface StudentDashboardData {
     event_title: string;
     type: 'course' | 'workshop';
     session_title: string;
+    session_number?: number;
     date: string;
     scanned_at: string;
+    method?: 'qr' | 'manual';
+    checked_in_by_name?: string;
+    venue?: string | null;
   }>;
   certificates: Array<{
     id: string;
