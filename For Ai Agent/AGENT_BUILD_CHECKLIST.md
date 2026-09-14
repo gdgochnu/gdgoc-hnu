@@ -298,13 +298,13 @@
   - Inline PDF viewer for uploaded materials (use `<iframe>` or a React PDF library like `react-pdf`).
 - [x] S.B.4 Build `/student-portal/admin/courses/[id]/instructors`: manage instructor/mentor roster — add/remove committee members, toggle role (instructor/mentor).
 - [x] S.B.5 Build student-facing `/student/courses` (browse published courses, filter by committee/topic) and `/student/courses/[id]` (detail page: description, instructors, sessions schedule with YouTube embeds for online sessions, syllabus, Enroll button).
-- [ ] S.B.6 Wire Enrollment:
+- [x] S.B.6 Wire Enrollment:
   - Open enrollment → `confirmed` immediately.
   - Gated enrollment → `pending` → instructor approves at `/student-portal/admin/courses/[id]/enrollments`.
   - Waitlist when at capacity → auto-confirm when a spot opens.
   - Notification on enrollment confirmation.
-- [ ] S.B.7 Show enrolled courses on student dashboard: progress card (sessions attended / total), next session info, quick link to course page.
-- [ ] S.B.8 Confirm end-to-end: Committee Head assigns 2 instructors + 1 mentor to a new Web Dev course → instructor creates 5 sessions (3 offline + 2 online with YouTube links, uploads PDF slides) → publishes → student enrolls → student sees sessions list with embedded YouTube videos and downloadable PDFs.
+- [x] S.B.7 Show enrolled courses on student dashboard: progress card (sessions attended / total), next session info, quick link to course page.
+- [x] S.B.8 Confirm end-to-end: Committee Head assigns 2 instructors + 1 mentor to a new Web Dev course → instructor creates 5 sessions (3 offline + 2 online with YouTube links, uploads PDF slides) → publishes → student enrolls → student sees sessions list with embedded YouTube videos and downloadable PDFs.
 
 ### Sub-Phase S.C: Workshops (Multi-Session Support)
 *Read spec §4.S.3, §4.S.4, §4.S.10 before starting.*

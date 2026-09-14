@@ -420,7 +420,7 @@ export async function getStudentDashboardData(): Promise<{
             title,
             description,
             department:departments(name),
-            sessions:course_sessions(id, title, session_date, start_time, type, venue, youtube_url, status)
+            sessions:course_sessions(id, title, session_date, start_time, end_time, type, venue, youtube_url, duration_minutes, deadline, status)
           )
         `)
         .eq('student_id', student.id)
@@ -446,9 +446,13 @@ export async function getStudentDashboardData(): Promise<{
               ? {
                   title: nextSession.title,
                   date: nextSession.session_date,
+                  start_time: nextSession.start_time,
+                  end_time: nextSession.end_time,
                   type: nextSession.type,
                   venue: nextSession.venue,
                   youtube_url: nextSession.youtube_url,
+                  duration_minutes: nextSession.duration_minutes,
+                  deadline: nextSession.deadline,
                 }
               : null,
           };

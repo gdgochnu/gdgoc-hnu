@@ -72,9 +72,13 @@ export interface StudentDashboardData {
     next_session?: {
       title: string;
       date: string;
+      start_time?: string;
+      end_time?: string;
       type: 'online' | 'offline';
       venue?: string;
       youtube_url?: string;
+      duration_minutes?: number | null;
+      deadline?: string | null;
     } | null;
   }>;
   workshops: Array<{

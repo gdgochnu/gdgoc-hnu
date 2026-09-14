@@ -625,12 +625,12 @@ export function StudentDashboardClient({ initialData }: StudentDashboardClientPr
           {activeTab === 'courses' && (
             <div>
               {courses.length === 0 ? (
-                <div style={{ textAlign: 'center', padding: '3rem 1.5rem', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem' }}>
+                <div style={{ textAlign: 'center', padding: '3.5rem 2rem', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1.25rem' }}>
                   <div
                     style={{
-                      width: '56px',
-                      height: '56px',
-                      borderRadius: '14px',
+                      width: '64px',
+                      height: '64px',
+                      borderRadius: '16px',
                       background: 'rgba(66, 133, 244, 0.12)',
                       display: 'flex',
                       alignItems: 'center',
@@ -638,75 +638,243 @@ export function StudentDashboardClient({ initialData }: StudentDashboardClientPr
                       color: '#60A5FA',
                     }}
                   >
-                    <BookOpen size={26} />
+                    <BookOpen size={30} />
                   </div>
                   <div>
-                    <h3 style={{ fontSize: '1.15rem', fontWeight: 800, color: '#FFFFFF', margin: '0 0 0.35rem 0' }}>
+                    <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#FFFFFF', margin: '0 0 0.4rem 0' }}>
                       No Course Enrollments Yet
                     </h3>
-                    <p style={{ fontSize: '0.86rem', color: 'var(--text-secondary, #94A3B8)', margin: 0, maxWidth: '420px', lineHeight: 1.5 }}>
-                      Browse track offerings by chapter committees (Web, Mobile, AI, Cloud, Cybersecurity) to register for upcoming courses.
+                    <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary, #94A3B8)', margin: 0, maxWidth: '460px', lineHeight: 1.5 }}>
+                      Browse open courses offered by chapter technical tracks (Web, Mobile, AI, Cloud, Cybersecurity) to kickstart your learning journey.
                     </p>
                   </div>
                   <Link
-                    href="/student#tracks"
+                    href="/student/courses"
                     className="btn-primary"
                     style={{
                       display: 'inline-flex',
                       alignItems: 'center',
                       gap: '0.5rem',
-                      padding: '0.65rem 1.25rem',
-                      fontSize: '0.86rem',
+                      padding: '0.75rem 1.4rem',
+                      fontSize: '0.9rem',
                       marginTop: '0.5rem',
                       textDecoration: 'none',
                     }}
                   >
-                    <span>Browse Curriculum Tracks</span>
-                    <ArrowRight size={15} />
+                    <span>Explore All Courses</span>
+                    <ArrowRight size={16} />
                   </Link>
                 </div>
               ) : (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '1.25rem' }}>
-                  {courses.map((course) => (
-                    <div
-                      key={course.id}
-                      className="glass-panel"
-                      style={{ padding: '1.25rem', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: '1rem' }}
-                    >
-                      <div>
-                        <div style={{ fontSize: '0.74rem', color: '#60A5FA', fontWeight: 700, textTransform: 'uppercase' }}>
-                          {course.committee_name || 'Technical Track'}
-                        </div>
-                        <h4 style={{ fontSize: '1.05rem', fontWeight: 800, color: '#FFFFFF', margin: '0.25rem 0 0.5rem 0' }}>
-                          {course.title}
-                        </h4>
-                        {course.description && (
-                          <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary, #94A3B8)', margin: 0, lineHeight: 1.4 }}>
-                            {course.description}
-                          </p>
-                        )}
-                      </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(360px, 1fr))', gap: '1.5rem' }}>
+                  {courses.map((course) => {
+                    const attendancePercent = course.sessions_total > 0
+                      ? Math.round((course.sessions_attended / course.sessions_total) * 100)
+                      : 0;
 
-                      <div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.76rem', color: 'var(--text-muted, #64748B)', marginBottom: '0.35rem' }}>
-                          <span>Attendance Progress</span>
-                          <span style={{ fontWeight: 700, color: '#FFFFFF' }}>
-                            {course.sessions_attended} / {course.sessions_total} sessions
-                          </span>
+                    return (
+                      <div
+                        key={course.id}
+                        className="glass-panel"
+                        style={{
+                          padding: '1.5rem',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          justifyContent: 'space-between',
+                          gap: '1.25rem',
+                          border: '1px solid rgba(255, 255, 255, 0.09)',
+                          borderRadius: '16px',
+                          position: 'relative',
+                          overflow: 'hidden',
+                          transition: 'transform 0.2s ease, border-color 0.2s ease',
+                        }}
+                      >
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.9rem' }}>
+                          {/* Header: Committee badge + Enrolled status */}
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem', flexWrap: 'wrap' }}>
+                            <span
+                              style={{
+                                fontSize: '0.74rem',
+                                fontWeight: 700,
+                                color: '#60A5FA',
+                                background: 'rgba(66, 133, 244, 0.12)',
+                                padding: '0.2rem 0.65rem',
+                                borderRadius: '6px',
+                                textTransform: 'uppercase',
+                                letterSpacing: '0.04em',
+                              }}
+                            >
+                              {course.committee_name || 'Technical Track'}
+                            </span>
+                            <span
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '0.35rem',
+                                fontSize: '0.74rem',
+                                fontWeight: 700,
+                                color: '#34D399',
+                                background: 'rgba(16, 185, 129, 0.12)',
+                                padding: '0.2rem 0.6rem',
+                                borderRadius: '999px',
+                                border: '1px solid rgba(16, 185, 129, 0.25)',
+                              }}
+                            >
+                              <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#10B981' }} />
+                              Enrolled
+                            </span>
+                          </div>
+
+                          {/* Course Title & Description */}
+                          <div>
+                            <h4 style={{ fontSize: '1.18rem', fontWeight: 800, color: '#FFFFFF', margin: '0 0 0.4rem 0', lineHeight: 1.3 }}>
+                              {course.title}
+                            </h4>
+                            {course.description && (
+                              <p
+                                style={{
+                                  fontSize: '0.84rem',
+                                  color: 'var(--text-secondary, #94A3B8)',
+                                  margin: 0,
+                                  lineHeight: 1.45,
+                                  display: '-webkit-box',
+                                  WebkitLineClamp: 2,
+                                  WebkitBoxOrient: 'vertical',
+                                  overflow: 'hidden',
+                                }}
+                              >
+                                {course.description}
+                              </p>
+                            )}
+                          </div>
+
+                          {/* Progress Bar: Attendance */}
+                          <div style={{ background: 'rgba(255, 255, 255, 0.02)', padding: '0.75rem', borderRadius: '10px', border: '1px solid rgba(255, 255, 255, 0.05)' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.78rem', color: 'var(--text-muted, #94A3B8)', marginBottom: '0.45rem' }}>
+                              <span style={{ fontWeight: 600 }}>Attendance Record</span>
+                              <span style={{ fontWeight: 700, color: '#FFFFFF' }}>
+                                {course.sessions_attended} of {course.sessions_total} sessions ({attendancePercent}%)
+                              </span>
+                            </div>
+                            <div style={{ height: '7px', width: '100%', background: 'rgba(255, 255, 255, 0.08)', borderRadius: '999px', overflow: 'hidden' }}>
+                              <div
+                                style={{
+                                  height: '100%',
+                                  width: `${attendancePercent}%`,
+                                  background: 'linear-gradient(90deg, #4285F4, #34A853)',
+                                  borderRadius: '999px',
+                                  transition: 'width 0.4s ease',
+                                }}
+                              />
+                            </div>
+                          </div>
+
+                          {/* Next Upcoming Session Info Card */}
+                          {course.next_session ? (
+                            <div
+                              style={{
+                                background: 'rgba(66, 133, 244, 0.04)',
+                                border: '1px solid rgba(66, 133, 244, 0.15)',
+                                borderRadius: '10px',
+                                padding: '0.85rem',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                gap: '0.45rem',
+                              }}
+                            >
+                              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                <span style={{ fontSize: '0.72rem', fontWeight: 700, color: '#93C5FD', textTransform: 'uppercase', letterSpacing: '0.04em', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                                  <Clock size={12} />
+                                  Next Session
+                                </span>
+                                <span
+                                  style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '0.25rem',
+                                    fontSize: '0.72rem',
+                                    fontWeight: 700,
+                                    padding: '0.15rem 0.5rem',
+                                    borderRadius: '6px',
+                                    background: course.next_session.type === 'online' ? 'rgba(66, 133, 244, 0.15)' : 'rgba(52, 168, 83, 0.15)',
+                                    color: course.next_session.type === 'online' ? '#93C5FD' : '#86EFAC',
+                                  }}
+                                >
+                                  {course.next_session.type === 'online' ? <Video size={11} /> : <MapPin size={11} />}
+                                  {course.next_session.type === 'online' ? 'Online Session' : 'In-Person Venue'}
+                                </span>
+                              </div>
+
+                              <div style={{ fontSize: '0.88rem', fontWeight: 700, color: '#FFFFFF', marginTop: '0.15rem' }}>
+                                {course.next_session.title}
+                              </div>
+
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem', fontSize: '0.78rem', color: 'var(--text-secondary, #94A3B8)', flexWrap: 'wrap' }}>
+                                <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                                  <Calendar size={13} color="#60A5FA" />
+                                  {new Date(course.next_session.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                                </span>
+                                {course.next_session.start_time && (
+                                  <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                                    <Clock size={13} color="#FBBF24" />
+                                    {course.next_session.start_time.slice(0, 5)}
+                                    {course.next_session.duration_minutes ? ` (${course.next_session.duration_minutes} mins)` : ''}
+                                  </span>
+                                )}
+                                {course.next_session.venue && (
+                                  <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                                    <MapPin size={13} color="#34D399" />
+                                    {course.next_session.venue}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          ) : (
+                            <div
+                              style={{
+                                background: 'rgba(255, 255, 255, 0.02)',
+                                border: '1px solid rgba(255, 255, 255, 0.05)',
+                                borderRadius: '10px',
+                                padding: '0.75rem 0.85rem',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '0.5rem',
+                                fontSize: '0.78rem',
+                                color: 'var(--text-muted, #64748B)',
+                              }}
+                            >
+                              <CheckCircle2 size={14} color="#34D399" />
+                              <span>All scheduled sessions completed or upcoming date TBA</span>
+                            </div>
+                          )}
                         </div>
-                        <div style={{ height: '6px', width: '100%', background: 'rgba(255, 255, 255, 0.08)', borderRadius: '999px', overflow: 'hidden' }}>
-                          <div
+
+                        {/* Action Footer: Link to Course LMS */}
+                        <div style={{ paddingTop: '0.5rem', borderTop: '1px solid rgba(255, 255, 255, 0.06)' }}>
+                          <Link
+                            href={`/student/courses/${course.id}`}
+                            className="btn-primary"
                             style={{
-                              height: '100%',
-                              width: `${course.sessions_total > 0 ? (course.sessions_attended / course.sessions_total) * 100 : 0}%`,
-                              background: '#3B82F6',
-                              borderRadius: '999px',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              gap: '0.5rem',
+                              width: '100%',
+                              padding: '0.7rem 1rem',
+                              fontSize: '0.86rem',
+                              fontWeight: 700,
+                              textDecoration: 'none',
+                              borderRadius: '8px',
                             }}
-                          />
+                          >
+                            <BookOpen size={16} />
+                            <span>Open Course LMS</span>
+                            <ChevronRight size={16} />
+                          </Link>
                         </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>
