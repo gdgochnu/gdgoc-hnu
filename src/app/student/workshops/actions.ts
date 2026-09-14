@@ -3,6 +3,7 @@
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getUserContext } from '@/lib/auth/get-user-context';
 import { revalidatePath } from 'next/cache';
+import { sendWorkshopRegistrationEmail } from '@/lib/email/service';
 import {
   Workshop,
   WorkshopSession,
@@ -644,13 +645,37 @@ export async function registerForWorkshop(workshopId: string): Promise<{
         .select('id, qr_code, status')
         .single();
 
-      if (upErr) {
+      if (upErr || !updatedReg) {
         console.error('reactivate workshop registration error:', upErr);
         return { success: false, error: 'Failed to complete registration.' };
       }
 
+      const finalQrCode = updatedReg.qr_code;
+      // Dispatch confirmation email in background
+      (async () => {
+        try {
+          const { data: sessData } = await admin
+            .from('workshop_sessions')
+            .select('session_number, title, session_date, start_time, end_time, type, venue')
+            .eq('workshop_id', workshopId)
+            .order('session_number', { ascending: true });
+
+          await sendWorkshopRegistrationEmail({
+            to: stu.email,
+            recipientName: stu.full_name_en,
+            workshopTitle: ws.title,
+            workshopId,
+            qrCode: finalQrCode,
+            sessions: sessData || [],
+          });
+        } catch (mailErr) {
+          console.warn('sendWorkshopRegistrationEmail background error:', mailErr);
+        }
+      })();
+
       revalidatePath('/student/workshops');
       revalidatePath(`/student/workshops/${workshopId}`);
+      revalidatePath(`/student/workshops/${workshopId}/confirmation`);
       revalidatePath('/student/dashboard');
 
       return {
@@ -680,8 +705,31 @@ export async function registerForWorkshop(workshopId: string): Promise<{
       return { success: false, error: insErr.message || 'Failed to complete registration.' };
     }
 
+    // Dispatch confirmation email in background
+    (async () => {
+      try {
+        const { data: sessData } = await admin
+          .from('workshop_sessions')
+          .select('session_number, title, session_date, start_time, end_time, type, venue')
+          .eq('workshop_id', workshopId)
+          .order('session_number', { ascending: true });
+
+        await sendWorkshopRegistrationEmail({
+          to: stu.email,
+          recipientName: stu.full_name_en,
+          workshopTitle: ws.title,
+          workshopId,
+          qrCode,
+          sessions: sessData || [],
+        });
+      } catch (mailErr) {
+        console.warn('sendWorkshopRegistrationEmail background error:', mailErr);
+      }
+    })();
+
     revalidatePath('/student/workshops');
     revalidatePath(`/student/workshops/${workshopId}`);
+    revalidatePath(`/student/workshops/${workshopId}/confirmation`);
     revalidatePath('/student/dashboard');
 
     return {
@@ -695,5 +743,123 @@ export async function registerForWorkshop(workshopId: string): Promise<{
   } catch (err: any) {
     console.error('registerForWorkshop exception:', err);
     return { success: false, error: err.message || 'Registration failed.' };
+  }
+}
+
+/**
+ * 4. Fetch Registration Confirmation details for /student/workshops/[id]/confirmation
+ */
+export async function getWorkshopRegistrationConfirmation(workshopId: string): Promise<{
+  success: boolean;
+  workshop?: Workshop & { department_name?: string; department_code?: string };
+  registration?: {
+    id: string;
+    qr_code: string;
+    status: 'registered' | 'waitlisted' | 'cancelled';
+    registered_at: string;
+  };
+  student?: {
+    id: string;
+    full_name_en: string;
+    full_name_ar?: string | null;
+    email: string;
+    university?: string | null;
+    faculty?: string | null;
+    national_id?: string | null;
+    qr_code?: string;
+  };
+  sessions: WorkshopSessionDetail[];
+  error?: string;
+}> {
+  try {
+    const admin = createAdminClient();
+    const context = await getUserContext();
+
+    if (!context.user) {
+      return { success: false, sessions: [], error: 'Authentication required.' };
+    }
+
+    // 1. Student profile
+    const { data: stu, error: stuErr } = await admin
+      .from('student_profiles')
+      .select('id, full_name_en, full_name_ar, email, university, faculty, national_id, qr_code')
+      .eq('id', context.user.id)
+      .maybeSingle();
+
+    if (stuErr || !stu) {
+      return { success: false, sessions: [], error: 'Student profile not found.' };
+    }
+
+    // 2. Registration record
+    const { data: reg, error: regErr } = await admin
+      .from('workshop_registrations')
+      .select('id, qr_code, status, registered_at')
+      .eq('workshop_id', workshopId)
+      .eq('student_id', stu.id)
+      .maybeSingle();
+
+    if (regErr || !reg) {
+      return {
+        success: false,
+        sessions: [],
+        error: 'No active workshop registration found for your account.',
+      };
+    }
+
+    // 3. Workshop details
+    const { data: wsData, error: wsErr } = await admin
+      .from('workshops')
+      .select(`
+        *,
+        department:departments(id, name, code)
+      `)
+      .eq('id', workshopId)
+      .single();
+
+    if (wsErr || !wsData) {
+      return { success: false, sessions: [], error: 'Workshop not found.' };
+    }
+
+    const dept = Array.isArray(wsData.department) ? wsData.department[0] : wsData.department;
+
+    // 4. Workshop sessions
+    const { data: sessionsData, error: sessErr } = await admin
+      .from('workshop_sessions')
+      .select('*')
+      .eq('workshop_id', workshopId)
+      .order('session_number', { ascending: true });
+
+    if (sessErr) {
+      console.warn('getWorkshopRegistrationConfirmation sessions error:', sessErr);
+    }
+
+    return {
+      success: true,
+      workshop: {
+        ...wsData,
+        department_name: dept?.name,
+        department_code: dept?.code,
+      },
+      registration: {
+        id: reg.id,
+        qr_code: reg.qr_code,
+        status: reg.status,
+        registered_at: reg.registered_at,
+      },
+      student: {
+        id: stu.id,
+        full_name_en: stu.full_name_en,
+        full_name_ar: stu.full_name_ar,
+        email: stu.email,
+        university: stu.university,
+        faculty: stu.faculty,
+        national_id: stu.national_id,
+        qr_code: stu.qr_code,
+      },
+      sessions: (sessionsData as WorkshopSessionDetail[]) || [],
+    };
+  } catch (err: any) {
+    console.error('getWorkshopRegistrationConfirmation exception:', err);
+    return { success: false, sessions: [], error: err.message || 'Failed to load confirmation.' };
   }
 }

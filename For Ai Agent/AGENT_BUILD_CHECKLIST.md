@@ -312,7 +312,7 @@
 - [x] S.C.2 Build `/student-portal/admin/workshops` (same access control as courses): list, create, edit, publish, archive, toggle `registration_open`.
 - [x] S.C.3 Build Workshop Session Management at `/student-portal/admin/workshops/[id]/sessions`: same structure as course sessions (offline/online, YouTube, PDFs).
 - [x] S.C.4 Build student-facing `/student/workshops` (browse) and `/student/workshops/[id]` (detail: sessions, Register button — disabled when closed or full).
-- [ ] S.C.5 Wire Registration: create `workshop_registrations` row with unique `qr_code` → show confirmation at `/student/workshops/[id]/confirmation` with QR + session details → send email with QR + calendar invite.
+- [x] S.C.5 Wire Registration: create `workshop_registrations` row with unique `qr_code` → show confirmation at `/student/workshops/[id]/confirmation` with QR + session details → send email with QR + calendar invite.
 - [ ] S.C.6 Show registered workshops on student dashboard: upcoming/past, attendance status per session.
 - [ ] S.C.7 Confirm end-to-end: instructor creates Flutter Workshop (2 sessions, 1 online + 1 offline) → publishes → student registers → receives QR → sees workshop on dashboard with session breakdown.
 

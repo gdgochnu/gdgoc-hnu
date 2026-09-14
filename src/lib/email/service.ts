@@ -940,3 +940,149 @@ export async function sendAlumniTransitionEmail(params: {
   });
 }
 
+/**
+ * 23. Send Workshop Registration Confirmation Email with QR Pass & Calendar Invite
+ */
+export async function sendWorkshopRegistrationEmail(params: {
+  to: string;
+  recipientName: string;
+  workshopTitle: string;
+  workshopId: string;
+  qrCode: string;
+  sessions: Array<{
+    session_number: number;
+    title: string;
+    session_date: string;
+    start_time: string;
+    end_time: string;
+    type: string;
+    venue?: string | null;
+  }>;
+}): Promise<EmailResult> {
+  const appUrl = getAppBaseUrl();
+  const confirmationUrl = `${appUrl}/student/workshops/${params.workshopId}/confirmation`;
+  const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=${encodeURIComponent(
+    params.qrCode
+  )}`;
+
+  // Generate Google Calendar Link for next/first session
+  let gcalLink = '';
+  if (params.sessions.length > 0) {
+    const firstSession = params.sessions[0];
+    const dateClean = firstSession.session_date.replace(/-/g, '');
+    const startTimeClean = (firstSession.start_time || '10:00:00').replace(/:/g, '').slice(0, 6);
+    const endTimeClean = (firstSession.end_time || '12:00:00').replace(/:/g, '').slice(0, 6);
+    const startStr = `${dateClean}T${startTimeClean}`;
+    const endStr = `${dateClean}T${endTimeClean}`;
+
+    const locationText =
+      firstSession.type === 'offline'
+        ? firstSession.venue || 'Helwan University Campus Lab'
+        : 'Online Stream (Check workshop portal for link)';
+
+    const detailsText = `GDGoC HNU Workshop: ${params.workshopTitle}\nSession: ${firstSession.title}\nPass Code: ${params.qrCode}\nPortal link: ${confirmationUrl}`;
+
+    gcalLink = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(
+      `GDGoC Workshop: ${params.workshopTitle}`
+    )}&dates=${startStr}/${endStr}&details=${encodeURIComponent(detailsText)}&location=${encodeURIComponent(
+      locationText
+    )}`;
+  }
+
+  const sessionsHtml =
+    params.sessions.length > 0
+      ? params.sessions
+          .map(
+            (s) => `
+        <div style="background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 10px; padding: 12px 16px; margin-bottom: 8px;">
+          <div style="font-weight: 700; color: #FFFFFF; font-size: 14px;">
+            Session ${s.session_number}: ${s.title}
+          </div>
+          <div style="color: #9CA3AF; font-size: 12px; margin-top: 4px;">
+            📅 ${s.session_date} &bull; ⏰ ${s.start_time} - ${s.end_time} &bull; ${
+              s.type === 'offline' ? `📍 ${s.venue || 'Campus Venue'}` : '🌐 Online Live Stream'
+            }
+          </div>
+        </div>
+      `
+          )
+          .join('')
+      : '<p style="color: #9CA3AF; font-size: 13px;">Dates and session details will be published in the workshop schedule.</p>';
+
+  const content = `
+    <div style="margin-bottom: 24px;">
+      <span style="display: inline-block; padding: 4px 12px; border-radius: 999px; background-color: rgba(52, 168, 83, 0.15); color: #34A853; font-size: 12px; font-weight: 700; text-transform: uppercase;">
+        Registration Confirmed 🎉
+      </span>
+      <h1 style="font-size: 22px; font-weight: 800; color: #FFFFFF; margin: 12px 0 8px 0;">
+        You're In: ${params.workshopTitle}!
+      </h1>
+      <p style="margin: 0; color: #9CA3AF; font-size: 15px;">
+        Hello <strong>${params.recipientName}</strong>, your seat for the bootcamp has been secured.
+      </p>
+    </div>
+
+    <!-- Official QR Pass Box -->
+    <table width="100%" border="0" cellspacing="0" cellpadding="0" style="margin-bottom: 24px; background: rgba(15, 23, 42, 0.9); border: 1px solid rgba(52, 168, 83, 0.3); border-radius: 14px; padding: 20px; text-align: center;">
+      <tr>
+        <td align="center">
+          <div style="display: inline-block; padding: 12px; background-color: #FFFFFF; border-radius: 12px; margin-bottom: 12px;">
+            <img src="${qrImageUrl}" alt="Workshop Pass QR Code" width="180" height="180" style="display: block; border: 0;" />
+          </div>
+          <div style="font-size: 11px; font-weight: 700; color: #9CA3AF; text-transform: uppercase; letter-spacing: 0.05em;">
+            Official Workshop Pass Code
+          </div>
+          <div style="font-size: 16px; font-weight: 800; color: #34A853; letter-spacing: 0.08em; margin-top: 4px;">
+            ${params.qrCode}
+          </div>
+          <div style="font-size: 12px; color: #6B7280; margin-top: 6px;">
+            Show this QR code or your permanent Student Pass for attendance scanning upon entry.
+          </div>
+        </td>
+      </tr>
+    </table>
+
+    <!-- Scheduled Sessions -->
+    <div style="margin-bottom: 24px;">
+      <h3 style="font-size: 15px; font-weight: 700; color: #FFFFFF; margin: 0 0 12px 0;">
+        Scheduled Sessions Breakdown:
+      </h3>
+      ${sessionsHtml}
+    </div>
+
+    <!-- Action Buttons -->
+    <table border="0" cellspacing="0" cellpadding="0" style="margin-bottom: 16px;">
+      <tr>
+        <td align="center" style="border-radius: 8px; background-color: #4285F4; margin-right: 8px;">
+          <a href="${confirmationUrl}" target="_blank" style="font-size: 14px; font-weight: 700; color: #FFFFFF; text-decoration: none; padding: 12px 24px; display: inline-block; border-radius: 8px;">
+            View Pass & Workshop Schedule &rarr;
+          </a>
+        </td>
+        ${
+          gcalLink
+            ? `
+        <td style="width: 12px;"></td>
+        <td align="center" style="border-radius: 8px; background-color: rgba(255, 255, 255, 0.08); border: 1px solid rgba(255, 255, 255, 0.15);">
+          <a href="${gcalLink}" target="_blank" style="font-size: 14px; font-weight: 600; color: #FFFFFF; text-decoration: none; padding: 12px 20px; display: inline-block; border-radius: 8px;">
+            📅 Add to Google Calendar
+          </a>
+        </td>
+        `
+            : ''
+        }
+      </tr>
+    </table>
+  `;
+
+  return sendEmail({
+    to: params.to,
+    subject: `🎉 Registration Confirmed: ${params.workshopTitle} — GDGoC HNU`,
+    html: renderEmailLayout('Workshop Registration Confirmed', content),
+    metadata: {
+      type: 'workshop_registration_confirmation',
+      workshop_id: params.workshopId,
+      qr_code: params.qrCode,
+    },
+  });
+}
+

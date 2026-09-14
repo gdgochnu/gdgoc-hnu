@@ -118,6 +118,7 @@ export function StudentWorkshopDetailClient({ initialData }: StudentWorkshopDeta
           type: 'success',
           text: 'Registration successful! Your workshop pass has been generated.',
         });
+        router.push(`/student/workshops/${workshop.id}/confirmation`);
         router.refresh();
       } else {
         setActionMessage({
@@ -497,27 +498,49 @@ export function StudentWorkshopDetailClient({ initialData }: StudentWorkshopDeta
 
               {/* Primary Action Button */}
               {isRegistered ? (
-                <button
-                  type="button"
-                  onClick={() => setShowQrModal(true)}
-                  style={{
-                    width: '100%',
-                    padding: '0.85rem',
-                    borderRadius: '12px',
-                    background: 'linear-gradient(135deg, rgba(52, 168, 83, 0.2) 0%, rgba(66, 133, 244, 0.2) 100%)',
-                    border: '1px solid rgba(52, 168, 83, 0.5)',
-                    color: '#FFFFFF',
-                    fontWeight: 700,
-                    fontSize: '0.9rem',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '0.5rem',
-                  }}
-                >
-                  <QrCode size={18} /> Show Workshop QR Pass
-                </button>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+                  <Link
+                    href={`/student/workshops/${workshop.id}/confirmation`}
+                    style={{
+                      width: '100%',
+                      padding: '0.85rem',
+                      borderRadius: '12px',
+                      background: 'linear-gradient(135deg, rgba(52, 168, 83, 0.25) 0%, rgba(66, 133, 244, 0.2) 100%)',
+                      border: '1px solid rgba(52, 168, 83, 0.5)',
+                      color: '#FFFFFF',
+                      fontWeight: 700,
+                      fontSize: '0.9rem',
+                      textDecoration: 'none',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '0.5rem',
+                    }}
+                  >
+                    <CheckCircle2 size={18} style={{ color: '#4ADE80' }} /> View Official Pass & Invite
+                  </Link>
+                  <button
+                    type="button"
+                    onClick={() => setShowQrModal(true)}
+                    style={{
+                      width: '100%',
+                      padding: '0.65rem',
+                      borderRadius: '10px',
+                      background: 'rgba(255, 255, 255, 0.05)',
+                      border: '1px solid rgba(255, 255, 255, 0.1)',
+                      color: '#CBD5E1',
+                      fontWeight: 600,
+                      fontSize: '0.85rem',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '0.4rem',
+                    }}
+                  >
+                    <QrCode size={16} /> Quick QR Pop-up
+                  </button>
+                </div>
               ) : (
                 <button
                   type="button"
