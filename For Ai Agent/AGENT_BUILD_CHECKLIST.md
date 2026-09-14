@@ -297,7 +297,7 @@
   - Mark session as `completed`/`cancelled`.
   - Inline PDF viewer for uploaded materials (use `<iframe>` or a React PDF library like `react-pdf`).
 - [x] S.B.4 Build `/student-portal/admin/courses/[id]/instructors`: manage instructor/mentor roster — add/remove committee members, toggle role (instructor/mentor).
-- [ ] S.B.5 Build student-facing `/student/courses` (browse published courses, filter by committee/topic) and `/student/courses/[id]` (detail page: description, instructors, sessions schedule with YouTube embeds for online sessions, syllabus, Enroll button).
+- [x] S.B.5 Build student-facing `/student/courses` (browse published courses, filter by committee/topic) and `/student/courses/[id]` (detail page: description, instructors, sessions schedule with YouTube embeds for online sessions, syllabus, Enroll button).
 - [ ] S.B.6 Wire Enrollment:
   - Open enrollment → `confirmed` immediately.
   - Gated enrollment → `pending` → instructor approves at `/student-portal/admin/courses/[id]/enrollments`.

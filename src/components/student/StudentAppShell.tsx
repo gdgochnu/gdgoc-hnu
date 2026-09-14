@@ -96,7 +96,7 @@ export function StudentAppShell({ student, teamRole, children }: StudentAppShell
       items: [
         {
           label: 'Tracks & Courses',
-          href: '/student#tracks',
+          href: '/student/courses',
           icon: BookOpen,
         },
         {
@@ -134,7 +134,12 @@ export function StudentAppShell({ student, teamRole, children }: StudentAppShell
     },
   ];
 
-  const currentPageTitle = pathname === '/student/my-qr' ? 'My Attendance Pass' : 'Dashboard';
+  const currentPageTitle =
+    pathname === '/student/my-qr'
+      ? 'My Attendance Pass'
+      : pathname.startsWith('/student/courses')
+      ? 'Tracks & Courses'
+      : 'Dashboard';
 
   return (
     <div style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg-main, #070B14)' }}>
