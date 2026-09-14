@@ -406,9 +406,59 @@ export async function getStudentDashboardData(): Promise<{
       certificates = [];
     }
 
-    // 4. Placeholder arrays for courses / workshops / tasks / quizzes / attendance
-    // (These will be populated automatically as Sub-Phase S.B, S.C, S.D, S.E tables are created)
+    // 4. Query enrolled courses for this student
     let courses: StudentDashboardData['courses'] = [];
+    try {
+      const { data: enrollmentRows } = await admin
+        .from('course_enrollments')
+        .select(`
+          id,
+          status,
+          enrolled_at,
+          course:courses(
+            id,
+            title,
+            description,
+            department:departments(name),
+            sessions:course_sessions(id, title, session_date, start_time, type, venue, youtube_url, status)
+          )
+        `)
+        .eq('student_id', student.id)
+        .eq('status', 'confirmed');
+
+      if (enrollmentRows) {
+        courses = enrollmentRows.map((e: any) => {
+          const c = Array.isArray(e.course) ? e.course[0] : e.course;
+          const dept = Array.isArray(c?.department) ? c?.department[0] : c?.department;
+          const sList = c?.sessions || [];
+          const nextSession = sList
+            .filter((s: any) => s.status === 'scheduled')
+            .sort((a: any, b: any) => new Date(a.session_date).getTime() - new Date(b.session_date).getTime())[0];
+
+          return {
+            id: c?.id || e.id,
+            title: c?.title || 'Enrolled Course',
+            description: c?.description || '',
+            committee_name: dept?.name,
+            sessions_total: sList.length,
+            sessions_attended: 0,
+            next_session: nextSession
+              ? {
+                  title: nextSession.title,
+                  date: nextSession.session_date,
+                  type: nextSession.type,
+                  venue: nextSession.venue,
+                  youtube_url: nextSession.youtube_url,
+                }
+              : null,
+          };
+        });
+      }
+    } catch (e) {
+      console.error('getStudentDashboardData courses query error:', e);
+      courses = [];
+    }
+
     let workshops: StudentDashboardData['workshops'] = [];
     let tasks: StudentDashboardData['tasks'] = [];
     let quizzes: StudentDashboardData['quizzes'] = [];

@@ -38,6 +38,12 @@ export interface StudentCourseCardItem {
   }>;
 }
 
+export interface CourseSessionDetail extends CourseSession {
+  is_attended?: boolean;
+  is_meeting?: boolean;
+  meeting_type?: 'google_meet' | 'zoom' | 'teams' | 'youtube' | 'link';
+}
+
 export interface CourseDetailResult {
   course: Course & {
     department_name?: string;
@@ -55,7 +61,7 @@ export interface CourseDetailResult {
     committee_role: string;
     department_name?: string;
   }>;
-  sessions: CourseSession[];
+  sessions: CourseSessionDetail[];
   myEnrollment: {
     status: EnrollmentStatus;
     enrolled_at: string;
@@ -64,6 +70,8 @@ export interface CourseDetailResult {
   canEnroll: boolean;
   needsOnboarding: boolean;
   isAuthenticated: boolean;
+  isStaff: boolean;
+  adminManageUrl?: string;
 }
 
 /**
@@ -354,6 +362,63 @@ export async function getCourseDetail(courseId: string): Promise<{
       }
     }
 
+    const teamProf = context.profile;
+    const isPresident = teamProf?.role === 'president' || teamProf?.role === 'co_president';
+    const isOwningHead =
+      (teamProf?.role === 'committee_head' || teamProf?.role === 'committee_co_head') &&
+      teamProf?.department_id === courseData.department_id;
+    const isAssignedInstructor = (courseData.instructors || []).some(
+      (ins: any) => ins.profile_id === teamProf?.id
+    );
+    const isStaff = Boolean(isPresident || isOwningHead || isAssignedInstructor);
+
+    // Query student attendance if table exists
+    const attendedSet = new Set<string>();
+    if (studentProfileId) {
+      try {
+        const { data: attRows } = await admin
+          .from('student_attendance')
+          .select('session_id')
+          .eq('student_id', studentProfileId);
+        if (attRows) {
+          for (const r of attRows) {
+            if (r.session_id) attendedSet.add(r.session_id);
+          }
+        }
+      } catch {}
+    }
+
+    const detailedSessions: CourseSessionDetail[] = sessionsList.map((s: any) => {
+      const url = s.youtube_url || '';
+      const lower = url.toLowerCase();
+      let isMeeting = false;
+      let meetingType: CourseSessionDetail['meeting_type'] = 'link';
+
+      if (lower.includes('meet.google.com')) {
+        isMeeting = true;
+        meetingType = 'google_meet';
+      } else if (lower.includes('zoom.us')) {
+        isMeeting = true;
+        meetingType = 'zoom';
+      } else if (lower.includes('teams.microsoft.com')) {
+        isMeeting = true;
+        meetingType = 'teams';
+      } else if (lower.includes('youtube.com') || lower.includes('youtu.be')) {
+        isMeeting = false;
+        meetingType = 'youtube';
+      } else if (url.trim()) {
+        isMeeting = true;
+        meetingType = 'link';
+      }
+
+      return {
+        ...s,
+        is_attended: attendedSet.has(s.id),
+        is_meeting: isMeeting,
+        meeting_type: meetingType,
+      };
+    });
+
     const canEnroll = !myEnrollment && !isFull && courseData.status === 'published';
 
     return {
@@ -368,11 +433,13 @@ export async function getCourseDetail(courseId: string): Promise<{
           total_duration_minutes: totalDuration,
         },
         instructors: instructorsList,
-        sessions: sessionsList,
+        sessions: detailedSessions,
         myEnrollment,
         canEnroll,
         needsOnboarding,
         isAuthenticated: Boolean(userId),
+        isStaff,
+        adminManageUrl: isStaff ? `/student-portal/admin/courses/${courseId}/sessions` : undefined,
       },
     };
   } catch (err: any) {
