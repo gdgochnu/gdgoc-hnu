@@ -310,7 +310,7 @@
 *Read spec §4.S.3, §4.S.4, §4.S.10 before starting.*
 - [x] S.C.1 Create `workshops`, `workshop_sessions`, `workshop_registrations`, `workshop_instructors` tables (spec §4.S.10); RLS as per spec §4.S.11.
 - [x] S.C.2 Build `/student-portal/admin/workshops` (same access control as courses): list, create, edit, publish, archive, toggle `registration_open`.
-- [ ] S.C.3 Build Workshop Session Management at `/student-portal/admin/workshops/[id]/sessions`: same structure as course sessions (offline/online, YouTube, PDFs).
+- [x] S.C.3 Build Workshop Session Management at `/student-portal/admin/workshops/[id]/sessions`: same structure as course sessions (offline/online, YouTube, PDFs).
 - [ ] S.C.4 Build student-facing `/student/workshops` (browse) and `/student/workshops/[id]` (detail: sessions, Register button — disabled when closed or full).
 - [ ] S.C.5 Wire Registration: create `workshop_registrations` row with unique `qr_code` → show confirmation at `/student/workshops/[id]/confirmation` with QR + session details → send email with QR + calendar invite.
 - [ ] S.C.6 Show registered workshops on student dashboard: upcoming/past, attendance status per session.
