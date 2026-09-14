@@ -28,6 +28,7 @@ import {
   ChevronRight,
   Sparkles,
   QrCode,
+  FileCheck2,
 } from 'lucide-react';
 import {
   CourseDetailHeader,
@@ -506,6 +507,26 @@ export function CourseSessionsClient({
           >
             <BookOpen size={14} style={{ color: '#93C5FD' }} />
             <span>Lessons</span>
+          </Link>
+
+          <Link
+            href={`/student-portal/admin/courses/${course.id}/tasks`}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.4rem',
+              padding: '0.45rem 0.85rem',
+              borderRadius: '8px',
+              background: 'rgba(251, 188, 4, 0.12)',
+              border: '1px solid rgba(251, 188, 4, 0.28)',
+              color: '#FDE047',
+              fontSize: '0.8rem',
+              fontWeight: 600,
+              textDecoration: 'none',
+            }}
+          >
+            <FileCheck2 size={14} />
+            <span>Tasks</span>
           </Link>
 
           <Link

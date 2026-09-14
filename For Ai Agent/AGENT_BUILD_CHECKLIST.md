@@ -334,7 +334,7 @@
 - [x] S.E.2 Build **Lesson Management** at `/student-portal/admin/courses/[id]/lessons`:
   - Instructors create/edit/reorder lessons: title, content (rich text or markdown), attach YouTube video, upload PDF materials, link to session (optional).
   - Each lesson can have attached tasks + quizzes (inline creation or link existing).
-- [ ] S.E.3 Build **Task Assignment** at `/student-portal/admin/courses/[id]/tasks` (or inline in lesson editor):
+- [x] S.E.3 Build **Task Assignment** at `/student-portal/admin/courses/[id]/tasks` (or inline in lesson editor):
   - Instructors create tasks: title, description, deadline, submission type (link/file upload), max score, assigned to (entire course / specific students).
   - Tasks can be lesson-specific or standalone.
 - [ ] S.E.4 Build student task submission at `/student/courses/[id]/tasks/[taskId]`:

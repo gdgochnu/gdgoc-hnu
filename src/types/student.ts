@@ -390,7 +390,7 @@ export interface StudentTask {
   updated_at: string;
   course?: Course;
   workshop?: Workshop;
-  lesson?: CourseLesson;
+  lesson?: CourseLesson | null;
 }
 
 export type TaskSubmissionStatus = 'pending' | 'submitted' | 'graded' | 'needs_revision' | 'final';
@@ -455,7 +455,7 @@ export interface Quiz {
   updated_at: string;
   course?: Course;
   workshop?: Workshop;
-  lesson?: CourseLesson;
+  lesson?: CourseLesson | null;
 }
 
 export type QuizAttemptStatus = 'in_progress' | 'submitted' | 'graded';
