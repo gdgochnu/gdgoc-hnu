@@ -77,6 +77,7 @@ export function AdminWorkshopsClient({
   const [formStatus, setFormStatus] = useState<WorkshopStatus>('draft');
   const [formRegOpen, setFormRegOpen] = useState(true);
   const [selectedInstructors, setSelectedInstructors] = useState<Array<{ profile_id: string; role: CourseInstructorRole }>>([]);
+  const [instructorSearchQuery, setInstructorSearchQuery] = useState('');
 
   const isPresident = ['president', 'co_president', 'branch_head'].includes(userRole);
 
@@ -85,6 +86,13 @@ export function AdminWorkshopsClient({
   const publishedCount = workshops.filter((w) => w.status === 'published').length;
   const totalRegistrations = workshops.reduce((acc, w) => acc + (w.registrations_count || 0), 0);
   const totalSessions = workshops.reduce((acc, w) => acc + (w.sessions_count || 0), 0);
+
+  // Candidate members filtered by search query
+  const filteredCandidateMembers = teamMembers.filter((m) => {
+    if (!instructorSearchQuery.trim()) return true;
+    const q = instructorSearchQuery.toLowerCase();
+    return m.full_name.toLowerCase().includes(q) || m.role.toLowerCase().includes(q);
+  });
 
   // Filtering
   const filteredWorkshops = workshops.filter((w) => {
@@ -115,6 +123,7 @@ export function AdminWorkshopsClient({
     setFormStatus('draft');
     setFormRegOpen(true);
     setSelectedInstructors([]);
+    setInstructorSearchQuery('');
     setFormError(null);
     setIsModalOpen(true);
   };
@@ -136,6 +145,7 @@ export function AdminWorkshopsClient({
         role: inst.role,
       }))
     );
+    setInstructorSearchQuery('');
     setFormError(null);
     setIsModalOpen(true);
   };
@@ -1156,9 +1166,70 @@ export function AdminWorkshopsClient({
 
               {/* Instructor Assignment Selection */}
               <div>
-                <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, color: '#CBD5E1', marginBottom: '0.4rem' }}>
-                  ASSIGN WORKSHOP INSTRUCTORS & MENTORS
-                </label>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.45rem' }}>
+                  <label style={{ fontSize: '0.82rem', fontWeight: 700, color: '#CBD5E1', margin: 0 }}>
+                    ASSIGN WORKSHOP INSTRUCTORS & MENTORS
+                  </label>
+                  {selectedInstructors.length > 0 && (
+                    <span style={{ fontSize: '0.74rem', color: '#86EFAC', fontWeight: 700 }}>
+                      {selectedInstructors.length} assigned
+                    </span>
+                  )}
+                </div>
+
+                {/* Live Search Input for Candidate Members */}
+                <div style={{ position: 'relative', marginBottom: '0.5rem' }}>
+                  <Search
+                    size={14}
+                    style={{
+                      position: 'absolute',
+                      left: '0.75rem',
+                      top: '50%',
+                      transform: 'translateY(-50%)',
+                      color: 'var(--text-muted, #64748B)',
+                      pointerEvents: 'none',
+                    }}
+                  />
+                  <input
+                    type="text"
+                    placeholder="Search candidate members by name or role..."
+                    value={instructorSearchQuery}
+                    onChange={(e) => setInstructorSearchQuery(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '0.48rem 2.2rem 0.48rem 2.1rem',
+                      background: 'rgba(255, 255, 255, 0.04)',
+                      border: '1px solid rgba(255, 255, 255, 0.1)',
+                      borderRadius: '8px',
+                      color: '#FFFFFF',
+                      fontSize: '0.82rem',
+                      outline: 'none',
+                    }}
+                  />
+                  {instructorSearchQuery && (
+                    <button
+                      type="button"
+                      onClick={() => setInstructorSearchQuery('')}
+                      style={{
+                        position: 'absolute',
+                        right: '0.65rem',
+                        top: '50%',
+                        transform: 'translateY(-50%)',
+                        background: 'transparent',
+                        border: 'none',
+                        color: '#94A3B8',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        padding: '2px',
+                      }}
+                      title="Clear search"
+                    >
+                      <X size={13} />
+                    </button>
+                  )}
+                </div>
+
                 <div
                   style={{
                     maxHeight: '180px',
@@ -1172,92 +1243,98 @@ export function AdminWorkshopsClient({
                     gap: '0.45rem',
                   }}
                 >
-                  {teamMembers.map((member) => {
-                    const assigned = selectedInstructors.find((si) => si.profile_id === member.id);
-                    const isChecked = Boolean(assigned);
+                  {filteredCandidateMembers.length === 0 ? (
+                    <div style={{ fontSize: '0.8rem', color: '#94A3B8', padding: '0.75rem', textAlign: 'center' }}>
+                      No team members match &quot;{instructorSearchQuery}&quot;
+                    </div>
+                  ) : (
+                    filteredCandidateMembers.map((member) => {
+                      const assigned = selectedInstructors.find((si) => si.profile_id === member.id);
+                      const isChecked = Boolean(assigned);
 
-                    return (
-                      <div
-                        key={member.id}
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'space-between',
-                          padding: '0.45rem 0.65rem',
-                          borderRadius: '6px',
-                          background: isChecked ? 'rgba(234, 67, 53, 0.12)' : 'transparent',
-                          border: isChecked ? '1px solid rgba(234, 67, 53, 0.25)' : '1px solid transparent',
-                        }}
-                      >
-                        <label style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', cursor: 'pointer', flex: 1 }}>
-                          <input
-                            type="checkbox"
-                            checked={isChecked}
-                            onChange={(e) => {
-                              if (e.target.checked) {
-                                setSelectedInstructors([...selectedInstructors, { profile_id: member.id, role: 'instructor' }]);
-                              } else {
-                                setSelectedInstructors(selectedInstructors.filter((si) => si.profile_id !== member.id));
-                              }
-                            }}
-                            style={{ width: '15px', height: '15px', accentColor: '#EF4444' }}
-                          />
-                          <span style={{ fontSize: '0.84rem', color: '#FFFFFF', fontWeight: 600 }}>{member.full_name}</span>
-                          <span style={{ fontSize: '0.72rem', color: '#94A3B8' }}>({member.role})</span>
-                        </label>
+                      return (
+                        <div
+                          key={member.id}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            padding: '0.45rem 0.65rem',
+                            borderRadius: '6px',
+                            background: isChecked ? 'rgba(234, 67, 53, 0.12)' : 'transparent',
+                            border: isChecked ? '1px solid rgba(234, 67, 53, 0.25)' : '1px solid transparent',
+                          }}
+                        >
+                          <label style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', cursor: 'pointer', flex: 1 }}>
+                            <input
+                              type="checkbox"
+                              checked={isChecked}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setSelectedInstructors([...selectedInstructors, { profile_id: member.id, role: 'instructor' }]);
+                                } else {
+                                  setSelectedInstructors(selectedInstructors.filter((si) => si.profile_id !== member.id));
+                                }
+                              }}
+                              style={{ width: '15px', height: '15px', accentColor: '#EF4444' }}
+                            />
+                            <span style={{ fontSize: '0.84rem', color: '#FFFFFF', fontWeight: 600 }}>{member.full_name}</span>
+                            <span style={{ fontSize: '0.72rem', color: '#94A3B8' }}>({member.role})</span>
+                          </label>
 
-                        {isChecked && (
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setSelectedInstructors(
-                                  selectedInstructors.map((si) =>
-                                    si.profile_id === member.id ? { ...si, role: 'instructor' } : si
-                                  )
-                                );
-                              }}
-                              style={{
-                                padding: '0.15rem 0.45rem',
-                                borderRadius: '4px',
-                                fontSize: '0.7rem',
-                                fontWeight: 700,
-                                background: assigned?.role === 'instructor' ? '#EF4444' : 'rgba(255, 255, 255, 0.08)',
-                                color: '#FFFFFF',
-                                border: 'none',
-                                cursor: 'pointer',
-                              }}
-                            >
-                              Instructor
-                            </button>
+                          {isChecked && (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setSelectedInstructors(
+                                    selectedInstructors.map((si) =>
+                                      si.profile_id === member.id ? { ...si, role: 'instructor' } : si
+                                    )
+                                  );
+                                }}
+                                style={{
+                                  padding: '0.15rem 0.45rem',
+                                  borderRadius: '4px',
+                                  fontSize: '0.7rem',
+                                  fontWeight: 700,
+                                  background: assigned?.role === 'instructor' ? '#EF4444' : 'rgba(255, 255, 255, 0.08)',
+                                  color: '#FFFFFF',
+                                  border: 'none',
+                                  cursor: 'pointer',
+                                }}
+                              >
+                                Instructor
+                              </button>
 
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setSelectedInstructors(
-                                  selectedInstructors.map((si) =>
-                                    si.profile_id === member.id ? { ...si, role: 'mentor' } : si
-                                  )
-                                );
-                              }}
-                              style={{
-                                padding: '0.15rem 0.45rem',
-                                borderRadius: '4px',
-                                fontSize: '0.7rem',
-                                fontWeight: 700,
-                                background: assigned?.role === 'mentor' ? '#10B981' : 'rgba(255, 255, 255, 0.08)',
-                                color: '#FFFFFF',
-                                border: 'none',
-                                cursor: 'pointer',
-                              }}
-                            >
-                              Mentor
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setSelectedInstructors(
+                                    selectedInstructors.map((si) =>
+                                      si.profile_id === member.id ? { ...si, role: 'mentor' } : si
+                                    )
+                                  );
+                                }}
+                                style={{
+                                  padding: '0.15rem 0.45rem',
+                                  borderRadius: '4px',
+                                  fontSize: '0.7rem',
+                                  fontWeight: 700,
+                                  background: assigned?.role === 'mentor' ? '#10B981' : 'rgba(255, 255, 255, 0.08)',
+                                  color: '#FFFFFF',
+                                  border: 'none',
+                                  cursor: 'pointer',
+                                }}
+                              >
+                                Mentor
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })
+                  )}
                 </div>
               </div>
 
