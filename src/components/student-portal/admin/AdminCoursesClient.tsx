@@ -532,9 +532,9 @@ export function AdminCoursesClient({
                 }}
               >
                 <div>
-                  {/* Top Badges Row */}
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '0.85rem' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                  {/* Top Badges & Owner Actions Row */}
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem', marginBottom: '0.85rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', flexWrap: 'wrap' }}>
                       {course.department_name && (
                         <span
                           style={{
@@ -573,26 +573,66 @@ export function AdminCoursesClient({
                       >
                         {course.status}
                       </span>
-                    </div>
-
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
                       <span
                         style={{
                           fontSize: '0.7rem',
                           fontWeight: 700,
-                          padding: '0.15rem 0.5rem',
-                          borderRadius: '4px',
+                          padding: '0.2rem 0.5rem',
+                          borderRadius: '6px',
                           background: course.enrollment_type === 'gated' ? 'rgba(168, 85, 247, 0.15)' : 'rgba(59, 130, 246, 0.15)',
                           color: course.enrollment_type === 'gated' ? '#C084FC' : '#93C5FD',
-                          display: 'flex',
+                          display: 'inline-flex',
                           alignItems: 'center',
                           gap: '0.3rem',
                         }}
                       >
-                        {course.enrollment_type === 'gated' ? <Lock size={12} /> : <Unlock size={12} />}
-                        <span>{course.enrollment_type === 'gated' ? 'Gated Approval' : 'Open'}</span>
+                        {course.enrollment_type === 'gated' ? <Lock size={11} /> : <Unlock size={11} />}
+                        <span>{course.enrollment_type === 'gated' ? 'Gated' : 'Open'}</span>
                       </span>
                     </div>
+
+                    {isOwner && (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                        <button
+                          type="button"
+                          onClick={() => openEditModal(course)}
+                          style={{
+                            background: 'rgba(255, 255, 255, 0.05)',
+                            border: '1px solid rgba(255, 255, 255, 0.1)',
+                            borderRadius: '6px',
+                            padding: '0.35rem',
+                            color: '#CBD5E1',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            transition: 'all 0.15s ease',
+                          }}
+                          title="Edit Course Details"
+                        >
+                          <Edit size={13} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteCourse(course.id, course.title)}
+                          style={{
+                            background: 'rgba(239, 68, 68, 0.12)',
+                            border: '1px solid rgba(239, 68, 68, 0.25)',
+                            borderRadius: '6px',
+                            padding: '0.35rem',
+                            color: '#F87171',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            transition: 'all 0.15s ease',
+                          }}
+                          title="Delete Course"
+                        >
+                          <Trash2 size={13} />
+                        </button>
+                      </div>
+                    )}
                   </div>
 
                   {/* Title & Category */}
@@ -694,139 +734,107 @@ export function AdminCoursesClient({
                   </div>
                 </div>
 
-                {/* Card Action Controls */}
+                {/* Card Action Controls (2x2 Grid) */}
                 <div
                   style={{
                     borderTop: '1px solid rgba(255, 255, 255, 0.08)',
                     paddingTop: '0.85rem',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
+                    display: 'grid',
+                    gridTemplateColumns: '1fr 1fr',
                     gap: '0.5rem',
-                    flexWrap: 'wrap',
                   }}
                 >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    <Link
-                      href={`/student-portal/admin/courses/${course.id}/sessions`}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '0.35rem',
-                        padding: '0.4rem 0.75rem',
-                        borderRadius: '6px',
-                        background: 'rgba(66, 133, 244, 0.15)',
-                        border: '1px solid rgba(66, 133, 244, 0.3)',
-                        color: '#60A5FA',
-                        fontSize: '0.78rem',
-                        fontWeight: 700,
-                        textDecoration: 'none',
-                      }}
-                      title="Manage Course Sessions"
-                    >
-                      <Calendar size={14} />
-                      <span>Sessions ({course.sessions_count})</span>
-                    </Link>
+                  <Link
+                    href={`/student-portal/admin/courses/${course.id}/sessions`}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '0.4rem',
+                      padding: '0.55rem 0.6rem',
+                      borderRadius: '8px',
+                      background: 'rgba(66, 133, 244, 0.12)',
+                      border: '1px solid rgba(66, 133, 244, 0.28)',
+                      color: '#93C5FD',
+                      fontSize: '0.78rem',
+                      fontWeight: 700,
+                      textDecoration: 'none',
+                      transition: 'all 0.15s ease',
+                    }}
+                    title="Manage Course Sessions"
+                  >
+                    <Calendar size={13} />
+                    <span>Sessions ({course.sessions_count})</span>
+                  </Link>
 
-                    <Link
-                      href={`/student-portal/admin/courses/${course.id}/instructors`}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '0.35rem',
-                        padding: '0.4rem 0.75rem',
-                        borderRadius: '6px',
-                        background: 'rgba(255, 255, 255, 0.04)',
-                        border: '1px solid rgba(255, 255, 255, 0.1)',
-                        color: '#E2E8F0',
-                        fontSize: '0.78rem',
-                        fontWeight: 600,
-                        textDecoration: 'none',
-                      }}
-                      title="Manage Instructors & Mentors"
-                    >
-                      <Users size={14} />
-                      <span>Instructors</span>
-                    </Link>
+                  <Link
+                    href={`/student-portal/admin/courses/${course.id}/enrollments`}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '0.4rem',
+                      padding: '0.55rem 0.6rem',
+                      borderRadius: '8px',
+                      background: 'rgba(52, 168, 83, 0.12)',
+                      border: '1px solid rgba(52, 168, 83, 0.28)',
+                      color: '#86EFAC',
+                      fontSize: '0.78rem',
+                      fontWeight: 700,
+                      textDecoration: 'none',
+                      transition: 'all 0.15s ease',
+                    }}
+                    title="Manage Enrolled Students & Applications"
+                  >
+                    <GraduationCap size={13} />
+                    <span>Enroll ({course.enrollment_count})</span>
+                  </Link>
 
-                    <Link
-                      href={`/student-portal/admin/courses/${course.id}/enrollments`}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '0.35rem',
-                        padding: '0.4rem 0.75rem',
-                        borderRadius: '6px',
-                        background: 'rgba(52, 168, 83, 0.15)',
-                        border: '1px solid rgba(52, 168, 83, 0.3)',
-                        color: '#86EFAC',
-                        fontSize: '0.78rem',
-                        fontWeight: 700,
-                        textDecoration: 'none',
-                      }}
-                      title="Manage Enrolled Students & Applications"
-                    >
-                      <GraduationCap size={14} />
-                      <span>Enrollments ({course.enrollment_count})</span>
-                    </Link>
+                  <Link
+                    href={`/student-portal/admin/courses/${course.id}/instructors`}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '0.4rem',
+                      padding: '0.55rem 0.6rem',
+                      borderRadius: '8px',
+                      background: 'rgba(255, 255, 255, 0.04)',
+                      border: '1px solid rgba(255, 255, 255, 0.1)',
+                      color: '#E2E8F0',
+                      fontSize: '0.78rem',
+                      fontWeight: 600,
+                      textDecoration: 'none',
+                      transition: 'all 0.15s ease',
+                    }}
+                    title="Manage Instructors & Mentors"
+                  >
+                    <Users size={13} />
+                    <span>Instructors</span>
+                  </Link>
 
-                    <Link
-                      href={`/student-portal/admin/attendance/scan?type=course&courseId=${course.id}`}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '0.35rem',
-                        padding: '0.4rem 0.75rem',
-                        borderRadius: '6px',
-                        background: 'linear-gradient(135deg, rgba(66, 133, 244, 0.15) 0%, rgba(52, 168, 83, 0.15) 100%)',
-                        border: '1px solid rgba(66, 133, 244, 0.35)',
-                        color: '#60A5FA',
-                        fontSize: '0.78rem',
-                        fontWeight: 700,
-                        textDecoration: 'none',
-                      }}
-                      title="Scan Student QR Codes for Attendance"
-                    >
-                      <QrCode size={14} style={{ color: '#34A853' }} />
-                      <span>Scan</span>
-                    </Link>
-                  </div>
-
-                  {isOwner && (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                      <button
-                        type="button"
-                        onClick={() => openEditModal(course)}
-                        style={{
-                          background: 'rgba(255, 255, 255, 0.05)',
-                          border: '1px solid rgba(255, 255, 255, 0.1)',
-                          borderRadius: '6px',
-                          padding: '0.4rem',
-                          color: '#CBD5E1',
-                          cursor: 'pointer',
-                        }}
-                        title="Edit Course Settings"
-                      >
-                        <Edit size={14} />
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => handleDeleteCourse(course.id, course.title)}
-                        style={{
-                          background: 'rgba(239, 68, 68, 0.1)',
-                          border: '1px solid rgba(239, 68, 68, 0.25)',
-                          borderRadius: '6px',
-                          padding: '0.4rem',
-                          color: '#F87171',
-                          cursor: 'pointer',
-                        }}
-                        title="Delete Course"
-                      >
-                        <Trash2 size={14} />
-                      </button>
-                    </div>
-                  )}
+                  <Link
+                    href={`/student-portal/admin/attendance/scan?type=course&courseId=${course.id}`}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '0.4rem',
+                      padding: '0.55rem 0.6rem',
+                      borderRadius: '8px',
+                      background: 'linear-gradient(135deg, rgba(66, 133, 244, 0.16) 0%, rgba(52, 168, 83, 0.16) 100%)',
+                      border: '1px solid rgba(66, 133, 244, 0.35)',
+                      color: '#60A5FA',
+                      fontSize: '0.78rem',
+                      fontWeight: 700,
+                      textDecoration: 'none',
+                      transition: 'all 0.15s ease',
+                    }}
+                    title="Scan Student QR Codes for Attendance"
+                  >
+                    <QrCode size={13} style={{ color: '#34A853' }} />
+                    <span>Scan QR</span>
+                  </Link>
                 </div>
               </div>
             );

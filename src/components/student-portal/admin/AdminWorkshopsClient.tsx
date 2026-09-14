@@ -550,9 +550,9 @@ export function AdminWorkshopsClient({
                 }}
               >
                 <div>
-                  {/* Top Header: Category & Badges */}
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '0.75rem' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  {/* Top Header: Category & Badges & Owner Actions */}
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem', marginBottom: '0.75rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', flexWrap: 'wrap' }}>
                       <span
                         style={{
                           fontSize: '0.72rem',
@@ -572,10 +572,6 @@ export function AdminWorkshopsClient({
                           • {w.department_name}
                         </span>
                       )}
-                    </div>
-
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                      {/* Status Badge */}
                       <span
                         style={{
                           fontSize: '0.72rem',
@@ -608,6 +604,49 @@ export function AdminWorkshopsClient({
                         {w.status}
                       </span>
                     </div>
+
+                    {isOwner && (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                        <button
+                          type="button"
+                          onClick={() => openEditModal(w)}
+                          style={{
+                            background: 'rgba(255, 255, 255, 0.05)',
+                            border: '1px solid rgba(255, 255, 255, 0.1)',
+                            borderRadius: '6px',
+                            padding: '0.35rem',
+                            color: '#CBD5E1',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            transition: 'all 0.15s ease',
+                          }}
+                          title="Edit Workshop Settings"
+                        >
+                          <Edit size={13} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDelete(w)}
+                          style={{
+                            background: 'rgba(239, 68, 68, 0.12)',
+                            border: '1px solid rgba(239, 68, 68, 0.25)',
+                            borderRadius: '6px',
+                            padding: '0.35rem',
+                            color: '#F87171',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            transition: 'all 0.15s ease',
+                          }}
+                          title="Delete Workshop"
+                        >
+                          <Trash2 size={13} />
+                        </button>
+                      </div>
+                    )}
                   </div>
 
                   {/* Title & Description */}
@@ -753,139 +792,107 @@ export function AdminWorkshopsClient({
                   </div>
                 </div>
 
-                {/* Card Action Controls */}
+                {/* Card Action Controls (2x2 Grid) */}
                 <div
                   style={{
                     borderTop: '1px solid rgba(255, 255, 255, 0.08)',
                     paddingTop: '0.85rem',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
+                    display: 'grid',
+                    gridTemplateColumns: '1fr 1fr',
                     gap: '0.5rem',
-                    flexWrap: 'wrap',
                   }}
                 >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', flexWrap: 'wrap' }}>
-                    <Link
-                      href={`/student-portal/admin/workshops/${w.id}/sessions`}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '0.35rem',
-                        padding: '0.4rem 0.75rem',
-                        borderRadius: '6px',
-                        background: 'rgba(234, 67, 53, 0.12)',
-                        border: '1px solid rgba(234, 67, 53, 0.25)',
-                        color: '#F87171',
-                        fontSize: '0.78rem',
-                        fontWeight: 700,
-                        textDecoration: 'none',
-                      }}
-                      title="Manage Workshop Sessions"
-                    >
-                      <Calendar size={13} />
-                      <span>Sessions ({w.sessions_count})</span>
-                    </Link>
+                  <Link
+                    href={`/student-portal/admin/workshops/${w.id}/sessions`}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '0.4rem',
+                      padding: '0.55rem 0.6rem',
+                      borderRadius: '8px',
+                      background: 'rgba(234, 67, 53, 0.12)',
+                      border: '1px solid rgba(234, 67, 53, 0.25)',
+                      color: '#F87171',
+                      fontSize: '0.78rem',
+                      fontWeight: 700,
+                      textDecoration: 'none',
+                      transition: 'all 0.15s ease',
+                    }}
+                    title="Manage Workshop Sessions"
+                  >
+                    <Calendar size={13} />
+                    <span>Sessions ({w.sessions_count})</span>
+                  </Link>
 
-                    <Link
-                      href={`/student-portal/admin/workshops/${w.id}/instructors`}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '0.35rem',
-                        padding: '0.4rem 0.75rem',
-                        borderRadius: '6px',
-                        background: 'rgba(255, 255, 255, 0.04)',
-                        border: '1px solid rgba(255, 255, 255, 0.1)',
-                        color: '#E2E8F0',
-                        fontSize: '0.78rem',
-                        fontWeight: 600,
-                        textDecoration: 'none',
-                      }}
-                      title="Manage Instructors & Mentors"
-                    >
-                      <Users size={13} />
-                      <span>Instructors</span>
-                    </Link>
+                  <Link
+                    href={`/student-portal/admin/workshops/${w.id}/registrations`}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '0.4rem',
+                      padding: '0.55rem 0.6rem',
+                      borderRadius: '8px',
+                      background: 'rgba(52, 168, 83, 0.12)',
+                      border: '1px solid rgba(52, 168, 83, 0.28)',
+                      color: '#86EFAC',
+                      fontSize: '0.78rem',
+                      fontWeight: 700,
+                      textDecoration: 'none',
+                      transition: 'all 0.15s ease',
+                    }}
+                    title="Manage Registrations & Attendance Passes"
+                  >
+                    <Users size={13} />
+                    <span>Registered ({w.registrations_count})</span>
+                  </Link>
 
-                    <Link
-                      href={`/student-portal/admin/workshops/${w.id}/registrations`}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '0.35rem',
-                        padding: '0.4rem 0.75rem',
-                        borderRadius: '6px',
-                        background: 'rgba(52, 168, 83, 0.15)',
-                        border: '1px solid rgba(52, 168, 83, 0.3)',
-                        color: '#86EFAC',
-                        fontSize: '0.78rem',
-                        fontWeight: 700,
-                        textDecoration: 'none',
-                      }}
-                      title="Manage Registrations & Attendance Passes"
-                    >
-                      <QrCode size={13} />
-                      <span>Registrations ({w.registrations_count})</span>
-                    </Link>
+                  <Link
+                    href={`/student-portal/admin/workshops/${w.id}/instructors`}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '0.4rem',
+                      padding: '0.55rem 0.6rem',
+                      borderRadius: '8px',
+                      background: 'rgba(255, 255, 255, 0.04)',
+                      border: '1px solid rgba(255, 255, 255, 0.1)',
+                      color: '#E2E8F0',
+                      fontSize: '0.78rem',
+                      fontWeight: 600,
+                      textDecoration: 'none',
+                      transition: 'all 0.15s ease',
+                    }}
+                    title="Manage Instructors & Mentors"
+                  >
+                    <Users size={13} />
+                    <span>Instructors</span>
+                  </Link>
 
-                    <Link
-                      href={`/student-portal/admin/attendance/scan?type=workshop&workshopId=${w.id}`}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '0.35rem',
-                        padding: '0.4rem 0.75rem',
-                        borderRadius: '6px',
-                        background: 'linear-gradient(135deg, rgba(66, 133, 244, 0.15) 0%, rgba(52, 168, 83, 0.15) 100%)',
-                        border: '1px solid rgba(66, 133, 244, 0.35)',
-                        color: '#60A5FA',
-                        fontSize: '0.78rem',
-                        fontWeight: 700,
-                        textDecoration: 'none',
-                      }}
-                      title="Scan Attendee QR Codes for Attendance"
-                    >
-                      <QrCode size={13} style={{ color: '#34A853' }} />
-                      <span>Scan</span>
-                    </Link>
-                  </div>
-
-                  {isOwner && (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                      <button
-                        type="button"
-                        onClick={() => openEditModal(w)}
-                        style={{
-                          background: 'rgba(255, 255, 255, 0.05)',
-                          border: '1px solid rgba(255, 255, 255, 0.1)',
-                          borderRadius: '6px',
-                          padding: '0.4rem',
-                          color: '#CBD5E1',
-                          cursor: 'pointer',
-                        }}
-                        title="Edit Workshop Settings"
-                      >
-                        <Edit size={14} />
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => handleDelete(w)}
-                        style={{
-                          background: 'rgba(239, 68, 68, 0.12)',
-                          border: '1px solid rgba(239, 68, 68, 0.25)',
-                          borderRadius: '6px',
-                          padding: '0.4rem',
-                          color: '#F87171',
-                          cursor: 'pointer',
-                        }}
-                        title="Delete Workshop"
-                      >
-                        <Trash2 size={14} />
-                      </button>
-                    </div>
-                  )}
+                  <Link
+                    href={`/student-portal/admin/attendance/scan?type=workshop&workshopId=${w.id}`}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '0.4rem',
+                      padding: '0.55rem 0.6rem',
+                      borderRadius: '8px',
+                      background: 'linear-gradient(135deg, rgba(66, 133, 244, 0.16) 0%, rgba(52, 168, 83, 0.16) 100%)',
+                      border: '1px solid rgba(66, 133, 244, 0.35)',
+                      color: '#60A5FA',
+                      fontSize: '0.78rem',
+                      fontWeight: 700,
+                      textDecoration: 'none',
+                      transition: 'all 0.15s ease',
+                    }}
+                    title="Scan Attendee QR Codes for Attendance"
+                  >
+                    <QrCode size={13} style={{ color: '#34A853' }} />
+                    <span>Scan QR</span>
+                  </Link>
                 </div>
               </div>
             );
