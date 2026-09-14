@@ -252,6 +252,11 @@ export function AppNavigation({
         href: '/student-portal/admin/courses',
         icon: BookOpen,
       });
+      workspaceItems.push({
+        label: 'Workshops & Bootcamps',
+        href: '/student-portal/admin/workshops',
+        icon: Sparkles,
+      });
     }
 
     if (workspaceItems.length > 0) {
