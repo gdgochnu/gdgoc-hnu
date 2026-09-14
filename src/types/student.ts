@@ -348,4 +348,157 @@ export interface StudentAttendance {
   workshop_session?: WorkshopSession;
 }
 
+// ==============================================================================
+// Lessons, Tasks, Quizzes & Mentorship Types (Spec §4.S.6, §4.S.10)
+// ==============================================================================
+
+export interface CourseLesson {
+  id: string;
+  course_id: string;
+  session_id?: string | null;
+  lesson_number: number;
+  title: string;
+  content: string;
+  youtube_url?: string | null;
+  materials?: string[];
+  created_by?: string | null;
+  created_at: string;
+  updated_at: string;
+  course?: Course;
+  session?: CourseSession;
+}
+
+export type TaskSubmissionType = 'link' | 'file' | 'both';
+export type TaskAssignedScope = 'all_enrolled' | 'specific';
+export type TaskStatus = 'active' | 'closed' | 'draft';
+
+export interface StudentTask {
+  id: string;
+  course_id?: string | null;
+  workshop_id?: string | null;
+  lesson_id?: string | null;
+  title: string;
+  description: string;
+  due_date?: string | null;
+  submission_type: TaskSubmissionType;
+  max_score: number;
+  assigned_to: TaskAssignedScope;
+  specific_student_ids?: string[];
+  status: TaskStatus;
+  created_by?: string | null;
+  created_at: string;
+  updated_at: string;
+  course?: Course;
+  workshop?: Workshop;
+  lesson?: CourseLesson;
+}
+
+export type TaskSubmissionStatus = 'pending' | 'submitted' | 'graded' | 'needs_revision' | 'final';
+
+export interface StudentTaskSubmission {
+  id: string;
+  task_id: string;
+  student_id: string;
+  submission_link?: string | null;
+  submission_file_drive_id?: string | null;
+  score?: number | null;
+  feedback_comment?: string | null;
+  status: TaskSubmissionStatus;
+  submitted_at: string;
+  graded_at?: string | null;
+  graded_by?: string | null;
+  created_at: string;
+  updated_at: string;
+  task?: StudentTask;
+  student?: StudentProfile;
+  grader?: {
+    id: string;
+    full_name_en: string;
+    avatar_url?: string | null;
+  };
+}
+
+export type QuizQuestionType = 'multiple_choice' | 'true_false' | 'short_answer';
+
+export interface QuizQuestionOption {
+  id: string;
+  text: string;
+}
+
+export interface QuizQuestion {
+  id: string;
+  type: QuizQuestionType;
+  question_text: string;
+  options?: string[] | QuizQuestionOption[];
+  correct_answer?: string | number;
+  points: number;
+  explanation?: string;
+}
+
+export type QuizStatus = 'draft' | 'published' | 'archived';
+
+export interface Quiz {
+  id: string;
+  course_id?: string | null;
+  workshop_id?: string | null;
+  lesson_id?: string | null;
+  title: string;
+  description: string;
+  time_limit_minutes?: number | null;
+  passing_score_percentage: number;
+  questions: QuizQuestion[];
+  allow_retakes: boolean;
+  max_attempts: number;
+  status: QuizStatus;
+  created_by?: string | null;
+  created_at: string;
+  updated_at: string;
+  course?: Course;
+  workshop?: Workshop;
+  lesson?: CourseLesson;
+}
+
+export type QuizAttemptStatus = 'in_progress' | 'submitted' | 'graded';
+
+export interface QuizAttempt {
+  id: string;
+  quiz_id: string;
+  student_id: string;
+  attempt_number: number;
+  answers: Record<string, any> | any[];
+  auto_graded_score?: number | null;
+  manual_graded_score?: number | null;
+  total_score?: number | null;
+  passed?: boolean | null;
+  feedback?: string | null;
+  status: QuizAttemptStatus;
+  started_at: string;
+  submitted_at?: string | null;
+  graded_at?: string | null;
+  graded_by?: string | null;
+  created_at: string;
+  updated_at: string;
+  quiz?: Quiz;
+  student?: StudentProfile;
+}
+
+export interface MentorNote {
+  id: string;
+  mentor_id: string;
+  student_id: string;
+  course_id?: string | null;
+  workshop_id?: string | null;
+  note: string;
+  flagged_at_risk: boolean;
+  created_at: string;
+  updated_at: string;
+  mentor?: {
+    id: string;
+    full_name_en: string;
+    avatar_url?: string | null;
+  };
+  student?: StudentProfile;
+}
+
+
 
