@@ -463,7 +463,115 @@ export async function getStudentDashboardData(): Promise<{
       courses = [];
     }
 
+    // 5. Query registered workshops for this student
     let workshops: StudentDashboardData['workshops'] = [];
+    try {
+      const { data: wsRows } = await admin
+        .from('workshop_registrations')
+        .select(`
+          id,
+          qr_code,
+          status,
+          registered_at,
+          workshop:workshops(
+            id,
+            title,
+            description,
+            category,
+            department:departments(name),
+            sessions:workshop_sessions(
+              id,
+              session_number,
+              title,
+              session_date,
+              start_time,
+              end_time,
+              type,
+              venue,
+              status
+            )
+          )
+        `)
+        .eq('student_id', student.id)
+        .eq('status', 'registered');
+
+      if (wsRows && wsRows.length > 0) {
+        let attendedWorkshopSessionIds = new Set<string>();
+        try {
+          const { data: attWs } = await admin
+            .from('student_attendance')
+            .select('session_id')
+            .eq('student_id', student.id);
+          if (attWs) {
+            attendedWorkshopSessionIds = new Set(attWs.map((a: any) => a.session_id));
+          }
+        } catch {
+          // ignore
+        }
+
+        const today = new Date().toISOString().split('T')[0];
+
+        workshops = wsRows.map((row: any) => {
+          const w = Array.isArray(row.workshop) ? row.workshop[0] : row.workshop;
+          const dept = Array.isArray(w?.department) ? w?.department[0] : w?.department;
+          const sList = (w?.sessions || [])
+            .slice()
+            .sort((a: any, b: any) => a.session_number - b.session_number);
+
+          const formattedSessions = sList.map((s: any) => ({
+            id: s.id,
+            session_number: s.session_number,
+            title: s.title,
+            date: s.session_date,
+            start_time: s.start_time,
+            end_time: s.end_time,
+            type: s.type as 'online' | 'offline',
+            venue: s.venue,
+            status: s.status,
+            is_attended: attendedWorkshopSessionIds.has(s.id),
+          }));
+
+          const attendedCount = formattedSessions.filter((s: any) => s.is_attended).length;
+          const upcoming = formattedSessions.find((s: any) => s.date >= today && s.status !== 'cancelled');
+          const nextSession = upcoming || formattedSessions[0] || null;
+
+          const isAllPast = formattedSessions.length > 0 && formattedSessions.every((s: any) => s.date < today);
+          const status: 'upcoming' | 'completed' | 'in_progress' = isAllPast ? 'completed' : 'upcoming';
+
+          return {
+            id: w?.id || row.id,
+            registration_id: row.id,
+            qr_code: row.qr_code,
+            title: w?.title || 'Workshop',
+            description: w?.description || '',
+            committee_name: dept?.name,
+            category: w?.category,
+            date: nextSession ? nextSession.date : row.registered_at,
+            sessions_count: sList.length,
+            sessions_attended: attendedCount,
+            status,
+            venue: nextSession?.venue || undefined,
+            next_session: nextSession
+              ? {
+                  id: nextSession.id,
+                  session_number: nextSession.session_number,
+                  title: nextSession.title,
+                  date: nextSession.date,
+                  start_time: nextSession.start_time,
+                  end_time: nextSession.end_time,
+                  type: nextSession.type,
+                  venue: nextSession.venue,
+                }
+              : null,
+            sessions: formattedSessions,
+          };
+        });
+      }
+    } catch (wsErr) {
+      console.error('getStudentDashboardData workshops error:', wsErr);
+      workshops = [];
+    }
+
     let tasks: StudentDashboardData['tasks'] = [];
     let quizzes: StudentDashboardData['quizzes'] = [];
     let attendance: StudentDashboardData['attendance'] = [];

@@ -35,6 +35,7 @@ export function StudentDashboardClient({ initialData }: StudentDashboardClientPr
   const { student, teamProfile, stats, courses, workshops, tasks, quizzes, attendance, certificates } = initialData;
 
   const [activeTab, setActiveTab] = useState<'courses' | 'workshops' | 'tasks' | 'quizzes' | 'attendance' | 'certificates'>('courses');
+  const [workshopFilter, setWorkshopFilter] = useState<'all' | 'upcoming' | 'past'>('all');
 
   const getYearLabel = (year: number | null) => {
     if (!year) return 'Student Member';
@@ -881,66 +882,416 @@ export function StudentDashboardClient({ initialData }: StudentDashboardClientPr
           )}
 
           {/* TAB 2: WORKSHOPS */}
-          {activeTab === 'workshops' && (
-            <div>
-              {workshops.length === 0 ? (
-                <div style={{ textAlign: 'center', padding: '3rem 1.5rem', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem' }}>
-                  <div
-                    style={{
-                      width: '56px',
-                      height: '56px',
-                      borderRadius: '14px',
-                      background: 'rgba(52, 168, 83, 0.12)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      color: '#34D399',
-                    }}
-                  >
-                    <Calendar size={26} />
+          {activeTab === 'workshops' && (() => {
+            const filteredWorkshops = workshops.filter((ws) => {
+              if (workshopFilter === 'upcoming') return ws.status === 'upcoming' || ws.status === 'in_progress';
+              if (workshopFilter === 'past') return ws.status === 'completed';
+              return true;
+            });
+
+            return (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+                {/* Sub-filter bar */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem' }}>
+                  <div style={{ display: 'flex', background: 'rgba(255, 255, 255, 0.04)', borderRadius: '8px', padding: '0.25rem', border: '1px solid rgba(255, 255, 255, 0.06)' }}>
+                    <button
+                      type="button"
+                      onClick={() => setWorkshopFilter('all')}
+                      style={{
+                        padding: '0.4rem 0.85rem',
+                        borderRadius: '6px',
+                        border: 'none',
+                        background: workshopFilter === 'all' ? 'rgba(255, 255, 255, 0.12)' : 'transparent',
+                        color: workshopFilter === 'all' ? '#FFFFFF' : 'var(--text-muted, #94A3B8)',
+                        fontWeight: workshopFilter === 'all' ? 700 : 500,
+                        fontSize: '0.8rem',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      All ({workshops.length})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setWorkshopFilter('upcoming')}
+                      style={{
+                        padding: '0.4rem 0.85rem',
+                        borderRadius: '6px',
+                        border: 'none',
+                        background: workshopFilter === 'upcoming' ? 'rgba(66, 133, 244, 0.2)' : 'transparent',
+                        color: workshopFilter === 'upcoming' ? '#60A5FA' : 'var(--text-muted, #94A3B8)',
+                        fontWeight: workshopFilter === 'upcoming' ? 700 : 500,
+                        fontSize: '0.8rem',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      Upcoming
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setWorkshopFilter('past')}
+                      style={{
+                        padding: '0.4rem 0.85rem',
+                        borderRadius: '6px',
+                        border: 'none',
+                        background: workshopFilter === 'past' ? 'rgba(52, 168, 83, 0.2)' : 'transparent',
+                        color: workshopFilter === 'past' ? '#4ADE80' : 'var(--text-muted, #94A3B8)',
+                        fontWeight: workshopFilter === 'past' ? 700 : 500,
+                        fontSize: '0.8rem',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      Past / Completed
+                    </button>
                   </div>
-                  <div>
-                    <h3 style={{ fontSize: '1.15rem', fontWeight: 800, color: '#FFFFFF', margin: '0 0 0.35rem 0' }}>
-                      No Registered Workshops
-                    </h3>
-                    <p style={{ fontSize: '0.86rem', color: 'var(--text-secondary, #94A3B8)', margin: 0, maxWidth: '420px', lineHeight: 1.5 }}>
-                      Intensive weekend bootcamps and specialized workshops will appear here once announced.
-                    </p>
-                  </div>
+
                   <Link
-                    href="/student#how-it-works"
-                    className="btn-primary"
+                    href="/student/workshops"
                     style={{
                       display: 'inline-flex',
                       alignItems: 'center',
-                      gap: '0.5rem',
-                      padding: '0.65rem 1.25rem',
-                      fontSize: '0.86rem',
-                      marginTop: '0.5rem',
+                      gap: '0.35rem',
+                      color: 'var(--google-blue, #4285F4)',
+                      fontSize: '0.84rem',
+                      fontWeight: 700,
                       textDecoration: 'none',
                     }}
                   >
-                    <span>View Workshop Overview</span>
-                    <ArrowRight size={15} />
+                    Explore More Bootcamps <ArrowRight size={14} />
                   </Link>
                 </div>
-              ) : (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '1.25rem' }}>
-                  {workshops.map((ws) => (
-                    <div key={ws.id} className="glass-panel" style={{ padding: '1.25rem' }}>
-                      <div style={{ fontSize: '0.74rem', color: '#34D399', fontWeight: 700 }}>{ws.status}</div>
-                      <h4 style={{ fontSize: '1.05rem', fontWeight: 800, color: '#FFFFFF', margin: '0.4rem 0' }}>
-                        {ws.title}
-                      </h4>
-                      <div style={{ fontSize: '0.8rem', color: 'var(--text-muted, #64748B)' }}>
-                        Attended: {ws.sessions_attended} / {ws.sessions_count} sessions
-                      </div>
+
+                {filteredWorkshops.length === 0 ? (
+                  <div style={{ textAlign: 'center', padding: '3.5rem 1.5rem', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem' }}>
+                    <div
+                      style={{
+                        width: '56px',
+                        height: '56px',
+                        borderRadius: '14px',
+                        background: 'rgba(52, 168, 83, 0.12)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: '#34D399',
+                      }}
+                    >
+                      <Calendar size={26} />
                     </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
+                    <div>
+                      <h3 style={{ fontSize: '1.15rem', fontWeight: 800, color: '#FFFFFF', margin: '0 0 0.35rem 0' }}>
+                        No Workshops in this View
+                      </h3>
+                      <p style={{ fontSize: '0.86rem', color: 'var(--text-secondary, #94A3B8)', margin: 0, maxWidth: '420px', lineHeight: 1.5 }}>
+                        Browse upcoming hands-on bootcamps, workshops, and technical deep-dives to claim your seat.
+                      </p>
+                    </div>
+                    <Link
+                      href="/student/workshops"
+                      className="btn-primary"
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '0.5rem',
+                        padding: '0.65rem 1.25rem',
+                        fontSize: '0.86rem',
+                        marginTop: '0.5rem',
+                        textDecoration: 'none',
+                      }}
+                    >
+                      <span>Explore Bootcamps Catalog</span>
+                      <ArrowRight size={15} />
+                    </Link>
+                  </div>
+                ) : (
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(360px, 1fr))', gap: '1.5rem' }}>
+                    {filteredWorkshops.map((ws) => {
+                      const attendancePercent = ws.sessions_count > 0 ? Math.round((ws.sessions_attended / ws.sessions_count) * 100) : 0;
+                      return (
+                        <div
+                          key={ws.id}
+                          className="glass-panel"
+                          style={{
+                            padding: '1.5rem',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '1.25rem',
+                            justifyContent: 'space-between',
+                            borderRadius: '16px',
+                            border: '1px solid rgba(255, 255, 255, 0.08)',
+                          }}
+                        >
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                            {/* Top Header: Badge & Status */}
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem' }}>
+                              <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
+                                {ws.committee_name && (
+                                  <span
+                                    style={{
+                                      fontSize: '0.72rem',
+                                      fontWeight: 700,
+                                      padding: '0.2rem 0.6rem',
+                                      borderRadius: '6px',
+                                      background: 'rgba(66, 133, 244, 0.15)',
+                                      color: '#93C5FD',
+                                    }}
+                                  >
+                                    {ws.committee_name}
+                                  </span>
+                                )}
+                                {ws.category && (
+                                  <span
+                                    style={{
+                                      fontSize: '0.72rem',
+                                      fontWeight: 600,
+                                      padding: '0.2rem 0.6rem',
+                                      borderRadius: '6px',
+                                      background: 'rgba(255, 255, 255, 0.05)',
+                                      color: 'var(--text-secondary, #CBD5E1)',
+                                    }}
+                                  >
+                                    {ws.category}
+                                  </span>
+                                )}
+                              </div>
+
+                              <span
+                                style={{
+                                  fontSize: '0.72rem',
+                                  fontWeight: 700,
+                                  padding: '0.2rem 0.6rem',
+                                  borderRadius: '6px',
+                                  background:
+                                    ws.status === 'completed'
+                                      ? 'rgba(52, 168, 83, 0.15)'
+                                      : ws.status === 'in_progress'
+                                      ? 'rgba(251, 188, 4, 0.15)'
+                                      : 'rgba(66, 133, 244, 0.15)',
+                                  color:
+                                    ws.status === 'completed'
+                                      ? '#4ADE80'
+                                      : ws.status === 'in_progress'
+                                      ? '#FBBF24'
+                                      : '#60A5FA',
+                                  textTransform: 'uppercase',
+                                  letterSpacing: '0.03em',
+                                }}
+                              >
+                                {ws.status === 'completed' ? 'Completed' : ws.status === 'in_progress' ? 'In Progress' : 'Upcoming'}
+                              </span>
+                            </div>
+
+                            {/* Title & Description */}
+                            <div>
+                              <h4 style={{ fontSize: '1.2rem', fontWeight: 800, color: '#FFFFFF', margin: 0, lineHeight: 1.3 }}>
+                                {ws.title}
+                              </h4>
+                              {ws.description && (
+                                <p
+                                  style={{
+                                    fontSize: '0.84rem',
+                                    color: 'var(--text-secondary, #94A3B8)',
+                                    marginTop: '0.4rem',
+                                    marginBottom: 0,
+                                    lineHeight: 1.5,
+                                    display: '-webkit-box',
+                                    WebkitLineClamp: 2,
+                                    WebkitBoxOrient: 'vertical',
+                                    overflow: 'hidden',
+                                  }}
+                                >
+                                  {ws.description}
+                                </p>
+                              )}
+                            </div>
+
+                            {/* Attendance Progress */}
+                            <div style={{ background: 'rgba(255, 255, 255, 0.02)', padding: '0.75rem', borderRadius: '10px', border: '1px solid rgba(255, 255, 255, 0.05)' }}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.78rem', color: 'var(--text-muted, #94A3B8)', marginBottom: '0.45rem' }}>
+                                <span style={{ fontWeight: 600 }}>Attendance Record</span>
+                                <span style={{ fontWeight: 700, color: '#FFFFFF' }}>
+                                  {ws.sessions_attended} of {ws.sessions_count} sessions ({attendancePercent}%)
+                                </span>
+                              </div>
+                              <div style={{ height: '7px', width: '100%', background: 'rgba(255, 255, 255, 0.08)', borderRadius: '999px', overflow: 'hidden' }}>
+                                <div
+                                  style={{
+                                    height: '100%',
+                                    width: `${attendancePercent}%`,
+                                    background: 'linear-gradient(90deg, #34A853, #4285F4)',
+                                    borderRadius: '999px',
+                                    transition: 'width 0.4s ease',
+                                  }}
+                                />
+                              </div>
+                            </div>
+
+                            {/* Next Upcoming Session or Last Completed */}
+                            {ws.next_session ? (
+                              <div
+                                style={{
+                                  background: 'rgba(52, 168, 83, 0.04)',
+                                  border: '1px solid rgba(52, 168, 83, 0.2)',
+                                  borderRadius: '10px',
+                                  padding: '0.85rem',
+                                  display: 'flex',
+                                  flexDirection: 'column',
+                                  gap: '0.45rem',
+                                }}
+                              >
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                  <span style={{ fontSize: '0.72rem', fontWeight: 700, color: '#4ADE80', textTransform: 'uppercase', letterSpacing: '0.04em', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                                    <Clock size={12} />
+                                    Next Session #{ws.next_session.session_number}
+                                  </span>
+                                  <span
+                                    style={{
+                                      display: 'inline-flex',
+                                      alignItems: 'center',
+                                      gap: '0.25rem',
+                                      fontSize: '0.72rem',
+                                      fontWeight: 700,
+                                      padding: '0.15rem 0.5rem',
+                                      borderRadius: '6px',
+                                      background: ws.next_session.type === 'online' ? 'rgba(66, 133, 244, 0.15)' : 'rgba(52, 168, 83, 0.15)',
+                                      color: ws.next_session.type === 'online' ? '#93C5FD' : '#86EFAC',
+                                    }}
+                                  >
+                                    {ws.next_session.type === 'online' ? <Video size={11} /> : <MapPin size={11} />}
+                                    {ws.next_session.type === 'online' ? 'Online Stream' : 'On-Campus'}
+                                  </span>
+                                </div>
+
+                                <div style={{ fontSize: '0.88rem', fontWeight: 700, color: '#FFFFFF', marginTop: '0.15rem' }}>
+                                  {ws.next_session.title}
+                                </div>
+
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem', fontSize: '0.78rem', color: 'var(--text-secondary, #94A3B8)', flexWrap: 'wrap' }}>
+                                  <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                                    <Calendar size={13} color="#60A5FA" />
+                                    {new Date(ws.next_session.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                                  </span>
+                                  {ws.next_session.start_time && (
+                                    <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                                      <Clock size={13} color="#FBBF24" />
+                                      {ws.next_session.start_time.slice(0, 5)}
+                                    </span>
+                                  )}
+                                  {ws.next_session.venue && (
+                                    <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                                      <MapPin size={13} color="#34D399" />
+                                      {ws.next_session.venue}
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            ) : (
+                              <div
+                                style={{
+                                  background: 'rgba(255, 255, 255, 0.02)',
+                                  border: '1px solid rgba(255, 255, 255, 0.05)',
+                                  borderRadius: '10px',
+                                  padding: '0.75rem 0.85rem',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '0.5rem',
+                                  fontSize: '0.78rem',
+                                  color: 'var(--text-muted, #64748B)',
+                                }}
+                              >
+                                <CheckCircle2 size={14} color="#34D399" />
+                                <span>All workshop sessions completed</span>
+                              </div>
+                            )}
+
+                            {/* Sessions Attendance Breakdown */}
+                            {ws.sessions && ws.sessions.length > 0 && (
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                                <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted, #64748B)', textTransform: 'uppercase' }}>
+                                  Sessions Attendance Breakdown
+                                </div>
+                                <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
+                                  {ws.sessions.map((s) => (
+                                    <span
+                                      key={s.id}
+                                      style={{
+                                        fontSize: '0.72rem',
+                                        padding: '0.25rem 0.55rem',
+                                        borderRadius: '6px',
+                                        background: s.is_attended
+                                          ? 'rgba(52, 168, 83, 0.2)'
+                                          : 'rgba(255, 255, 255, 0.04)',
+                                        border: s.is_attended
+                                          ? '1px solid rgba(52, 168, 83, 0.4)'
+                                          : '1px solid rgba(255, 255, 255, 0.08)',
+                                        color: s.is_attended ? '#4ADE80' : '#94A3B8',
+                                        fontWeight: 600,
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: '0.25rem',
+                                      }}
+                                      title={`Session ${s.session_number}: ${s.title} (${s.is_attended ? 'Attended' : 'Scheduled'})`}
+                                    >
+                                      {s.is_attended ? <CheckCircle2 size={11} /> : <Clock size={11} />}
+                                      S{s.session_number}: {s.is_attended ? 'Present' : 'Upcoming'}
+                                    </span>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Action Footer */}
+                          <div style={{ display: 'flex', gap: '0.6rem', paddingTop: '0.75rem', borderTop: '1px solid rgba(255, 255, 255, 0.06)' }}>
+                            <Link
+                              href={`/student/workshops/${ws.id}`}
+                              style={{
+                                flex: 1,
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                gap: '0.4rem',
+                                padding: '0.65rem 0.85rem',
+                                fontSize: '0.84rem',
+                                fontWeight: 700,
+                                color: '#FFFFFF',
+                                background: 'rgba(255, 255, 255, 0.06)',
+                                border: '1px solid rgba(255, 255, 255, 0.12)',
+                                borderRadius: '8px',
+                                textDecoration: 'none',
+                              }}
+                            >
+                              <span>LMS & Sessions</span>
+                              <ChevronRight size={14} />
+                            </Link>
+
+                            <Link
+                              href={`/student/workshops/${ws.id}/confirmation`}
+                              style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                gap: '0.35rem',
+                                padding: '0.65rem 0.85rem',
+                                fontSize: '0.84rem',
+                                fontWeight: 700,
+                                color: '#4ADE80',
+                                background: 'rgba(52, 168, 83, 0.15)',
+                                border: '1px solid rgba(52, 168, 83, 0.35)',
+                                borderRadius: '8px',
+                                textDecoration: 'none',
+                              }}
+                            >
+                              <QrCode size={15} />
+                              <span>Pass</span>
+                            </Link>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+          })()}
 
           {/* TAB 3: TASKS */}
           {activeTab === 'tasks' && (

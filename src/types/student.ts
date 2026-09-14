@@ -83,12 +83,39 @@ export interface StudentDashboardData {
   }>;
   workshops: Array<{
     id: string;
+    registration_id?: string;
+    qr_code?: string;
     title: string;
+    description?: string;
+    committee_name?: string;
+    category?: string;
     date: string;
     sessions_count: number;
     sessions_attended: number;
-    status: 'upcoming' | 'completed';
+    status: 'upcoming' | 'completed' | 'in_progress';
     venue?: string;
+    next_session?: {
+      id: string;
+      session_number: number;
+      title: string;
+      date: string;
+      start_time?: string;
+      end_time?: string;
+      type: 'online' | 'offline';
+      venue?: string;
+    } | null;
+    sessions?: Array<{
+      id: string;
+      session_number: number;
+      title: string;
+      date: string;
+      start_time: string;
+      end_time: string;
+      type: 'online' | 'offline';
+      venue?: string | null;
+      status: string;
+      is_attended: boolean;
+    }>;
   }>;
   tasks: Array<{
     id: string;
