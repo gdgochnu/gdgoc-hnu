@@ -328,4 +328,19 @@ export interface WorkshopRegistration {
   student?: StudentProfile;
 }
 
+export interface StudentAttendance {
+  id: string;
+  session_id: string | null;
+  workshop_session_id: string | null;
+  student_id: string;
+  check_in_time: string;
+  checked_in_by: string;
+  method: 'qr' | 'manual';
+  notes?: string | null;
+  created_at: string;
+  student?: StudentProfile;
+  course_session?: CourseSession;
+  workshop_session?: WorkshopSession;
+}
+
 
