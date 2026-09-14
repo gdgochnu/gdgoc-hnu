@@ -319,7 +319,7 @@
 ### Sub-Phase S.D: Student Attendance (HR/Instructor QR Scanning)
 *Read spec §4.S.5, §4.S.10, §4.S.11 before starting.*
 - [x] S.D.1 Create `student_attendance` table (spec §4.S.10); RLS: INSERT restricted to HR/Instructor/President/Co-President roles (from `profiles` table); students read own rows only.
-- [ ] S.D.2 Build `/student-portal/admin/attendance/scan` — unified mobile QR scanner:
+- [x] S.D.2 Build `/student-portal/admin/attendance/scan` — unified mobile QR scanner:
   - Camera-based scanner (use `react-qr-reader` or similar).
   - Scans `student_profiles.qr_code` → prompts: "Select event type: Course Session / Workshop Session" → shows dropdown of today's sessions → confirm → creates `student_attendance` row.
   - Duplicate-scan prevention (show existing check-in time if already scanned).
