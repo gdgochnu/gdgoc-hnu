@@ -49,6 +49,54 @@ interface CourseSessionsClientProps {
   userRole?: string;
 }
 
+// Duration & Time calculation helpers
+const computeDurationMinutes = (start: string, end: string): number => {
+  try {
+    const [sh, sm] = start.split(':').map(Number);
+    const [eh, em] = end.split(':').map(Number);
+    let diff = (eh * 60 + em) - (sh * 60 + sm);
+    if (diff < 0) diff += 24 * 60;
+    return diff || 60;
+  } catch {
+    return 120;
+  }
+};
+
+const formatDurationText = (minutes: number): string => {
+  if (!minutes || minutes <= 0) return '0 min';
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  if (h > 0 && m > 0) return `${h}h ${m}m`;
+  if (h > 0) return `${h} ${h === 1 ? 'Hour' : 'Hours'}`;
+  return `${m} Mins`;
+};
+
+const addMinutesToTime = (timeStr: string, minutesToAdd: number): string => {
+  try {
+    const [h, m] = timeStr.split(':').map(Number);
+    const total = (h * 60 + m + minutesToAdd) % (24 * 60);
+    const nh = Math.floor(total / 60);
+    const nm = total % 60;
+    return `${String(nh).padStart(2, '0')}:${String(nm).padStart(2, '0')}`;
+  } catch {
+    return '18:00';
+  }
+};
+
+const formatTimeRemaining = (deadlineStr: string): string => {
+  try {
+    const diff = new Date(deadlineStr).getTime() - Date.now();
+    if (diff <= 0) return 'Expired';
+    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+    const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+    if (days > 0) return `${days}d ${hours}h left`;
+    const mins = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+    return `${hours}h ${mins}m left`;
+  } catch {
+    return 'Pending';
+  }
+};
+
 export function CourseSessionsClient({
   course,
   initialSessions,
@@ -69,6 +117,8 @@ export function CourseSessionsClient({
   const [sessionDate, setSessionDate] = useState('');
   const [startTime, setStartTime] = useState('16:00');
   const [endTime, setEndTime] = useState('18:00');
+  const [durationMinutes, setDurationMinutes] = useState<number>(120);
+  const [sessionDeadline, setSessionDeadline] = useState<string>('');
   const [sessionType, setSessionType] = useState<SessionType>('offline');
   const [sessionVenue, setSessionVenue] = useState('');
   const [youtubeUrl, setYoutubeUrl] = useState('');
@@ -104,6 +154,8 @@ export function CourseSessionsClient({
     setSessionDate(new Date().toISOString().split('T')[0]);
     setStartTime('16:00');
     setEndTime('18:00');
+    setDurationMinutes(120);
+    setSessionDeadline('');
     setSessionType('offline');
     setSessionVenue('');
     setYoutubeUrl('');
@@ -120,12 +172,37 @@ export function CourseSessionsClient({
     setSessionDate(s.session_date);
     setStartTime(s.start_time.slice(0, 5));
     setEndTime(s.end_time.slice(0, 5));
+    const dur = s.duration_minutes || computeDurationMinutes(s.start_time, s.end_time);
+    setDurationMinutes(dur);
+    setSessionDeadline(s.deadline ? new Date(s.deadline).toISOString().slice(0, 16) : '');
     setSessionType(s.type);
     setSessionVenue(s.venue || '');
     setYoutubeUrl(s.youtube_url || '');
     setSessionStatus(s.status);
     setFormError(null);
     setIsSessionModalOpen(true);
+  };
+
+  const handleStartTimeChange = (newStart: string) => {
+    setStartTime(newStart);
+    setEndTime(addMinutesToTime(newStart, durationMinutes));
+  };
+
+  const handleEndTimeChange = (newEnd: string) => {
+    setEndTime(newEnd);
+    setDurationMinutes(computeDurationMinutes(startTime, newEnd));
+  };
+
+  const handleSelectDurationPreset = (minutes: number) => {
+    setDurationMinutes(minutes);
+    setEndTime(addMinutesToTime(startTime, minutes));
+  };
+
+  const handleSetDeadlineRelative = (daysAfter: number) => {
+    const baseDate = sessionDate ? new Date(sessionDate) : new Date();
+    baseDate.setDate(baseDate.getDate() + daysAfter);
+    baseDate.setHours(23, 59, 0, 0);
+    setSessionDeadline(baseDate.toISOString().slice(0, 16));
   };
 
   const handleSubmitSession = async (e: React.FormEvent) => {
@@ -165,6 +242,8 @@ export function CourseSessionsClient({
           venue: sessionType === 'offline' ? sessionVenue.trim() : undefined,
           youtube_url: sessionType === 'online' ? youtubeUrl.trim() : undefined,
           status: sessionStatus,
+          duration_minutes: durationMinutes,
+          deadline: sessionDeadline ? new Date(sessionDeadline).toISOString() : null,
         };
 
         const res = await updateCourseSession(updatePayload);
@@ -188,6 +267,8 @@ export function CourseSessionsClient({
           youtube_url: sessionType === 'online' ? youtubeUrl.trim() : undefined,
           status: sessionStatus,
           materials: [],
+          duration_minutes: durationMinutes,
+          deadline: sessionDeadline ? new Date(sessionDeadline).toISOString() : null,
         };
 
         const res = await createCourseSession(createPayload);
@@ -380,6 +461,10 @@ export function CourseSessionsClient({
   const completedCount = sessions.filter((s) => s.status === 'completed').length;
   const scheduledCount = sessions.filter((s) => s.status === 'scheduled').length;
   const cancelledCount = sessions.filter((s) => s.status === 'cancelled').length;
+  const totalCurriculumMinutes = sessions.reduce(
+    (acc, s) => acc + (s.duration_minutes || computeDurationMinutes(s.start_time, s.end_time)),
+    0
+  );
 
   return (
     <div style={{ padding: '2.5rem 2rem', maxWidth: '1200px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '2rem' }}>
@@ -562,6 +647,14 @@ export function CourseSessionsClient({
             </div>
             <div style={{ fontSize: '1.5rem', fontWeight: 800, color: '#EA4335', marginTop: '0.2rem' }}>
               {cancelledCount}
+            </div>
+          </div>
+          <div>
+            <div style={{ fontSize: '0.74rem', color: '#FBBF24', fontWeight: 600, textTransform: 'uppercase' }}>
+              Curriculum Hours
+            </div>
+            <div style={{ fontSize: '1.5rem', fontWeight: 800, color: '#FBBF24', marginTop: '0.2rem' }}>
+              {formatDurationText(totalCurriculumMinutes)}
             </div>
           </div>
         </div>
@@ -805,6 +898,27 @@ export function CourseSessionsClient({
                       <Clock size={13} />
                       {session.start_time.slice(0, 5)} - {session.end_time.slice(0, 5)}
                     </span>
+
+                    {/* Prominent Duration Badge */}
+                    <span
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '0.35rem',
+                        padding: '0.2rem 0.6rem',
+                        borderRadius: '6px',
+                        background: session.type === 'offline' ? 'rgba(52, 168, 83, 0.12)' : 'rgba(234, 67, 53, 0.12)',
+                        border: `1px solid ${session.type === 'offline' ? 'rgba(52, 168, 83, 0.28)' : 'rgba(234, 67, 53, 0.28)'}`,
+                        color: session.type === 'offline' ? '#34D399' : '#F87171',
+                        fontSize: '0.74rem',
+                        fontWeight: 700,
+                      }}
+                      title="Session Duration"
+                    >
+                      <Clock size={11} />
+                      {session.type === 'offline' ? 'Duration: ' : 'Stream: '}
+                      {formatDurationText(session.duration_minutes || computeDurationMinutes(session.start_time, session.end_time))}
+                    </span>
                   </div>
 
                   {/* Actions & Status Dropdown */}
@@ -912,6 +1026,70 @@ export function CourseSessionsClient({
                         Watch Session Broadcast / Recording
                         <ExternalLink size={12} />
                       </a>
+                    </div>
+                  )}
+
+                  {/* Task / Assignment Deadline Banner */}
+                  {session.deadline && (
+                    <div
+                      style={{
+                        marginTop: '0.75rem',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        flexWrap: 'wrap',
+                        gap: '0.6rem',
+                        padding: '0.6rem 0.9rem',
+                        borderRadius: '8px',
+                        background: new Date(session.deadline).getTime() < Date.now()
+                          ? 'rgba(239, 68, 68, 0.12)'
+                          : 'rgba(245, 158, 11, 0.12)',
+                        border: `1px solid ${new Date(session.deadline).getTime() < Date.now() ? 'rgba(239, 68, 68, 0.3)' : 'rgba(245, 158, 11, 0.3)'}`,
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                        <AlertCircle
+                          size={15}
+                          style={{
+                            color: new Date(session.deadline).getTime() < Date.now() ? '#F87171' : '#FBBF24',
+                          }}
+                        />
+                        <span
+                          style={{
+                            fontSize: '0.82rem',
+                            fontWeight: 700,
+                            color: new Date(session.deadline).getTime() < Date.now() ? '#FCA5A5' : '#FDE68A',
+                          }}
+                        >
+                          Task / Assignment Deadline:
+                        </span>
+                        <span style={{ fontSize: '0.82rem', color: '#FFFFFF', fontWeight: 600 }}>
+                          {new Date(session.deadline).toLocaleString('en-US', {
+                            weekday: 'short',
+                            month: 'short',
+                            day: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })}
+                        </span>
+                      </div>
+
+                      <span
+                        style={{
+                          fontSize: '0.72rem',
+                          fontWeight: 800,
+                          padding: '0.2rem 0.55rem',
+                          borderRadius: '4px',
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.5px',
+                          background: new Date(session.deadline).getTime() < Date.now() ? 'rgba(239, 68, 68, 0.25)' : 'rgba(245, 158, 11, 0.25)',
+                          color: new Date(session.deadline).getTime() < Date.now() ? '#F87171' : '#FBBF24',
+                        }}
+                      >
+                        {new Date(session.deadline).getTime() < Date.now()
+                          ? 'Deadline Passed'
+                          : `${formatTimeRemaining(session.deadline)}`}
+                      </span>
                     </div>
                   )}
                 </div>
@@ -1204,7 +1382,7 @@ export function CourseSessionsClient({
                     type="time"
                     required
                     value={startTime}
-                    onChange={(e) => setStartTime(e.target.value)}
+                    onChange={(e) => handleStartTimeChange(e.target.value)}
                     style={{
                       width: '100%',
                       padding: '0.65rem 0.75rem',
@@ -1225,7 +1403,7 @@ export function CourseSessionsClient({
                     type="time"
                     required
                     value={endTime}
-                    onChange={(e) => setEndTime(e.target.value)}
+                    onChange={(e) => handleEndTimeChange(e.target.value)}
                     style={{
                       width: '100%',
                       padding: '0.65rem 0.75rem',
@@ -1237,6 +1415,147 @@ export function CourseSessionsClient({
                       outline: 'none',
                     }}
                   />
+                </div>
+              </div>
+
+              {/* Duration Presets & Info */}
+              <div
+                style={{
+                  padding: '0.75rem 0.9rem',
+                  borderRadius: '8px',
+                  background: 'rgba(255, 255, 255, 0.03)',
+                  border: '1px solid rgba(255, 255, 255, 0.08)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '0.5rem',
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.4rem' }}>
+                  <label style={{ fontSize: '0.8rem', fontWeight: 700, color: '#CBD5E1', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                    <Clock size={13} style={{ color: '#60A5FA' }} />
+                    Session Duration ({sessionType === 'offline' ? 'Offline Lecture' : 'Online Stream'}):
+                  </label>
+                  <span
+                    style={{
+                      fontSize: '0.82rem',
+                      fontWeight: 800,
+                      color: sessionType === 'offline' ? '#34D399' : '#F87171',
+                      padding: '0.15rem 0.5rem',
+                      borderRadius: '4px',
+                      background: sessionType === 'offline' ? 'rgba(52, 168, 83, 0.15)' : 'rgba(234, 67, 53, 0.15)',
+                    }}
+                  >
+                    {formatDurationText(durationMinutes)} ({durationMinutes} mins)
+                  </span>
+                </div>
+
+                {/* Quick Presets */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
+                  {[
+                    { label: '45m', min: 45 },
+                    { label: '1 Hour', min: 60 },
+                    { label: '1.5 Hours', min: 90 },
+                    { label: '2 Hours', min: 120 },
+                    { label: '2.5 Hours', min: 150 },
+                    { label: '3 Hours', min: 180 },
+                  ].map((preset) => (
+                    <button
+                      key={preset.min}
+                      type="button"
+                      onClick={() => handleSelectDurationPreset(preset.min)}
+                      style={{
+                        padding: '0.25rem 0.6rem',
+                        borderRadius: '6px',
+                        fontSize: '0.75rem',
+                        fontWeight: 600,
+                        border: durationMinutes === preset.min ? '1px solid #4285F4' : '1px solid rgba(255, 255, 255, 0.1)',
+                        background: durationMinutes === preset.min ? 'rgba(66, 133, 244, 0.2)' : 'rgba(255, 255, 255, 0.04)',
+                        color: durationMinutes === preset.min ? '#60A5FA' : '#CBD5E1',
+                        cursor: 'pointer',
+                        transition: 'all 0.15s ease',
+                      }}
+                    >
+                      {preset.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Task / Assignment Submission Deadline (Optional) */}
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.35rem', flexWrap: 'wrap', gap: '0.4rem' }}>
+                  <label style={{ fontSize: '0.8rem', fontWeight: 700, color: '#CBD5E1', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                    <Calendar size={13} style={{ color: '#FBBF24' }} />
+                    Task / Assignment Submission Deadline (Optional)
+                  </label>
+                  {sessionDeadline && (
+                    <button
+                      type="button"
+                      onClick={() => setSessionDeadline('')}
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        color: '#EA4335',
+                        fontSize: '0.74rem',
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                        padding: 0,
+                      }}
+                    >
+                      Clear Deadline
+                    </button>
+                  )}
+                </div>
+
+                <input
+                  type="datetime-local"
+                  value={sessionDeadline}
+                  onChange={(e) => setSessionDeadline(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '0.65rem 0.85rem',
+                    borderRadius: '8px',
+                    background: '#1E293B',
+                    border: '1px solid rgba(255, 255, 255, 0.12)',
+                    color: '#FFFFFF',
+                    fontSize: '0.88rem',
+                    outline: 'none',
+                  }}
+                />
+
+                {/* Deadline Shortcuts */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', marginTop: '0.4rem', flexWrap: 'wrap' }}>
+                  <span style={{ fontSize: '0.72rem', color: '#94A3B8' }}>Quick set:</span>
+                  <button
+                    type="button"
+                    onClick={() => handleSetDeadlineRelative(3)}
+                    style={{
+                      padding: '0.2rem 0.5rem',
+                      borderRadius: '4px',
+                      background: 'rgba(255, 255, 255, 0.04)',
+                      border: '1px solid rgba(255, 255, 255, 0.1)',
+                      color: '#E2E8F0',
+                      fontSize: '0.72rem',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    +3 Days (23:59)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleSetDeadlineRelative(7)}
+                    style={{
+                      padding: '0.2rem 0.5rem',
+                      borderRadius: '4px',
+                      background: 'rgba(255, 255, 255, 0.04)',
+                      border: '1px solid rgba(255, 255, 255, 0.1)',
+                      color: '#E2E8F0',
+                      fontSize: '0.72rem',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    +1 Week (23:59)
+                  </button>
                 </div>
               </div>
 

@@ -192,6 +192,8 @@ export interface CourseSession {
   materials: string[];
   qr_secret: string | null;
   status: SessionStatus;
+  duration_minutes?: number | null;
+  deadline?: string | null;
   created_at: string;
   updated_at: string;
 }

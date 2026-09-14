@@ -39,6 +39,8 @@ export interface CreateSessionInput {
   youtube_url?: string;
   materials?: string[];
   status?: SessionStatus;
+  duration_minutes?: number | null;
+  deadline?: string | null;
 }
 
 export interface UpdateSessionInput extends Partial<CreateSessionInput> {
@@ -256,13 +258,27 @@ export async function createCourseSession(input: CreateSessionInput): Promise<{
       youtube_url: input.type === 'online' ? input.youtube_url?.trim() || null : null,
       materials: input.materials || [],
       status: input.status || 'scheduled',
+      duration_minutes: input.duration_minutes !== undefined ? input.duration_minutes : null,
+      deadline: input.deadline ? input.deadline : null,
     };
 
-    const { data: newSession, error: insertErr } = await supabase
+    let { data: newSession, error: insertErr } = await supabase
       .from('course_sessions')
       .insert([insertData])
       .select()
       .single();
+
+    // Graceful fallback if migration 32 columns don't exist yet
+    if (insertErr && (insertErr.code === '42703' || insertErr.code === 'PGRST204' || insertErr.message?.includes('does not exist') || insertErr.message?.includes('schema cache'))) {
+      const { duration_minutes: _d, deadline: _dl, ...fallbackData } = insertData;
+      const retry = await supabase
+        .from('course_sessions')
+        .insert([fallbackData])
+        .select()
+        .single();
+      newSession = retry.data;
+      insertErr = retry.error;
+    }
 
     if (insertErr || !newSession) {
       console.error('createCourseSession insert error:', insertErr);
@@ -330,13 +346,27 @@ export async function updateCourseSession(input: UpdateSessionInput): Promise<{
     }
     if (input.materials !== undefined) updatePayload.materials = input.materials;
     if (input.status !== undefined) updatePayload.status = input.status;
+    if (input.duration_minutes !== undefined) updatePayload.duration_minutes = input.duration_minutes;
+    if (input.deadline !== undefined) updatePayload.deadline = input.deadline || null;
 
-    const { data: updatedSession, error: updateErr } = await supabase
+    let { data: updatedSession, error: updateErr } = await supabase
       .from('course_sessions')
       .update(updatePayload)
       .eq('id', input.id)
       .select()
       .single();
+
+    if (updateErr && (updateErr.code === '42703' || updateErr.code === 'PGRST204' || updateErr.message?.includes('does not exist') || updateErr.message?.includes('schema cache'))) {
+      const { duration_minutes: _d, deadline: _dl, ...fallbackPayload } = updatePayload;
+      const retry = await supabase
+        .from('course_sessions')
+        .update(fallbackPayload)
+        .eq('id', input.id)
+        .select()
+        .single();
+      updatedSession = retry.data;
+      updateErr = retry.error;
+    }
 
     if (updateErr || !updatedSession) {
       console.error('updateCourseSession error:', updateErr);
