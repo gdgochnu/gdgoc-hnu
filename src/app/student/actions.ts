@@ -2,7 +2,7 @@
 
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getUserContext } from '@/lib/auth/get-user-context';
-import { StudentProfile, StudentOnboardingInput } from '@/types/student';
+import { StudentProfile, StudentOnboardingInput, StudentDashboardData } from '@/types/student';
 import { revalidatePath } from 'next/cache';
 
 /**
@@ -321,4 +321,204 @@ export async function getStudentOnboardingData(): Promise<{
     };
   }
 }
+
+/**
+ * 5. Get full dashboard data for active student
+ */
+export async function getStudentDashboardData(): Promise<{
+  authenticated: boolean;
+  needsOnboarding: boolean;
+  data?: StudentDashboardData;
+  error?: string;
+}> {
+  try {
+    const context = await getUserContext();
+    if (!context.user) {
+      return { authenticated: false, needsOnboarding: false, error: 'Unauthorized' };
+    }
+
+    const admin = createAdminClient();
+
+    // 1. Fetch student profile
+    const { data: student, error: stuErr } = await admin
+      .from('student_profiles')
+      .select('*')
+      .eq('id', context.user.id)
+      .maybeSingle();
+
+    if (stuErr) {
+      console.error('getStudentDashboardData student error:', stuErr);
+      return { authenticated: true, needsOnboarding: false, error: stuErr.message };
+    }
+
+    if (!student || student.status !== 'active') {
+      return { authenticated: true, needsOnboarding: true };
+    }
+
+    // 2. Fetch linked team member profile if exists
+    let teamProfile: StudentDashboardData['teamProfile'] = null;
+    const teamProfileId = student.team_profile_id || context.profile?.id;
+
+    if (teamProfileId) {
+      const { data: tp } = await admin
+        .from('profiles')
+        .select(`
+          id,
+          role,
+          department:departments (
+            name,
+            code,
+            branch
+          )
+        `)
+        .eq('id', teamProfileId)
+        .maybeSingle();
+
+      if (tp) {
+        teamProfile = {
+          id: tp.id,
+          role: tp.role,
+          department: (tp.department as any) || null,
+        };
+      }
+    }
+
+    // 3. Certificates query
+    let certificates: StudentDashboardData['certificates'] = [];
+    try {
+      const { data: certs } = await admin
+        .from('certificates')
+        .select('id, title, certificate_number, verification_code, issue_date, pdf_drive_url')
+        .or(`recipient_email.eq.${student.email}${teamProfileId ? `,recipient_profile_id.eq.${teamProfileId}` : ''}`)
+        .order('created_at', { ascending: false });
+
+      if (certs) {
+        certificates = certs.map((c: any) => ({
+          id: c.id,
+          title: c.title,
+          certificate_number: c.certificate_number,
+          verification_code: c.verification_code,
+          issue_date: c.issue_date,
+          pdf_drive_url: c.pdf_drive_url || null,
+        }));
+      }
+    } catch {
+      certificates = [];
+    }
+
+    // 4. Placeholder arrays for courses / workshops / tasks / quizzes / attendance
+    // (These will be populated automatically as Sub-Phase S.B, S.C, S.D, S.E tables are created)
+    let courses: StudentDashboardData['courses'] = [];
+    let workshops: StudentDashboardData['workshops'] = [];
+    let tasks: StudentDashboardData['tasks'] = [];
+    let quizzes: StudentDashboardData['quizzes'] = [];
+    let attendance: StudentDashboardData['attendance'] = [];
+
+    // Safely check if student_attendance table exists
+    try {
+      const { data: attData } = await admin
+        .from('student_attendance')
+        .select('*')
+        .eq('student_id', student.id)
+        .order('scanned_at', { ascending: false })
+        .limit(20);
+
+      if (attData) {
+        attendance = attData.map((a: any) => ({
+          id: a.id,
+          event_title: a.event_title || 'Session',
+          type: a.type || 'course',
+          session_title: a.session_title || 'Session',
+          date: a.date || a.scanned_at,
+          scanned_at: a.scanned_at,
+        }));
+      }
+    } catch {
+      // Table not yet migrated
+    }
+
+    const totalSessionsAttended = attendance.length;
+    const enrolledCoursesCount = courses.length;
+    const workshopsCount = workshops.length;
+    const pendingTasksCount = tasks.filter((t: any) => t.status === 'pending').length;
+    const certificatesCount = certificates.length;
+
+    const stats = {
+      enrolledCoursesCount,
+      workshopsCount,
+      attendanceRate: totalSessionsAttended > 0 ? 100 : 0,
+      totalSessionsAttended,
+      pendingTasksCount,
+      certificatesCount,
+    };
+
+    return {
+      authenticated: true,
+      needsOnboarding: false,
+      data: {
+        student: student as StudentProfile,
+        teamProfile,
+        stats,
+        courses,
+        workshops,
+        tasks,
+        quizzes,
+        attendance,
+        certificates,
+      },
+    };
+  } catch (err: any) {
+    console.error('getStudentDashboardData exception:', err);
+    return { authenticated: false, needsOnboarding: false, error: err.message };
+  }
+}
+
+/**
+ * 6. Get data for permanent student QR pass
+ */
+export async function getStudentQrPassData(): Promise<{
+  authenticated: boolean;
+  needsOnboarding: boolean;
+  student?: StudentProfile;
+  teamRole?: string | null;
+  error?: string;
+}> {
+  try {
+    const context = await getUserContext();
+    if (!context.user) {
+      return { authenticated: false, needsOnboarding: false, error: 'Unauthorized' };
+    }
+
+    const admin = createAdminClient();
+    const { data: student } = await admin
+      .from('student_profiles')
+      .select('*')
+      .eq('id', context.user.id)
+      .maybeSingle();
+
+    if (!student || student.status !== 'active') {
+      return { authenticated: true, needsOnboarding: true };
+    }
+
+    let teamRole: string | null = null;
+    if (student.team_profile_id || context.profile?.id) {
+      const { data: tp } = await admin
+        .from('profiles')
+        .select('role')
+        .eq('id', student.team_profile_id || context.profile?.id)
+        .maybeSingle();
+      if (tp) teamRole = tp.role;
+    }
+
+    return {
+      authenticated: true,
+      needsOnboarding: false,
+      student: student as StudentProfile,
+      teamRole,
+    };
+  } catch (err: any) {
+    return { authenticated: false, needsOnboarding: false, error: err.message };
+  }
+}
+
 

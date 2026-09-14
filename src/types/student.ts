@@ -42,3 +42,83 @@ export interface StudentOnboardingInput {
   instagram_url?: string;
   linkedin_url?: string;
 }
+
+export interface StudentDashboardData {
+  student: StudentProfile;
+  teamProfile: {
+    id: string;
+    role: string;
+    department?: {
+      name: string;
+      code: string;
+      branch?: string;
+    } | null;
+  } | null;
+  stats: {
+    enrolledCoursesCount: number;
+    workshopsCount: number;
+    attendanceRate: number;
+    totalSessionsAttended: number;
+    pendingTasksCount: number;
+    certificatesCount: number;
+  };
+  courses: Array<{
+    id: string;
+    title: string;
+    description?: string;
+    committee_name?: string;
+    sessions_total: number;
+    sessions_attended: number;
+    next_session?: {
+      title: string;
+      date: string;
+      type: 'online' | 'offline';
+      venue?: string;
+      youtube_url?: string;
+    } | null;
+  }>;
+  workshops: Array<{
+    id: string;
+    title: string;
+    date: string;
+    sessions_count: number;
+    sessions_attended: number;
+    status: 'upcoming' | 'completed';
+    venue?: string;
+  }>;
+  tasks: Array<{
+    id: string;
+    title: string;
+    course_title: string;
+    deadline: string;
+    status: 'pending' | 'submitted' | 'graded';
+    score?: number | null;
+    max_score?: number;
+    feedback?: string | null;
+  }>;
+  quizzes: Array<{
+    id: string;
+    title: string;
+    course_title: string;
+    status: 'available' | 'completed';
+    score?: number | null;
+    total_questions?: number;
+  }>;
+  attendance: Array<{
+    id: string;
+    event_title: string;
+    type: 'course' | 'workshop';
+    session_title: string;
+    date: string;
+    scanned_at: string;
+  }>;
+  certificates: Array<{
+    id: string;
+    title: string;
+    certificate_number: string;
+    verification_code: string;
+    issue_date: string;
+    pdf_drive_url?: string | null;
+  }>;
+}
+
