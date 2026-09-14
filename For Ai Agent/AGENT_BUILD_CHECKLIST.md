@@ -331,7 +331,7 @@
 ### Sub-Phase S.E: Lessons, Tasks, Quizzes & Mentorship
 *Read spec §4.S.6, §4.S.7, §4.S.10 before starting.*
 - [x] S.E.1 Create `course_lessons`, `student_tasks`, `student_task_submissions`, `quizzes`, `quiz_attempts` tables (spec §4.S.10); RLS as per spec §4.S.11.
-- [ ] S.E.2 Build **Lesson Management** at `/student-portal/admin/courses/[id]/lessons`:
+- [x] S.E.2 Build **Lesson Management** at `/student-portal/admin/courses/[id]/lessons`:
   - Instructors create/edit/reorder lessons: title, content (rich text or markdown), attach YouTube video, upload PDF materials, link to session (optional).
   - Each lesson can have attached tasks + quizzes (inline creation or link existing).
 - [ ] S.E.3 Build **Task Assignment** at `/student-portal/admin/courses/[id]/tasks` (or inline in lesson editor):

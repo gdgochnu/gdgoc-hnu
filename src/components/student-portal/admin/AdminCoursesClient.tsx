@@ -734,18 +734,48 @@ export function AdminCoursesClient({
                   </div>
                 </div>
 
-                {/* Card Action Controls (2x2 Grid) */}
+                {/* Card Action Controls */}
                 <div
                   style={{
                     borderTop: '1px solid rgba(255, 255, 255, 0.08)',
                     paddingTop: '0.85rem',
-                    display: 'grid',
-                    gridTemplateColumns: '1fr 1fr',
+                    display: 'flex',
+                    flexDirection: 'column',
                     gap: '0.5rem',
                   }}
                 >
                   <Link
-                    href={`/student-portal/admin/courses/${course.id}/sessions`}
+                    href={`/student-portal/admin/courses/${course.id}/lessons`}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '0.45rem',
+                      padding: '0.55rem 0.8rem',
+                      borderRadius: '8px',
+                      background: 'linear-gradient(135deg, rgba(66, 133, 244, 0.18) 0%, rgba(168, 85, 247, 0.18) 100%)',
+                      border: '1px solid rgba(66, 133, 244, 0.4)',
+                      color: '#FFFFFF',
+                      fontSize: '0.8rem',
+                      fontWeight: 700,
+                      textDecoration: 'none',
+                      transition: 'all 0.15s ease',
+                    }}
+                    title="Manage Syllabus, Lessons, Video Lectures, Tasks & Quizzes"
+                  >
+                    <BookOpen size={14} style={{ color: '#93C5FD' }} />
+                    <span>Lessons & Curriculum</span>
+                  </Link>
+
+                  <div
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns: '1fr 1fr',
+                      gap: '0.5rem',
+                    }}
+                  >
+                    <Link
+                      href={`/student-portal/admin/courses/${course.id}/sessions`}
                     style={{
                       display: 'flex',
                       alignItems: 'center',
@@ -837,7 +867,8 @@ export function AdminCoursesClient({
                   </Link>
                 </div>
               </div>
-            );
+            </div>
+          );
           })}
         </div>
       )}

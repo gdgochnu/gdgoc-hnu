@@ -8,6 +8,7 @@ import {
   AlertCircle,
   Clock3,
   Search,
+  BookOpen,
   ArrowLeft,
   Calendar,
   Sparkles,
@@ -323,6 +324,26 @@ export function CourseEnrollmentsClient({
           >
             <Calendar size={14} style={{ color: '#60A5FA' }} />
             Sessions
+          </Link>
+
+          <Link
+            href={`/student-portal/admin/courses/${header.id}/lessons`}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.4rem',
+              padding: '0.45rem 0.85rem',
+              borderRadius: '8px',
+              background: 'linear-gradient(135deg, rgba(66, 133, 244, 0.15), rgba(168, 85, 247, 0.15))',
+              border: '1px solid rgba(66, 133, 244, 0.35)',
+              color: '#93C5FD',
+              fontSize: '0.8rem',
+              fontWeight: 700,
+              textDecoration: 'none',
+            }}
+          >
+            <BookOpen size={14} style={{ color: '#93C5FD' }} />
+            Lessons
           </Link>
 
           <Link

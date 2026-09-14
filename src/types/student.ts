@@ -365,7 +365,7 @@ export interface CourseLesson {
   created_at: string;
   updated_at: string;
   course?: Course;
-  session?: CourseSession;
+  session?: CourseSession | null;
 }
 
 export type TaskSubmissionType = 'link' | 'file' | 'both';
