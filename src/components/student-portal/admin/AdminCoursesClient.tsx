@@ -24,6 +24,8 @@ import {
   Lock,
   Unlock,
   QrCode,
+  FileText,
+  Award,
 } from 'lucide-react';
 import { AdminCourseItem, CreateCourseInput, createAdminCourse, updateAdminCourse, deleteAdminCourse } from '@/app/student-portal/admin/courses/actions';
 import { CourseStatus, EnrollmentType, CourseInstructorRole } from '@/types/student';
@@ -766,6 +768,60 @@ export function AdminCoursesClient({
                     <BookOpen size={14} style={{ color: '#93C5FD' }} />
                     <span>Lessons & Curriculum</span>
                   </Link>
+
+                  <div
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns: '1fr 1fr',
+                      gap: '0.5rem',
+                    }}
+                  >
+                    <Link
+                      href={`/student-portal/admin/courses/${course.id}/tasks`}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '0.4rem',
+                        padding: '0.55rem 0.6rem',
+                        borderRadius: '8px',
+                        background: 'rgba(245, 158, 11, 0.12)',
+                        border: '1px solid rgba(245, 158, 11, 0.28)',
+                        color: '#FDE047',
+                        fontSize: '0.78rem',
+                        fontWeight: 700,
+                        textDecoration: 'none',
+                        transition: 'all 0.15s ease',
+                      }}
+                      title="Manage Tasks & Project Assignments"
+                    >
+                      <FileText size={13} />
+                      <span>Tasks</span>
+                    </Link>
+
+                    <Link
+                      href={`/student-portal/admin/courses/${course.id}/submissions`}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '0.4rem',
+                        padding: '0.55rem 0.6rem',
+                        borderRadius: '8px',
+                        background: 'rgba(52, 168, 83, 0.12)',
+                        border: '1px solid rgba(52, 168, 83, 0.28)',
+                        color: '#86EFAC',
+                        fontSize: '0.78rem',
+                        fontWeight: 700,
+                        textDecoration: 'none',
+                        transition: 'all 0.15s ease',
+                      }}
+                      title="Evaluate & Grade Student Submissions"
+                    >
+                      <Award size={13} />
+                      <span>Submissions</span>
+                    </Link>
+                  </div>
 
                   <div
                     style={{

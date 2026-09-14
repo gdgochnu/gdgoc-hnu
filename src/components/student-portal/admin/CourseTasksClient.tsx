@@ -11,6 +11,7 @@ import {
   Edit2,
   Trash2,
   ExternalLink,
+  Award,
   CheckCircle2,
   AlertCircle,
   Clock3,
@@ -413,6 +414,26 @@ export function CourseTasksClient({
             <FileCheck2 size={14} style={{ color: '#FDE047' }} />
             <span>Tasks ({totalTasks})</span>
           </div>
+
+          <Link
+            href={`/student-portal/admin/courses/${course.id}/submissions`}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.4rem',
+              padding: '0.45rem 0.85rem',
+              borderRadius: '8px',
+              background: 'rgba(52, 168, 83, 0.12)',
+              border: '1px solid rgba(52, 168, 83, 0.3)',
+              color: '#34D399',
+              fontSize: '0.8rem',
+              fontWeight: 600,
+              textDecoration: 'none',
+            }}
+          >
+            <Award size={14} />
+            <span>Submissions & Grading ({totalSubmissions})</span>
+          </Link>
 
           <Link
             href={`/student-portal/admin/courses/${course.id}/enrollments`}
