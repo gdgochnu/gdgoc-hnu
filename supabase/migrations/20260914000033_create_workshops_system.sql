@@ -122,8 +122,8 @@ CREATE POLICY "Staff read non-published workshops"
             SELECT 1 FROM public.profiles p
             WHERE p.id = auth.uid()
             AND (
-                p.role IN ('president', 'co_president', 'vice_president', 'lead', 'core_team')
-                OR (p.department_id = public.workshops.department_id AND p.role IN ('head', 'co_head'))
+                p.role IN ('president', 'co_president', 'branch_head')
+                OR (p.role IN ('committee_head', 'committee_co_head') AND p.department_id = public.workshops.department_id)
                 OR EXISTS (
                     SELECT 1 FROM public.workshop_instructors wi
                     WHERE wi.workshop_id = public.workshops.id AND wi.profile_id = p.id
@@ -141,8 +141,8 @@ CREATE POLICY "Staff create workshops"
             SELECT 1 FROM public.profiles p
             WHERE p.id = auth.uid()
             AND (
-                p.role IN ('president', 'co_president', 'vice_president', 'lead')
-                OR (p.department_id = public.workshops.department_id AND p.role IN ('head', 'co_head'))
+                p.role IN ('president', 'co_president', 'branch_head')
+                OR (p.role IN ('committee_head', 'committee_co_head') AND p.department_id = public.workshops.department_id)
             )
         )
     );
@@ -156,8 +156,8 @@ CREATE POLICY "Staff update workshops"
             SELECT 1 FROM public.profiles p
             WHERE p.id = auth.uid()
             AND (
-                p.role IN ('president', 'co_president', 'vice_president', 'lead')
-                OR (p.department_id = public.workshops.department_id AND p.role IN ('head', 'co_head'))
+                p.role IN ('president', 'co_president', 'branch_head')
+                OR (p.role IN ('committee_head', 'committee_co_head') AND p.department_id = public.workshops.department_id)
                 OR EXISTS (
                     SELECT 1 FROM public.workshop_instructors wi
                     WHERE wi.workshop_id = public.workshops.id AND wi.profile_id = p.id
@@ -176,7 +176,7 @@ CREATE POLICY "Leadership delete workshops"
             WHERE p.id = auth.uid()
             AND (
                 p.role IN ('president', 'co_president')
-                OR (p.department_id = public.workshops.department_id AND p.role = 'head')
+                OR (p.role IN ('committee_head', 'committee_co_head') AND p.department_id = public.workshops.department_id)
             )
         )
     );
@@ -196,8 +196,8 @@ CREATE POLICY "Manage workshop instructors"
             JOIN public.workshops w ON w.id = public.workshop_instructors.workshop_id
             WHERE p.id = auth.uid()
             AND (
-                p.role IN ('president', 'co_president', 'vice_president', 'lead')
-                OR (p.department_id = w.department_id AND p.role IN ('head', 'co_head'))
+                p.role IN ('president', 'co_president')
+                OR (p.role IN ('committee_head', 'committee_co_head') AND p.department_id = w.department_id)
             )
         )
     );
@@ -216,8 +216,8 @@ CREATE POLICY "Workshop sessions follow workshop read"
                     SELECT 1 FROM public.profiles p
                     WHERE p.id = auth.uid()
                     AND (
-                        p.role IN ('president', 'co_president', 'vice_president', 'lead', 'core_team')
-                        OR (p.department_id = w.department_id AND p.role IN ('head', 'co_head'))
+                        p.role IN ('president', 'co_president', 'branch_head')
+                        OR (p.role IN ('committee_head', 'committee_co_head') AND p.department_id = w.department_id)
                         OR EXISTS (
                             SELECT 1 FROM public.workshop_instructors wi
                             WHERE wi.workshop_id = w.id AND wi.profile_id = p.id
@@ -237,8 +237,8 @@ CREATE POLICY "Instructors manage workshop sessions"
             JOIN public.workshops w ON w.id = public.workshop_sessions.workshop_id
             WHERE p.id = auth.uid()
             AND (
-                p.role IN ('president', 'co_president', 'vice_president', 'lead')
-                OR (p.department_id = w.department_id AND p.role IN ('head', 'co_head'))
+                p.role IN ('president', 'co_president')
+                OR (p.role IN ('committee_head', 'committee_co_head') AND p.department_id = w.department_id)
                 OR EXISTS (
                     SELECT 1 FROM public.workshop_instructors wi
                     WHERE wi.workshop_id = w.id AND wi.profile_id = p.id
@@ -262,8 +262,8 @@ CREATE POLICY "Instructors view workshop registrations"
             JOIN public.workshops w ON w.id = public.workshop_registrations.workshop_id
             WHERE p.id = auth.uid()
             AND (
-                p.role IN ('president', 'co_president', 'vice_president', 'lead', 'core_team')
-                OR (p.department_id = w.department_id AND p.role IN ('head', 'co_head'))
+                p.role IN ('president', 'co_president', 'branch_head')
+                OR (p.role IN ('committee_head', 'committee_co_head') AND p.department_id = w.department_id)
                 OR EXISTS (
                     SELECT 1 FROM public.workshop_instructors wi
                     WHERE wi.workshop_id = w.id AND wi.profile_id = p.id
@@ -300,8 +300,8 @@ CREATE POLICY "Staff manage workshop registrations"
             JOIN public.workshops w ON w.id = public.workshop_registrations.workshop_id
             WHERE p.id = auth.uid()
             AND (
-                p.role IN ('president', 'co_president', 'vice_president', 'lead')
-                OR (p.department_id = w.department_id AND p.role IN ('head', 'co_head'))
+                p.role IN ('president', 'co_president')
+                OR (p.role IN ('committee_head', 'committee_co_head') AND p.department_id = w.department_id)
                 OR EXISTS (
                     SELECT 1 FROM public.workshop_instructors wi
                     WHERE wi.workshop_id = w.id AND wi.profile_id = p.id
