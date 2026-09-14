@@ -18,6 +18,7 @@ import {
   ChevronRight,
   ExternalLink,
   BookOpen,
+  X,
 } from 'lucide-react';
 import {
   CourseRosterHeader,
@@ -46,29 +47,45 @@ export function CourseInstructorsClient({
 }: CourseInstructorsClientProps) {
   const [assigned, setAssigned] = useState<AssignedInstructorItem[]>(initialAssigned);
   const [candidates, setCandidates] = useState<CandidateMemberItem[]>(initialCandidates);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [assignedSearchQuery, setAssignedSearchQuery] = useState('');
+  const [candidateSearchQuery, setCandidateSearchQuery] = useState('');
   const [roleFilter, setRoleFilter] = useState<'all' | CourseInstructorRole>('all');
+  const [candidateDeptFilter, setCandidateDeptFilter] = useState<string>('all');
   const [isProcessing, setIsProcessing] = useState<string | null>(null);
   const [statusMessage, setStatusMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   // Filter assigned roster
   const filteredAssigned = assigned.filter((item) => {
+    const q = assignedSearchQuery.trim().toLowerCase();
     const matchesSearch =
-      item.full_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item.committee_role.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (item.email && item.email.toLowerCase().includes(searchQuery.toLowerCase()));
+      !q ||
+      item.full_name.toLowerCase().includes(q) ||
+      item.committee_role.toLowerCase().includes(q) ||
+      (item.department_name && item.department_name.toLowerCase().includes(q)) ||
+      (item.email && item.email.toLowerCase().includes(q));
 
     const matchesRole = roleFilter === 'all' || item.role === roleFilter;
     return matchesSearch && matchesRole;
   });
 
+  // Unique departments for candidates filter
+  const candidateDepts = Array.from(
+    new Set(candidates.map((c) => c.department_name).filter(Boolean) as string[])
+  ).sort();
+
   // Filter candidate pool
   const filteredCandidates = candidates.filter((item) => {
-    return (
-      item.full_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item.role.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (item.email && item.email.toLowerCase().includes(searchQuery.toLowerCase()))
-    );
+    const q = candidateSearchQuery.trim().toLowerCase();
+    const matchesSearch =
+      !q ||
+      item.full_name.toLowerCase().includes(q) ||
+      item.role.toLowerCase().includes(q) ||
+      (item.department_name && item.department_name.toLowerCase().includes(q)) ||
+      (item.email && item.email.toLowerCase().includes(q));
+
+    const matchesDept = candidateDeptFilter === 'all' || item.department_name === candidateDeptFilter;
+
+    return matchesSearch && matchesDept;
   });
 
   const instructorsCount = assigned.filter((a) => a.role === 'instructor').length;
@@ -350,12 +367,12 @@ export function CourseInstructorsClient({
           />
           <input
             type="text"
-            placeholder="Search member by name, role, email..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search assigned staff by name, role, email..."
+            value={assignedSearchQuery}
+            onChange={(e) => setAssignedSearchQuery(e.target.value)}
             style={{
               width: '100%',
-              padding: '0.55rem 1rem 0.55rem 2.4rem',
+              padding: '0.55rem 2.2rem 0.55rem 2.4rem',
               borderRadius: '8px',
               background: 'rgba(255, 255, 255, 0.04)',
               border: '1px solid rgba(255, 255, 255, 0.1)',
@@ -364,6 +381,27 @@ export function CourseInstructorsClient({
               outline: 'none',
             }}
           />
+          {assignedSearchQuery && (
+            <button
+              type="button"
+              onClick={() => setAssignedSearchQuery('')}
+              style={{
+                position: 'absolute',
+                right: '0.8rem',
+                top: '50%',
+                transform: 'translateY(-50%)',
+                background: 'transparent',
+                border: 'none',
+                color: '#94A3B8',
+                cursor: 'pointer',
+                padding: 0,
+                display: 'flex',
+              }}
+              title="Clear search"
+            >
+              <X size={14} />
+            </button>
+          )}
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
@@ -577,15 +615,119 @@ export function CourseInstructorsClient({
 
       {/* SECTION 2: CANDIDATE COMMITTEE MEMBERS POOL */}
       {canManage && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginTop: '1rem' }}>
-          <div>
-            <h2 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#FFFFFF', margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <UserPlus size={18} style={{ color: '#34A853' }} />
-              Available Committee Candidates ({filteredCandidates.length})
-            </h2>
-            <p style={{ color: '#94A3B8', fontSize: '0.85rem', margin: '0.3rem 0 0 0' }}>
-              Active committee members eligible to be assigned as Course Instructors or Mentors.
-            </p>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginTop: '1.5rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
+            <div>
+              <h2 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#FFFFFF', margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <UserPlus size={18} style={{ color: '#34A853' }} />
+                Available Committee Candidates
+                <span
+                  style={{
+                    padding: '0.15rem 0.55rem',
+                    borderRadius: '12px',
+                    fontSize: '0.75rem',
+                    fontWeight: 700,
+                    background: 'rgba(52, 168, 83, 0.15)',
+                    color: '#34D399',
+                    border: '1px solid rgba(52, 168, 83, 0.3)',
+                  }}
+                >
+                  {filteredCandidates.length}
+                  {candidates.length !== filteredCandidates.length && ` / ${candidates.length}`}
+                </span>
+              </h2>
+              <p style={{ color: '#94A3B8', fontSize: '0.85rem', margin: '0.3rem 0 0 0' }}>
+                Active committee members eligible to be assigned as Course Instructors or Mentors.
+              </p>
+            </div>
+          </div>
+
+          {/* Dedicated Search & Filter Bar for Candidates */}
+          <div
+            className="glass-panel"
+            style={{
+              padding: '0.85rem 1.25rem',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              flexWrap: 'wrap',
+              gap: '0.85rem',
+            }}
+          >
+            <div style={{ position: 'relative', flex: 1, minWidth: '240px' }}>
+              <Search
+                size={15}
+                style={{
+                  position: 'absolute',
+                  left: '0.9rem',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  color: '#94A3B8',
+                }}
+              />
+              <input
+                type="text"
+                placeholder="Search candidates by name, role, department, email..."
+                value={candidateSearchQuery}
+                onChange={(e) => setCandidateSearchQuery(e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '0.55rem 2.2rem 0.55rem 2.4rem',
+                  borderRadius: '8px',
+                  background: 'rgba(255, 255, 255, 0.04)',
+                  border: '1px solid rgba(255, 255, 255, 0.1)',
+                  color: '#FFFFFF',
+                  fontSize: '0.86rem',
+                  outline: 'none',
+                }}
+              />
+              {candidateSearchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setCandidateSearchQuery('')}
+                  style={{
+                    position: 'absolute',
+                    right: '0.8rem',
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    background: 'transparent',
+                    border: 'none',
+                    color: '#94A3B8',
+                    cursor: 'pointer',
+                    padding: 0,
+                    display: 'flex',
+                  }}
+                  title="Clear candidate search"
+                >
+                  <X size={14} />
+                </button>
+              )}
+            </div>
+
+            {candidateDepts.length > 1 && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                <span style={{ fontSize: '0.78rem', color: '#94A3B8', fontWeight: 600 }}>Department:</span>
+                <select
+                  value={candidateDeptFilter}
+                  onChange={(e) => setCandidateDeptFilter(e.target.value)}
+                  style={{
+                    padding: '0.45rem 0.75rem',
+                    borderRadius: '6px',
+                    background: 'rgba(255, 255, 255, 0.05)',
+                    border: '1px solid rgba(255, 255, 255, 0.12)',
+                    color: '#E2E8F0',
+                    fontSize: '0.8rem',
+                    outline: 'none',
+                    cursor: 'pointer',
+                  }}
+                >
+                  <option value="all" style={{ background: '#0F172A', color: '#FFFFFF' }}>All Departments</option>
+                  {candidateDepts.map((d) => (
+                    <option key={d} value={d} style={{ background: '#0F172A', color: '#FFFFFF' }}>{d}</option>
+                  ))}
+                </select>
+              </div>
+            )}
           </div>
 
           {filteredCandidates.length === 0 ? (
@@ -600,7 +742,33 @@ export function CourseInstructorsClient({
             >
               {candidates.length === 0
                 ? 'All eligible committee members are currently assigned to this course.'
-                : 'No candidate members match your search.'}
+                : (
+                  <div>
+                    <p style={{ margin: 0 }}>No candidate members match your search criteria.</p>
+                    {(candidateSearchQuery || candidateDeptFilter !== 'all') && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setCandidateSearchQuery('');
+                          setCandidateDeptFilter('all');
+                        }}
+                        style={{
+                          marginTop: '0.75rem',
+                          padding: '0.4rem 0.8rem',
+                          borderRadius: '6px',
+                          background: 'rgba(66, 133, 244, 0.15)',
+                          border: '1px solid rgba(66, 133, 244, 0.3)',
+                          color: '#60A5FA',
+                          fontSize: '0.8rem',
+                          fontWeight: 600,
+                          cursor: 'pointer',
+                        }}
+                      >
+                        Clear Candidate Filters
+                      </button>
+                    )}
+                  </div>
+                )}
             </div>
           ) : (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '0.85rem' }}>
