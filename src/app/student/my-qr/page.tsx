@@ -2,7 +2,7 @@ import React from 'react';
 import { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 import { getStudentQrPassData } from '@/app/student/actions';
-import { StudentNavbar } from '@/components/student/StudentNavbar';
+import { StudentAppShell } from '@/components/student/StudentAppShell';
 import { StudentQrCodeClient } from '@/components/student/StudentQrCodeClient';
 
 export const dynamic = 'force-dynamic';
@@ -26,14 +26,9 @@ export default async function StudentMyQrPage() {
   const { student, teamRole } = result;
 
   return (
-    <>
-      <StudentNavbar
-        studentName={student.full_name_en || student.full_name_ar || 'Student'}
-        studentQr={student.qr_code}
-        teamRole={teamRole}
-        avatarUrl={student.avatar_url}
-      />
+    <StudentAppShell student={student} teamRole={teamRole}>
       <StudentQrCodeClient student={student} teamRole={teamRole} />
-    </>
+    </StudentAppShell>
   );
 }
+

@@ -2,7 +2,7 @@ import React from 'react';
 import { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 import { getStudentDashboardData } from '@/app/student/actions';
-import { StudentNavbar } from '@/components/student/StudentNavbar';
+import { StudentAppShell } from '@/components/student/StudentAppShell';
 import { StudentDashboardClient } from '@/components/student/StudentDashboardClient';
 
 export const dynamic = 'force-dynamic';
@@ -28,14 +28,9 @@ export default async function StudentDashboardPage() {
   const { student, teamProfile } = result.data;
 
   return (
-    <>
-      <StudentNavbar
-        studentName={student.full_name_en || student.full_name_ar || 'Student'}
-        studentQr={student.qr_code}
-        teamRole={teamProfile?.role || null}
-        avatarUrl={student.avatar_url}
-      />
+    <StudentAppShell student={student} teamRole={teamProfile?.role || null}>
       <StudentDashboardClient initialData={result.data} />
-    </>
+    </StudentAppShell>
   );
 }
+
