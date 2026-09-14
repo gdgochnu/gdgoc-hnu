@@ -279,8 +279,8 @@
 *Read spec §4.S.1, §4.S.2, §4.S.10 before starting.*
 - [x] S.A.1 Create `student_profiles` table (spec §4.S.10) with `qr_code` (unique, auto-generated), `team_profile_id` (nullable FK to `profiles` — links team members who are also students); RLS as per spec §4.S.11.
 - [x] S.A.2 Build the Student Portal landing page at `/student` — public page showcasing featured courses/workshops, stats, and "Register / Sign In" CTA.
-- [ ] S.A.3 Wire Google sign-in for students: first sign-in → check if email matches existing `profiles` row → if yes, auto-link `team_profile_id`; create `student_profiles` row (`status='incomplete'`) → redirect to `/student/onboarding`.
-- [ ] S.A.4 Build "Complete Your Student Profile" form at `/student/onboarding` (fields from spec §4.S.2 — if already a team member, pre-fill name/email/phone from `profiles`); on submit → `status='active'` (no approval, instant activation) → redirect to `/student/dashboard`.
+- [x] S.A.3 Wire Google sign-in for students: first sign-in → check if email matches existing `profiles` row → if yes, auto-link `team_profile_id`; create `student_profiles` row (`status='incomplete'`) → redirect to `/student/onboarding`.
+- [x] S.A.4 Build "Complete Your Student Profile" form at `/student/onboarding` (fields from spec §4.S.2 — if already a team member, pre-fill name/email/phone from `profiles`); on submit → `status='active'` (no approval, instant activation) → redirect to `/student/dashboard`.
 - [ ] S.A.5 Build student dashboard at `/student/dashboard` with: My Courses (progress cards), My Workshops (upcoming/past), My Tasks (pending/completed), Quizzes (due/taken), Attendance Summary, Certificates, My QR Code widget.
 - [ ] S.A.6 Build `/student/my-qr`: display student's `qr_code` as downloadable QR (scannable by HR for attendance).
 - [ ] S.A.7 Confirm end-to-end: new student registers → completes profile → sees dashboard; existing team member signs in → auto-linked → profile pre-filled → dashboard shows dual role (team + student).

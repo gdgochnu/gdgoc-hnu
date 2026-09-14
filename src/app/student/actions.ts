@@ -155,3 +155,170 @@ export async function completeStudentProfile(input: StudentOnboardingInput): Pro
     return { success: false, error: err.message || 'An unexpected error occurred.' };
   }
 }
+
+/**
+ * 4. Get student onboarding data, checking auto-link bridge with profiles
+ */
+export async function getStudentOnboardingData(): Promise<{
+  authenticated: boolean;
+  isAlreadyActive: boolean;
+  isTeamMember: boolean;
+  student: StudentProfile | null;
+  faculties: Array<{ id: string; name_ar: string; name_en: string; sort_order: number }>;
+  prefilled: {
+    fullNameAr: string;
+    fullNameEn: string;
+    email: string;
+    nationalId: string;
+    university: string;
+    faculty: string;
+    departmentMajor: string;
+    academicYear: number;
+    phone: string;
+    whatsappNumber: string;
+    facebookUrl: string;
+    instagramUrl: string;
+    linkedinUrl: string;
+    avatarUrl: string | null;
+  };
+  error?: string;
+}> {
+  try {
+    const context = await getUserContext();
+    if (!context.user) {
+      return {
+        authenticated: false,
+        isAlreadyActive: false,
+        isTeamMember: false,
+        student: null,
+        faculties: [],
+        prefilled: {
+          fullNameAr: '',
+          fullNameEn: '',
+          email: '',
+          nationalId: '',
+          university: 'Helwan National University',
+          faculty: '',
+          departmentMajor: '',
+          academicYear: 1,
+          phone: '',
+          whatsappNumber: '',
+          facebookUrl: '',
+          instagramUrl: '',
+          linkedinUrl: '',
+          avatarUrl: null,
+        },
+      };
+    }
+
+    const admin = createAdminClient();
+
+    // 1. Fetch faculties options
+    const { data: facultiesData } = await admin
+      .from('faculty_options')
+      .select('id, name_ar, name_en, sort_order')
+      .eq('is_active', true)
+      .order('sort_order', { ascending: true });
+
+    const faculties = facultiesData || [];
+
+    // 2. Fetch team profile if exists
+    let teamProfile = context.profile;
+    if (!teamProfile && context.user.email) {
+      const { data: matchedProfile } = await admin
+        .from('profiles')
+        .select('*')
+        .eq('email', context.user.email.toLowerCase().trim())
+        .maybeSingle();
+      if (matchedProfile) {
+        teamProfile = matchedProfile as any;
+      }
+    }
+
+    // 3. Fetch or initialize student profile
+    let { data: student } = await admin
+      .from('student_profiles')
+      .select('*')
+      .eq('id', context.user.id)
+      .maybeSingle();
+
+    // If not exists yet, create initial incomplete record
+    if (!student) {
+      const { data: newStudent } = await admin
+        .from('student_profiles')
+        .insert({
+          id: context.user.id,
+          email: context.user.email?.toLowerCase().trim() || '',
+          team_profile_id: teamProfile?.id || null,
+          status: 'incomplete',
+        })
+        .select('*')
+        .maybeSingle();
+
+      student = newStudent || null;
+    } else if (!student.team_profile_id && teamProfile?.id) {
+      // Bridge link if not set
+      await admin
+        .from('student_profiles')
+        .update({ team_profile_id: teamProfile.id, updated_at: new Date().toISOString() })
+        .eq('id', student.id);
+      student.team_profile_id = teamProfile.id;
+    }
+
+    const isAlreadyActive = student?.status === 'active';
+    const isTeamMember = Boolean(teamProfile);
+
+    const prefilled = {
+      fullNameAr: student?.full_name_ar || (teamProfile as any)?.full_name_ar || '',
+      fullNameEn: student?.full_name_en || (teamProfile as any)?.full_name_en || (teamProfile as any)?.full_name || '',
+      email: student?.email || context.user.email || '',
+      nationalId: student?.national_id || (teamProfile as any)?.national_id || '',
+      university: student?.university || 'Helwan National University',
+      faculty: student?.faculty || (teamProfile as any)?.faculty || '',
+      departmentMajor: student?.department_major || (teamProfile as any)?.department_major || '',
+      academicYear: student?.academic_year || (teamProfile as any)?.academic_year || 1,
+      phone: student?.phone || (teamProfile as any)?.phone || '',
+      whatsappNumber: student?.whatsapp_number || (teamProfile as any)?.whatsapp_number || (teamProfile as any)?.phone || '',
+      facebookUrl: student?.facebook_url || (teamProfile as any)?.facebook_url || '',
+      instagramUrl: student?.instagram_url || (teamProfile as any)?.instagram_url || '',
+      linkedinUrl: student?.linkedin_url || (teamProfile as any)?.linkedin_url || '',
+      avatarUrl: student?.avatar_url || (teamProfile as any)?.avatar_url || null,
+    };
+
+    return {
+      authenticated: true,
+      isAlreadyActive,
+      isTeamMember,
+      student: student as StudentProfile | null,
+      faculties,
+      prefilled,
+    };
+  } catch (err: any) {
+    console.error('getStudentOnboardingData exception:', err);
+    return {
+      authenticated: false,
+      isAlreadyActive: false,
+      isTeamMember: false,
+      student: null,
+      faculties: [],
+      prefilled: {
+        fullNameAr: '',
+        fullNameEn: '',
+        email: '',
+        nationalId: '',
+        university: 'Helwan National University',
+        faculty: '',
+        departmentMajor: '',
+        academicYear: 1,
+        phone: '',
+        whatsappNumber: '',
+        facebookUrl: '',
+        instagramUrl: '',
+        linkedinUrl: '',
+        avatarUrl: null,
+      },
+      error: err.message,
+    };
+  }
+}
+
