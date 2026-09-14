@@ -2386,28 +2386,48 @@ export function StudentCourseDetailClient({ initialData }: StudentCourseDetailCl
 
                       {/* Submission CTA */}
                       <div>
-                        <button
-                          type="button"
-                          disabled={isClosed}
-                          onClick={() => handleOpenSubmitModal(t)}
-                          style={{
-                            padding: '0.6rem 1.15rem',
-                            borderRadius: '10px',
-                            background: sub ? 'rgba(255, 255, 255, 0.08)' : 'linear-gradient(135deg, #4285F4, #1D4ED8)',
-                            color: '#FFFFFF',
-                            border: '1px solid rgba(255, 255, 255, 0.1)',
-                            fontWeight: 700,
-                            fontSize: '0.84rem',
-                            cursor: isClosed ? 'not-allowed' : 'pointer',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '0.45rem',
-                            transition: 'all 0.15s ease',
-                          }}
-                        >
-                          <Send size={15} />
-                          {sub ? 'Update Submission' : 'Submit Assignment'}
-                        </button>
+                        {isGraded ? (
+                          <div
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '0.4rem',
+                              padding: '0.55rem 1rem',
+                              borderRadius: '10px',
+                              background: 'rgba(52, 168, 83, 0.12)',
+                              border: '1px solid rgba(52, 168, 83, 0.3)',
+                              color: '#34D399',
+                              fontSize: '0.82rem',
+                              fontWeight: 700,
+                            }}
+                          >
+                            <CheckCircle2 size={15} />
+                            Grade Finalized
+                          </div>
+                        ) : (
+                          <button
+                            type="button"
+                            disabled={isClosed}
+                            onClick={() => handleOpenSubmitModal(t)}
+                            style={{
+                              padding: '0.6rem 1.15rem',
+                              borderRadius: '10px',
+                              background: sub ? 'rgba(255, 255, 255, 0.08)' : 'linear-gradient(135deg, #4285F4, #1D4ED8)',
+                              color: '#FFFFFF',
+                              border: '1px solid rgba(255, 255, 255, 0.1)',
+                              fontWeight: 700,
+                              fontSize: '0.84rem',
+                              cursor: isClosed ? 'not-allowed' : 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '0.45rem',
+                              transition: 'all 0.15s ease',
+                            }}
+                          >
+                            <Send size={15} />
+                            {needsRevision ? 'Resubmit Solution' : isSubmitted ? 'Update Submission' : 'Submit Assignment'}
+                          </button>
+                        )}
                       </div>
                     </div>
                   </div>

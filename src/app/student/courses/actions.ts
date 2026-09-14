@@ -634,6 +634,21 @@ export async function submitStudentTask(payload: {
       return { success: false, error: 'This task is closed for submissions.' };
     }
 
+    // Check if existing submission is already graded
+    const { data: existingSub } = await admin
+      .from('student_task_submissions')
+      .select('id, status')
+      .eq('task_id', payload.taskId)
+      .eq('student_id', studentId)
+      .maybeSingle();
+
+    if (existingSub && (existingSub.status === 'graded' || existingSub.status === 'final')) {
+      return {
+        success: false,
+        error: 'This assignment has already been evaluated and graded. Submissions are finalized.',
+      };
+    }
+
     // Upsert into student_task_submissions
     const { error: upsertErr } = await admin
       .from('student_task_submissions')
