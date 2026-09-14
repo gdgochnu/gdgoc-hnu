@@ -549,9 +549,13 @@ export async function registerForWorkshop(workshopId: string): Promise<{
     // Verify student profile
     const { data: stu, error: stuErr } = await admin
       .from('student_profiles')
-      .select('id, full_name, email, status, phone_number')
+      .select('id, full_name_en, email, status, phone')
       .eq('id', context.user.id)
       .maybeSingle();
+
+    if (stuErr) {
+      console.error('registerForWorkshop stuErr:', stuErr);
+    }
 
     if (stuErr || !stu) {
       return {
