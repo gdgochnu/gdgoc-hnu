@@ -34,7 +34,15 @@ import {
   FileCode,
   Share2,
 } from 'lucide-react';
-import { CourseDetailResult, CourseSessionDetail, enrollInCourse } from '@/app/student/courses/actions';
+import {
+  CourseDetailResult,
+  CourseSessionDetail,
+  CourseLessonDetail,
+  StudentTaskDetail,
+  QuizDetail,
+  enrollInCourse,
+  submitStudentTask,
+} from '@/app/student/courses/actions';
 
 interface StudentCourseDetailClientProps {
   initialData: CourseDetailResult;
@@ -54,6 +62,9 @@ export function StudentCourseDetailClient({ initialData }: StudentCourseDetailCl
     course,
     instructors,
     sessions,
+    lessons = [],
+    tasks = [],
+    quizzes = [],
     myEnrollment: initialMyEnrollment,
     canEnroll: initialCanEnroll,
     needsOnboarding,
@@ -61,6 +72,8 @@ export function StudentCourseDetailClient({ initialData }: StudentCourseDetailCl
     isStaff,
     adminManageUrl,
   } = initialData;
+
+  const [activeTab, setActiveTab] = useState<'sessions' | 'lessons' | 'tasks' | 'quizzes'>('sessions');
 
   const [myEnrollment, setMyEnrollment] = useState(initialMyEnrollment);
   const [canEnroll, setCanEnroll] = useState(initialCanEnroll);
@@ -72,11 +85,28 @@ export function StudentCourseDetailClient({ initialData }: StudentCourseDetailCl
     sessions.length > 0 ? sessions[0].id : ''
   );
 
+  // Active lesson selection
+  const [activeLessonId, setActiveLessonId] = useState<string>(
+    lessons.length > 0 ? lessons[0].id : ''
+  );
+
+  // Tasks local state for dynamic updates
+  const [tasksList, setTasksList] = useState<StudentTaskDetail[]>(tasks);
+  const [submittingTask, setSubmittingTask] = useState<StudentTaskDetail | null>(null);
+  const [taskSubmissionLink, setTaskSubmissionLink] = useState('');
+  const [taskSubmissionDriveId, setTaskSubmissionDriveId] = useState('');
+  const [isSubmittingTask, setIsSubmittingTask] = useState(false);
+  const [taskModalError, setTaskModalError] = useState<string | null>(null);
+  const [taskModalSuccess, setTaskModalSuccess] = useState<string | null>(null);
+
   // File preview modal state
   const [previewFile, setPreviewFile] = useState<{ id: string; name: string; url?: string } | null>(null);
 
   const activeSessionIndex = sessions.findIndex((s) => s.id === activeSessionId);
   const activeSession = sessions[activeSessionIndex] || sessions[0] || null;
+
+  const activeLessonIndex = lessons.findIndex((l) => l.id === activeLessonId);
+  const activeLesson = lessons[activeLessonIndex] || lessons[0] || null;
 
   const totalHours = Math.round((course.total_duration_minutes || 120) / 60);
   const isConfirmed = myEnrollment?.status === 'confirmed';
@@ -134,6 +164,73 @@ export function StudentCourseDetailClient({ initialData }: StudentCourseDetailCl
     }
   };
 
+  const handleOpenSubmitModal = (t: StudentTaskDetail) => {
+    setSubmittingTask(t);
+    setTaskSubmissionLink(t.my_submission?.submission_link || '');
+    setTaskSubmissionDriveId(t.my_submission?.submission_file_drive_id || '');
+    setTaskModalError(null);
+    setTaskModalSuccess(null);
+  };
+
+  const handleTaskSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!submittingTask) return;
+
+    if (submittingTask.submission_type === 'link' && !taskSubmissionLink.trim()) {
+      setTaskModalError('Please provide a valid solution URL.');
+      return;
+    }
+
+    try {
+      setIsSubmittingTask(true);
+      setTaskModalError(null);
+
+      const res = await submitStudentTask({
+        taskId: submittingTask.id,
+        courseId: course.id,
+        submissionLink: taskSubmissionLink.trim() || undefined,
+        submissionFileDriveId: taskSubmissionDriveId.trim() || undefined,
+      });
+
+      if (!res.success) {
+        setTaskModalError(res.error || 'Failed to submit assignment.');
+        return;
+      }
+
+      setTaskModalSuccess('Assignment submitted successfully!');
+
+      setTasksList((prev) =>
+        prev.map((t) => {
+          if (t.id === submittingTask.id) {
+            return {
+              ...t,
+              my_submission: {
+                id: t.my_submission?.id || 'temp-sub-id',
+                status: 'submitted',
+                submission_link: taskSubmissionLink.trim() || null,
+                submission_file_drive_id: taskSubmissionDriveId.trim() || null,
+                score: t.my_submission?.score || null,
+                feedback_comment: t.my_submission?.feedback_comment || null,
+                submitted_at: new Date().toISOString(),
+                graded_at: t.my_submission?.graded_at || null,
+              },
+            };
+          }
+          return t;
+        })
+      );
+
+      setTimeout(() => {
+        setSubmittingTask(null);
+        setTaskModalSuccess(null);
+      }, 1000);
+    } catch (err: any) {
+      setTaskModalError(err.message || 'An error occurred while submitting.');
+    } finally {
+      setIsSubmittingTask(false);
+    }
+  };
+
   return (
     <div
       style={{
@@ -168,27 +265,69 @@ export function StudentCourseDetailClient({ initialData }: StudentCourseDetailCl
           <span style={{ color: '#FFFFFF', fontWeight: 700 }}>{course.title}</span>
         </div>
 
-        {/* Staff Attendance / Session Management Quick Link */}
-        {isStaff && adminManageUrl && (
-          <Link
-            href={adminManageUrl}
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '0.45rem',
-              padding: '0.45rem 0.9rem',
-              borderRadius: '8px',
-              background: 'rgba(16, 185, 129, 0.15)',
-              border: '1px solid rgba(16, 185, 129, 0.35)',
-              color: '#34D399',
-              fontSize: '0.82rem',
-              fontWeight: 700,
-              textDecoration: 'none',
-            }}
-          >
-            <ShieldCheck size={15} />
-            Manage Sessions & Attendance (Staff)
-          </Link>
+        {/* Staff Management Quick Links */}
+        {isStaff && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+            <Link
+              href={`/student-portal/admin/courses/${course.id}/lessons`}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.4rem',
+                padding: '0.45rem 0.85rem',
+                borderRadius: '8px',
+                background: 'rgba(66, 133, 244, 0.15)',
+                border: '1px solid rgba(66, 133, 244, 0.35)',
+                color: '#60A5FA',
+                fontSize: '0.8rem',
+                fontWeight: 700,
+                textDecoration: 'none',
+              }}
+            >
+              <BookOpen size={14} />
+              Lessons Admin
+            </Link>
+            <Link
+              href={`/student-portal/admin/courses/${course.id}/tasks`}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.4rem',
+                padding: '0.45rem 0.85rem',
+                borderRadius: '8px',
+                background: 'rgba(245, 158, 11, 0.15)',
+                border: '1px solid rgba(245, 158, 11, 0.35)',
+                color: '#FBBF24',
+                fontSize: '0.8rem',
+                fontWeight: 700,
+                textDecoration: 'none',
+              }}
+            >
+              <FileText size={14} />
+              Tasks Admin
+            </Link>
+            {adminManageUrl && (
+              <Link
+                href={adminManageUrl}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.4rem',
+                  padding: '0.45rem 0.85rem',
+                  borderRadius: '8px',
+                  background: 'rgba(16, 185, 129, 0.15)',
+                  border: '1px solid rgba(16, 185, 129, 0.35)',
+                  color: '#34D399',
+                  fontSize: '0.8rem',
+                  fontWeight: 700,
+                  textDecoration: 'none',
+                }}
+              >
+                <ShieldCheck size={14} />
+                Sessions & Attendance
+              </Link>
+            )}
+          </div>
         )}
       </div>
 
@@ -385,8 +524,70 @@ export function StudentCourseDetailClient({ initialData }: StudentCourseDetailCl
         </div>
       </div>
 
+      {/* Course Workspace Navigation Tabs */}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '0.6rem',
+          borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
+          paddingBottom: '0.75rem',
+          overflowX: 'auto',
+        }}
+      >
+        {[
+          { key: 'sessions', label: 'Sessions & Schedule', count: sessions.length, icon: Calendar },
+          { key: 'lessons', label: 'Lessons & Curriculum', count: lessons.length, icon: BookOpen },
+          { key: 'tasks', label: 'Tasks & Assignments', count: tasksList.length, icon: FileText },
+          { key: 'quizzes', label: 'Quizzes & Tests', count: quizzes.length, icon: Sparkles },
+        ].map((tab) => {
+          const isActive = activeTab === tab.key;
+          const Icon = tab.icon;
+          return (
+            <button
+              key={tab.key}
+              type="button"
+              onClick={() => setActiveTab(tab.key as any)}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.6rem',
+                padding: '0.65rem 1.15rem',
+                borderRadius: '12px',
+                border: isActive ? '1px solid rgba(66, 133, 244, 0.5)' : '1px solid rgba(255, 255, 255, 0.08)',
+                background: isActive
+                  ? 'linear-gradient(135deg, rgba(66, 133, 244, 0.2) 0%, rgba(30, 41, 59, 0.9) 100%)'
+                  : 'rgba(255, 255, 255, 0.03)',
+                color: isActive ? '#60A5FA' : '#94A3B8',
+                fontSize: '0.88rem',
+                fontWeight: 700,
+                cursor: 'pointer',
+                transition: 'all 0.15s ease',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              <Icon size={16} />
+              {tab.label}
+              <span
+                style={{
+                  padding: '0.1rem 0.45rem',
+                  borderRadius: '999px',
+                  fontSize: '0.72rem',
+                  fontWeight: 800,
+                  background: isActive ? '#4285F4' : 'rgba(255, 255, 255, 0.08)',
+                  color: isActive ? '#FFFFFF' : '#CBD5E1',
+                }}
+              >
+                {tab.count}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
       {/* Main Content Layout: Modular LMS Workspace */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(300px, 360px) 1fr', gap: '2rem', alignItems: 'start' }}>
+      {activeTab === 'sessions' && (
+        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(300px, 360px) 1fr', gap: '2rem', alignItems: 'start' }}>
         {/* ========================================================================= */}
         {/* LEFT COLUMN: Modular Session Navigator & Learning Progress */}
         {/* ========================================================================= */}
@@ -1367,6 +1568,1275 @@ export function StudentCourseDetailClient({ initialData }: StudentCourseDetailCl
           )}
         </div>
       </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* TAB 2: LESSONS & CURRICULUM */}
+      {/* ========================================================================= */}
+      {activeTab === 'lessons' && (
+        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(300px, 360px) 1fr', gap: '2rem', alignItems: 'start' }}>
+          {/* Left Column: Lessons Navigation */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+            <div
+              className="glass-panel"
+              style={{
+                padding: '1.5rem',
+                borderRadius: '16px',
+                border: '1px solid rgba(255, 255, 255, 0.08)',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '1rem',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <h3 style={{ fontSize: '1rem', fontWeight: 800, color: '#FFFFFF', margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <BookOpen size={17} style={{ color: '#60A5FA' }} />
+                  Course Curriculum ({lessons.length})
+                </h3>
+              </div>
+
+              {lessons.length === 0 ? (
+                <div style={{ padding: '2rem 1rem', textAlign: 'center', color: '#94A3B8', fontSize: '0.86rem' }}>
+                  No lessons published yet for this course.
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                  {lessons.map((l) => {
+                    const isActive = l.id === activeLesson?.id;
+                    return (
+                      <button
+                        key={l.id}
+                        type="button"
+                        onClick={() => setActiveLessonId(l.id)}
+                        style={{
+                          padding: '0.85rem 1rem',
+                          borderRadius: '12px',
+                          border: isActive
+                            ? '1px solid rgba(66, 133, 244, 0.5)'
+                            : '1px solid rgba(255, 255, 255, 0.06)',
+                          background: isActive
+                            ? 'linear-gradient(135deg, rgba(66, 133, 244, 0.2) 0%, rgba(30, 41, 59, 0.8) 100%)'
+                            : 'rgba(255, 255, 255, 0.02)',
+                          textAlign: 'left',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          gap: '0.75rem',
+                          transition: 'all 0.15s ease',
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', minWidth: 0 }}>
+                          <div
+                            style={{
+                              width: '28px',
+                              height: '28px',
+                              borderRadius: '8px',
+                              background: isActive ? '#4285F4' : 'rgba(66, 133, 244, 0.12)',
+                              color: isActive ? '#FFFFFF' : '#60A5FA',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              fontWeight: 800,
+                              fontSize: '0.78rem',
+                              flexShrink: 0,
+                            }}
+                          >
+                            #{l.lesson_number}
+                          </div>
+                          <div style={{ minWidth: 0 }}>
+                            <div
+                              style={{
+                                fontSize: '0.86rem',
+                                fontWeight: 700,
+                                color: isActive ? '#FFFFFF' : '#E2E8F0',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap',
+                              }}
+                            >
+                              {l.title}
+                            </div>
+                            {l.session_title && (
+                              <div style={{ fontSize: '0.72rem', color: '#94A3B8', marginTop: '0.1rem' }}>
+                                Session #{l.session_number}: {l.session_title}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        {l.youtube_url && (
+                          <Video size={14} style={{ color: '#F87171', flexShrink: 0 }} />
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Teaching Staff Card */}
+            <div
+              className="glass-panel"
+              style={{
+                padding: '1.25rem',
+                borderRadius: '16px',
+                border: '1px solid rgba(255, 255, 255, 0.08)',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '0.85rem',
+              }}
+            >
+              <div style={{ fontSize: '0.88rem', fontWeight: 800, color: '#FFFFFF', display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+                <GraduationCap size={16} style={{ color: '#34A853' }} />
+                Teaching Staff ({instructors.length})
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
+                {instructors.map((ins) => (
+                  <div
+                    key={ins.id}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      gap: '0.65rem',
+                      padding: '0.5rem',
+                      borderRadius: '8px',
+                      background: 'rgba(255, 255, 255, 0.02)',
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                      <div
+                        style={{
+                          width: '32px',
+                          height: '32px',
+                          borderRadius: '50%',
+                          background: ins.role === 'instructor' ? '#4285F4' : '#10B981',
+                          color: '#FFFFFF',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          fontWeight: 700,
+                          fontSize: '0.8rem',
+                          overflow: 'hidden',
+                          flexShrink: 0,
+                        }}
+                      >
+                        {ins.avatar_url ? (
+                          <img src={ins.avatar_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        ) : (
+                          ins.full_name.slice(0, 1).toUpperCase()
+                        )}
+                      </div>
+                      <div>
+                        <div style={{ fontSize: '0.84rem', fontWeight: 700, color: '#FFFFFF' }}>
+                          {ins.full_name}
+                        </div>
+                        <div style={{ fontSize: '0.7rem', color: '#94A3B8' }}>
+                          {ins.department_name || ins.committee_role}
+                        </div>
+                      </div>
+                    </div>
+
+                    <span
+                      style={{
+                        padding: '0.15rem 0.45rem',
+                        borderRadius: '4px',
+                        fontSize: '0.68rem',
+                        fontWeight: 800,
+                        textTransform: 'uppercase',
+                        background: ins.role === 'instructor' ? 'rgba(66, 133, 244, 0.15)' : 'rgba(52, 168, 83, 0.15)',
+                        color: ins.role === 'instructor' ? '#60A5FA' : '#34D399',
+                      }}
+                    >
+                      {ins.role}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Right Column: Active Lesson Workspace */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', minWidth: 0 }}>
+            {activeLesson ? (
+              <div
+                className="glass-panel"
+                style={{
+                  borderRadius: '20px',
+                  border: '1px solid rgba(255, 255, 255, 0.1)',
+                  background: 'rgba(15, 23, 42, 0.7)',
+                  overflow: 'hidden',
+                  display: 'flex',
+                  flexDirection: 'column',
+                }}
+              >
+                {/* Lesson Header Bar */}
+                <div
+                  style={{
+                    padding: '1.5rem 2rem',
+                    borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
+                    background: 'linear-gradient(135deg, rgba(66, 133, 244, 0.08) 0%, rgba(15, 23, 42, 0.6) 100%)',
+                    display: 'flex',
+                    alignItems: 'flex-start',
+                    justifyContent: 'space-between',
+                    flexWrap: 'wrap',
+                    gap: '1rem',
+                  }}
+                >
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '0.4rem', flexWrap: 'wrap' }}>
+                      <span
+                        style={{
+                          padding: '0.25rem 0.65rem',
+                          borderRadius: '8px',
+                          fontSize: '0.75rem',
+                          fontWeight: 800,
+                          background: '#4285F4',
+                          color: '#FFFFFF',
+                        }}
+                      >
+                        LESSON #{activeLesson.lesson_number}
+                      </span>
+                      {activeLesson.session_title && (
+                        <span
+                          style={{
+                            padding: '0.25rem 0.65rem',
+                            borderRadius: '8px',
+                            fontSize: '0.75rem',
+                            fontWeight: 700,
+                            background: 'rgba(52, 168, 83, 0.15)',
+                            color: '#34D399',
+                            border: '1px solid rgba(52, 168, 83, 0.3)',
+                          }}
+                        >
+                          Session #{activeLesson.session_number}: {activeLesson.session_title}
+                        </span>
+                      )}
+                    </div>
+
+                    <h2 style={{ fontSize: '1.5rem', fontWeight: 800, color: '#FFFFFF', margin: 0, letterSpacing: '-0.3px' }}>
+                      {activeLesson.title}
+                    </h2>
+                  </div>
+
+                  {/* Stepper Buttons */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                    <button
+                      type="button"
+                      disabled={activeLessonIndex <= 0}
+                      onClick={() => setActiveLessonId(lessons[activeLessonIndex - 1].id)}
+                      style={{
+                        padding: '0.45rem 0.75rem',
+                        borderRadius: '8px',
+                        background: 'rgba(255, 255, 255, 0.05)',
+                        border: '1px solid rgba(255, 255, 255, 0.1)',
+                        color: activeLessonIndex <= 0 ? '#475569' : '#CBD5E1',
+                        cursor: activeLessonIndex <= 0 ? 'not-allowed' : 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.3rem',
+                        fontSize: '0.8rem',
+                        fontWeight: 600,
+                      }}
+                    >
+                      <ChevronLeft size={15} />
+                      Prev
+                    </button>
+                    <button
+                      type="button"
+                      disabled={activeLessonIndex >= lessons.length - 1}
+                      onClick={() => setActiveLessonId(lessons[activeLessonIndex + 1].id)}
+                      style={{
+                        padding: '0.45rem 0.75rem',
+                        borderRadius: '8px',
+                        background: 'rgba(255, 255, 255, 0.05)',
+                        border: '1px solid rgba(255, 255, 255, 0.1)',
+                        color: activeLessonIndex >= lessons.length - 1 ? '#475569' : '#CBD5E1',
+                        cursor: activeLessonIndex >= lessons.length - 1 ? 'not-allowed' : 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.3rem',
+                        fontSize: '0.8rem',
+                        fontWeight: 600,
+                      }}
+                    >
+                      Next
+                      <ChevronRight size={15} />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Video Player (if activeLesson.youtube_url) */}
+                {activeLesson.youtube_url && (
+                  <div style={{ padding: '1.5rem 2rem 0.5rem 2rem' }}>
+                    <div
+                      style={{
+                        position: 'relative',
+                        paddingTop: '56.25%',
+                        borderRadius: '16px',
+                        overflow: 'hidden',
+                        background: '#000000',
+                        boxShadow: '0 12px 32px rgba(0, 0, 0, 0.6)',
+                        border: '1px solid rgba(66, 133, 244, 0.3)',
+                      }}
+                    >
+                      <iframe
+                        src={getYouTubeEmbedUrl(activeLesson.youtube_url) || ''}
+                        title={activeLesson.title}
+                        style={{
+                          position: 'absolute',
+                          top: 0,
+                          left: 0,
+                          width: '100%',
+                          height: '100%',
+                          border: 'none',
+                        }}
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                        allowFullScreen
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* Lesson Lecture Notes / Content */}
+                <div style={{ padding: '1.5rem 2rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+                  <div style={{ fontSize: '0.85rem', fontWeight: 800, color: '#60A5FA', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                    Lecture Notes & Instructions
+                  </div>
+
+                  <div
+                    style={{
+                      color: '#E2E8F0',
+                      fontSize: '0.95rem',
+                      lineHeight: 1.7,
+                      whiteSpace: 'pre-wrap',
+                      background: 'rgba(255, 255, 255, 0.02)',
+                      border: '1px solid rgba(255, 255, 255, 0.06)',
+                      borderRadius: '14px',
+                      padding: '1.5rem',
+                    }}
+                  >
+                    {activeLesson.content || 'No detailed lecture notes written for this lesson yet.'}
+                  </div>
+
+                  {/* Materials & Slides */}
+                  {activeLesson.materials && activeLesson.materials.length > 0 && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', marginTop: '0.5rem' }}>
+                      <div style={{ fontSize: '0.82rem', fontWeight: 700, color: '#CBD5E1' }}>
+                        Downloadable Resources ({activeLesson.materials.length})
+                      </div>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.6rem' }}>
+                        {activeLesson.materials.map((mat, idx) => (
+                          <a
+                            key={idx}
+                            href={mat.startsWith('http') ? mat : `/api/drive/files/${mat}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '0.45rem',
+                              padding: '0.5rem 0.9rem',
+                              borderRadius: '8px',
+                              background: 'rgba(66, 133, 244, 0.12)',
+                              border: '1px solid rgba(66, 133, 244, 0.3)',
+                              color: '#60A5FA',
+                              fontSize: '0.82rem',
+                              fontWeight: 700,
+                              textDecoration: 'none',
+                            }}
+                          >
+                            <Download size={14} />
+                            Resource #{idx + 1}
+                            <ExternalLink size={12} />
+                          </a>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Attached Task or Quiz Prompt */}
+                  {tasksList.some((t) => t.lesson_id === activeLesson.id) && (
+                    <div
+                      style={{
+                        padding: '1rem 1.25rem',
+                        borderRadius: '12px',
+                        background: 'rgba(245, 158, 11, 0.1)',
+                        border: '1px solid rgba(245, 158, 11, 0.3)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        flexWrap: 'wrap',
+                        gap: '0.75rem',
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                        <FileText size={18} style={{ color: '#FBBF24' }} />
+                        <span style={{ fontSize: '0.88rem', fontWeight: 700, color: '#FDE68A' }}>
+                          This lesson includes a practical assignment!
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setActiveTab('tasks')}
+                        style={{
+                          padding: '0.4rem 0.85rem',
+                          borderRadius: '8px',
+                          background: '#F59E0B',
+                          color: '#000000',
+                          fontWeight: 700,
+                          fontSize: '0.8rem',
+                          border: 'none',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        Go to Assignments
+                      </button>
+                    </div>
+                  )}
+
+                  {quizzes.some((q) => q.lesson_id === activeLesson.id) && (
+                    <div
+                      style={{
+                        padding: '1rem 1.25rem',
+                        borderRadius: '12px',
+                        background: 'rgba(168, 85, 247, 0.1)',
+                        border: '1px solid rgba(168, 85, 247, 0.3)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        flexWrap: 'wrap',
+                        gap: '0.75rem',
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                        <Sparkles size={18} style={{ color: '#C084FC' }} />
+                        <span style={{ fontSize: '0.88rem', fontWeight: 700, color: '#E9D5FF' }}>
+                          This lesson includes a knowledge check quiz!
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setActiveTab('quizzes')}
+                        style={{
+                          padding: '0.4rem 0.85rem',
+                          borderRadius: '8px',
+                          background: '#A855F7',
+                          color: '#FFFFFF',
+                          fontWeight: 700,
+                          fontSize: '0.8rem',
+                          border: 'none',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        Go to Quizzes
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <div
+                className="glass-panel"
+                style={{
+                  padding: '4rem 2rem',
+                  textAlign: 'center',
+                  borderRadius: '20px',
+                  color: '#94A3B8',
+                }}
+              >
+                Select a lesson from the list on the left to view notes and video lecture.
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* TAB 3: TASKS & ASSIGNMENTS */}
+      {/* ========================================================================= */}
+      {activeTab === 'tasks' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+          {/* Header Overview Card */}
+          <div
+            className="glass-panel"
+            style={{
+              padding: '1.75rem 2rem',
+              borderRadius: '20px',
+              border: '1px solid rgba(255, 255, 255, 0.1)',
+              background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.08) 0%, rgba(15, 23, 42, 0.8) 100%)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              flexWrap: 'wrap',
+              gap: '1rem',
+            }}
+          >
+            <div>
+              <div style={{ fontSize: '0.8rem', color: '#FBBF24', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                Practical Work & Assignments
+              </div>
+              <h2 style={{ fontSize: '1.4rem', fontWeight: 800, color: '#FFFFFF', margin: '0.3rem 0 0 0' }}>
+                Course Tasks & Projects
+              </h2>
+              <p style={{ color: '#94A3B8', fontSize: '0.85rem', margin: '0.3rem 0 0 0' }}>
+                Submit your code repositories, project demos, or drive files for mentor review and grading.
+              </p>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem' }}>
+              <div style={{ textAlign: 'center' }}>
+                <div style={{ fontSize: '1.3rem', fontWeight: 800, color: '#FFFFFF' }}>{tasksList.length}</div>
+                <div style={{ fontSize: '0.72rem', color: '#94A3B8' }}>Total Tasks</div>
+              </div>
+              <div style={{ width: '1px', height: '30px', background: 'rgba(255, 255, 255, 0.1)' }} />
+              <div style={{ textAlign: 'center' }}>
+                <div style={{ fontSize: '1.3rem', fontWeight: 800, color: '#34D399' }}>
+                  {tasksList.filter((t) => t.my_submission?.status === 'graded').length}
+                </div>
+                <div style={{ fontSize: '0.72rem', color: '#94A3B8' }}>Graded</div>
+              </div>
+              <div style={{ width: '1px', height: '30px', background: 'rgba(255, 255, 255, 0.1)' }} />
+              <div style={{ textAlign: 'center' }}>
+                <div style={{ fontSize: '1.3rem', fontWeight: 800, color: '#60A5FA' }}>
+                  {tasksList.filter((t) => t.my_submission?.status === 'submitted').length}
+                </div>
+                <div style={{ fontSize: '0.72rem', color: '#94A3B8' }}>Submitted</div>
+              </div>
+            </div>
+          </div>
+
+          {tasksList.length === 0 ? (
+            <div
+              className="glass-panel"
+              style={{
+                padding: '4rem 2rem',
+                textAlign: 'center',
+                borderRadius: '20px',
+                color: '#94A3B8',
+              }}
+            >
+              <FileText size={40} style={{ color: '#475569', marginBottom: '0.75rem' }} />
+              <div style={{ fontSize: '1.1rem', fontWeight: 700, color: '#FFFFFF', marginBottom: '0.25rem' }}>
+                No Tasks Assigned Yet
+              </div>
+              <div style={{ fontSize: '0.86rem' }}>
+                Assignments created by instructors will appear here with deadlines and submission options.
+              </div>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+              {tasksList.map((t) => {
+                const sub = t.my_submission;
+                const isGraded = sub?.status === 'graded';
+                const isSubmitted = sub?.status === 'submitted';
+                const needsRevision = sub?.status === 'needs_revision';
+                const isClosed = t.status === 'closed';
+
+                return (
+                  <div
+                    key={t.id}
+                    className="glass-panel"
+                    style={{
+                      padding: '1.75rem',
+                      borderRadius: '16px',
+                      border: '1px solid rgba(255, 255, 255, 0.08)',
+                      background: 'rgba(15, 23, 42, 0.65)',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '1.25rem',
+                    }}
+                  >
+                    {/* Task Card Header */}
+                    <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem' }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                          {t.lesson && (
+                            <span
+                              style={{
+                                padding: '0.2rem 0.55rem',
+                                borderRadius: '6px',
+                                fontSize: '0.72rem',
+                                fontWeight: 700,
+                                background: 'rgba(66, 133, 244, 0.15)',
+                                color: '#60A5FA',
+                              }}
+                            >
+                              Lesson #{t.lesson.lesson_number}: {t.lesson.title}
+                            </span>
+                          )}
+
+                          <span
+                            style={{
+                              padding: '0.2rem 0.55rem',
+                              borderRadius: '6px',
+                              fontSize: '0.72rem',
+                              fontWeight: 700,
+                              background: 'rgba(255, 255, 255, 0.08)',
+                              color: '#CBD5E1',
+                            }}
+                          >
+                            Submission: {t.submission_type === 'both' ? 'Link or File' : t.submission_type === 'file' ? 'File Only' : 'URL Link'}
+                          </span>
+
+                          <span
+                            style={{
+                              padding: '0.2rem 0.55rem',
+                              borderRadius: '6px',
+                              fontSize: '0.72rem',
+                              fontWeight: 700,
+                              background: 'rgba(52, 168, 83, 0.12)',
+                              color: '#34D399',
+                            }}
+                          >
+                            Max: {t.max_score} Pts
+                          </span>
+
+                          {isClosed && (
+                            <span
+                              style={{
+                                padding: '0.2rem 0.55rem',
+                                borderRadius: '6px',
+                                fontSize: '0.72rem',
+                                fontWeight: 800,
+                                background: 'rgba(234, 67, 53, 0.2)',
+                                color: '#F87171',
+                              }}
+                            >
+                              Closed
+                            </span>
+                          )}
+                        </div>
+
+                        <h3 style={{ fontSize: '1.2rem', fontWeight: 800, color: '#FFFFFF', margin: 0 }}>
+                          {t.title}
+                        </h3>
+                      </div>
+
+                      {/* Due Date Indicator */}
+                      {t.due_date && (
+                        <div
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.4rem',
+                            padding: '0.35rem 0.75rem',
+                            borderRadius: '8px',
+                            background: 'rgba(255, 255, 255, 0.05)',
+                            border: '1px solid rgba(255, 255, 255, 0.08)',
+                            fontSize: '0.78rem',
+                            color: '#94A3B8',
+                          }}
+                        >
+                          <Clock3 size={14} style={{ color: '#FBBF24' }} />
+                          Due: {new Date(t.due_date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Task Description */}
+                    {t.description && (
+                      <div
+                        style={{
+                          color: '#CBD5E1',
+                          fontSize: '0.88rem',
+                          lineHeight: 1.6,
+                          whiteSpace: 'pre-wrap',
+                          background: 'rgba(255, 255, 255, 0.02)',
+                          padding: '1rem 1.25rem',
+                          borderRadius: '10px',
+                          border: '1px solid rgba(255, 255, 255, 0.04)',
+                        }}
+                      >
+                        {t.description}
+                      </div>
+                    )}
+
+                    {/* Student Submission Status Panel */}
+                    <div
+                      style={{
+                        padding: '1.25rem',
+                        borderRadius: '12px',
+                        background: isGraded
+                          ? 'rgba(52, 168, 83, 0.08)'
+                          : isSubmitted
+                          ? 'rgba(66, 133, 244, 0.08)'
+                          : needsRevision
+                          ? 'rgba(245, 158, 11, 0.08)'
+                          : 'rgba(255, 255, 255, 0.03)',
+                        border: isGraded
+                          ? '1px solid rgba(52, 168, 83, 0.25)'
+                          : isSubmitted
+                          ? '1px solid rgba(66, 133, 244, 0.25)'
+                          : needsRevision
+                          ? '1px solid rgba(245, 158, 11, 0.25)'
+                          : '1px solid rgba(255, 255, 255, 0.06)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        flexWrap: 'wrap',
+                        gap: '1rem',
+                      }}
+                    >
+                      <div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.3rem' }}>
+                          {isGraded ? (
+                            <span
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '0.3rem',
+                                padding: '0.2rem 0.6rem',
+                                borderRadius: '6px',
+                                fontSize: '0.74rem',
+                                fontWeight: 800,
+                                background: 'rgba(52, 168, 83, 0.2)',
+                                color: '#34D399',
+                              }}
+                            >
+                              <CheckCircle2 size={13} />
+                              Graded: {sub?.score} / {t.max_score} Pts
+                            </span>
+                          ) : isSubmitted ? (
+                            <span
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '0.3rem',
+                                padding: '0.2rem 0.6rem',
+                                borderRadius: '6px',
+                                fontSize: '0.74rem',
+                                fontWeight: 800,
+                                background: 'rgba(66, 133, 244, 0.2)',
+                                color: '#60A5FA',
+                              }}
+                            >
+                              <Clock size={13} />
+                              Submitted (Pending Evaluation)
+                            </span>
+                          ) : needsRevision ? (
+                            <span
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '0.3rem',
+                                padding: '0.2rem 0.6rem',
+                                borderRadius: '6px',
+                                fontSize: '0.74rem',
+                                fontWeight: 800,
+                                background: 'rgba(245, 158, 11, 0.2)',
+                                color: '#FBBF24',
+                              }}
+                            >
+                              <AlertTriangle size={13} />
+                              Revision Requested
+                            </span>
+                          ) : (
+                            <span
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '0.3rem',
+                                padding: '0.2rem 0.6rem',
+                                borderRadius: '6px',
+                                fontSize: '0.74rem',
+                                fontWeight: 700,
+                                background: 'rgba(255, 255, 255, 0.06)',
+                                color: '#94A3B8',
+                              }}
+                            >
+                              Not Submitted Yet
+                            </span>
+                          )}
+                        </div>
+
+                        {sub?.submission_link && (
+                          <div style={{ fontSize: '0.8rem', color: '#94A3B8', marginTop: '0.3rem' }}>
+                            Submitted URL:{' '}
+                            <a
+                              href={sub.submission_link}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              style={{ color: '#60A5FA', textDecoration: 'underline' }}
+                            >
+                              {sub.submission_link}
+                            </a>
+                          </div>
+                        )}
+
+                        {sub?.feedback_comment && (
+                          <div
+                            style={{
+                              marginTop: '0.6rem',
+                              padding: '0.6rem 0.85rem',
+                              borderRadius: '8px',
+                              background: 'rgba(255, 255, 255, 0.04)',
+                              border: '1px solid rgba(255, 255, 255, 0.08)',
+                              fontSize: '0.82rem',
+                              color: '#E2E8F0',
+                            }}
+                          >
+                            <span style={{ fontWeight: 700, color: '#34D399' }}>Mentor Feedback: </span>
+                            {sub.feedback_comment}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Submission CTA */}
+                      <div>
+                        <button
+                          type="button"
+                          disabled={isClosed}
+                          onClick={() => handleOpenSubmitModal(t)}
+                          style={{
+                            padding: '0.6rem 1.15rem',
+                            borderRadius: '10px',
+                            background: sub ? 'rgba(255, 255, 255, 0.08)' : 'linear-gradient(135deg, #4285F4, #1D4ED8)',
+                            color: '#FFFFFF',
+                            border: '1px solid rgba(255, 255, 255, 0.1)',
+                            fontWeight: 700,
+                            fontSize: '0.84rem',
+                            cursor: isClosed ? 'not-allowed' : 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.45rem',
+                            transition: 'all 0.15s ease',
+                          }}
+                        >
+                          <Send size={15} />
+                          {sub ? 'Update Submission' : 'Submit Assignment'}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* TAB 4: QUIZZES & TESTS */}
+      {/* ========================================================================= */}
+      {activeTab === 'quizzes' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+          {/* Header Overview Card */}
+          <div
+            className="glass-panel"
+            style={{
+              padding: '1.75rem 2rem',
+              borderRadius: '20px',
+              border: '1px solid rgba(255, 255, 255, 0.1)',
+              background: 'linear-gradient(135deg, rgba(168, 85, 247, 0.08) 0%, rgba(15, 23, 42, 0.8) 100%)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              flexWrap: 'wrap',
+              gap: '1rem',
+            }}
+          >
+            <div>
+              <div style={{ fontSize: '0.8rem', color: '#C084FC', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                Assessments & Knowledge Checks
+              </div>
+              <h2 style={{ fontSize: '1.4rem', fontWeight: 800, color: '#FFFFFF', margin: '0.3rem 0 0 0' }}>
+                Course Quizzes & Tests
+              </h2>
+              <p style={{ color: '#94A3B8', fontSize: '0.85rem', margin: '0.3rem 0 0 0' }}>
+                Validate your understanding of the concepts covered in lectures and hands-on workshops.
+              </p>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem' }}>
+              <div style={{ textAlign: 'center' }}>
+                <div style={{ fontSize: '1.3rem', fontWeight: 800, color: '#FFFFFF' }}>{quizzes.length}</div>
+                <div style={{ fontSize: '0.72rem', color: '#94A3B8' }}>Total Quizzes</div>
+              </div>
+            </div>
+          </div>
+
+          {quizzes.length === 0 ? (
+            <div
+              className="glass-panel"
+              style={{
+                padding: '4rem 2rem',
+                textAlign: 'center',
+                borderRadius: '20px',
+                color: '#94A3B8',
+              }}
+            >
+              <Sparkles size={40} style={{ color: '#475569', marginBottom: '0.75rem' }} />
+              <div style={{ fontSize: '1.1rem', fontWeight: 700, color: '#FFFFFF', marginBottom: '0.25rem' }}>
+                No Quizzes Available Yet
+              </div>
+              <div style={{ fontSize: '0.86rem' }}>
+                Quizzes published by instructors will appear here with passing criteria and attempt records.
+              </div>
+            </div>
+          ) : (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(360px, 1fr))', gap: '1.25rem' }}>
+              {quizzes.map((q) => {
+                const attempts = q.my_attempts || [];
+                const latestAttempt = attempts[attempts.length - 1];
+                const hasPassed = attempts.some((a) => a.passed);
+
+                return (
+                  <div
+                    key={q.id}
+                    className="glass-panel"
+                    style={{
+                      padding: '1.75rem',
+                      borderRadius: '16px',
+                      border: '1px solid rgba(255, 255, 255, 0.08)',
+                      background: 'rgba(15, 23, 42, 0.65)',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      justifyContent: 'space-between',
+                      gap: '1.25rem',
+                    }}
+                  >
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                        {q.lesson && (
+                          <span
+                            style={{
+                              padding: '0.2rem 0.55rem',
+                              borderRadius: '6px',
+                              fontSize: '0.72rem',
+                              fontWeight: 700,
+                              background: 'rgba(66, 133, 244, 0.15)',
+                              color: '#60A5FA',
+                            }}
+                          >
+                            Lesson #{q.lesson.lesson_number}: {q.lesson.title}
+                          </span>
+                        )}
+
+                        <span
+                          style={{
+                            padding: '0.2rem 0.55rem',
+                            borderRadius: '6px',
+                            fontSize: '0.72rem',
+                            fontWeight: 700,
+                            background: 'rgba(168, 85, 247, 0.15)',
+                            color: '#C084FC',
+                          }}
+                        >
+                          Passing: {q.passing_score_percentage}%
+                        </span>
+
+                        {q.time_limit_minutes && (
+                          <span
+                            style={{
+                              padding: '0.2rem 0.55rem',
+                              borderRadius: '6px',
+                              fontSize: '0.72rem',
+                              fontWeight: 700,
+                              background: 'rgba(255, 255, 255, 0.08)',
+                              color: '#CBD5E1',
+                            }}
+                          >
+                            {q.time_limit_minutes} Mins
+                          </span>
+                        )}
+                      </div>
+
+                      <h3 style={{ fontSize: '1.15rem', fontWeight: 800, color: '#FFFFFF', margin: 0 }}>
+                        {q.title}
+                      </h3>
+
+                      {q.description && (
+                        <p style={{ color: '#94A3B8', fontSize: '0.84rem', lineHeight: 1.5, margin: 0 }}>
+                          {q.description}
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Attempts & Action */}
+                    <div
+                      style={{
+                        paddingTop: '1rem',
+                        borderTop: '1px solid rgba(255, 255, 255, 0.06)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        flexWrap: 'wrap',
+                        gap: '0.75rem',
+                      }}
+                    >
+                      <div>
+                        {hasPassed ? (
+                          <span
+                            style={{
+                              padding: '0.25rem 0.65rem',
+                              borderRadius: '8px',
+                              fontSize: '0.75rem',
+                              fontWeight: 800,
+                              background: 'rgba(52, 168, 83, 0.2)',
+                              color: '#34D399',
+                            }}
+                          >
+                            Passed
+                          </span>
+                        ) : latestAttempt ? (
+                          <span
+                            style={{
+                              padding: '0.25rem 0.65rem',
+                              borderRadius: '8px',
+                              fontSize: '0.75rem',
+                              fontWeight: 700,
+                              background: 'rgba(245, 158, 11, 0.15)',
+                              color: '#FBBF24',
+                            }}
+                          >
+                            Attempt #{latestAttempt.attempt_number} ({latestAttempt.score ?? 'Pending'}%)
+                          </span>
+                        ) : (
+                          <span style={{ fontSize: '0.78rem', color: '#94A3B8' }}>
+                            0 Attempts Taken
+                          </span>
+                        )}
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          alert('Interactive quiz player will be enabled in Step S.E.5!');
+                        }}
+                        style={{
+                          padding: '0.5rem 1rem',
+                          borderRadius: '10px',
+                          background: 'linear-gradient(135deg, #A855F7, #7C3AED)',
+                          color: '#FFFFFF',
+                          border: 'none',
+                          fontWeight: 700,
+                          fontSize: '0.82rem',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '0.4rem',
+                        }}
+                      >
+                        <Sparkles size={14} />
+                        {hasPassed ? 'Retake Quiz' : 'Take Quiz'}
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* STUDENT TASK SUBMISSION MODAL */}
+      {/* ========================================================================= */}
+      {submittingTask && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 1000,
+            background: 'rgba(0, 0, 0, 0.85)',
+            backdropFilter: 'blur(12px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '1.5rem',
+          }}
+          onClick={() => !isSubmittingTask && setSubmittingTask(null)}
+        >
+          <div
+            style={{
+              width: '100%',
+              maxWidth: '560px',
+              borderRadius: '20px',
+              background: '#0F172A',
+              border: '1px solid rgba(255, 255, 255, 0.15)',
+              display: 'flex',
+              flexDirection: 'column',
+              overflow: 'hidden',
+              boxShadow: '0 24px 48px rgba(0, 0, 0, 0.8)',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div
+              style={{
+                padding: '1.25rem 1.75rem',
+                borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                background: 'rgba(30, 41, 59, 0.5)',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                <FileText size={20} style={{ color: '#FBBF24' }} />
+                <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 800, color: '#FFFFFF' }}>
+                  Submit Assignment
+                </h3>
+              </div>
+              <button
+                type="button"
+                disabled={isSubmittingTask}
+                onClick={() => setSubmittingTask(null)}
+                style={{
+                  background: 'rgba(255, 255, 255, 0.05)',
+                  border: 'none',
+                  borderRadius: '8px',
+                  padding: '0.4rem',
+                  color: '#94A3B8',
+                  cursor: 'pointer',
+                  display: 'flex',
+                }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <form onSubmit={handleTaskSubmit} style={{ padding: '1.75rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+              <div>
+                <div style={{ fontSize: '0.78rem', color: '#FBBF24', fontWeight: 700, textTransform: 'uppercase' }}>
+                  Task
+                </div>
+                <div style={{ fontSize: '1.05rem', fontWeight: 800, color: '#FFFFFF', marginTop: '0.15rem' }}>
+                  {submittingTask.title}
+                </div>
+                {submittingTask.due_date && (
+                  <div style={{ fontSize: '0.78rem', color: '#94A3B8', marginTop: '0.2rem' }}>
+                    Deadline: {new Date(submittingTask.due_date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+                  </div>
+                )}
+              </div>
+
+              {taskModalError && (
+                <div
+                  style={{
+                    padding: '0.75rem 1rem',
+                    borderRadius: '10px',
+                    background: 'rgba(234, 67, 53, 0.15)',
+                    border: '1px solid rgba(234, 67, 53, 0.35)',
+                    color: '#F87171',
+                    fontSize: '0.84rem',
+                    fontWeight: 600,
+                  }}
+                >
+                  {taskModalError}
+                </div>
+              )}
+
+              {taskModalSuccess && (
+                <div
+                  style={{
+                    padding: '0.75rem 1rem',
+                    borderRadius: '10px',
+                    background: 'rgba(52, 168, 83, 0.15)',
+                    border: '1px solid rgba(52, 168, 83, 0.35)',
+                    color: '#34D399',
+                    fontSize: '0.84rem',
+                    fontWeight: 600,
+                  }}
+                >
+                  {taskModalSuccess}
+                </div>
+              )}
+
+              {(submittingTask.submission_type === 'link' || submittingTask.submission_type === 'both') && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                  <label style={{ fontSize: '0.82rem', fontWeight: 700, color: '#CBD5E1' }}>
+                    Solution URL {submittingTask.submission_type === 'link' ? '*' : '(Optional if file provided)'}
+                  </label>
+                  <input
+                    type="url"
+                    value={taskSubmissionLink}
+                    onChange={(e) => setTaskSubmissionLink(e.target.value)}
+                    placeholder="https://github.com/... or https://colab.research.google.com/..."
+                    style={{
+                      padding: '0.75rem 1rem',
+                      borderRadius: '10px',
+                      background: 'rgba(255, 255, 255, 0.05)',
+                      border: '1px solid rgba(255, 255, 255, 0.12)',
+                      color: '#FFFFFF',
+                      fontSize: '0.88rem',
+                      outline: 'none',
+                    }}
+                  />
+                  <span style={{ fontSize: '0.72rem', color: '#94A3B8' }}>
+                    Paste a link to your public repository, Google Colab notebook, Figma board, or Drive file.
+                  </span>
+                </div>
+              )}
+
+              {(submittingTask.submission_type === 'file' || submittingTask.submission_type === 'both') && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                  <label style={{ fontSize: '0.82rem', fontWeight: 700, color: '#CBD5E1' }}>
+                    File Drive Link or ID {submittingTask.submission_type === 'file' ? '*' : '(Optional)'}
+                  </label>
+                  <input
+                    type="text"
+                    value={taskSubmissionDriveId}
+                    onChange={(e) => setTaskSubmissionDriveId(e.target.value)}
+                    placeholder="Google Drive link or file ID"
+                    style={{
+                      padding: '0.75rem 1rem',
+                      borderRadius: '10px',
+                      background: 'rgba(255, 255, 255, 0.05)',
+                      border: '1px solid rgba(255, 255, 255, 0.12)',
+                      color: '#FFFFFF',
+                      fontSize: '0.88rem',
+                      outline: 'none',
+                    }}
+                  />
+                </div>
+              )}
+
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '0.5rem' }}>
+                <button
+                  type="button"
+                  disabled={isSubmittingTask}
+                  onClick={() => setSubmittingTask(null)}
+                  style={{
+                    padding: '0.65rem 1.15rem',
+                    borderRadius: '10px',
+                    background: 'rgba(255, 255, 255, 0.06)',
+                    color: '#94A3B8',
+                    border: '1px solid rgba(255, 255, 255, 0.1)',
+                    fontWeight: 600,
+                    fontSize: '0.84rem',
+                    cursor: 'pointer',
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmittingTask}
+                  style={{
+                    padding: '0.65rem 1.4rem',
+                    borderRadius: '10px',
+                    background: 'linear-gradient(135deg, #4285F4, #1D4ED8)',
+                    color: '#FFFFFF',
+                    border: 'none',
+                    fontWeight: 700,
+                    fontSize: '0.84rem',
+                    cursor: isSubmittingTask ? 'not-allowed' : 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.45rem',
+                  }}
+                >
+                  <Send size={15} />
+                  {isSubmittingTask ? 'Submitting...' : 'Confirm Submission'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* ========================================================================= */}
       {/* INTERACTIVE FILE PREVIEW MODAL */}

@@ -10,6 +10,9 @@ import {
   EnrollmentStatus,
   EnrollmentType,
   CourseStatus,
+  CourseLesson,
+  StudentTask,
+  Quiz,
 } from '@/types/student';
 
 export interface StudentCourseCardItem {
@@ -38,6 +41,50 @@ export interface StudentCourseCardItem {
   }>;
 }
 
+export interface CourseLessonDetail extends Omit<CourseLesson, 'session'> {
+  session?: {
+    id: string;
+    session_number: number;
+    title: string;
+  } | null;
+  session_title?: string;
+  session_number?: number;
+}
+
+export interface StudentTaskDetail extends Omit<StudentTask, 'lesson'> {
+  lesson?: {
+    id: string;
+    lesson_number: number;
+    title: string;
+  } | null;
+  my_submission?: {
+    id: string;
+    status: string;
+    submission_link?: string | null;
+    submission_file_drive_id?: string | null;
+    score?: number | null;
+    feedback_comment?: string | null;
+    submitted_at: string;
+    graded_at?: string | null;
+  } | null;
+}
+
+export interface QuizDetail extends Omit<Quiz, 'lesson'> {
+  lesson?: {
+    id: string;
+    lesson_number: number;
+    title: string;
+  } | null;
+  my_attempts?: Array<{
+    id: string;
+    attempt_number: number;
+    score?: number | null;
+    passed?: boolean | null;
+    status: string;
+    submitted_at?: string | null;
+  }>;
+}
+
 export interface CourseSessionDetail extends CourseSession {
   is_attended?: boolean;
   is_meeting?: boolean;
@@ -62,6 +109,9 @@ export interface CourseDetailResult {
     department_name?: string;
   }>;
   sessions: CourseSessionDetail[];
+  lessons: CourseLessonDetail[];
+  tasks: StudentTaskDetail[];
+  quizzes: QuizDetail[];
   myEnrollment: {
     status: EnrollmentStatus;
     enrolled_at: string;
@@ -421,6 +471,106 @@ export async function getCourseDetail(courseId: string): Promise<{
 
     const canEnroll = !myEnrollment && !isFull && courseData.status === 'published';
 
+    // 3. Fetch lessons
+    const { data: lessonsRaw } = await admin
+      .from('course_lessons')
+      .select(`
+        *,
+        session:course_sessions(id, session_number, title)
+      `)
+      .eq('course_id', courseId)
+      .order('lesson_number', { ascending: true });
+
+    const lessons: CourseLessonDetail[] = (lessonsRaw || []).map((l: any) => {
+      const sess = Array.isArray(l.session) ? l.session[0] : l.session;
+      return {
+        ...l,
+        session: sess || null,
+        session_title: sess?.title,
+        session_number: sess?.session_number,
+      };
+    });
+
+    // 4. Fetch tasks
+    const { data: tasksRaw } = await admin
+      .from('student_tasks')
+      .select(`
+        *,
+        lesson:course_lessons(id, lesson_number, title)
+      `)
+      .eq('course_id', courseId)
+      .neq('status', 'draft')
+      .order('due_date', { ascending: true });
+
+    const mySubmissionsMap = new Map<string, any>();
+    if (studentProfileId) {
+      const { data: subs } = await admin
+        .from('student_task_submissions')
+        .select('id, task_id, status, submission_link, submission_file_drive_id, score, feedback_comment, submitted_at, graded_at')
+        .eq('student_id', studentProfileId);
+      if (subs) {
+        for (const sub of subs) {
+          mySubmissionsMap.set(sub.task_id, sub);
+        }
+      }
+    }
+
+    const tasks: StudentTaskDetail[] = (tasksRaw || [])
+      .filter((t: any) => {
+        if (t.assigned_to === 'all_enrolled') return true;
+        if (isStaff) return true;
+        if (studentProfileId && Array.isArray(t.specific_student_ids)) {
+          return t.specific_student_ids.includes(studentProfileId);
+        }
+        return false;
+      })
+      .map((t: any) => {
+        const lsn = Array.isArray(t.lesson) ? t.lesson[0] : t.lesson;
+        return {
+          ...t,
+          lesson: lsn || null,
+          my_submission: mySubmissionsMap.get(t.id) || null,
+        };
+      });
+
+    // 5. Fetch quizzes
+    const { data: quizzesRaw } = await admin
+      .from('quizzes')
+      .select(`
+        id, course_id, workshop_id, lesson_id, title, description, time_limit_minutes,
+        passing_score_percentage, allow_retakes, max_attempts, status, created_at, updated_at,
+        lesson:course_lessons(id, lesson_number, title)
+      `)
+      .eq('course_id', courseId)
+      .eq('status', 'published')
+      .order('created_at', { ascending: false });
+
+    const myAttemptsMap = new Map<string, any[]>();
+    if (studentProfileId) {
+      const { data: atts } = await admin
+        .from('quiz_attempts')
+        .select('id, quiz_id, attempt_number, auto_graded_score, manual_graded_score, total_score, passed, status, submitted_at')
+        .eq('student_id', studentProfileId)
+        .order('attempt_number', { ascending: true });
+      if (atts) {
+        for (const a of atts) {
+          const list = myAttemptsMap.get(a.quiz_id) || [];
+          list.push(a);
+          myAttemptsMap.set(a.quiz_id, list);
+        }
+      }
+    }
+
+    const quizzes: QuizDetail[] = (quizzesRaw || []).map((q: any) => {
+      const lsn = Array.isArray(q.lesson) ? q.lesson[0] : q.lesson;
+      return {
+        ...q,
+        questions: [],
+        lesson: lsn || null,
+        my_attempts: myAttemptsMap.get(q.id) || [],
+      };
+    });
+
     return {
       success: true,
       data: {
@@ -434,6 +584,9 @@ export async function getCourseDetail(courseId: string): Promise<{
         },
         instructors: instructorsList,
         sessions: detailedSessions,
+        lessons,
+        tasks,
+        quizzes,
         myEnrollment,
         canEnroll,
         needsOnboarding,
@@ -445,6 +598,68 @@ export async function getCourseDetail(courseId: string): Promise<{
   } catch (err: any) {
     console.error('getCourseDetail exception:', err);
     return { success: false, error: err.message || 'Failed to load course details.' };
+  }
+}
+
+/**
+ * 2.1 Student submits a task assignment
+ */
+export async function submitStudentTask(payload: {
+  taskId: string;
+  courseId: string;
+  submissionLink?: string;
+  submissionFileDriveId?: string;
+}): Promise<{ success: boolean; error?: string; message?: string }> {
+  try {
+    const admin = createAdminClient();
+    const context = await getUserContext();
+    if (!context.user) {
+      return { success: false, error: 'Please sign in to submit tasks.' };
+    }
+
+    const studentId = context.user.id;
+
+    // Verify task exists and is open
+    const { data: task, error: tErr } = await admin
+      .from('student_tasks')
+      .select('id, status, due_date, submission_type')
+      .eq('id', payload.taskId)
+      .single();
+
+    if (tErr || !task) {
+      return { success: false, error: 'Task not found.' };
+    }
+
+    if (task.status === 'closed') {
+      return { success: false, error: 'This task is closed for submissions.' };
+    }
+
+    // Upsert into student_task_submissions
+    const { error: upsertErr } = await admin
+      .from('student_task_submissions')
+      .upsert(
+        {
+          task_id: payload.taskId,
+          student_id: studentId,
+          submission_link: payload.submissionLink || null,
+          submission_file_drive_id: payload.submissionFileDriveId || null,
+          status: 'submitted',
+          submitted_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: 'task_id,student_id' }
+      );
+
+    if (upsertErr) {
+      console.error('submitStudentTask error:', upsertErr);
+      return { success: false, error: 'Failed to submit task. Please try again.' };
+    }
+
+    revalidatePath(`/student/courses/${payload.courseId}`);
+    return { success: true, message: 'Assignment submitted successfully!' };
+  } catch (err: any) {
+    console.error('submitStudentTask exception:', err);
+    return { success: false, error: err.message || 'Failed to submit task.' };
   }
 }
 
