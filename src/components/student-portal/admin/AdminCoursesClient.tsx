@@ -58,7 +58,7 @@ export function AdminCoursesClient({
   // Form Fields
   const [formTitle, setFormTitle] = useState('');
   const [formDesc, setFormDesc] = useState('');
-  const [formCategory, setFormCategory] = useState('Web & Full-Stack');
+  const [formCategory, setFormCategory] = useState('');
   const [formDeptId, setFormDeptId] = useState(userDepartmentId || (departments[0]?.id || ''));
   const [formCoverUrl, setFormCoverUrl] = useState('');
   const [formEnrollType, setFormEnrollType] = useState<EnrollmentType>('open');
@@ -66,6 +66,7 @@ export function AdminCoursesClient({
   const [formSyllabus, setFormSyllabus] = useState('');
   const [formStatus, setFormStatus] = useState<CourseStatus>('draft');
   const [assignedInstructors, setAssignedInstructors] = useState<Array<{ profile_id: string; role: CourseInstructorRole }>>([]);
+  const [instructorSearchQuery, setInstructorSearchQuery] = useState('');
 
   const isPresident = userRole === 'president' || userRole === 'co_president';
 
@@ -73,7 +74,7 @@ export function AdminCoursesClient({
     setEditingCourse(null);
     setFormTitle('');
     setFormDesc('');
-    setFormCategory('Web & Full-Stack');
+    setFormCategory('');
     setFormDeptId(userDepartmentId || (departments[0]?.id || ''));
     setFormCoverUrl('');
     setFormEnrollType('open');
@@ -81,6 +82,7 @@ export function AdminCoursesClient({
     setFormSyllabus('');
     setFormStatus('draft');
     setAssignedInstructors([]);
+    setInstructorSearchQuery('');
     setFormError(null);
     setIsModalOpen(true);
   };
@@ -89,7 +91,7 @@ export function AdminCoursesClient({
     setEditingCourse(course);
     setFormTitle(course.title);
     setFormDesc(course.description || '');
-    setFormCategory(course.category || 'General Technical');
+    setFormCategory(course.category || '');
     setFormDeptId(course.department_id || (departments[0]?.id || ''));
     setFormCoverUrl(course.cover_image_url || '');
     setFormEnrollType(course.enrollment_type);
@@ -102,6 +104,7 @@ export function AdminCoursesClient({
         role: inst.role,
       }))
     );
+    setInstructorSearchQuery('');
     setFormError(null);
     setIsModalOpen(true);
   };
@@ -269,6 +272,14 @@ export function AdminCoursesClient({
   const candidateMembers = isPresident
     ? teamMembers.filter((m) => !formDeptId || m.department_id === formDeptId || !m.department_id)
     : teamMembers.filter((m) => m.department_id === userDepartmentId);
+
+  const searchedMembers = candidateMembers.filter((m) => {
+    if (!instructorSearchQuery.trim()) return true;
+    const q = instructorSearchQuery.toLowerCase();
+    const nameMatch = m.full_name?.toLowerCase().includes(q);
+    const roleMatch = m.role?.toLowerCase().includes(q);
+    return Boolean(nameMatch || roleMatch);
+  });
 
   return (
     <div style={{ padding: '2.5rem 2rem', maxWidth: '1200px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '2rem' }}>
@@ -891,29 +902,34 @@ export function AdminCoursesClient({
                   <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, color: '#CBD5E1', marginBottom: '0.35rem' }}>
                     Curriculum Category
                   </label>
-                  <select
+                  <input
+                    type="text"
+                    list="curriculum-categories-list"
                     value={formCategory}
                     onChange={(e) => setFormCategory(e.target.value)}
+                    placeholder="e.g. Web Development, Mobile, AI/ML..."
                     style={{
                       width: '100%',
                       padding: '0.7rem 0.9rem',
                       borderRadius: '8px',
-                      background: '#1E293B',
+                      background: 'rgba(255, 255, 255, 0.04)',
                       border: '1px solid rgba(255, 255, 255, 0.12)',
                       color: '#FFFFFF',
                       fontSize: '0.9rem',
                       outline: 'none',
                     }}
-                  >
-                    <option value="Web & Full-Stack">Web & Full-Stack</option>
-                    <option value="Mobile App Development">Mobile App Development</option>
-                    <option value="AI & Machine Learning">AI & Machine Learning</option>
-                    <option value="Cloud & DevOps">Cloud & DevOps</option>
-                    <option value="Cybersecurity">Cybersecurity</option>
-                    <option value="Core Engineering & Git">Core Engineering & Git</option>
-                    <option value="UI/UX Design">UI/UX Design</option>
-                    <option value="Other Technical Track">Other Technical Track</option>
-                  </select>
+                  />
+                  <datalist id="curriculum-categories-list">
+                    <option value="Web & Full-Stack Development" />
+                    <option value="Mobile App Development" />
+                    <option value="AI & Machine Learning" />
+                    <option value="Cloud Computing & DevOps" />
+                    <option value="Cybersecurity & Defense" />
+                    <option value="UI/UX & Product Design" />
+                    <option value="Competitive Programming & Algorithms" />
+                    <option value="Data Science & Analytics" />
+                    <option value="Game Development" />
+                  </datalist>
                 </div>
 
                 <div>
@@ -1044,12 +1060,71 @@ export function AdminCoursesClient({
 
               {/* Instructors Multi-Select */}
               <div>
-                <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, color: '#CBD5E1', marginBottom: '0.35rem' }}>
-                  Assign Committee Instructors & Mentors
-                </label>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.4rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+                  <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, color: '#CBD5E1' }}>
+                    Assign Committee Instructors & Mentors
+                  </label>
+                  <span style={{ fontSize: '0.74rem', color: '#94A3B8' }}>
+                    {assignedInstructors.length} assigned
+                  </span>
+                </div>
+
+                {/* Search Bar for Instructors */}
+                <div style={{ position: 'relative', marginBottom: '0.5rem' }}>
+                  <Search
+                    size={14}
+                    style={{
+                      position: 'absolute',
+                      left: '0.75rem',
+                      top: '50%',
+                      transform: 'translateY(-50%)',
+                      color: '#94A3B8',
+                      pointerEvents: 'none',
+                    }}
+                  />
+                  <input
+                    type="text"
+                    value={instructorSearchQuery}
+                    onChange={(e) => setInstructorSearchQuery(e.target.value)}
+                    placeholder="Search committee member by name or role..."
+                    style={{
+                      width: '100%',
+                      padding: '0.45rem 2rem 0.45rem 2.2rem',
+                      borderRadius: '6px',
+                      background: 'rgba(255, 255, 255, 0.04)',
+                      border: '1px solid rgba(255, 255, 255, 0.1)',
+                      color: '#FFFFFF',
+                      fontSize: '0.82rem',
+                      outline: 'none',
+                    }}
+                  />
+                  {instructorSearchQuery && (
+                    <button
+                      type="button"
+                      onClick={() => setInstructorSearchQuery('')}
+                      style={{
+                        position: 'absolute',
+                        right: '0.6rem',
+                        top: '50%',
+                        transform: 'translateY(-50%)',
+                        background: 'transparent',
+                        border: 'none',
+                        color: '#94A3B8',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        padding: '2px',
+                      }}
+                      title="Clear search"
+                    >
+                      <X size={12} />
+                    </button>
+                  )}
+                </div>
+
                 <div
                   style={{
-                    maxHeight: '160px',
+                    maxHeight: '170px',
                     overflowY: 'auto',
                     background: 'rgba(0, 0, 0, 0.3)',
                     border: '1px solid rgba(255, 255, 255, 0.08)',
@@ -1060,12 +1135,14 @@ export function AdminCoursesClient({
                     gap: '0.35rem',
                   }}
                 >
-                  {candidateMembers.length === 0 ? (
-                    <div style={{ fontSize: '0.8rem', color: '#94A3B8', padding: '0.5rem', textAlign: 'center' }}>
-                      No active committee members found.
+                  {searchedMembers.length === 0 ? (
+                    <div style={{ fontSize: '0.8rem', color: '#94A3B8', padding: '0.75rem', textAlign: 'center' }}>
+                      {candidateMembers.length === 0
+                        ? 'No active committee members found for this committee.'
+                        : `No members match "${instructorSearchQuery}"`}
                     </div>
                   ) : (
-                    candidateMembers.map((member) => {
+                    searchedMembers.map((member) => {
                       const assigned = assignedInstructors.find((i) => i.profile_id === member.id);
                       return (
                         <div
@@ -1074,10 +1151,11 @@ export function AdminCoursesClient({
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'space-between',
-                            padding: '0.4rem 0.6rem',
+                            padding: '0.45rem 0.65rem',
                             borderRadius: '6px',
                             background: assigned ? 'rgba(66, 133, 244, 0.12)' : 'rgba(255, 255, 255, 0.02)',
-                            border: assigned ? '1px solid rgba(66, 133, 244, 0.25)' : '1px solid transparent',
+                            border: assigned ? '1px solid rgba(66, 133, 244, 0.28)' : '1px solid transparent',
+                            transition: 'all 0.15s ease',
                           }}
                         >
                           <label style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', cursor: 'pointer', flex: 1 }}>
@@ -1085,8 +1163,9 @@ export function AdminCoursesClient({
                               type="checkbox"
                               checked={!!assigned}
                               onChange={() => handleToggleInstructor(member.id)}
+                              style={{ cursor: 'pointer' }}
                             />
-                            <span style={{ fontSize: '0.86rem', color: '#FFFFFF', fontWeight: 600 }}>
+                            <span style={{ fontSize: '0.85rem', color: '#FFFFFF', fontWeight: 600 }}>
                               {member.full_name}
                             </span>
                             <span style={{ fontSize: '0.72rem', color: '#94A3B8' }}>
@@ -1100,12 +1179,14 @@ export function AdminCoursesClient({
                               onChange={(e) => handleChangeInstructorRole(member.id, e.target.value as CourseInstructorRole)}
                               style={{
                                 background: '#1E293B',
-                                border: '1px solid rgba(255, 255, 255, 0.15)',
-                                color: '#FFFFFF',
+                                border: '1px solid rgba(66, 133, 244, 0.35)',
+                                color: '#60A5FA',
                                 fontSize: '0.76rem',
+                                fontWeight: 600,
                                 padding: '0.2rem 0.5rem',
                                 borderRadius: '4px',
                                 outline: 'none',
+                                cursor: 'pointer',
                               }}
                             >
                               <option value="instructor">Instructor (Lectures & Tasks)</option>
