@@ -94,7 +94,7 @@ export async function getAdminCourses(): Promise<{
       instructors:course_instructors(
         id,
         role,
-        profile:profiles(id, full_name, avatar_url)
+        profile:profiles!course_instructors_profile_id_fkey(id, full_name, avatar_url)
       ),
       sessions:course_sessions(id),
       enrollments:course_enrollments(id)
