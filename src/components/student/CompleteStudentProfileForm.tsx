@@ -63,7 +63,13 @@ export function CompleteStudentProfileForm({
   const [fullNameAr, setFullNameAr] = useState(prefilled.fullNameAr || '');
   const [fullNameEn, setFullNameEn] = useState(prefilled.fullNameEn || '');
   const [nationalId, setNationalId] = useState(prefilled.nationalId || '');
-  const [university, setUniversity] = useState(prefilled.university || 'Helwan National University');
+  // Check if prefilled university is HNU or other
+  const initialIsHnu = !prefilled.university || 
+    prefilled.university.toLowerCase().includes('helwan national') || 
+    prefilled.university.toLowerCase().includes('hnu');
+
+  const [universityType, setUniversityType] = useState<'hnu' | 'other'>(initialIsHnu ? 'hnu' : 'other');
+  const [customUniversity, setCustomUniversity] = useState<string>(initialIsHnu ? '' : (prefilled.university || ''));
   const [faculty, setFaculty] = useState(prefilled.faculty || '');
   const [departmentMajor, setDepartmentMajor] = useState(prefilled.departmentMajor || '');
   const [academicYear, setAcademicYear] = useState<number>(prefilled.academicYear || 1);
@@ -101,8 +107,14 @@ export function CompleteStudentProfileForm({
       return;
     }
 
+    const finalUniversity = universityType === 'hnu' ? 'Helwan National University' : customUniversity.trim();
+    if (!finalUniversity) {
+      setErrorMessage('Please enter your University name.');
+      return;
+    }
+
     if (!faculty.trim()) {
-      setErrorMessage('Please select your Faculty / College.');
+      setErrorMessage('Please provide your Faculty / College.');
       return;
     }
 
@@ -122,8 +134,8 @@ export function CompleteStudentProfileForm({
           full_name_ar: fullNameAr,
           full_name_en: fullNameEn,
           national_id: cleanNationalId,
-          university,
-          faculty,
+          university: finalUniversity,
+          faculty: faculty.trim(),
           department_major: departmentMajor,
           academic_year: Number(academicYear),
           phone,
@@ -399,56 +411,92 @@ export function CompleteStudentProfileForm({
             <div style={{ position: 'relative' }}>
               <Building2 size={16} color="#94A3B8" style={{ position: 'absolute', left: '0.85rem', top: '50%', transform: 'translateY(-50%)' }} />
               <select
-                value={university}
-                onChange={(e) => setUniversity(e.target.value)}
+                value={universityType}
+                onChange={(e) => {
+                  const val = e.target.value as 'hnu' | 'other';
+                  setUniversityType(val);
+                  if (val === 'hnu') {
+                    setCustomUniversity('');
+                  } else {
+                    setFaculty('');
+                  }
+                }}
                 required
                 style={inputStyle}
               >
-                <option value="Helwan National University" style={{ background: '#0F172A' }}>
+                <option value="hnu" style={{ background: '#0F172A' }}>
                   Helwan National University (HNU)
                 </option>
-                <option value="Helwan University" style={{ background: '#0F172A' }}>
-                  Helwan University (Main Campus)
-                </option>
-                <option value="Cairo University" style={{ background: '#0F172A' }}>
-                  Cairo University
-                </option>
-                <option value="Ain Shams University" style={{ background: '#0F172A' }}>
-                  Ain Shams University
-                </option>
-                <option value="Other University" style={{ background: '#0F172A' }}>
-                  Other University / Institution
+                <option value="other" style={{ background: '#0F172A' }}>
+                  Other University / جامعة أخرى
                 </option>
               </select>
             </div>
+
+            {universityType === 'other' && (
+              <div style={{ marginTop: '0.65rem' }}>
+                <div style={{ position: 'relative' }}>
+                  <Building2 size={16} color="#60A5FA" style={{ position: 'absolute', left: '0.85rem', top: '50%', transform: 'translateY(-50%)' }} />
+                  <input
+                    type="text"
+                    value={customUniversity}
+                    onChange={(e) => setCustomUniversity(e.target.value)}
+                    placeholder="Enter your university name / اسم الجامعة"
+                    required
+                    style={{ ...inputStyle, borderColor: 'rgba(66, 133, 244, 0.4)' }}
+                  />
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Faculty / College */}
           <div>
             <label style={labelStyle}>
               Faculty / College <span style={{ color: '#F87171' }}>*</span>
+              {universityType === 'other' && (
+                <span style={{ fontSize: '0.74rem', color: '#94A3B8', fontWeight: 500, marginLeft: '0.35rem' }}>
+                  (اكتب كليتك)
+                </span>
+              )}
             </label>
             <div style={{ position: 'relative' }}>
               <BookOpen size={16} color="#94A3B8" style={{ position: 'absolute', left: '0.85rem', top: '50%', transform: 'translateY(-50%)' }} />
-              <select
-                value={faculty}
-                onChange={(e) => setFaculty(e.target.value)}
-                required
-                style={inputStyle}
-              >
-                <option value="" style={{ background: '#0F172A' }}>
-                  -- Select Your Faculty --
-                </option>
-                {faculties.map((f) => (
-                  <option key={f.id} value={f.name_en} style={{ background: '#0F172A' }}>
-                    {f.name_en} ({f.name_ar})
+              {universityType === 'hnu' ? (
+                <select
+                  value={faculty}
+                  onChange={(e) => setFaculty(e.target.value)}
+                  required
+                  style={inputStyle}
+                >
+                  <option value="" style={{ background: '#0F172A' }}>
+                    -- Select HNU Faculty --
                   </option>
-                ))}
-                <option value="Other Faculty" style={{ background: '#0F172A' }}>
-                  Other Faculty
-                </option>
-              </select>
+                  {faculties.map((f) => (
+                    <option key={f.id} value={f.name_en} style={{ background: '#0F172A' }}>
+                      {f.name_en} ({f.name_ar})
+                    </option>
+                  ))}
+                  <option value="Other Faculty" style={{ background: '#0F172A' }}>
+                    Other Faculty / كلية أخرى
+                  </option>
+                </select>
+              ) : (
+                <input
+                  type="text"
+                  value={faculty}
+                  onChange={(e) => setFaculty(e.target.value)}
+                  placeholder="Enter your faculty / اكتب كليتك (e.g. Faculty of Engineering)"
+                  required
+                  style={{ ...inputStyle, borderColor: 'rgba(66, 133, 244, 0.4)' }}
+                />
+              )}
             </div>
+            {universityType === 'hnu' && (
+              <div style={{ fontSize: '0.74rem', color: '#64748B', marginTop: '0.3rem' }}>
+                HNU official colleges list.
+              </div>
+            )}
           </div>
 
           {/* Department / Major */}
