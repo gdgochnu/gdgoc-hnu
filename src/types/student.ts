@@ -216,4 +216,89 @@ export interface CourseEnrollment {
   student?: StudentProfile;
 }
 
+// ==============================================================================
+// Workshop & Multi-Session Types (Spec §4.S.3, §4.S.4, §4.S.10)
+// ==============================================================================
+
+export type WorkshopStatus = 'draft' | 'published' | 'archived' | 'completed';
+export type WorkshopRegistrationStatus = 'registered' | 'waitlisted' | 'cancelled';
+
+export interface Workshop {
+  id: string;
+  title: string;
+  description: string | null;
+  cover_image_url: string | null;
+  category: string | null;
+  department_id: string | null;
+  capacity: number | null;
+  registration_deadline: string | null;
+  status: WorkshopStatus;
+  registration_open: boolean;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+  department?: {
+    id: string;
+    name: string;
+    code: string;
+    branch: string;
+  } | null;
+  instructors?: WorkshopInstructor[];
+  sessions_count?: number;
+  registrations_count?: number;
+}
+
+export interface WorkshopInstructor {
+  id: string;
+  workshop_id: string;
+  profile_id: string;
+  role: CourseInstructorRole;
+  assigned_at: string;
+  assigned_by: string | null;
+  profile?: {
+    id: string;
+    full_name: string;
+    avatar_url: string | null;
+    role: string;
+    department?: {
+      name: string;
+      code: string;
+    } | null;
+  } | null;
+}
+
+export interface WorkshopSession {
+  id: string;
+  workshop_id: string;
+  session_number: number;
+  title: string;
+  description: string | null;
+  session_date: string;
+  start_time: string;
+  end_time: string;
+  type: SessionType;
+  venue: string | null;
+  youtube_url: string | null;
+  online_meeting_url?: string | null;
+  duration_minutes?: number | null;
+  materials: string[];
+  qr_secret: string | null;
+  status: SessionStatus;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface WorkshopRegistration {
+  id: string;
+  workshop_id: string;
+  student_id: string;
+  qr_code: string;
+  status: WorkshopRegistrationStatus;
+  registered_at: string;
+  created_at: string;
+  updated_at: string;
+  workshop?: Workshop;
+  student?: StudentProfile;
+}
+
 
