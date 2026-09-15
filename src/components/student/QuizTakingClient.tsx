@@ -393,6 +393,21 @@ export function QuizTakingClient({
             {evaluatedAnswers.map((item, idx) => {
               const isCorrect = item.is_correct === true;
               const isShort = item.type === 'short_answer';
+              const qDef = quiz.questions.find((q) => q.id === item.question_id) || quiz.questions[idx];
+
+              const getDisplayAnswer = (val: any) => {
+                if (val === null || val === undefined || val === '') return 'No answer recorded';
+                if (item.type === 'multiple_choice' && qDef?.options && qDef.options.length > 0) {
+                  if (typeof val === 'number' && qDef.options[val]) {
+                    return qDef.options[val];
+                  }
+                  const num = parseInt(String(val), 10);
+                  if (!isNaN(num) && String(num) === String(val).trim() && qDef.options[num]) {
+                    return qDef.options[num];
+                  }
+                }
+                return String(val);
+              };
 
               return (
                 <div
@@ -489,7 +504,7 @@ export function QuizTakingClient({
                           color: isCorrect ? '#86EFAC' : isShort ? '#FFFFFF' : '#FCA5A5',
                         }}
                       >
-                        {String(item.student_answer ?? 'No answer recorded')}
+                        {getDisplayAnswer(item.student_answer)}
                       </span>
                     </div>
 
@@ -497,7 +512,7 @@ export function QuizTakingClient({
                       <div style={{ fontSize: '0.85rem' }}>
                         <span style={{ color: '#94A3B8' }}>Correct Answer: </span>
                         <span style={{ fontWeight: 700, color: '#86EFAC' }}>
-                          {String(item.correct_answer)}
+                          {getDisplayAnswer(item.correct_answer)}
                         </span>
                       </div>
                     )}

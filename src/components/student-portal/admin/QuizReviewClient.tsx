@@ -659,6 +659,23 @@ export function QuizReviewClient({
               {/* Question items */}
               {(selectedAttempt.answers || []).map((ans: any, idx: number) => {
                 const isShort = ans.type === 'short_answer';
+                const qDef = quiz.questions.find((q) => q.id === ans.question_id) || quiz.questions[idx];
+
+                const getDisplayAnswer = (val: any) => {
+                  if (val === null || val === undefined || val === '') return 'No answer provided';
+                  if (ans.type === 'multiple_choice' && qDef?.options && qDef.options.length > 0) {
+                    if (typeof val === 'number' && qDef.options[val]) {
+                      const opt = qDef.options[val];
+                      return typeof opt === 'string' ? opt : (opt as any).text || String(opt);
+                    }
+                    const num = parseInt(String(val), 10);
+                    if (!isNaN(num) && String(num) === String(val).trim() && qDef.options[num]) {
+                      const opt = qDef.options[num];
+                      return typeof opt === 'string' ? opt : (opt as any).text || String(opt);
+                    }
+                  }
+                  return String(val);
+                };
 
                 return (
                   <div
@@ -729,7 +746,7 @@ export function QuizReviewClient({
                         Student Answer:
                       </div>
                       <div style={{ fontWeight: 600 }}>
-                        {String(ans.student_answer ?? 'No answer provided')}
+                        {getDisplayAnswer(ans.student_answer)}
                       </div>
                     </div>
 
@@ -830,7 +847,7 @@ export function QuizReviewClient({
                             {ans.points_awarded} / {ans.points_possible} pts
                           </strong>
                         </div>
-                        <div>Correct Answer: {String(ans.correct_answer)}</div>
+                        <div>Correct Answer: {getDisplayAnswer(ans.correct_answer)}</div>
                       </div>
                     )}
                   </div>

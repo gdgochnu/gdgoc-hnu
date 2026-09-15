@@ -329,17 +329,26 @@ export async function submitQuizAttempt(
 
       if (q.type === 'multiple_choice') {
         let isCorrect = false;
+        const optTexts = Array.isArray(q.options)
+          ? q.options.map((opt) => (typeof opt === 'string' ? opt : (opt as any).text || ''))
+          : [];
+
+        let studentAnswerText = studentAns !== undefined ? studentAns : null;
+        if (typeof studentAns === 'number' && optTexts[studentAns] !== undefined) {
+          studentAnswerText = optTexts[studentAns];
+        }
+
+        let correctAnswerText = q.correct_answer;
+        if (typeof q.correct_answer === 'number' && optTexts[q.correct_answer] !== undefined) {
+          correctAnswerText = optTexts[q.correct_answer];
+        }
+
         // Check both index match and text match
         if (typeof q.correct_answer === 'number') {
           isCorrect = studentAns === q.correct_answer;
         } else if (typeof q.correct_answer === 'string') {
-          if (Array.isArray(q.options)) {
-            const optTexts = q.options.map((opt) => (typeof opt === 'string' ? opt : (opt as any).text || ''));
-            const selectedText = typeof studentAns === 'number' ? optTexts[studentAns] : studentAns;
-            isCorrect = selectedText?.trim()?.toLowerCase() === q.correct_answer?.trim()?.toLowerCase();
-          } else {
-            isCorrect = String(studentAns).trim().toLowerCase() === String(q.correct_answer).trim().toLowerCase();
-          }
+          const selectedText = typeof studentAns === 'number' ? optTexts[studentAns] : studentAns;
+          isCorrect = selectedText?.trim()?.toLowerCase() === q.correct_answer?.trim()?.toLowerCase();
         }
 
         const awarded = isCorrect ? pts : 0;
@@ -349,8 +358,8 @@ export async function submitQuizAttempt(
           question_id: qId,
           type: q.type,
           question_text: q.question_text,
-          student_answer: studentAns !== undefined ? studentAns : null,
-          correct_answer: q.correct_answer,
+          student_answer: studentAnswerText,
+          correct_answer: correctAnswerText,
           is_correct: isCorrect,
           points_possible: pts,
           points_awarded: awarded,
