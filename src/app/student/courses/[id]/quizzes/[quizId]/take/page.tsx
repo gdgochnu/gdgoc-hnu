@@ -24,15 +24,25 @@ export async function generateMetadata({
 
 export default async function QuizTakingPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string; quizId: string }>;
+  searchParams: Promise<{ mode?: string }>;
 }) {
   const { id, quizId } = await params;
+  const { mode } = await searchParams;
   const result = await getQuizForTaking(id, quizId);
 
   if (!result.success || !result.quiz) {
     redirect(`/student/courses/${id}`);
   }
+
+  const initialMode: 'take' | 'review' =
+    mode === 'review'
+      ? 'review'
+      : mode === 'retake'
+      ? 'take'
+      : (!result.canAttempt && result.existingAttempts.length > 0 ? 'review' : 'take');
 
   return (
     <QuizTakingClient
@@ -43,6 +53,7 @@ export default async function QuizTakingPage({
       canAttempt={result.canAttempt}
       nextAttemptNumber={result.nextAttemptNumber}
       reason={result.reason}
+      initialMode={initialMode}
     />
   );
 }

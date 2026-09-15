@@ -37,6 +37,7 @@ interface QuizTakingClientProps {
   canAttempt: boolean;
   nextAttemptNumber: number;
   reason?: string;
+  initialMode?: 'take' | 'review';
 }
 
 export function QuizTakingClient({
@@ -47,6 +48,7 @@ export function QuizTakingClient({
   canAttempt: initialCanAttempt,
   nextAttemptNumber,
   reason,
+  initialMode = 'take',
 }: QuizTakingClientProps) {
   const router = useRouter();
 
@@ -63,10 +65,10 @@ export function QuizTakingClient({
   const [hasTimeExpired, setHasTimeExpired] = useState(false);
   const startTimeRef = useRef<number>(Date.now());
 
-  // Show previous attempts review if student cannot take the quiz now
+  // Show previous attempts review if mode is 'review' or student cannot take quiz now
   const latestAttempt = existingAttempts[existingAttempts.length - 1];
   const [viewingPastAttempt, setViewingPastAttempt] = useState<QuizAttempt | null>(
-    !initialCanAttempt && latestAttempt ? latestAttempt : null
+    (initialMode === 'review' || !initialCanAttempt) && latestAttempt ? latestAttempt : null
   );
 
   // Countdown timer effect

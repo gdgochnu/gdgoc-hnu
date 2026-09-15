@@ -29,6 +29,7 @@ import {
   ChevronRight,
   ChevronLeft,
   Eye,
+  RotateCcw,
   X,
   Radio,
   FileCode,
@@ -2621,31 +2622,74 @@ export function StudentCourseDetailClient({ initialData }: StudentCourseDetailCl
                         )}
                       </div>
 
-                      <Link
-                        href={`/student/courses/${course.id}/quizzes/${q.id}/take`}
-                        style={{
-                          padding: '0.5rem 1rem',
-                          borderRadius: '10px',
-                          background: 'linear-gradient(135deg, #A855F7, #7C3AED)',
-                          color: '#FFFFFF',
-                          border: 'none',
-                          fontWeight: 700,
-                          fontSize: '0.82rem',
-                          textDecoration: 'none',
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: '0.4rem',
-                        }}
-                      >
-                        <Sparkles size={14} />
-                        <span>
-                          {hasPassed
-                            ? 'Review / Retake'
-                            : attempts.length > 0
-                            ? `Retake (#${attempts.length + 1})`
-                            : 'Start Quiz'}
-                        </span>
-                      </Link>
+                      {attempts.length === 0 ? (
+                        <Link
+                          href={`/student/courses/${course.id}/quizzes/${q.id}/take`}
+                          style={{
+                            padding: '0.5rem 1rem',
+                            borderRadius: '10px',
+                            background: 'linear-gradient(135deg, #A855F7, #7C3AED)',
+                            color: '#FFFFFF',
+                            border: 'none',
+                            fontWeight: 700,
+                            fontSize: '0.82rem',
+                            textDecoration: 'none',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '0.4rem',
+                          }}
+                        >
+                          <Sparkles size={14} />
+                          <span>Start Quiz</span>
+                        </Link>
+                      ) : (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                          <Link
+                            href={`/student/courses/${course.id}/quizzes/${q.id}/take?mode=review`}
+                            style={{
+                              padding: '0.5rem 0.85rem',
+                              borderRadius: '10px',
+                              background: 'rgba(255, 255, 255, 0.08)',
+                              border: '1px solid rgba(255, 255, 255, 0.15)',
+                              color: '#CBD5E1',
+                              fontWeight: 600,
+                              fontSize: '0.82rem',
+                              textDecoration: 'none',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '0.4rem',
+                              transition: 'all 0.15s ease',
+                            }}
+                            title="View your previous answers and score breakdown"
+                          >
+                            <Eye size={14} style={{ color: '#93C5FD' }} />
+                            <span>Review Results</span>
+                          </Link>
+
+                          {((!hasPassed || q.allow_retakes) && (q.allow_retakes || attempts.length < q.max_attempts)) && (
+                            <Link
+                              href={`/student/courses/${course.id}/quizzes/${q.id}/take?mode=retake`}
+                              style={{
+                                padding: '0.5rem 0.85rem',
+                                borderRadius: '10px',
+                                background: 'linear-gradient(135deg, #A855F7, #7C3AED)',
+                                color: '#FFFFFF',
+                                border: 'none',
+                                fontWeight: 700,
+                                fontSize: '0.82rem',
+                                textDecoration: 'none',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '0.4rem',
+                              }}
+                              title="Start a new quiz attempt"
+                            >
+                              <RotateCcw size={14} />
+                              <span>Retake Quiz (#{attempts.length + 1})</span>
+                            </Link>
+                          )}
+                        </div>
+                      )}
                     </div>
                   </div>
                 );
