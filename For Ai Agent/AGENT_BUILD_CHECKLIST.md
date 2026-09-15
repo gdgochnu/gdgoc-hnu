@@ -349,7 +349,7 @@
   - Create quiz: title, time limit, passing score, question bank (add/edit/reorder questions — stored as jsonb array).
   - Question types: multiple choice (auto-graded), short answer (manual grading), true/false.
   - Publish/unpublish toggle.
-- [ ] S.E.7 Build student quiz-taking at `/student/courses/[id]/quizzes/[quizId]/take`:
+- [x] S.E.7 Build student quiz-taking at `/student/courses/[id]/quizzes/[quizId]/take`:
   - Timer countdown, question navigation, submit → `quiz_attempts` row.
   - Auto-grade multiple choice immediately; show "Pending review" for open-ended.
   - Instructor reviews open-ended answers at `/student-portal/admin/courses/[id]/quizzes/[quizId]/review`.

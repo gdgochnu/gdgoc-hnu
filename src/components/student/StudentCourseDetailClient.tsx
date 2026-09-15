@@ -2621,11 +2621,8 @@ export function StudentCourseDetailClient({ initialData }: StudentCourseDetailCl
                         )}
                       </div>
 
-                      <button
-                        type="button"
-                        onClick={() => {
-                          alert('Interactive quiz player will be enabled in Step S.E.5!');
-                        }}
+                      <Link
+                        href={`/student/courses/${course.id}/quizzes/${q.id}/take`}
                         style={{
                           padding: '0.5rem 1rem',
                           borderRadius: '10px',
@@ -2634,15 +2631,21 @@ export function StudentCourseDetailClient({ initialData }: StudentCourseDetailCl
                           border: 'none',
                           fontWeight: 700,
                           fontSize: '0.82rem',
-                          cursor: 'pointer',
-                          display: 'flex',
+                          textDecoration: 'none',
+                          display: 'inline-flex',
                           alignItems: 'center',
                           gap: '0.4rem',
                         }}
                       >
                         <Sparkles size={14} />
-                        {hasPassed ? 'Retake Quiz' : 'Take Quiz'}
-                      </button>
+                        <span>
+                          {hasPassed
+                            ? 'Review / Retake'
+                            : attempts.length > 0
+                            ? `Retake (#${attempts.length + 1})`
+                            : 'Start Quiz'}
+                        </span>
+                      </Link>
                     </div>
                   </div>
                 );

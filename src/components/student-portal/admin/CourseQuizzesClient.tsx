@@ -1414,6 +1414,28 @@ export function CourseQuizzesClient({
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
                       {canManage && (
                         <>
+                          <Link
+                            href={`/student-portal/admin/courses/${course.id}/quizzes/${quiz.id}/review`}
+                            title="Review Student Submissions & Open-Ended Answers"
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '0.35rem',
+                              padding: '0.4rem 0.65rem',
+                              borderRadius: '6px',
+                              background: 'rgba(168, 85, 247, 0.12)',
+                              border: '1px solid rgba(168, 85, 247, 0.3)',
+                              color: '#C084FC',
+                              fontSize: '0.75rem',
+                              fontWeight: 600,
+                              textDecoration: 'none',
+                              transition: 'all 0.15s',
+                            }}
+                          >
+                            <Award size={13} />
+                            <span>Review</span>
+                          </Link>
+
                           <button
                             onClick={() => openEditModal(quiz)}
                             title="Edit Quiz & Questions"
