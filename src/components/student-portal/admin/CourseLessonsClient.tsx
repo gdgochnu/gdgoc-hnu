@@ -8,6 +8,7 @@ import {
   Clock,
   Plus,
   ArrowLeft,
+  Award,
   Edit2,
   Trash2,
   FileText,
@@ -646,6 +647,46 @@ export function CourseLessonsClient({
           >
             <FileCheck2 size={14} />
             <span>Tasks ({totalTasks})</span>
+          </Link>
+
+          <Link
+            href={`/student-portal/admin/courses/${course.id}/submissions`}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.4rem',
+              padding: '0.45rem 0.85rem',
+              borderRadius: '8px',
+              background: 'rgba(52, 168, 83, 0.12)',
+              border: '1px solid rgba(52, 168, 83, 0.3)',
+              color: '#34D399',
+              fontSize: '0.8rem',
+              fontWeight: 600,
+              textDecoration: 'none',
+            }}
+          >
+            <Award size={14} />
+            <span>Submissions & Grading</span>
+          </Link>
+
+          <Link
+            href={`/student-portal/admin/courses/${course.id}/quizzes`}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.4rem',
+              padding: '0.45rem 0.85rem',
+              borderRadius: '8px',
+              background: 'rgba(168, 85, 247, 0.12)',
+              border: '1px solid rgba(168, 85, 247, 0.3)',
+              color: '#C084FC',
+              fontSize: '0.8rem',
+              fontWeight: 600,
+              textDecoration: 'none',
+            }}
+          >
+            <HelpCircle size={14} />
+            <span>Quizzes</span>
           </Link>
 
           <Link

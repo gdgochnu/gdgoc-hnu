@@ -14,6 +14,7 @@ import {
   User,
   Sparkles,
   BookOpen,
+  HelpCircle,
   Filter,
   Check,
   X,
@@ -269,6 +270,26 @@ export function CourseSubmissionsClient({
           >
             <BookOpen size={15} style={{ color: '#60A5FA' }} />
             Curriculum
+          </Link>
+
+          <Link
+            href={`/student-portal/admin/courses/${course.id}/quizzes`}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.45rem',
+              padding: '0.5rem 1rem',
+              borderRadius: '10px',
+              background: 'rgba(168, 85, 247, 0.12)',
+              border: '1px solid rgba(168, 85, 247, 0.3)',
+              color: '#C084FC',
+              fontSize: '0.84rem',
+              fontWeight: 700,
+              textDecoration: 'none',
+            }}
+          >
+            <HelpCircle size={15} style={{ color: '#C084FC' }} />
+            Quizzes
           </Link>
 
           <Link

@@ -8,6 +8,7 @@ import {
   Clock,
   Plus,
   ArrowLeft,
+  HelpCircle,
   Edit2,
   Trash2,
   ExternalLink,
@@ -433,6 +434,26 @@ export function CourseTasksClient({
           >
             <Award size={14} />
             <span>Submissions & Grading ({totalSubmissions})</span>
+          </Link>
+
+          <Link
+            href={`/student-portal/admin/courses/${course.id}/quizzes`}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.4rem',
+              padding: '0.45rem 0.85rem',
+              borderRadius: '8px',
+              background: 'rgba(168, 85, 247, 0.12)',
+              border: '1px solid rgba(168, 85, 247, 0.3)',
+              color: '#C084FC',
+              fontSize: '0.8rem',
+              fontWeight: 600,
+              textDecoration: 'none',
+            }}
+          >
+            <HelpCircle size={14} />
+            <span>Quizzes</span>
           </Link>
 
           <Link

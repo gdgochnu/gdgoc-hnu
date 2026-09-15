@@ -26,6 +26,7 @@ import {
   QrCode,
   FileText,
   Award,
+  HelpCircle,
 } from 'lucide-react';
 import { AdminCourseItem, CreateCourseInput, createAdminCourse, updateAdminCourse, deleteAdminCourse } from '@/app/student-portal/admin/courses/actions';
 import { CourseStatus, EnrollmentType, CourseInstructorRole } from '@/types/student';
@@ -832,49 +833,80 @@ export function AdminCoursesClient({
                   >
                     <Link
                       href={`/student-portal/admin/courses/${course.id}/sessions`}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: '0.4rem',
-                      padding: '0.55rem 0.6rem',
-                      borderRadius: '8px',
-                      background: 'rgba(66, 133, 244, 0.12)',
-                      border: '1px solid rgba(66, 133, 244, 0.28)',
-                      color: '#93C5FD',
-                      fontSize: '0.78rem',
-                      fontWeight: 700,
-                      textDecoration: 'none',
-                      transition: 'all 0.15s ease',
-                    }}
-                    title="Manage Course Sessions"
-                  >
-                    <Calendar size={13} />
-                    <span>Sessions ({course.sessions_count})</span>
-                  </Link>
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '0.4rem',
+                        padding: '0.55rem 0.6rem',
+                        borderRadius: '8px',
+                        background: 'rgba(66, 133, 244, 0.12)',
+                        border: '1px solid rgba(66, 133, 244, 0.28)',
+                        color: '#93C5FD',
+                        fontSize: '0.78rem',
+                        fontWeight: 700,
+                        textDecoration: 'none',
+                        transition: 'all 0.15s ease',
+                      }}
+                      title="Manage Course Sessions"
+                    >
+                      <Calendar size={13} />
+                      <span>Sessions ({course.sessions_count})</span>
+                    </Link>
 
-                  <Link
-                    href={`/student-portal/admin/courses/${course.id}/enrollments`}
+                    <Link
+                      href={`/student-portal/admin/courses/${course.id}/quizzes`}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '0.4rem',
+                        padding: '0.55rem 0.6rem',
+                        borderRadius: '8px',
+                        background: 'rgba(168, 85, 247, 0.12)',
+                        border: '1px solid rgba(168, 85, 247, 0.28)',
+                        color: '#C084FC',
+                        fontSize: '0.78rem',
+                        fontWeight: 700,
+                        textDecoration: 'none',
+                        transition: 'all 0.15s ease',
+                      }}
+                      title="Manage Quizzes & Question Banks"
+                    >
+                      <HelpCircle size={13} />
+                      <span>Quizzes</span>
+                    </Link>
+                  </div>
+
+                  <div
                     style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: '0.4rem',
-                      padding: '0.55rem 0.6rem',
-                      borderRadius: '8px',
-                      background: 'rgba(52, 168, 83, 0.12)',
-                      border: '1px solid rgba(52, 168, 83, 0.28)',
-                      color: '#86EFAC',
-                      fontSize: '0.78rem',
-                      fontWeight: 700,
-                      textDecoration: 'none',
-                      transition: 'all 0.15s ease',
+                      display: 'grid',
+                      gridTemplateColumns: '1fr 1fr',
+                      gap: '0.5rem',
                     }}
-                    title="Manage Enrolled Students & Applications"
                   >
-                    <GraduationCap size={13} />
-                    <span>Enroll ({course.enrollment_count})</span>
-                  </Link>
+                    <Link
+                      href={`/student-portal/admin/courses/${course.id}/enrollments`}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '0.4rem',
+                        padding: '0.55rem 0.6rem',
+                        borderRadius: '8px',
+                        background: 'rgba(52, 168, 83, 0.12)',
+                        border: '1px solid rgba(52, 168, 83, 0.28)',
+                        color: '#86EFAC',
+                        fontSize: '0.78rem',
+                        fontWeight: 700,
+                        textDecoration: 'none',
+                        transition: 'all 0.15s ease',
+                      }}
+                      title="Manage Enrolled Students & Applications"
+                    >
+                      <GraduationCap size={13} />
+                      <span>Enroll ({course.enrollment_count})</span>
+                    </Link>
 
                   <Link
                     href={`/student-portal/admin/courses/${course.id}/instructors`}

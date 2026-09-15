@@ -345,7 +345,7 @@
   - List all submissions (filterable by task/student/status).
   - Review UI: view submission (link preview or file download), add comments, assign grade (numeric or pass/fail), mark as `reviewed`/`needs_revision`.
   - Student receives notification with feedback.
-- [ ] S.E.6 Build **Quiz Builder** at `/student-portal/admin/courses/[id]/quizzes`:
+- [x] S.E.6 Build **Quiz Builder** at `/student-portal/admin/courses/[id]/quizzes`:
   - Create quiz: title, time limit, passing score, question bank (add/edit/reorder questions — stored as jsonb array).
   - Question types: multiple choice (auto-graded), short answer (manual grading), true/false.
   - Publish/unpublish toggle.
