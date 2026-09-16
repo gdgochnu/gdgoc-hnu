@@ -257,6 +257,11 @@ export function AppNavigation({
         href: '/student-portal/admin/workshops',
         icon: Sparkles,
       });
+      workspaceItems.push({
+        label: 'Mentor Dashboard',
+        href: '/student-portal/admin/mentorship',
+        icon: Users,
+      });
     }
 
     if (workspaceItems.length > 0) {

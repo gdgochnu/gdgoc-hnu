@@ -353,7 +353,7 @@
   - Timer countdown, question navigation, submit → `quiz_attempts` row.
   - Auto-grade multiple choice immediately; show "Pending review" for open-ended.
   - Instructor reviews open-ended answers at `/student-portal/admin/courses/[id]/quizzes/[quizId]/review`.
-- [ ] S.E.8 Build **Mentor Dashboard** at `/student-portal/admin/mentorship`:
+- [x] S.E.8 Build **Mentor Dashboard** at `/student-portal/admin/mentorship` (2026-09-15):
   - View all mentees (students in assigned courses): progress table (lessons completed, tasks submitted, quizzes passed, attendance rate).
   - Drill-down per student: timeline of activity, grade breakdown, notes field.
   - Mentor can flag at-risk students → notification to Committee Head + President.
