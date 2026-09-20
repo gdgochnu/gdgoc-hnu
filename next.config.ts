@@ -21,6 +21,32 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  serverExternalPackages: ['@react-pdf/renderer', 'pdfkit'],
+  outputFileTracingIncludes: {
+    '/**': [
+      './node_modules/pdfkit/js/standard-fonts/**/*',
+      './node_modules/pdfkit/js/data/**/*',
+    ],
+    '/api/**/*': [
+      './node_modules/pdfkit/js/standard-fonts/**/*',
+      './node_modules/pdfkit/js/data/**/*',
+    ],
+    '/student-portal/**/*': [
+      './node_modules/pdfkit/js/standard-fonts/**/*',
+      './node_modules/pdfkit/js/data/**/*',
+    ],
+    '/certificates/**/*': [
+      './node_modules/pdfkit/js/standard-fonts/**/*',
+      './node_modules/pdfkit/js/data/**/*',
+    ],
+  },
+  webpack: (config) => {
+    config.resolve.alias = {
+      ...config.resolve.alias,
+      canvas: false,
+    };
+    return config;
+  },
   experimental: {
     serverActions: {
       bodySizeLimit: '50mb',
