@@ -452,6 +452,10 @@ export async function deleteAdminWorkshop(id: string): Promise<{
       }
     }
 
+    // 1. Explicitly clean up student certificates for this workshop to prevent chk_student_certificates_parent violation
+    await admin.from('student_certificates').delete().eq('workshop_id', id);
+
+    // 2. Delete the workshop
     const { error: delErr } = await admin.from('workshops').delete().eq('id', id);
 
     if (delErr) {

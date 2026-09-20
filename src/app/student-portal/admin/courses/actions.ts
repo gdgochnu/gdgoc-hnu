@@ -425,6 +425,10 @@ export async function deleteAdminCourse(courseId: string): Promise<{
       return { success: false, error: 'Only Leadership or Owning Committee Head can delete a course.' };
     }
 
+    // 1. Explicitly clean up student certificates for this course to prevent chk_student_certificates_parent violation
+    await admin.from('student_certificates').delete().eq('course_id', courseId);
+
+    // 2. Delete the course
     const { error: delErr } = await admin.from('courses').delete().eq('id', courseId);
     if (delErr) {
       return { success: false, error: delErr.message };
