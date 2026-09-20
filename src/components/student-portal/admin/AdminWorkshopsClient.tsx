@@ -549,6 +549,26 @@ export function AdminWorkshopsClient({
                   overflow: 'hidden',
                 }}
               >
+                {w.cover_image_url && (
+                  <div
+                    style={{
+                      width: 'calc(100% + 3rem)',
+                      margin: '-1.5rem -1.5rem 0.75rem -1.5rem',
+                      height: '140px',
+                      background: `url(${w.cover_image_url}) center/cover no-repeat`,
+                      borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
+                      position: 'relative',
+                    }}
+                  >
+                    <div
+                      style={{
+                        position: 'absolute',
+                        inset: 0,
+                        background: 'linear-gradient(180deg, rgba(15, 23, 42, 0.1) 0%, rgba(15, 23, 42, 0.75) 100%)',
+                      }}
+                    />
+                  </div>
+                )}
                 <div>
                   {/* Top Header: Category & Badges & Owner Actions */}
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem', marginBottom: '0.75rem' }}>
@@ -1087,6 +1107,92 @@ export function AdminWorkshopsClient({
                     </div>
                   )}
                 </div>
+              </div>
+
+              {/* Workshop Cover Image URL */}
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.4rem' }}>
+                  <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, color: '#CBD5E1' }}>
+                    WORKSHOP COVER IMAGE URL (16:9 RECOMMENDED)
+                  </label>
+                  {formCoverUrl && (
+                    <button
+                      type="button"
+                      onClick={() => setFormCoverUrl('')}
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        color: '#94A3B8',
+                        fontSize: '0.72rem',
+                        cursor: 'pointer',
+                        padding: 0,
+                      }}
+                    >
+                      Clear Image
+                    </button>
+                  )}
+                </div>
+                <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+                  <input
+                    type="url"
+                    placeholder="https://images.unsplash.com/... or direct image link"
+                    value={formCoverUrl}
+                    onChange={(e) => setFormCoverUrl(e.target.value)}
+                    style={{
+                      flex: 1,
+                      background: 'rgba(255, 255, 255, 0.05)',
+                      border: '1px solid rgba(255, 255, 255, 0.12)',
+                      borderRadius: '8px',
+                      padding: '0.65rem 0.85rem',
+                      color: '#FFFFFF',
+                      fontSize: '0.88rem',
+                      outline: 'none',
+                    }}
+                  />
+                  {formCoverUrl && (
+                    <div
+                      style={{
+                        width: '54px',
+                        height: '38px',
+                        borderRadius: '6px',
+                        overflow: 'hidden',
+                        border: '1px solid rgba(255, 255, 255, 0.2)',
+                        background: `url(${formCoverUrl}) center/cover no-repeat`,
+                        flexShrink: 0,
+                      }}
+                    />
+                  )}
+                </div>
+                {formCoverUrl && (
+                  <div
+                    style={{
+                      marginTop: '0.6rem',
+                      borderRadius: '10px',
+                      overflow: 'hidden',
+                      height: '130px',
+                      background: `url(${formCoverUrl}) center/cover no-repeat`,
+                      border: '1px solid rgba(255, 255, 255, 0.15)',
+                      position: 'relative',
+                    }}
+                  >
+                    <div
+                      style={{
+                        position: 'absolute',
+                        bottom: '0.5rem',
+                        left: '0.75rem',
+                        background: 'rgba(0, 0, 0, 0.75)',
+                        backdropFilter: 'blur(4px)',
+                        padding: '0.2rem 0.5rem',
+                        borderRadius: '6px',
+                        fontSize: '0.7rem',
+                        color: '#C084FC',
+                        fontWeight: 600,
+                      }}
+                    >
+                      Live Cover Preview
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Capacity & Registration Deadline */}
