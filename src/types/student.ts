@@ -120,21 +120,45 @@ export interface StudentDashboardData {
   }>;
   tasks: Array<{
     id: string;
+    course_id?: string | null;
+    workshop_id?: string | null;
     title: string;
     course_title: string;
     deadline: string;
-    status: 'pending' | 'submitted' | 'graded';
+    due_date?: string | null;
+    is_due_soon?: boolean;
+    is_overdue?: boolean;
+    submission_type?: 'link' | 'file';
+    status: 'pending' | 'submitted' | 'graded' | 'needs_revision';
     score?: number | null;
-    max_score?: number;
+    max_score?: number | null;
     feedback?: string | null;
   }>;
   quizzes: Array<{
     id: string;
+    course_id?: string | null;
+    workshop_id?: string | null;
     title: string;
     course_title: string;
-    status: 'available' | 'completed';
+    time_limit_minutes?: number | null;
+    passing_score_percentage?: number;
+    status: 'available' | 'completed' | 'in_progress';
     score?: number | null;
+    passed?: boolean | null;
     total_questions?: number;
+  }>;
+  recent_feedback?: Array<{
+    id: string;
+    task_id: string;
+    task_title: string;
+    course_id?: string | null;
+    course_title: string;
+    score: number | null;
+    max_score: number | null;
+    status: 'graded' | 'needs_revision';
+    feedback_comment: string | null;
+    graded_at: string | null;
+    mentor_name?: string | null;
   }>;
   attendance: Array<{
     id: string;
@@ -480,6 +504,68 @@ export interface QuizAttempt {
   updated_at: string;
   quiz?: Quiz;
   student?: StudentProfile;
+}
+
+// ==============================================================================
+// Student Certificates & Eligibility (Spec §4.S.8, §4.S.10, §4.S.11)
+// ==============================================================================
+
+export interface StudentCertificate {
+  id: string;
+  template_id: string | null;
+  student_id: string;
+  course_id: string | null;
+  workshop_id: string | null;
+  title: string;
+  issue_date: string;
+  certificate_number: string;
+  verification_code: string;
+  pdf_drive_file_id: string | null;
+  pdf_drive_url: string | null;
+  completion_stats: {
+    attendance_percentage: number;
+    task_average_score: number | null;
+    quiz_average_score: number | null;
+    total_sessions_attended?: number;
+    total_sessions?: number;
+  };
+  issued_by: string | null;
+  created_at: string;
+  updated_at: string;
+  student?: StudentProfile;
+  course?: Course;
+  workshop?: Workshop;
+  issuer?: {
+    full_name: string;
+    role: string;
+  } | null;
+}
+
+export interface StudentCertificateEligibility {
+  student_id: string;
+  full_name_en: string | null;
+  full_name_ar: string | null;
+  email: string;
+  avatar_url: string | null;
+  university: string | null;
+  faculty: string | null;
+  academic_year: number | null;
+  course_id?: string | null;
+  workshop_id?: string | null;
+  program_title: string;
+  program_type: 'course' | 'workshop';
+  attendanceRate: number;
+  sessionsAttended: number;
+  sessionsTotal: number;
+  tasksAverageScore: number | null;
+  tasksSubmitted: number;
+  tasksTotal: number;
+  quizzesAverageScore: number | null;
+  quizzesPassed: number;
+  quizzesTotal: number;
+  isEligible: boolean;
+  alreadyIssued: boolean;
+  certificate?: StudentCertificate | null;
 }
 
 export interface MentorNote {

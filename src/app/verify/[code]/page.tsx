@@ -102,7 +102,106 @@ export default async function CertificateVerificationPage({ params }: VerifyPage
     cert = byId;
   }
 
-  const certificate = cert;
+  // 3.5 Fallback: check student_certificates table (Spec §4.S.5, §4.S.8, §4.S.10)
+  if (!cert) {
+    let { data: stuCert } = await admin
+      .from('student_certificates')
+      .select(`
+        id,
+        title,
+        certificate_number,
+        verification_code,
+        issue_date,
+        pdf_drive_url,
+        template_id,
+        student_id,
+        course_id,
+        workshop_id,
+        completion_stats,
+        issued_by,
+        student:student_profiles(full_name_en, full_name_ar, faculty, university, academic_year),
+        course:courses(title),
+        workshop:workshops(title)
+      `)
+      .ilike('certificate_number', code)
+      .maybeSingle();
+
+    if (!stuCert) {
+      const { data: byVerifyCode } = await admin
+        .from('student_certificates')
+        .select(`
+          id,
+          title,
+          certificate_number,
+          verification_code,
+          issue_date,
+          pdf_drive_url,
+          template_id,
+          student_id,
+          course_id,
+          workshop_id,
+          completion_stats,
+          issued_by,
+          student:student_profiles(full_name_en, full_name_ar, faculty, university, academic_year),
+          course:courses(title),
+          workshop:workshops(title)
+        `)
+        .eq('verification_code', code)
+        .maybeSingle();
+      stuCert = byVerifyCode;
+    }
+
+    if (!stuCert) {
+      const { data: byStuId } = await admin
+        .from('student_certificates')
+        .select(`
+          id,
+          title,
+          certificate_number,
+          verification_code,
+          issue_date,
+          pdf_drive_url,
+          template_id,
+          student_id,
+          course_id,
+          workshop_id,
+          completion_stats,
+          issued_by,
+          student:student_profiles(full_name_en, full_name_ar, faculty, university, academic_year),
+          course:courses(title),
+          workshop:workshops(title)
+        `)
+        .eq('id', code)
+        .maybeSingle();
+      stuCert = byStuId;
+    }
+
+    if (stuCert) {
+      const studentObj = Array.isArray(stuCert.student) ? stuCert.student[0] : stuCert.student;
+      const courseObj = Array.isArray(stuCert.course) ? stuCert.course[0] : stuCert.course;
+      const wsObj = Array.isArray(stuCert.workshop) ? stuCert.workshop[0] : stuCert.workshop;
+
+      cert = {
+        id: stuCert.id,
+        title: stuCert.title,
+        certificate_number: stuCert.certificate_number,
+        verification_code: stuCert.verification_code,
+        issue_date: stuCert.issue_date,
+        recipient_name: studentObj?.full_name_en || studentObj?.full_name_ar || 'Student Member',
+        pdf_drive_url: stuCert.pdf_drive_url,
+        template_id: stuCert.template_id,
+        event_id: null,
+        issued_by: stuCert.issued_by,
+        is_student_certificate: true,
+        program_title: courseObj?.title || wsObj?.title || stuCert.title,
+        student_faculty: studentObj?.faculty || null,
+        student_university: studentObj?.university || null,
+        completion_stats: stuCert.completion_stats,
+      } as any;
+    }
+  }
+
+  const certificate: any = cert;
 
   // 4. CANONICAL REDIRECT: If accessed via UUID or legacy code, redirect to canonical serial number URL
   if (certificate && certificate.certificate_number && code !== certificate.certificate_number) {
@@ -119,6 +218,10 @@ export default async function CertificateVerificationPage({ params }: VerifyPage
   const baseUrl = getAppBaseUrl();
 
   if (certificate) {
+    if (certificate.is_student_certificate) {
+      eventTitle = certificate.program_title || 'Technical Track Curriculum';
+    }
+
     // QR code encodes canonical serial number URL
     const verifyUrl = `${baseUrl}/verify/${encodeURIComponent(certificate.certificate_number)}`;
 
@@ -347,16 +450,58 @@ export default async function CertificateVerificationPage({ params }: VerifyPage
                 border: '1px solid rgba(255, 255, 255, 0.06)',
               }}
             >
-              {/* Event Name */}
+              {/* Event or Curriculum Program Name */}
               {eventTitle && (
                 <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem' }}>
                   <Building size={18} color="#38bdf8" style={{ marginTop: '0.2rem', flexShrink: 0 }} />
                   <div>
                     <div style={{ fontSize: '0.72rem', color: '#94a3b8', textTransform: 'uppercase', fontWeight: 700 }}>
-                      Associated Event
+                      {certificate.is_student_certificate ? 'Technical Curriculum Track' : 'Associated Event'}
                     </div>
                     <div style={{ fontSize: '0.9rem', fontWeight: 700, color: '#fff' }}>
                       {eventTitle}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Student Faculty if present */}
+              {certificate.student_faculty && (
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem' }}>
+                  <User size={18} color="#60a5fa" style={{ marginTop: '0.2rem', flexShrink: 0 }} />
+                  <div>
+                    <div style={{ fontSize: '0.72rem', color: '#94a3b8', textTransform: 'uppercase', fontWeight: 700 }}>
+                      Academic Affiliation
+                    </div>
+                    <div style={{ fontSize: '0.9rem', fontWeight: 700, color: '#fff' }}>
+                      {certificate.student_faculty} {certificate.student_university ? `• ${certificate.student_university}` : ''}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Completion Stats for Student Certificate */}
+              {certificate.completion_stats && (
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem' }}>
+                  <CheckCircle2 size={18} color="#4ade80" style={{ marginTop: '0.2rem', flexShrink: 0 }} />
+                  <div>
+                    <div style={{ fontSize: '0.72rem', color: '#94a3b8', textTransform: 'uppercase', fontWeight: 700 }}>
+                      Verified Completion Metrics
+                    </div>
+                    <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.2rem', flexWrap: 'wrap' }}>
+                      <span style={{ fontSize: '0.74rem', padding: '0.15rem 0.5rem', borderRadius: '4px', background: 'rgba(52, 168, 83, 0.2)', color: '#86efac', fontWeight: 700 }}>
+                        Attendance: {certificate.completion_stats.attendance_percentage}%
+                      </span>
+                      {certificate.completion_stats.task_average_score !== null && (
+                        <span style={{ fontSize: '0.74rem', padding: '0.15rem 0.5rem', borderRadius: '4px', background: 'rgba(234, 67, 53, 0.2)', color: '#fca5a5', fontWeight: 700 }}>
+                          Tasks: {certificate.completion_stats.task_average_score}%
+                        </span>
+                      )}
+                      {certificate.completion_stats.quiz_average_score !== null && (
+                        <span style={{ fontSize: '0.74rem', padding: '0.15rem 0.5rem', borderRadius: '4px', background: 'rgba(66, 133, 244, 0.2)', color: '#93c5fd', fontWeight: 700 }}>
+                          Quiz: {certificate.completion_stats.quiz_average_score}%
+                        </span>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -396,7 +541,7 @@ export default async function CertificateVerificationPage({ params }: VerifyPage
                     Issued By
                   </div>
                   <div style={{ fontSize: '0.9rem', fontWeight: 700, color: '#fff' }}>
-                    {issuerName || 'GDGoC Helwan National University'}
+                    {issuerName || 'GDGoC Helwan National University — Presidential Office'}
                   </div>
                 </div>
               </div>

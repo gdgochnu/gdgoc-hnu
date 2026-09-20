@@ -646,6 +646,217 @@ export async function getStudentDashboardData(): Promise<{
 
     let tasks: StudentDashboardData['tasks'] = [];
     let quizzes: StudentDashboardData['quizzes'] = [];
+    let recentFeedback: StudentDashboardData['recent_feedback'] = [];
+
+    const enrolledCourseIds = courses.map((c) => c.id).filter(Boolean);
+    const registeredWorkshopIds = workshops.map((w) => w.id).filter(Boolean);
+
+    try {
+      if (enrolledCourseIds.length > 0 || registeredWorkshopIds.length > 0) {
+        // 1. Fetch tasks
+        let taskQuery = admin
+          .from('student_tasks')
+          .select(`
+            id,
+            course_id,
+            workshop_id,
+            lesson_id,
+            title,
+            description,
+            due_date,
+            submission_type,
+            max_score,
+            assigned_to,
+            specific_student_ids,
+            status,
+            course:courses(id, title),
+            workshop:workshops(id, title)
+          `)
+          .neq('status', 'draft')
+          .order('due_date', { ascending: true, nullsFirst: false });
+
+        if (enrolledCourseIds.length > 0 && registeredWorkshopIds.length > 0) {
+          taskQuery = taskQuery.or(`course_id.in.(${enrolledCourseIds.join(',')}),workshop_id.in.(${registeredWorkshopIds.join(',')})`);
+        } else if (enrolledCourseIds.length > 0) {
+          taskQuery = taskQuery.in('course_id', enrolledCourseIds);
+        } else if (registeredWorkshopIds.length > 0) {
+          taskQuery = taskQuery.in('workshop_id', registeredWorkshopIds);
+        }
+
+        const { data: rawTasks, error: taskErr } = await taskQuery;
+        if (taskErr) {
+          console.error('getStudentDashboardData tasks error:', taskErr);
+        }
+
+        // Fetch submissions by this student
+        const { data: mySubmissions } = await admin
+          .from('student_task_submissions')
+          .select(`
+            id,
+            task_id,
+            status,
+            score,
+            feedback_comment,
+            submitted_at,
+            graded_at,
+            grader:profiles!student_task_submissions_graded_by_fkey(full_name)
+          `)
+          .eq('student_id', student.id);
+
+        const subMap = new Map<string, any>();
+        if (mySubmissions) {
+          for (const sub of mySubmissions) {
+            subMap.set(sub.task_id, sub);
+          }
+        }
+
+        const now = Date.now();
+        const threeDaysMs = 3 * 24 * 60 * 60 * 1000;
+
+        if (rawTasks && rawTasks.length > 0) {
+          const visibleTasks = rawTasks.filter((t: any) => {
+            if (t.assigned_to === 'all_enrolled') return true;
+            if (Array.isArray(t.specific_student_ids) && t.specific_student_ids.includes(student.id)) return true;
+            return false;
+          });
+
+          tasks = visibleTasks.map((t: any) => {
+            const courseObj = Array.isArray(t.course) ? t.course[0] : t.course;
+            const wsObj = Array.isArray(t.workshop) ? t.workshop[0] : t.workshop;
+            const courseTitle = courseObj?.title || wsObj?.title || 'Curriculum Track';
+            const sub = subMap.get(t.id);
+
+            const status = sub?.status || 'pending';
+            const dueTime = t.due_date ? new Date(t.due_date).getTime() : null;
+            const isDueSoon = dueTime ? (dueTime - now > 0 && dueTime - now <= threeDaysMs && (status === 'pending' || status === 'needs_revision')) : false;
+            const isOverdue = dueTime ? (dueTime < now && status === 'pending') : false;
+
+            return {
+              id: t.id,
+              course_id: t.course_id,
+              workshop_id: t.workshop_id,
+              title: t.title,
+              course_title: courseTitle,
+              deadline: t.due_date ? new Date(t.due_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Flexible',
+              due_date: t.due_date,
+              is_due_soon: isDueSoon,
+              is_overdue: isOverdue,
+              submission_type: t.submission_type || 'link',
+              status,
+              score: sub?.score ?? null,
+              max_score: t.max_score || 10,
+              feedback: sub?.feedback_comment || null,
+            };
+          });
+
+          if (mySubmissions && mySubmissions.length > 0) {
+            const taskLookup = new Map<string, any>(rawTasks.map((t: any) => [t.id, t]));
+            recentFeedback = mySubmissions
+              .filter((sub: any) => (sub.feedback_comment || sub.status === 'graded') && sub.status !== 'submitted')
+              .map((sub: any) => {
+                const parentTask = taskLookup.get(sub.task_id);
+                const cObj = Array.isArray(parentTask?.course) ? parentTask.course[0] : parentTask?.course;
+                const wObj = Array.isArray(parentTask?.workshop) ? parentTask.workshop[0] : parentTask?.workshop;
+                const grader = Array.isArray(sub.grader) ? sub.grader[0] : sub.grader;
+
+                return {
+                  id: sub.id,
+                  task_id: sub.task_id,
+                  task_title: parentTask?.title || 'Assignment Deliverable',
+                  course_id: parentTask?.course_id || null,
+                  course_title: cObj?.title || wObj?.title || 'Learning Curriculum',
+                  score: sub.score,
+                  max_score: parentTask?.max_score || 10,
+                  status: sub.status,
+                  feedback_comment: sub.feedback_comment,
+                  graded_at: sub.graded_at,
+                  mentor_name: grader?.full_name || 'Course Instructor / Mentor',
+                };
+              })
+              .sort((a, b) => new Date(b.graded_at || 0).getTime() - new Date(a.graded_at || 0).getTime())
+              .slice(0, 10);
+          }
+        }
+
+        // 2. Fetch quizzes
+        let quizQuery = admin
+          .from('quizzes')
+          .select(`
+            id,
+            course_id,
+            workshop_id,
+            lesson_id,
+            title,
+            description,
+            time_limit_minutes,
+            passing_score_percentage,
+            questions,
+            allow_retakes,
+            max_attempts,
+            status,
+            course:courses(id, title),
+            workshop:workshops(id, title)
+          `)
+          .eq('status', 'published')
+          .order('created_at', { ascending: false });
+
+        if (enrolledCourseIds.length > 0 && registeredWorkshopIds.length > 0) {
+          quizQuery = quizQuery.or(`course_id.in.(${enrolledCourseIds.join(',')}),workshop_id.in.(${registeredWorkshopIds.join(',')})`);
+        } else if (enrolledCourseIds.length > 0) {
+          quizQuery = quizQuery.in('course_id', enrolledCourseIds);
+        } else if (registeredWorkshopIds.length > 0) {
+          quizQuery = quizQuery.in('workshop_id', registeredWorkshopIds);
+        }
+
+        const { data: rawQuizzes, error: qErr } = await quizQuery;
+        if (qErr) {
+          console.error('getStudentDashboardData quizzes error:', qErr);
+        }
+
+        const { data: myAttempts } = await admin
+          .from('quiz_attempts')
+          .select('id, quiz_id, attempt_number, total_score, passed, status, submitted_at')
+          .eq('student_id', student.id)
+          .order('attempt_number', { ascending: false });
+
+        const attemptsMap = new Map<string, any>();
+        if (myAttempts) {
+          for (const att of myAttempts) {
+            if (!attemptsMap.has(att.quiz_id)) {
+              attemptsMap.set(att.quiz_id, att);
+            }
+          }
+        }
+
+        if (rawQuizzes && rawQuizzes.length > 0) {
+          quizzes = rawQuizzes.map((q: any) => {
+            const courseObj = Array.isArray(q.course) ? q.course[0] : q.course;
+            const wsObj = Array.isArray(q.workshop) ? q.workshop[0] : q.workshop;
+            const courseTitle = courseObj?.title || wsObj?.title || 'Curriculum Track';
+            const att = attemptsMap.get(q.id);
+
+            const isCompleted = att && (att.status === 'graded' || att.status === 'submitted');
+            const totalQuestions = Array.isArray(q.questions) ? q.questions.length : 0;
+
+            return {
+              id: q.id,
+              course_id: q.course_id,
+              workshop_id: q.workshop_id,
+              title: q.title,
+              course_title: courseTitle,
+              time_limit_minutes: q.time_limit_minutes,
+              passing_score_percentage: q.passing_score_percentage,
+              status: isCompleted ? 'completed' : 'available',
+              score: att?.total_score ?? null,
+              passed: att?.passed ?? null,
+              total_questions: totalQuestions,
+            };
+          });
+        }
+      }
+    } catch (tqErr) {
+      console.error('getStudentDashboardData tasks & quizzes error:', tqErr);
+    }
 
     // Calculate aggregate attendance rates
     let totalSessionsExpected = 0;
@@ -655,7 +866,7 @@ export async function getStudentDashboardData(): Promise<{
     const totalSessionsAttended = attendance.length;
     const enrolledCoursesCount = courses.length;
     const workshopsCount = workshops.length;
-    const pendingTasksCount = tasks.filter((t: any) => t.status === 'pending').length;
+    const pendingTasksCount = tasks.filter((t: any) => t.status === 'pending' || t.status === 'needs_revision').length;
     const certificatesCount = certificates.length;
 
     const stats = {
@@ -684,6 +895,7 @@ export async function getStudentDashboardData(): Promise<{
         workshops,
         tasks,
         quizzes,
+        recent_feedback: recentFeedback,
         attendance,
         certificates,
       },

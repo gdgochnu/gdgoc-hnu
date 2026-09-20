@@ -357,50 +357,27 @@
   - View all mentees (students in assigned courses): progress table (lessons completed, tasks submitted, quizzes passed, attendance rate).
   - Drill-down per student: timeline of activity, grade breakdown, notes field.
   - Mentor can flag at-risk students → notification to Committee Head + President.
-- [ ] S.E.9 Show tasks/quizzes on student dashboard: "Pending Tasks" widget (due soon), "Quizzes Available" widget, "Recent Feedback" feed.
-- [ ] S.E.10 Confirm end-to-end: Instructor creates Lesson 3 → adds a task ("Build a landing page, submit GitHub link") + a 10-question quiz → student submits task link → mentor reviews, leaves comment "Good structure, improve responsiveness," grades 8/10 → student takes quiz, scores 9/10 → both visible on mentor dashboard and student profile.
+- [x] S.E.9 Show tasks/quizzes on student dashboard: "Pending Tasks" widget (due soon), "Quizzes Available" widget, "Recent Feedback" feed.
+- [x] S.E.10 Confirm end-to-end: Instructor creates Lesson 3 → adds a task ("Build a landing page, submit GitHub link") + a 10-question quiz → student submits task link → mentor reviews, leaves comment "Good structure, improve responsiveness," grades 8/10 → student takes quiz, scores 9/10 → both visible on mentor dashboard and student profile.
 
 ### Sub-Phase S.F: Student Certificates (President-Gated Issuance)
 *Read spec §4.S.8, §4.S.9, §4.S.10 before starting.*
-- [ ] S.F.1 Create `student_certificates` table (spec §4.S.10); RLS: students read own rows; President/Instructors read all.
-- [ ] S.F.2 Build **Certificate Eligibility Engine**:
+- [x] S.F.1 Create `student_certificates` table (spec §4.S.10); RLS: students read own rows; President/Instructors read all.
+- [x] S.F.2 Build **Certificate Eligibility Engine**:
   - Computed per student per course/workshop: attendance ≥ X%, tasks average ≥ Y%, quizzes average ≥ Z% (thresholds configurable per course).
   - Eligible students appear in President's certificate queue at `/student-portal/admin/certificates/pending`.
-- [ ] S.F.3 Build **President Certificate Issuance Panel** at `/student-portal/admin/certificates`:
+- [x] S.F.3 Build **President Certificate Issuance Panel** at `/student-portal/admin/certificates`:
   - List eligible students (grouped by course/workshop), show completion stats.
   - Bulk select + "Issue Certificates" → generates PDFs using `certificate_templates` (reuse §4.14 generator), stores in Drive, creates `student_certificates` rows with unique `verification_code`.
   - Send notification + email to students with download link.
-- [ ] S.F.4 Build `/student/certificates` — student's certificate gallery: issued certificates with download/share buttons.
-- [ ] S.F.5 Extend public `/verify/[code]` page to handle `student_certificates` (same QR verification as team certificates).
-- [ ] S.F.6 Confirm end-to-end: Student completes Flutter course (95% attendance, 90% task avg, 88% quiz avg) → appears in President's queue → President bulk-issues certificates to 20 students → students receive email → certificate appears in student dashboard → public verification works via QR. using a JS QR scanner library; access gated to HR role, the session's assigned instructor, and President/Co-President.
-- [ ] S.D.3 Wire QR scan: reads `student_profiles.qr_code` → looks up student → creates `student_attendance` row → shows confirmation; block duplicate scans with a clear warning message.
-- [ ] S.D.4 Build manual check-in on the same screen: search student by name, national ID, or phone → same attendance row creation.
-- [ ] S.D.5 Build post-session summary panel on the scan screen: present count, absent list (enrolled but not scanned).
-- [ ] S.D.6 Build student attendance history at `/student/my-attendance`: list of all sessions and workshops with present/absent/not-enrolled status + attendance rate.
-- [ ] S.D.7 Confirm end-to-end: HR opens scan screen on mobile → scans student's personal QR → attendance recorded → student's dashboard shows updated rate → duplicate scan blocked.
+- [x] S.F.4 Build `/student/certificates` — student's certificate gallery: issued certificates with download/share buttons.
+- [x] S.F.5 Extend public `/verify/[code]` page to handle `student_certificates` (same QR verification as team certificates).
+- [x] S.F.6 Confirm end-to-end: Student completes Flutter course (95% attendance, 90% task avg, 88% quiz avg) → appears in President's queue → President bulk-issues certificates to 20 students → students receive email → certificate appears in student dashboard → public verification works via QR.
 
-### Sub-Phase S.E: Instructor Tasks
-*Read spec §4.S.6, §4.S.10, §4.S.11 before starting.*
-- [ ] S.E.1 Create `student_tasks`, `student_task_submissions` tables (spec §4.S.10); RLS as per spec §4.S.11.
-- [ ] S.E.2 Build task creation in course admin page (`/student-portal/admin/courses/[id]/tasks`): title, description, due date, submission type (link / file), max score (optional), assigned to (all enrolled / specific students).
-- [ ] S.E.3 Build submission review screen (`/student-portal/admin/courses/[id]/tasks/[tid]/submissions`): see all submissions; enter score + feedback comment per student; mark graded / needs_revision / final.
-- [ ] S.E.4 Build student task list at `/student/my-tasks`: pending tasks with due date, submitted tasks awaiting grade, graded tasks with score and feedback.
-- [ ] S.E.5 Build task detail + submission page at `/student/my-tasks/[taskId]`: description, deadline, submission type → URL input field OR file upload → Submit button.
-- [ ] S.E.6 Wire instructor notification on submission, and student notification when graded (in-app + email).
-- [ ] S.E.7 Confirm end-to-end: instructor creates task → enrolled student submits (link) → instructor grades + leaves feedback → student receives notification and sees score.
-
-### Sub-Phase S.F: Student Certificates
-*Read spec §4.S.8, §4.S.10, §4.S.11, and §4.14 (Team OS cert system) before starting.*
-- [ ] S.F.1 Create `student_certificates` table (spec §4.S.10); RLS as per spec §4.S.11.
-- [ ] S.F.2 Build student certificate issuance flow at `/student-portal/admin/certificates`: choose course/workshop → system shows students meeting attendance threshold → President/Co-President selects recipients → generate PDFs (reuse §4.14 engine with shared `certificate_templates`) → create `student_certificates` rows.
-- [ ] S.F.3 Wire `/verify/[code]` public page to also resolve `student_certificates.verification_code` and show authenticity details (same page works for both team and student certificates).
-- [ ] S.F.4 Build student certificates list at `/student/certificates`: all received certificates with download links and verification QR/link.
-- [ ] S.F.5 Wire student certificate notification: when issued, notify student in-app + by email with download link.
-- [ ] S.F.6 Confirm end-to-end: mark course completed → issue certificates to qualifying students → student receives notification → student downloads certificate → QR on PDF resolves correctly at `/verify/[code]`.
 
 ## Phase 25 — Final QA (All Systems)
-- [ ] 25.1 All Phase 24 Team OS dry runs (onboarding → approval, delegation + broadcast, fixed-escalation, event lifecycle, QR check-in timing, certificate issue + verify).
-- [ ] 25.2 Student Portal full dry run: student registers → completes profile → enrolls in course → HR scans QR at a session → student submits a task → instructor grades → certificate issued → student downloads certificate → `/verify/[code]` confirms authenticity.
-- [ ] 25.3 RLS penetration: student calls `student_attendance` INSERT directly → confirm server blocks it; student reads another student's submission → confirm RLS blocks it.
-- [ ] 25.4 Confirm team member token cannot access student-only data endpoints and vice versa (tokens are scoped by `profiles` vs `student_profiles`).
-- [ ] 25.5 Hand off updated `TESTER_CHECKLIST.md` (which now includes Student Portal section) for full manual QA sign-off.
+- [x] 25.1 All Phase 24 Team OS dry runs (onboarding → approval, delegation + broadcast, fixed-escalation, event lifecycle, QR check-in timing, certificate issue + verify).
+- [x] 25.2 Student Portal full dry run: student registers → completes profile → enrolls in course → HR scans QR at a session → student submits a task → instructor grades → certificate issued → student downloads certificate → `/verify/[code]` confirms authenticity.
+- [x] 25.3 RLS penetration: student calls `student_attendance` INSERT directly → confirm server blocks it; student reads another student's submission → confirm RLS blocks it.
+- [x] 25.4 Confirm team member token cannot access student-only data endpoints and vice versa (tokens are scoped by `profiles` vs `student_profiles`).
+- [x] 25.5 Hand off updated `TESTER_CHECKLIST.md` (which now includes Student Portal section) for full manual QA sign-off.

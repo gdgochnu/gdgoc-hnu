@@ -20,6 +20,7 @@ import {
   GraduationCap,
   Sparkles,
   ArrowRight,
+  Award,
 } from 'lucide-react';
 import { StudentProfile } from '@/types/student';
 import { createClient } from '@/lib/supabase/client';
@@ -103,6 +104,11 @@ export function StudentAppShell({ student, teamRole, children }: StudentAppShell
           label: 'Workshops & Bootcamps',
           href: '/student/workshops',
           icon: Calendar,
+        },
+        {
+          label: 'My Certificates',
+          href: '/student/certificates',
+          icon: Award,
         },
       ],
     },

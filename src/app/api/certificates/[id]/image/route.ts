@@ -52,19 +52,55 @@ export async function GET(
         issued_by
       `)
       .eq('id', id)
-      .single();
+      .maybeSingle();
 
-    if (certErr || !cert) {
+    let certToRender: any = cert;
+
+    if (!certToRender) {
+      const { data: stuCert } = await admin
+        .from('student_certificates')
+        .select(`
+          id,
+          title,
+          issue_date,
+          certificate_number,
+          verification_code,
+          template_id,
+          student:student_profiles(full_name_en, full_name_ar, email)
+        `)
+        .eq('id', id)
+        .maybeSingle();
+
+      if (stuCert) {
+        const studentObj = Array.isArray(stuCert.student) ? stuCert.student[0] : stuCert.student;
+        certToRender = {
+          id: stuCert.id,
+          recipient_name: studentObj?.full_name_en || studentObj?.full_name_ar || 'Student Member',
+          recipient_email: studentObj?.email || '',
+          title: stuCert.title,
+          issue_date: stuCert.issue_date,
+          certificate_number: stuCert.certificate_number,
+          verification_code: stuCert.verification_code,
+          template_id: stuCert.template_id,
+          event_id: null,
+          issued_by: null,
+        };
+      }
+    }
+
+    if (!certToRender) {
       return NextResponse.json({ error: 'Certificate not found' }, { status: 404 });
     }
 
+    const activeCert = certToRender;
+
     // 2. Fetch template, event, and issuer in parallel
     const [tmplRes, eventRes, issuerRes] = await Promise.all([
-      cert.template_id
+      activeCert.template_id
         ? admin
             .from('certificate_templates')
             .select('background_image_drive_file_id, field_layout')
-            .eq('id', cert.template_id)
+            .eq('id', activeCert.template_id)
             .maybeSingle()
         : admin
             .from('certificate_templates')
@@ -72,11 +108,11 @@ export async function GET(
             .order('created_at', { ascending: false })
             .limit(1)
             .maybeSingle(),
-      cert.event_id
-        ? admin.from('events').select('title').eq('id', cert.event_id).maybeSingle()
+      activeCert.event_id
+        ? admin.from('events').select('title').eq('id', activeCert.event_id).maybeSingle()
         : Promise.resolve({ data: null }),
-      cert.issued_by
-        ? admin.from('profiles').select('full_name, role').eq('id', cert.issued_by).maybeSingle()
+      activeCert.issued_by
+        ? admin.from('profiles').select('full_name, role').eq('id', activeCert.issued_by).maybeSingle()
         : Promise.resolve({ data: null }),
     ]);
 
@@ -103,13 +139,13 @@ export async function GET(
       : 'Chapter Leadership';
 
     const baseUrl = getAppBaseUrl();
-    const verifyUrl = `${baseUrl}/verify/${cert.verification_code}`;
+    const verifyUrl = `${baseUrl}/verify/${activeCert.verification_code}`;
 
     // 3. Generate styled QR code
     const qrDataUrl = await generateStyledQRDataURL(verifyUrl, 240);
 
-    const formattedDate = cert.issue_date
-      ? new Date(cert.issue_date).toLocaleDateString('en-US', {
+    const formattedDate = activeCert.issue_date
+      ? new Date(activeCert.issue_date).toLocaleDateString('en-US', {
           year: 'numeric',
           month: 'long',
           day: 'numeric',
@@ -187,12 +223,12 @@ export async function GET(
 
       <!-- 1. Recipient Name -->
       <text x="${recPos.x}" y="${recPos.y}" text-anchor="${recPos.align}" font-family="system-ui, -apple-system, sans-serif" font-weight="${recPos.weight}" font-size="${recPos.size}" fill="${recPos.color}">
-        ${escapeXml(cert.recipient_name)}
+        ${escapeXml(activeCert.recipient_name)}
       </text>
 
       <!-- 2. Certificate Title -->
       <text x="${titlePos.x}" y="${titlePos.y}" text-anchor="${titlePos.align}" font-family="system-ui, -apple-system, sans-serif" font-weight="${titlePos.weight}" font-size="${titlePos.size}" fill="${titlePos.color}">
-        ${escapeXml(cert.title)}
+        ${escapeXml(activeCert.title)}
       </text>
 
       <!-- 3. Issue Date -->
@@ -202,7 +238,7 @@ export async function GET(
 
       <!-- 4. Certificate Number -->
       <text x="${certNumPos.x}" y="${certNumPos.y}" text-anchor="${certNumPos.align}" font-family="monospace" font-weight="${certNumPos.weight}" font-size="${certNumPos.size}" fill="${certNumPos.color}">
-        ${escapeXml(cert.certificate_number)}
+        ${escapeXml(activeCert.certificate_number)}
       </text>
 
       <!-- 5. Issuer Sign-off -->
@@ -229,7 +265,7 @@ export async function GET(
       expiresAt: Date.now() + CACHE_TTL_MS,
     });
 
-    const safeFilename = `Certificate_${cert.certificate_number}.png`;
+    const safeFilename = `Certificate_${activeCert.certificate_number}.png`;
 
     return new NextResponse(new Blob([pngBuffer as any]), {
       status: 200,

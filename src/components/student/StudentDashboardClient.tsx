@@ -24,6 +24,12 @@ import {
   UserCheck,
   ArrowRight,
   Download,
+  MessageSquare,
+  HelpCircle,
+  AlertTriangle,
+  Sparkles,
+  Check,
+  X,
 } from 'lucide-react';
 import { StudentDashboardData } from '@/types/student';
 
@@ -36,6 +42,11 @@ export function StudentDashboardClient({ initialData }: StudentDashboardClientPr
 
   const [activeTab, setActiveTab] = useState<'courses' | 'workshops' | 'tasks' | 'quizzes' | 'attendance' | 'certificates'>('courses');
   const [workshopFilter, setWorkshopFilter] = useState<'all' | 'upcoming' | 'past'>('all');
+  const [taskFilter, setTaskFilter] = useState<'all' | 'pending' | 'submitted' | 'graded'>('all');
+
+  const pendingTasks = tasks.filter((t) => t.status === 'pending' || t.status === 'needs_revision');
+  const availableQuizzes = quizzes.filter((q) => q.status === 'available');
+  const recentFeedbackList = initialData.recent_feedback || [];
 
   const getYearLabel = (year: number | null) => {
     if (!year) return 'Student Member';
@@ -575,6 +586,468 @@ export function StudentDashboardClient({ initialData }: StudentDashboardClientPr
               </div>
             </Link>
           )}
+        </div>
+      </div>
+
+      {/* ========================================================================= */}
+      {/* 3.5 ACTIVE ACADEMIC SIGNALS: PENDING TASKS, QUIZZES & RECENT FEEDBACK */}
+      {/* ========================================================================= */}
+      <div>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.25rem' }}>
+          <div>
+            <h2 style={{ fontSize: '1.25rem', fontWeight: 800, margin: 0, letterSpacing: '-0.02em', color: '#FFFFFF' }}>
+              Academic Signals & Active Deliverables
+            </h2>
+            <p style={{ fontSize: '0.84rem', color: 'var(--text-secondary, #94A3B8)', margin: '0.2rem 0 0 0' }}>
+              Deadlines, interactive knowledge checks, and instructor evaluations
+            </p>
+          </div>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: '1.25rem' }}>
+          {/* Widget 1: Pending Deliverables */}
+          <div
+            className="glass-panel"
+            style={{
+              padding: '1.4rem',
+              display: 'flex',
+              flexDirection: 'column',
+              justifyContent: 'space-between',
+              gap: '1rem',
+              borderRadius: '16px',
+              border: pendingTasks.some((t) => t.is_due_soon || t.is_overdue)
+                ? '1px solid rgba(234, 67, 53, 0.35)'
+                : '1px solid rgba(255, 255, 255, 0.08)',
+              background: pendingTasks.some((t) => t.is_due_soon || t.is_overdue)
+                ? 'radial-gradient(ellipse at top right, rgba(234, 67, 53, 0.08) 0%, rgba(19, 21, 27, 0.8) 70%)'
+                : undefined,
+            }}
+          >
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                  <div
+                    style={{
+                      width: '32px',
+                      height: '32px',
+                      borderRadius: '8px',
+                      background: 'rgba(234, 67, 53, 0.15)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      color: '#F87171',
+                    }}
+                  >
+                    <CheckSquare size={17} />
+                  </div>
+                  <h3 style={{ fontSize: '1.02rem', fontWeight: 800, color: '#FFFFFF', margin: 0 }}>
+                    Pending Deliverables
+                  </h3>
+                </div>
+                <span
+                  style={{
+                    fontSize: '0.74rem',
+                    fontWeight: 800,
+                    padding: '0.2rem 0.6rem',
+                    borderRadius: '999px',
+                    background: pendingTasks.length > 0 ? 'rgba(234, 67, 53, 0.2)' : 'rgba(52, 168, 83, 0.15)',
+                    color: pendingTasks.length > 0 ? '#FCA5A5' : '#86EFAC',
+                    border: pendingTasks.length > 0 ? '1px solid rgba(234, 67, 53, 0.35)' : '1px solid rgba(52, 168, 83, 0.3)',
+                  }}
+                >
+                  {pendingTasks.length} Due
+                </span>
+              </div>
+
+              {pendingTasks.length === 0 ? (
+                <div style={{ padding: '1.5rem 0.5rem', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem' }}>
+                  <CheckCircle2 size={28} color="#34A853" />
+                  <div style={{ fontSize: '0.88rem', fontWeight: 700, color: '#FFFFFF' }}>
+                    All Tasks Submitted!
+                  </div>
+                  <div style={{ fontSize: '0.78rem', color: 'var(--text-muted, #94A3B8)', maxWidth: '280px' }}>
+                    Great momentum. You have completed all assignments assigned by your course instructors.
+                  </div>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
+                  {pendingTasks.slice(0, 3).map((task) => (
+                    <div
+                      key={task.id}
+                      style={{
+                        padding: '0.75rem 0.85rem',
+                        borderRadius: '10px',
+                        background: 'rgba(255, 255, 255, 0.03)',
+                        border: task.is_overdue
+                          ? '1px solid rgba(234, 67, 53, 0.4)'
+                          : task.is_due_soon
+                          ? '1px solid rgba(251, 188, 4, 0.35)'
+                          : '1px solid rgba(255, 255, 255, 0.06)',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '0.35rem',
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem' }}>
+                        <span style={{ fontSize: '0.7rem', fontWeight: 700, color: '#60A5FA' }}>
+                          {task.course_title}
+                        </span>
+                        {task.is_overdue ? (
+                          <span style={{ fontSize: '0.68rem', fontWeight: 800, color: '#EF4444', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                            <AlertTriangle size={11} /> Overdue
+                          </span>
+                        ) : task.is_due_soon ? (
+                          <span style={{ fontSize: '0.68rem', fontWeight: 800, color: '#FBBF24', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                            <Clock size={11} /> Due Soon
+                          </span>
+                        ) : (
+                          <span style={{ fontSize: '0.68rem', color: 'var(--text-muted, #94A3B8)' }}>
+                            Due: {task.deadline}
+                          </span>
+                        )}
+                      </div>
+
+                      <div style={{ fontSize: '0.88rem', fontWeight: 700, color: '#FFFFFF' }}>
+                        {task.title}
+                      </div>
+
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '0.2rem' }}>
+                        <span style={{ fontSize: '0.74rem', color: 'var(--text-muted, #94A3B8)' }}>
+                          Max: {task.max_score} pts • {task.submission_type === 'link' ? 'Link Submission' : 'File Upload'}
+                        </span>
+                        <Link
+                          href={task.course_id ? `/student/courses/${task.course_id}` : '/student/courses'}
+                          style={{
+                            fontSize: '0.76rem',
+                            fontWeight: 700,
+                            color: '#F87171',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '0.25rem',
+                            textDecoration: 'none',
+                          }}
+                        >
+                          <span>Submit</span>
+                          <ArrowRight size={12} />
+                        </Link>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setActiveTab('tasks')}
+              style={{
+                width: '100%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '0.4rem',
+                padding: '0.55rem',
+                fontSize: '0.8rem',
+                fontWeight: 700,
+                color: 'var(--text-secondary, #94A3B8)',
+                background: 'rgba(255, 255, 255, 0.04)',
+                border: '1px solid rgba(255, 255, 255, 0.08)',
+                borderRadius: '8px',
+                cursor: 'pointer',
+              }}
+            >
+              <span>View All Tasks & History</span>
+              <ChevronRight size={13} />
+            </button>
+          </div>
+
+          {/* Widget 2: Quizzes Available */}
+          <div
+            className="glass-panel"
+            style={{
+              padding: '1.4rem',
+              display: 'flex',
+              flexDirection: 'column',
+              justifyContent: 'space-between',
+              gap: '1rem',
+              borderRadius: '16px',
+              border: availableQuizzes.length > 0 ? '1px solid rgba(251, 188, 4, 0.3)' : '1px solid rgba(255, 255, 255, 0.08)',
+              background: availableQuizzes.length > 0
+                ? 'radial-gradient(ellipse at top right, rgba(251, 188, 4, 0.07) 0%, rgba(19, 21, 27, 0.8) 70%)'
+                : undefined,
+            }}
+          >
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                  <div
+                    style={{
+                      width: '32px',
+                      height: '32px',
+                      borderRadius: '8px',
+                      background: 'rgba(251, 188, 4, 0.15)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      color: '#FBBF24',
+                    }}
+                  >
+                    <FileText size={17} />
+                  </div>
+                  <h3 style={{ fontSize: '1.02rem', fontWeight: 800, color: '#FFFFFF', margin: 0 }}>
+                    Quizzes Available
+                  </h3>
+                </div>
+                <span
+                  style={{
+                    fontSize: '0.74rem',
+                    fontWeight: 800,
+                    padding: '0.2rem 0.6rem',
+                    borderRadius: '999px',
+                    background: availableQuizzes.length > 0 ? 'rgba(251, 188, 4, 0.2)' : 'rgba(52, 168, 83, 0.15)',
+                    color: availableQuizzes.length > 0 ? '#FDE047' : '#86EFAC',
+                    border: availableQuizzes.length > 0 ? '1px solid rgba(251, 188, 4, 0.35)' : '1px solid rgba(52, 168, 83, 0.3)',
+                  }}
+                >
+                  {availableQuizzes.length} Open
+                </span>
+              </div>
+
+              {availableQuizzes.length === 0 ? (
+                <div style={{ padding: '1.5rem 0.5rem', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem' }}>
+                  <Award size={28} color="#FBBC04" />
+                  <div style={{ fontSize: '0.88rem', fontWeight: 700, color: '#FFFFFF' }}>
+                    No Pending Quizzes
+                  </div>
+                  <div style={{ fontSize: '0.78rem', color: 'var(--text-muted, #94A3B8)', maxWidth: '280px' }}>
+                    Check back when instructors publish checkpoint quizzes for upcoming lectures.
+                  </div>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
+                  {availableQuizzes.slice(0, 3).map((quiz) => (
+                    <div
+                      key={quiz.id}
+                      style={{
+                        padding: '0.75rem 0.85rem',
+                        borderRadius: '10px',
+                        background: 'rgba(255, 255, 255, 0.03)',
+                        border: '1px solid rgba(251, 188, 4, 0.25)',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '0.35rem',
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem' }}>
+                        <span style={{ fontSize: '0.7rem', fontWeight: 700, color: '#60A5FA' }}>
+                          {quiz.course_title}
+                        </span>
+                        <span style={{ fontSize: '0.68rem', color: '#FBBF24', fontWeight: 700 }}>
+                          Pass: {quiz.passing_score_percentage}%
+                        </span>
+                      </div>
+
+                      <div style={{ fontSize: '0.88rem', fontWeight: 700, color: '#FFFFFF' }}>
+                        {quiz.title}
+                      </div>
+
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '0.2rem' }}>
+                        <span style={{ fontSize: '0.74rem', color: 'var(--text-muted, #94A3B8)' }}>
+                          {quiz.total_questions || 0} Questions • {quiz.time_limit_minutes ? `${quiz.time_limit_minutes} mins` : 'No limit'}
+                        </span>
+                        <Link
+                          href={quiz.course_id ? `/student/courses/${quiz.course_id}/quizzes/${quiz.id}/take` : `/student/courses`}
+                          style={{
+                            fontSize: '0.76rem',
+                            fontWeight: 700,
+                            color: '#FDE047',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '0.25rem',
+                            textDecoration: 'none',
+                          }}
+                        >
+                          <span>Take Quiz</span>
+                          <ArrowRight size={12} />
+                        </Link>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setActiveTab('quizzes')}
+              style={{
+                width: '100%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '0.4rem',
+                padding: '0.55rem',
+                fontSize: '0.8rem',
+                fontWeight: 700,
+                color: 'var(--text-secondary, #94A3B8)',
+                background: 'rgba(255, 255, 255, 0.04)',
+                border: '1px solid rgba(255, 255, 255, 0.08)',
+                borderRadius: '8px',
+                cursor: 'pointer',
+              }}
+            >
+              <span>View Quizzes History</span>
+              <ChevronRight size={13} />
+            </button>
+          </div>
+
+          {/* Widget 3: Recent Mentor Feedback Feed */}
+          <div
+            className="glass-panel"
+            style={{
+              padding: '1.4rem',
+              display: 'flex',
+              flexDirection: 'column',
+              justifyContent: 'space-between',
+              gap: '1rem',
+              borderRadius: '16px',
+              border: recentFeedbackList.length > 0 ? '1px solid rgba(168, 85, 247, 0.25)' : '1px solid rgba(255, 255, 255, 0.08)',
+              background: recentFeedbackList.length > 0
+                ? 'radial-gradient(ellipse at top right, rgba(168, 85, 247, 0.07) 0%, rgba(19, 21, 27, 0.8) 70%)'
+                : undefined,
+            }}
+          >
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                  <div
+                    style={{
+                      width: '32px',
+                      height: '32px',
+                      borderRadius: '8px',
+                      background: 'rgba(168, 85, 247, 0.15)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      color: '#C084FC',
+                    }}
+                  >
+                    <MessageSquare size={17} />
+                  </div>
+                  <h3 style={{ fontSize: '1.02rem', fontWeight: 800, color: '#FFFFFF', margin: 0 }}>
+                    Recent Mentor Feedback
+                  </h3>
+                </div>
+                {recentFeedbackList.length > 0 && (
+                  <span
+                    style={{
+                      fontSize: '0.74rem',
+                      fontWeight: 800,
+                      padding: '0.2rem 0.6rem',
+                      borderRadius: '999px',
+                      background: 'rgba(168, 85, 247, 0.2)',
+                      color: '#E9D5FF',
+                      border: '1px solid rgba(168, 85, 247, 0.35)',
+                    }}
+                  >
+                    {recentFeedbackList.length} Graded
+                  </span>
+                )}
+              </div>
+
+              {recentFeedbackList.length === 0 ? (
+                <div style={{ padding: '1.5rem 0.5rem', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem' }}>
+                  <FileCheck size={28} color="#C084FC" />
+                  <div style={{ fontSize: '0.88rem', fontWeight: 700, color: '#FFFFFF' }}>
+                    No Reviews Yet
+                  </div>
+                  <div style={{ fontSize: '0.78rem', color: 'var(--text-muted, #94A3B8)', maxWidth: '280px' }}>
+                    Constructive comments and scores from mentors will appear here as submissions are evaluated.
+                  </div>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
+                  {recentFeedbackList.slice(0, 3).map((fb) => (
+                    <div
+                      key={fb.id}
+                      style={{
+                        padding: '0.75rem 0.85rem',
+                        borderRadius: '10px',
+                        background: 'rgba(255, 255, 255, 0.03)',
+                        border: '1px solid rgba(168, 85, 247, 0.2)',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '0.35rem',
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem' }}>
+                        <span style={{ fontSize: '0.72rem', fontWeight: 700, color: '#C084FC' }}>
+                          {fb.task_title}
+                        </span>
+                        <span
+                          style={{
+                            fontSize: '0.72rem',
+                            fontWeight: 800,
+                            padding: '0.15rem 0.5rem',
+                            borderRadius: '6px',
+                            background: fb.status === 'needs_revision' ? 'rgba(251, 188, 4, 0.15)' : 'rgba(52, 168, 83, 0.15)',
+                            color: fb.status === 'needs_revision' ? '#FBBF24' : '#4ADE80',
+                          }}
+                        >
+                          {fb.score !== null ? `${fb.score} / ${fb.max_score || 10}` : fb.status}
+                        </span>
+                      </div>
+
+                      {fb.feedback_comment && (
+                        <p
+                          style={{
+                            fontSize: '0.78rem',
+                            color: 'var(--text-secondary, #CBD5E1)',
+                            fontStyle: 'italic',
+                            margin: '0.15rem 0',
+                            lineHeight: 1.4,
+                            background: 'rgba(255, 255, 255, 0.02)',
+                            padding: '0.4rem 0.6rem',
+                            borderRadius: '6px',
+                            borderLeft: '2.5px solid #A855F7',
+                          }}
+                        >
+                          "{fb.feedback_comment}"
+                        </p>
+                      )}
+
+                      <div style={{ fontSize: '0.68rem', color: 'var(--text-muted, #64748B)', marginTop: '0.1rem' }}>
+                        Reviewed by {fb.mentor_name}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setActiveTab('tasks')}
+              style={{
+                width: '100%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '0.4rem',
+                padding: '0.55rem',
+                fontSize: '0.8rem',
+                fontWeight: 700,
+                color: 'var(--text-secondary, #94A3B8)',
+                background: 'rgba(255, 255, 255, 0.04)',
+                border: '1px solid rgba(255, 255, 255, 0.08)',
+                borderRadius: '8px',
+                cursor: 'pointer',
+              }}
+            >
+              <span>Open Deliverables Dashboard</span>
+              <ChevronRight size={13} />
+            </button>
+          </div>
         </div>
       </div>
 
@@ -1317,91 +1790,353 @@ export function StudentDashboardClient({ initialData }: StudentDashboardClientPr
           })()}
 
           {/* TAB 3: TASKS */}
-          {activeTab === 'tasks' && (
+          {activeTab === 'tasks' && (() => {
+            const filteredTasks = tasks.filter((t) => {
+              if (taskFilter === 'all') return true;
+              if (taskFilter === 'pending') return t.status === 'pending' || t.status === 'needs_revision';
+              if (taskFilter === 'submitted') return t.status === 'submitted';
+              if (taskFilter === 'graded') return t.status === 'graded';
+              return true;
+            });
+
+            return (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+                {/* Filter Toolbar */}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.75rem' }}>
+                  <div style={{ display: 'flex', gap: '0.4rem', background: 'rgba(255, 255, 255, 0.04)', padding: '0.25rem', borderRadius: '8px', border: '1px solid rgba(255, 255, 255, 0.08)' }}>
+                    {(['all', 'pending', 'submitted', 'graded'] as const).map((filter) => {
+                      const isActive = taskFilter === filter;
+                      const count =
+                        filter === 'all'
+                          ? tasks.length
+                          : filter === 'pending'
+                          ? tasks.filter((t) => t.status === 'pending' || t.status === 'needs_revision').length
+                          : filter === 'submitted'
+                          ? tasks.filter((t) => t.status === 'submitted').length
+                          : tasks.filter((t) => t.status === 'graded').length;
+
+                      return (
+                        <button
+                          key={filter}
+                          type="button"
+                          onClick={() => setTaskFilter(filter)}
+                          style={{
+                            padding: '0.4rem 0.85rem',
+                            borderRadius: '6px',
+                            border: 'none',
+                            background: isActive ? 'rgba(66, 133, 244, 0.2)' : 'transparent',
+                            color: isActive ? '#93C5FD' : 'var(--text-muted, #94A3B8)',
+                            fontWeight: isActive ? 700 : 500,
+                            fontSize: '0.8rem',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.4rem',
+                          }}
+                        >
+                          <span style={{ textTransform: 'capitalize' }}>{filter}</span>
+                          <span style={{ fontSize: '0.7rem', opacity: 0.8 }}>({count})</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  <div style={{ fontSize: '0.8rem', color: 'var(--text-muted, #94A3B8)' }}>
+                    Total Deliverables: <strong style={{ color: '#FFFFFF' }}>{tasks.length}</strong>
+                  </div>
+                </div>
+
+                {filteredTasks.length === 0 ? (
+                  <div style={{ textAlign: 'center', padding: '3.5rem 1.5rem', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem' }}>
+                    <div
+                      style={{
+                        width: '56px',
+                        height: '56px',
+                        borderRadius: '14px',
+                        background: 'rgba(168, 85, 247, 0.12)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: '#C084FC',
+                      }}
+                    >
+                      <CheckSquare size={26} />
+                    </div>
+                    <div>
+                      <h3 style={{ fontSize: '1.15rem', fontWeight: 800, color: '#FFFFFF', margin: '0 0 0.35rem 0' }}>
+                        No Tasks Found in this View
+                      </h3>
+                      <p style={{ fontSize: '0.86rem', color: 'var(--text-secondary, #94A3B8)', margin: 0, maxWidth: '420px', lineHeight: 1.5 }}>
+                        There are no deliverables currently matching the selected status filter.
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(360px, 1fr))', gap: '1.25rem' }}>
+                    {filteredTasks.map((task) => (
+                      <div
+                        key={task.id}
+                        className="glass-panel"
+                        style={{
+                          padding: '1.35rem',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          justifyContent: 'space-between',
+                          gap: '1rem',
+                          borderRadius: '14px',
+                          border: task.is_overdue
+                            ? '1px solid rgba(234, 67, 53, 0.35)'
+                            : task.is_due_soon
+                            ? '1px solid rgba(251, 188, 4, 0.35)'
+                            : '1px solid rgba(255, 255, 255, 0.08)',
+                        }}
+                      >
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem' }}>
+                            <span
+                              style={{
+                                fontSize: '0.72rem',
+                                fontWeight: 700,
+                                color: '#60A5FA',
+                                background: 'rgba(66, 133, 244, 0.12)',
+                                padding: '0.2rem 0.55rem',
+                                borderRadius: '6px',
+                              }}
+                            >
+                              {task.course_title}
+                            </span>
+                            <span
+                              style={{
+                                fontSize: '0.72rem',
+                                fontWeight: 800,
+                                padding: '0.2rem 0.6rem',
+                                borderRadius: '999px',
+                                background:
+                                  task.status === 'graded'
+                                    ? 'rgba(52, 168, 83, 0.15)'
+                                    : task.status === 'submitted'
+                                    ? 'rgba(66, 133, 244, 0.15)'
+                                    : task.status === 'needs_revision'
+                                    ? 'rgba(251, 188, 4, 0.15)'
+                                    : 'rgba(234, 67, 53, 0.15)',
+                                color:
+                                  task.status === 'graded'
+                                    ? '#4ADE80'
+                                    : task.status === 'submitted'
+                                    ? '#60A5FA'
+                                    : task.status === 'needs_revision'
+                                    ? '#FBBF24'
+                                    : '#FCA5A5',
+                                textTransform: 'uppercase',
+                                letterSpacing: '0.03em',
+                              }}
+                            >
+                              {task.status === 'needs_revision' ? 'Needs Revision' : task.status}
+                            </span>
+                          </div>
+
+                          <div>
+                            <h4 style={{ fontSize: '1.05rem', fontWeight: 800, color: '#FFFFFF', margin: '0 0 0.25rem 0' }}>
+                              {task.title}
+                            </h4>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem', fontSize: '0.78rem', color: 'var(--text-muted, #94A3B8)', flexWrap: 'wrap' }}>
+                              <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                                <Clock size={12} color="#FBBF24" />
+                                Deadline: {task.deadline}
+                              </span>
+                              <span>Max Score: {task.max_score} pts</span>
+                            </div>
+                          </div>
+
+                          {/* Score and feedback if graded */}
+                          {task.score !== null && task.score !== undefined && (
+                            <div style={{ padding: '0.65rem 0.85rem', borderRadius: '8px', background: 'rgba(52, 168, 83, 0.08)', border: '1px solid rgba(52, 168, 83, 0.2)' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.8rem', fontWeight: 700, color: '#4ADE80' }}>
+                                <span>Mentor Grade</span>
+                                <span>{task.score} / {task.max_score} pts</span>
+                              </div>
+                              {task.feedback && (
+                                <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary, #CBD5E1)', margin: '0.35rem 0 0 0', fontStyle: 'italic' }}>
+                                  "{task.feedback}"
+                                </p>
+                              )}
+                            </div>
+                          )}
+                        </div>
+
+                        <div style={{ paddingTop: '0.75rem', borderTop: '1px solid rgba(255, 255, 255, 0.06)' }}>
+                          <Link
+                            href={task.course_id ? `/student/courses/${task.course_id}` : '/student/courses'}
+                            style={{
+                              width: '100%',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              gap: '0.4rem',
+                              padding: '0.6rem',
+                              fontSize: '0.84rem',
+                              fontWeight: 700,
+                              borderRadius: '8px',
+                              textDecoration: 'none',
+                              color: task.status === 'pending' || task.status === 'needs_revision' ? '#FFFFFF' : 'var(--text-secondary, #CBD5E1)',
+                              background: task.status === 'pending' || task.status === 'needs_revision' ? 'rgba(234, 67, 53, 0.2)' : 'rgba(255, 255, 255, 0.05)',
+                              border: task.status === 'pending' || task.status === 'needs_revision' ? '1px solid rgba(234, 67, 53, 0.4)' : '1px solid rgba(255, 255, 255, 0.1)',
+                            }}
+                          >
+                            <span>{task.status === 'pending' || task.status === 'needs_revision' ? 'Submit Solution' : 'View Assignment & Details'}</span>
+                            <ArrowRight size={13} />
+                          </Link>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })()}
+
+          {/* TAB 4: QUIZZES */}
+          {activeTab === 'quizzes' && (
             <div>
-              {tasks.length === 0 ? (
-                <div style={{ textAlign: 'center', padding: '3rem 1.5rem', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem' }}>
+              {quizzes.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '3.5rem 1.5rem', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem' }}>
                   <div
                     style={{
                       width: '56px',
                       height: '56px',
                       borderRadius: '14px',
-                      background: 'rgba(168, 85, 247, 0.12)',
+                      background: 'rgba(251, 188, 4, 0.12)',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      color: '#C084FC',
+                      color: '#FBBF24',
                     }}
                   >
-                    <FileCheck size={26} />
+                    <FileText size={26} />
                   </div>
                   <div>
                     <h3 style={{ fontSize: '1.15rem', fontWeight: 800, color: '#FFFFFF', margin: '0 0 0.35rem 0' }}>
-                      No Pending Deliverables
+                      No Active Quizzes
                     </h3>
                     <p style={{ fontSize: '0.86rem', color: 'var(--text-secondary, #94A3B8)', margin: 0, maxWidth: '420px', lineHeight: 1.5 }}>
-                      When course instructors assign practical exercises or projects, they will be listed here for submission and mentor feedback.
+                      Knowledge assessments and lecture quizzes will appear here when scheduled by instructors.
                     </p>
                   </div>
                 </div>
               ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                  {tasks.map((task) => (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(360px, 1fr))', gap: '1.25rem' }}>
+                  {quizzes.map((quiz) => (
                     <div
-                      key={task.id}
+                      key={quiz.id}
                       className="glass-panel"
-                      style={{ padding: '1rem 1.25rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap' }}
+                      style={{
+                        padding: '1.35rem',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        justifyContent: 'space-between',
+                        gap: '1rem',
+                        borderRadius: '14px',
+                        border: quiz.status === 'completed'
+                          ? '1px solid rgba(52, 168, 83, 0.3)'
+                          : '1px solid rgba(251, 188, 4, 0.3)',
+                      }}
                     >
-                      <div>
-                        <div style={{ fontSize: '0.74rem', color: '#60A5FA', fontWeight: 700 }}>{task.course_title}</div>
-                        <h4 style={{ fontSize: '0.96rem', fontWeight: 800, color: '#FFFFFF', margin: '0.2rem 0' }}>{task.title}</h4>
-                        <div style={{ fontSize: '0.76rem', color: 'var(--text-muted, #64748B)' }}>Deadline: {task.deadline}</div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem' }}>
+                          <span
+                            style={{
+                              fontSize: '0.72rem',
+                              fontWeight: 700,
+                              color: '#60A5FA',
+                              background: 'rgba(66, 133, 244, 0.12)',
+                              padding: '0.2rem 0.55rem',
+                              borderRadius: '6px',
+                            }}
+                          >
+                            {quiz.course_title}
+                          </span>
+                          <span
+                            style={{
+                              fontSize: '0.72rem',
+                              fontWeight: 800,
+                              padding: '0.2rem 0.6rem',
+                              borderRadius: '999px',
+                              background: quiz.status === 'completed' ? 'rgba(52, 168, 83, 0.15)' : 'rgba(251, 188, 4, 0.15)',
+                              color: quiz.status === 'completed' ? '#4ADE80' : '#FBBF24',
+                              textTransform: 'uppercase',
+                              letterSpacing: '0.03em',
+                            }}
+                          >
+                            {quiz.status === 'completed' ? 'Completed' : 'Available'}
+                          </span>
+                        </div>
+
+                        <div>
+                          <h4 style={{ fontSize: '1.05rem', fontWeight: 800, color: '#FFFFFF', margin: '0 0 0.25rem 0' }}>
+                            {quiz.title}
+                          </h4>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem', fontSize: '0.78rem', color: 'var(--text-muted, #94A3B8)', flexWrap: 'wrap' }}>
+                            <span>{quiz.total_questions || 0} Questions</span>
+                            <span>Time: {quiz.time_limit_minutes ? `${quiz.time_limit_minutes}m` : 'Untimed'}</span>
+                            <span>Pass Mark: {quiz.passing_score_percentage}%</span>
+                          </div>
+                        </div>
+
+                        {quiz.score !== null && quiz.score !== undefined && (
+                          <div style={{ padding: '0.65rem 0.85rem', borderRadius: '8px', background: 'rgba(52, 168, 83, 0.08)', border: '1px solid rgba(52, 168, 83, 0.2)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                            <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-secondary, #CBD5E1)' }}>
+                              Latest Score
+                            </span>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                              <span style={{ fontSize: '1rem', fontWeight: 800, color: '#4ADE80' }}>
+                                {quiz.score}%
+                              </span>
+                              {quiz.passed !== null && (
+                                <span
+                                  style={{
+                                    fontSize: '0.68rem',
+                                    fontWeight: 800,
+                                    padding: '0.15rem 0.45rem',
+                                    borderRadius: '4px',
+                                    background: quiz.passed ? 'rgba(52, 168, 83, 0.2)' : 'rgba(234, 67, 53, 0.2)',
+                                    color: quiz.passed ? '#86EFAC' : '#FCA5A5',
+                                  }}
+                                >
+                                  {quiz.passed ? 'PASSED' : 'RETRY'}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        )}
                       </div>
-                      <span
-                        style={{
-                          fontSize: '0.75rem',
-                          fontWeight: 700,
-                          padding: '0.25rem 0.65rem',
-                          borderRadius: '999px',
-                          background: 'rgba(251, 188, 4, 0.15)',
-                          color: '#FBBF24',
-                          textTransform: 'uppercase',
-                        }}
-                      >
-                        {task.status}
-                      </span>
+
+                      <div style={{ paddingTop: '0.75rem', borderTop: '1px solid rgba(255, 255, 255, 0.06)' }}>
+                        <Link
+                          href={quiz.course_id ? `/student/courses/${quiz.course_id}/quizzes/${quiz.id}/take` : '/student/courses'}
+                          style={{
+                            width: '100%',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: '0.4rem',
+                            padding: '0.6rem',
+                            fontSize: '0.84rem',
+                            fontWeight: 700,
+                            borderRadius: '8px',
+                            textDecoration: 'none',
+                            color: quiz.status === 'available' ? '#000000' : '#FFFFFF',
+                            background: quiz.status === 'available' ? '#FBBF24' : 'rgba(255, 255, 255, 0.06)',
+                            border: quiz.status === 'available' ? '1px solid #F59E0B' : '1px solid rgba(255, 255, 255, 0.1)',
+                          }}
+                        >
+                          <span>{quiz.status === 'available' ? 'Take Quiz Now' : 'Retake or Review'}</span>
+                          <ArrowRight size={13} />
+                        </Link>
+                      </div>
                     </div>
                   ))}
                 </div>
               )}
-            </div>
-          )}
-
-          {/* TAB 4: QUIZZES */}
-          {activeTab === 'quizzes' && (
-            <div style={{ textAlign: 'center', padding: '3rem 1.5rem', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem' }}>
-              <div
-                style={{
-                  width: '56px',
-                  height: '56px',
-                  borderRadius: '14px',
-                  background: 'rgba(251, 188, 4, 0.12)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  color: '#FBBF24',
-                }}
-              >
-                <FileText size={26} />
-              </div>
-              <div>
-                <h3 style={{ fontSize: '1.15rem', fontWeight: 800, color: '#FFFFFF', margin: '0 0 0.35rem 0' }}>
-                  No Active Quizzes
-                </h3>
-                <p style={{ fontSize: '0.86rem', color: 'var(--text-secondary, #94A3B8)', margin: 0, maxWidth: '420px', lineHeight: 1.5 }}>
-                  Knowledge assessments will appear here when scheduled by instructors.
-                </p>
-              </div>
             </div>
           )}
 
