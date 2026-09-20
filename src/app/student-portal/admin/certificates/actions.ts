@@ -57,10 +57,37 @@ export async function getCertificatePrograms(): Promise<{
       .order('created_at', { ascending: false });
 
     // Fetch certificate templates (all fields for visual template builder & preview)
-    const { data: templatesData } = await admin
+    const { data: templatesData, error: templatesErr } = await admin
       .from('certificate_templates')
       .select('*')
-      .order('is_default', { ascending: false });
+      .order('created_at', { ascending: false });
+
+    if (templatesErr) {
+      console.error('Error fetching certificate_templates in getCertificatePrograms:', templatesErr);
+    }
+
+    let templates = (templatesData || []) as CertificateTemplate[];
+
+    // If no templates exist in the database, automatically create an official default template
+    if (templates.length === 0) {
+      try {
+        const { data: createdTmpl } = await admin
+          .from('certificate_templates')
+          .insert({
+            name: 'Official GDGoC Completion Certificate',
+            background_image_drive_file_id: null,
+            field_layout: DEFAULT_FIELD_LAYOUT,
+          })
+          .select('*')
+          .single();
+
+        if (createdTmpl) {
+          templates = [createdTmpl as CertificateTemplate];
+        }
+      } catch (seedErr) {
+        console.warn('Could not auto-seed default certificate template:', seedErr);
+      }
+    }
 
     const courses = (coursesData || []).map((c: any) => ({
       id: c.id,
@@ -82,7 +109,7 @@ export async function getCertificatePrograms(): Promise<{
       success: true,
       courses,
       workshops,
-      templates: (templatesData || []) as any[],
+      templates,
     };
   } catch (err: any) {
     console.error('getCertificatePrograms error:', err);
@@ -472,25 +499,17 @@ export async function issueStudentCertificatesBatch(input: {
         .eq('id', templateId)
         .maybeSingle();
       template = tmpl;
-    } else {
-      const { data: defaultTmpl } = await admin
+    }
+
+    if (!template) {
+      const { data: latestTmpl } = await admin
         .from('certificate_templates')
         .select('*')
-        .eq('is_default', true)
+        .order('created_at', { ascending: false })
+        .limit(1)
         .maybeSingle();
-
-      if (defaultTmpl) {
-        template = defaultTmpl;
-        templateId = defaultTmpl.id;
-      } else {
-        const { data: anyTmpl } = await admin
-          .from('certificate_templates')
-          .select('*')
-          .limit(1)
-          .maybeSingle();
-        template = anyTmpl;
-        templateId = anyTmpl?.id;
-      }
+      template = latestTmpl;
+      templateId = latestTmpl?.id;
     }
 
     const fieldLayout = template?.field_layout || DEFAULT_FIELD_LAYOUT;

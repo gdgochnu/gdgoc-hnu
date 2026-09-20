@@ -168,7 +168,7 @@ export function PresidentCertificateClient({
 
   const [templateList, setTemplateList] = useState<CertificateTemplate[]>(templates);
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>(
-    templates.find((t) => t.is_default)?.id || templates[0]?.id || ''
+    templates[0]?.id || ''
   );
 
   // Academic Eligibility Thresholds
@@ -1313,11 +1313,17 @@ export function PresidentCertificateClient({
                     cursor: 'pointer',
                   }}
                 >
-                  {templateList.map((t) => (
-                    <option key={t.id} value={t.id} style={{ background: '#18181b' }}>
-                      {t.name} {t.is_default ? '(Default)' : ''}
+                  {templateList.length === 0 ? (
+                    <option value="" style={{ background: '#18181b' }}>
+                      No templates available — create one in Template Builder
                     </option>
-                  ))}
+                  ) : (
+                    templateList.map((t) => (
+                      <option key={t.id} value={t.id} style={{ background: '#18181b' }}>
+                        {t.name}
+                      </option>
+                    ))
+                  )}
                 </select>
               </div>
             </div>
@@ -2018,11 +2024,17 @@ export function PresidentCertificateClient({
                   cursor: 'pointer',
                 }}
               >
-                {templateList.map((tmpl) => (
-                  <option key={tmpl.id} value={tmpl.id} style={{ background: '#18181b' }}>
-                    {tmpl.name} {tmpl.is_default ? '(Default)' : ''}
+                {templateList.length === 0 ? (
+                  <option value="" style={{ background: '#18181b' }}>
+                    No templates created yet
                   </option>
-                ))}
+                ) : (
+                  templateList.map((tmpl) => (
+                    <option key={tmpl.id} value={tmpl.id} style={{ background: '#18181b' }}>
+                      {tmpl.name}
+                    </option>
+                  ))
+                )}
               </select>
 
               <button
@@ -2045,6 +2057,45 @@ export function PresidentCertificateClient({
                 <span>New Template</span>
               </button>
             </div>
+          </div>
+
+          {/* Shared Templates Notice */}
+          <div
+            style={{
+              padding: '0.85rem 1.25rem',
+              borderRadius: '14px',
+              background: 'rgba(66, 133, 244, 0.08)',
+              border: '1px solid rgba(66, 133, 244, 0.2)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              flexWrap: 'wrap',
+              gap: '0.75rem',
+              fontSize: '0.82rem',
+              color: 'var(--text-secondary)',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+              <Sparkles size={16} color="var(--google-blue)" />
+              <span>
+                <strong>Unified Templates Registry:</strong> All templates created here or in Chapter Certificates are identical and shared across both Chapter Team Members and Student Portal.
+              </span>
+            </div>
+            <Link
+              href="/certificates"
+              style={{
+                color: 'var(--google-blue)',
+                fontWeight: 700,
+                textDecoration: 'none',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.3rem',
+                fontSize: '0.8rem',
+              }}
+            >
+              <span>Chapter Certificates Studio</span>
+              <ExternalLink size={12} />
+            </Link>
           </div>
 
           {/* Embedded Template Builder Component */}
