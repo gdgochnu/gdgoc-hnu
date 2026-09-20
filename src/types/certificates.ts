@@ -97,6 +97,7 @@ export interface CertificateTemplate {
   created_by: string | null;
   created_at: string;
   updated_at: string;
+  is_default?: boolean;
 }
 
 export interface CertificateRecipientInput {

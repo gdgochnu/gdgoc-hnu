@@ -5,7 +5,7 @@ import { getUserContext } from '@/lib/auth/get-user-context';
 import { renderCertificatePDFBuffer } from '@/lib/certificates/issue-engine';
 import { uploadFileToDrive } from '@/lib/drive/drive-client';
 import { notifyCertificateIssued } from '@/lib/notifications/triggers';
-import { DEFAULT_FIELD_LAYOUT } from '@/types/certificates';
+import { DEFAULT_FIELD_LAYOUT, CertificateTemplate } from '@/types/certificates';
 import type {
   StudentCertificate,
   StudentCertificateEligibility,
@@ -19,7 +19,7 @@ export async function getCertificatePrograms(): Promise<{
   success: boolean;
   courses: Array<{ id: string; title: string; category?: string | null; enrollmentsCount: number; sessionsCount: number }>;
   workshops: Array<{ id: string; title: string; category?: string | null; registrationsCount: number; sessionsCount: number }>;
-  templates: Array<{ id: string; name: string; is_default: boolean }>;
+  templates: CertificateTemplate[];
   error?: string;
 }> {
   try {
@@ -56,10 +56,10 @@ export async function getCertificatePrograms(): Promise<{
       .neq('status', 'archived')
       .order('created_at', { ascending: false });
 
-    // Fetch certificate templates
+    // Fetch certificate templates (all fields for visual template builder & preview)
     const { data: templatesData } = await admin
       .from('certificate_templates')
-      .select('id, name, is_default')
+      .select('*')
       .order('is_default', { ascending: false });
 
     const courses = (coursesData || []).map((c: any) => ({
@@ -731,3 +731,122 @@ export async function getStudentCertificatesList(): Promise<{
     return { success: false, certificates: [], error: err.message };
   }
 }
+
+// ---------------------------------------------------------------------------
+// 5. All Issued Student Certificates Registry (Leadership Ledger)
+// ---------------------------------------------------------------------------
+export async function getAllIssuedStudentCertificates(): Promise<{
+  success: boolean;
+  certificates: any[];
+  error?: string;
+}> {
+  try {
+    const context = await getUserContext();
+    if (!context.user || !context.profile) {
+      return { success: false, certificates: [], error: 'Unauthorized' };
+    }
+
+    const role = context.profile.role;
+    const isLeadership = [
+      'president',
+      'co_president',
+      'branch_head',
+      'committee_head',
+      'committee_co_head',
+    ].includes(role);
+
+    if (!isLeadership) {
+      return { success: false, certificates: [], error: 'Unauthorized: Leadership access required.' };
+    }
+
+    const admin = createAdminClient();
+
+    const { data: certRows, error: certErr } = await admin
+      .from('student_certificates')
+      .select(`
+        id,
+        title,
+        certificate_number,
+        verification_code,
+        issue_date,
+        pdf_drive_file_id,
+        pdf_drive_url,
+        completion_stats,
+        created_at,
+        student_id,
+        course_id,
+        workshop_id,
+        template_id,
+        student:student_profiles(id, full_name_ar, full_name_en, email, phone, faculty, academic_year, department_major),
+        course:courses(id, title, category),
+        workshop:workshops(id, title, category),
+        template:certificate_templates(id, name),
+        issuer:profiles!student_certificates_issued_by_fkey(full_name, role)
+      `)
+      .order('created_at', { ascending: false });
+
+    if (certErr) {
+      console.error('getAllIssuedStudentCertificates error:', certErr);
+      return { success: false, certificates: [], error: certErr.message };
+    }
+
+    const certificates = (certRows || []).map((c: any) => ({
+      ...c,
+      student: Array.isArray(c.student) ? c.student[0] : c.student,
+      course: Array.isArray(c.course) ? c.course[0] : c.course,
+      workshop: Array.isArray(c.workshop) ? c.workshop[0] : c.workshop,
+      template: Array.isArray(c.template) ? c.template[0] : c.template,
+      issuer: Array.isArray(c.issuer) ? c.issuer[0] : c.issuer,
+    }));
+
+    return { success: true, certificates };
+  } catch (err: any) {
+    console.error('getAllIssuedStudentCertificates exception:', err);
+    return { success: false, certificates: [], error: err.message };
+  }
+}
+
+// ---------------------------------------------------------------------------
+// 6. Delete / Revoke Issued Student Certificate Action (President Gated)
+// ---------------------------------------------------------------------------
+export async function deleteStudentCertificateAction(certId: string): Promise<{
+  success: boolean;
+  error?: string;
+}> {
+  try {
+    const context = await getUserContext();
+    if (!context.user || !context.profile) {
+      return { success: false, error: 'Unauthorized: Authentication required.' };
+    }
+
+    const role = context.profile.role;
+    const isPresident = role === 'president' || role === 'co_president';
+    if (!isPresident) {
+      return {
+        success: false,
+        error: 'Permission denied: Only the Chapter President or Co-President can revoke or delete student certificates.',
+      };
+    }
+
+    const admin = createAdminClient();
+    const { error: delErr } = await admin
+      .from('student_certificates')
+      .delete()
+      .eq('id', certId);
+
+    if (delErr) {
+      console.error('deleteStudentCertificateAction error:', delErr);
+      return { success: false, error: delErr.message };
+    }
+
+    revalidatePath('/student-portal/admin/certificates');
+    revalidatePath('/student/certificates');
+    revalidatePath('/student/dashboard');
+
+    return { success: true };
+  } catch (err: any) {
+    console.error('deleteStudentCertificateAction exception:', err);
+    return { success: false, error: err.message };
+  }
+}
+
