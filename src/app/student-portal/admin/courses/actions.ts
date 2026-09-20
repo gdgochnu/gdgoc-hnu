@@ -4,6 +4,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { getUserContext } from '@/lib/auth/get-user-context';
 import { revalidatePath } from 'next/cache';
 import { Course, CourseInstructor, CourseStatus, EnrollmentType, CourseInstructorRole } from '@/types/student';
+import { uploadEntityFile } from '@/app/drive/actions';
 
 export interface AdminCourseItem extends Course {
   department_name?: string;
@@ -442,3 +443,60 @@ export async function deleteAdminCourse(courseId: string): Promise<{
     return { success: false, error: err.message };
   }
 }
+
+/**
+ * Upload a course cover image directly to Google Drive
+ */
+export async function uploadCourseCoverImageAction(formData: FormData): Promise<{
+  success: boolean;
+  url?: string;
+  error?: string;
+}> {
+  try {
+    const context = await getUserContext();
+    if (!context.user || !context.profile) {
+      return { success: false, error: 'Unauthorized: Team membership required.' };
+    }
+
+    const file = formData.get('file') as File | null;
+    if (!file) {
+      return { success: false, error: 'No image file provided.' };
+    }
+
+    if (!file.type.startsWith('image/')) {
+      return { success: false, error: 'File must be an image (JPEG, PNG, WebP, GIF, SVG).' };
+    }
+
+    const MAX_SIZE = 10 * 1024 * 1024; // 10MB
+    if (file.size > MAX_SIZE) {
+      return { success: false, error: 'Image size exceeds 10MB limit.' };
+    }
+
+    const arrayBuffer = await file.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+    const base64Data = buffer.toString('base64');
+    const mimeType = file.type || 'image/jpeg';
+    const ext = file.name.split('.').pop() || 'jpg';
+    const cleanFileName = `course_cover_${Date.now()}_${Math.random().toString(36).substring(2, 7)}.${ext}`;
+
+    const driveUpload = await uploadEntityFile({
+      entityType: 'media_library',
+      fileName: cleanFileName,
+      mimeType,
+      base64Data,
+      makePublic: true,
+      skipAuthCheck: true,
+    });
+
+    if (!driveUpload.success || !driveUpload.file) {
+      return { success: false, error: driveUpload.error || 'Failed to upload image to Google Drive.' };
+    }
+
+    const fileUrl = `/api/workspace/media/thumbnail?id=${driveUpload.file.fileId}&sz=1200`;
+    return { success: true, url: fileUrl };
+  } catch (err: any) {
+    console.error('Error in uploadCourseCoverImageAction:', err);
+    return { success: false, error: err.message || 'Failed to upload course cover image.' };
+  }
+}
+

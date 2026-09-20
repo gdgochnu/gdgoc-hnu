@@ -27,8 +27,18 @@ import {
   FileText,
   Award,
   HelpCircle,
+  UploadCloud,
+  Image as ImageIcon,
+  Loader2,
 } from 'lucide-react';
-import { AdminCourseItem, CreateCourseInput, createAdminCourse, updateAdminCourse, deleteAdminCourse } from '@/app/student-portal/admin/courses/actions';
+import {
+  AdminCourseItem,
+  CreateCourseInput,
+  createAdminCourse,
+  updateAdminCourse,
+  deleteAdminCourse,
+  uploadCourseCoverImageAction,
+} from '@/app/student-portal/admin/courses/actions';
 import { CourseStatus, EnrollmentType, CourseInstructorRole } from '@/types/student';
 
 interface AdminCoursesClientProps {
@@ -72,6 +82,50 @@ export function AdminCoursesClient({
   const [assignedInstructors, setAssignedInstructors] = useState<Array<{ profile_id: string; role: CourseInstructorRole }>>([]);
   const [instructorSearchQuery, setInstructorSearchQuery] = useState('');
 
+  // Cover Image Drive Upload State
+  const [isUploadingCover, setIsUploadingCover] = useState(false);
+  const [showManualUrlInput, setShowManualUrlInput] = useState(false);
+  const coverFileInputRef = React.useRef<HTMLInputElement>(null);
+
+  const handleCoverUpload = async (file: File) => {
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      alert('يرجى اختيار ملف صورة صالح (PNG, JPG, WebP, GIF)');
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      alert('حجم الصورة كبير جداً، الحد الأقصى 10MB');
+      return;
+    }
+
+    setIsUploadingCover(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      const res = await uploadCourseCoverImageAction(formData);
+      if (res.success && res.url) {
+        setFormCoverUrl(res.url);
+      } else {
+        alert(res.error || 'فشل في رفع الصورة إلى Google Drive');
+      }
+    } catch (err: any) {
+      alert(err.message || 'حدث خطأ أثناء رفع الصورة');
+    } finally {
+      setIsUploadingCover(false);
+      if (coverFileInputRef.current) {
+        coverFileInputRef.current.value = '';
+      }
+    }
+  };
+
+  const handleCoverDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      handleCoverUpload(e.dataTransfer.files[0]);
+    }
+  };
+
   const isPresident = userRole === 'president' || userRole === 'co_president';
 
   const openCreateModal = () => {
@@ -88,6 +142,8 @@ export function AdminCoursesClient({
     setAssignedInstructors([]);
     setInstructorSearchQuery('');
     setFormError(null);
+    setIsUploadingCover(false);
+    setShowManualUrlInput(false);
     setIsModalOpen(true);
   };
 
@@ -110,6 +166,8 @@ export function AdminCoursesClient({
     );
     setInstructorSearchQuery('');
     setFormError(null);
+    setIsUploadingCover(false);
+    setShowManualUrlInput(false);
     setIsModalOpen(true);
   };
 
@@ -1152,88 +1210,237 @@ export function AdminCoursesClient({
                 </div>
               </div>
 
-              {/* Course Cover Image URL */}
+              {/* Course Cover Image (Google Drive Upload) */}
               <div>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.35rem' }}>
-                  <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, color: '#CBD5E1' }}>
-                    Course Cover Image URL (16:9 Recommended)
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.45rem' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.82rem', fontWeight: 700, color: '#CBD5E1' }}>
+                    <ImageIcon size={15} color="#38BDF8" />
+                    <span>صورة غلاف الكورس (16:9 موصى بها) • Google Drive</span>
                   </label>
-                  {formCoverUrl && (
-                    <button
-                      type="button"
-                      onClick={() => setFormCoverUrl('')}
-                      style={{
-                        background: 'none',
-                        border: 'none',
-                        color: '#94A3B8',
-                        fontSize: '0.72rem',
-                        cursor: 'pointer',
-                        padding: 0,
-                      }}
-                    >
-                      Clear Image
-                    </button>
-                  )}
-                </div>
-                <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
-                  <input
-                    type="url"
-                    value={formCoverUrl}
-                    onChange={(e) => setFormCoverUrl(e.target.value)}
-                    placeholder="https://images.unsplash.com/... or direct image URL"
+                  <button
+                    type="button"
+                    onClick={() => setShowManualUrlInput(!showManualUrlInput)}
                     style={{
-                      flex: 1,
-                      padding: '0.7rem 0.9rem',
-                      borderRadius: '8px',
-                      background: 'rgba(255, 255, 255, 0.04)',
-                      border: '1px solid rgba(255, 255, 255, 0.12)',
-                      color: '#FFFFFF',
-                      fontSize: '0.9rem',
-                      outline: 'none',
+                      background: 'none',
+                      border: 'none',
+                      color: '#94A3B8',
+                      fontSize: '0.74rem',
+                      cursor: 'pointer',
+                      padding: 0,
+                      textDecoration: 'underline',
                     }}
-                  />
-                  {formCoverUrl && (
-                    <div
-                      style={{
-                        width: '54px',
-                        height: '38px',
-                        borderRadius: '6px',
-                        overflow: 'hidden',
-                        border: '1px solid rgba(255, 255, 255, 0.2)',
-                        background: `url(${formCoverUrl}) center/cover no-repeat`,
-                        flexShrink: 0,
-                      }}
-                    />
-                  )}
+                  >
+                    {showManualUrlInput ? 'إخفاء الرابط اليدوي' : 'إدخال رابط صورة يدوي'}
+                  </button>
                 </div>
-                {formCoverUrl && (
+
+                {/* Hidden File Input */}
+                <input
+                  type="file"
+                  ref={coverFileInputRef}
+                  accept="image/*"
+                  onChange={(e) => {
+                    if (e.target.files && e.target.files[0]) {
+                      handleCoverUpload(e.target.files[0]);
+                    }
+                  }}
+                  style={{ display: 'none' }}
+                />
+
+                {/* Uploading State */}
+                {isUploadingCover && (
                   <div
                     style={{
-                      marginTop: '0.6rem',
-                      borderRadius: '10px',
-                      overflow: 'hidden',
-                      height: '130px',
-                      background: `url(${formCoverUrl}) center/cover no-repeat`,
-                      border: '1px solid rgba(255, 255, 255, 0.15)',
+                      height: '140px',
+                      borderRadius: '12px',
+                      border: '2px dashed #3B82F6',
+                      background: 'rgba(59, 130, 246, 0.08)',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '0.75rem',
+                      color: '#93C5FD',
+                    }}
+                  >
+                    <Loader2 size={32} className="animate-spin" color="#3B82F6" />
+                    <span style={{ fontSize: '0.88rem', fontWeight: 600 }}>
+                      جارٍ رفع الصورة إلى Google Drive الشابتر...
+                    </span>
+                  </div>
+                )}
+
+                {/* Preview State if image is set & not uploading */}
+                {!isUploadingCover && formCoverUrl && (
+                  <div
+                    style={{
                       position: 'relative',
+                      borderRadius: '12px',
+                      overflow: 'hidden',
+                      height: '160px',
+                      background: `url(${formCoverUrl}) center/cover no-repeat`,
+                      border: '1px solid rgba(255, 255, 255, 0.2)',
+                      boxShadow: '0 4px 14px rgba(0,0,0,0.3)',
                     }}
                   >
                     <div
                       style={{
                         position: 'absolute',
-                        bottom: '0.5rem',
-                        left: '0.75rem',
-                        background: 'rgba(0, 0, 0, 0.75)',
+                        inset: 0,
+                        background: 'linear-gradient(to top, rgba(0,0,0,0.85) 0%, transparent 60%)',
+                      }}
+                    />
+                    <div
+                      style={{
+                        position: 'absolute',
+                        top: '0.6rem',
+                        left: '0.6rem',
+                        background: 'rgba(16, 185, 129, 0.85)',
                         backdropFilter: 'blur(4px)',
-                        padding: '0.2rem 0.5rem',
+                        padding: '0.25rem 0.6rem',
                         borderRadius: '6px',
-                        fontSize: '0.7rem',
-                        color: '#93C5FD',
-                        fontWeight: 600,
+                        fontSize: '0.72rem',
+                        color: '#FFFFFF',
+                        fontWeight: 700,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '4px',
                       }}
                     >
-                      Live Cover Preview
+                      <CheckCircle2 size={13} />
+                      <span>متصلة بـ Google Drive</span>
                     </div>
+
+                    <div
+                      style={{
+                        position: 'absolute',
+                        bottom: '0.6rem',
+                        right: '0.6rem',
+                        display: 'flex',
+                        gap: '0.5rem',
+                      }}
+                    >
+                      <button
+                        type="button"
+                        onClick={() => coverFileInputRef.current?.click()}
+                        style={{
+                          background: 'rgba(255, 255, 255, 0.95)',
+                          border: 'none',
+                          color: '#0F172A',
+                          fontWeight: 600,
+                          fontSize: '0.75rem',
+                          padding: '0.4rem 0.75rem',
+                          borderRadius: '6px',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '4px',
+                        }}
+                      >
+                        <UploadCloud size={14} />
+                        <span>تغيير الصورة</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setFormCoverUrl('')}
+                        style={{
+                          background: 'rgba(239, 68, 68, 0.9)',
+                          border: 'none',
+                          color: '#FFFFFF',
+                          fontWeight: 600,
+                          fontSize: '0.75rem',
+                          padding: '0.4rem 0.75rem',
+                          borderRadius: '6px',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '4px',
+                        }}
+                      >
+                        <Trash2 size={14} />
+                        <span>حذف</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Dropzone if no image and not uploading */}
+                {!isUploadingCover && !formCoverUrl && (
+                  <div
+                    onClick={() => coverFileInputRef.current?.click()}
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                    }}
+                    onDrop={handleCoverDrop}
+                    style={{
+                      height: '140px',
+                      borderRadius: '12px',
+                      border: '2px dashed rgba(255, 255, 255, 0.2)',
+                      background: 'rgba(255, 255, 255, 0.03)',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '0.4rem',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s ease',
+                      padding: '1rem',
+                      textAlign: 'center',
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.borderColor = '#4285F4';
+                      e.currentTarget.style.background = 'rgba(66, 133, 244, 0.06)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.2)';
+                      e.currentTarget.style.background = 'rgba(255, 255, 255, 0.03)';
+                    }}
+                  >
+                    <div
+                      style={{
+                        width: '42px',
+                        height: '42px',
+                        borderRadius: '50%',
+                        background: 'rgba(66, 133, 244, 0.15)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: '#4285F4',
+                      }}
+                    >
+                      <UploadCloud size={22} />
+                    </div>
+                    <div>
+                      <span style={{ fontSize: '0.88rem', fontWeight: 600, color: '#F1F5F9' }}>
+                        اضغط لرفع صورة الغلاف أو اسحبها هنا
+                      </span>
+                      <p style={{ margin: '2px 0 0', fontSize: '0.75rem', color: '#94A3B8' }}>
+                        يتم الرفع إلى Google Drive الخاص بالشابتر (PNG, JPG, WebP - أقصى حجم 10MB)
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Optional Manual URL Input */}
+                {showManualUrlInput && (
+                  <div style={{ marginTop: '0.6rem' }}>
+                    <input
+                      type="url"
+                      value={formCoverUrl}
+                      onChange={(e) => setFormCoverUrl(e.target.value)}
+                      placeholder="https://images.unsplash.com/... أو أي رابط صورة مباشر"
+                      style={{
+                        width: '100%',
+                        padding: '0.6rem 0.85rem',
+                        borderRadius: '8px',
+                        background: 'rgba(255, 255, 255, 0.05)',
+                        border: '1px solid rgba(255, 255, 255, 0.15)',
+                        color: '#FFFFFF',
+                        fontSize: '0.85rem',
+                        outline: 'none',
+                      }}
+                    />
                   </div>
                 )}
               </div>
