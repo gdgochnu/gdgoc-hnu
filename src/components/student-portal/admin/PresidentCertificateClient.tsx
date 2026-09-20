@@ -196,7 +196,18 @@ export function PresidentCertificateClient({ initialPrograms }: PresidentCertifi
   const currentProgram = activeProgramsList.find((p) => p.id === selectedProgramId);
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+    <div
+      style={{
+        padding: '2.25rem 2rem 5rem 2rem',
+        maxWidth: '1380px',
+        margin: '0 auto',
+        width: '100%',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '2rem',
+        boxSizing: 'border-box',
+      }}
+    >
       {/* 1. Header Banner */}
       <div
         className="glass-panel"
