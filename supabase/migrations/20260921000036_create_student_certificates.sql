@@ -45,7 +45,7 @@ CREATE POLICY "Students can view their own certificates"
         )
     );
 
--- 2. Read policy for staff (President, Co-President, Committee Heads, Instructors, Mentors)
+-- 2. Read policy for staff (President, Co-President, Branch Heads, Committee Heads, Instructors, Mentors)
 DROP POLICY IF EXISTS "Staff can view student certificates" ON public.student_certificates;
 CREATE POLICY "Staff can view student certificates"
     ON public.student_certificates FOR SELECT
@@ -53,7 +53,7 @@ CREATE POLICY "Staff can view student certificates"
         EXISTS (
             SELECT 1 FROM public.profiles p
             WHERE p.id = auth.uid()
-            AND p.role IN ('president', 'co_president', 'vice_president', 'lead', 'co_lead', 'hr_head', 'hr_co_head', 'technical_head', 'technical_co_head')
+            AND p.role IN ('president', 'co_president', 'branch_head', 'committee_head', 'committee_co_head')
         ) OR
         EXISTS (
             SELECT 1 FROM public.course_instructors ci
@@ -86,6 +86,6 @@ CREATE POLICY "President can manage student certificates"
         )
     );
 
--- Grant permissions to authenticated & anon (public verify checks verification_code)
+-- Grant permissions to authenticated & anon
 GRANT SELECT ON public.student_certificates TO authenticated;
-GRANT SELECT (id, certificate_number, verification_code, title, issue_date, pdf_drive_url, completion_stats, student_id, course_id, workshop_id, issued_by) ON public.student_certificates TO anon;
+GRANT SELECT ON public.student_certificates TO anon;
