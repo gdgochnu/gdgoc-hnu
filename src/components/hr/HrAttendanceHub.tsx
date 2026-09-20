@@ -1,7 +1,8 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Trophy, CalendarCheck2, AlertTriangle } from 'lucide-react';
+import Link from 'next/link';
+import { Trophy, CalendarCheck2, AlertTriangle, QrCode, ExternalLink } from 'lucide-react';
 import {
   HrDashboardKpis,
   EventAttendanceSummary,
@@ -174,6 +175,29 @@ export function HrAttendanceHub({
             </span>
           )}
         </button>
+
+        <Link
+          href="/student-portal/admin/attendance/scan"
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '0.5rem',
+            padding: '0.65rem 1.35rem',
+            borderRadius: '10px',
+            border: '1px solid rgba(16, 185, 129, 0.4)',
+            background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.25), rgba(16, 185, 129, 0.1))',
+            color: '#A7F3D0',
+            fontSize: '0.86rem',
+            fontWeight: 800,
+            textDecoration: 'none',
+            marginLeft: 'auto',
+            transition: 'all 0.2s ease',
+          }}
+        >
+          <QrCode size={16} color="#10B981" />
+          <span>Student QR Scanner</span>
+          <ExternalLink size={13} color="#10B981" />
+        </Link>
       </div>
 
       {/* 3. Tab Content */}

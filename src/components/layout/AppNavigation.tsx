@@ -32,6 +32,7 @@ import {
   Search,
   Video,
   BookOpen,
+  QrCode,
 } from 'lucide-react';
 import { GlobalSearchBar } from './GlobalSearchBar';
 import { NotificationCenter } from '@/components/notifications/NotificationCenter';
@@ -118,6 +119,7 @@ export function AppNavigation({
     const isPresident = profile.role === 'president';
     const isCoPresident = profile.role === 'co_president';
     const deptCode = profile.department?.code?.toUpperCase() || '';
+    const isHR = isLeadership || deptCode === 'HR';
 
     // 1. Core Items
     const coreItems: NavItem[] = [
@@ -184,16 +186,21 @@ export function AppNavigation({
         icon: Award,
       },
       {
-        label: 'Certificates',
+        label: 'Team Certificates',
         href: '/certificates',
         icon: GraduationCap,
-      },
-      {
+      }
+    );
+
+    // If user is a general member without staff access, give them student portal link in core
+    const isStaffOrHR = isLeadership || isHR;
+    if (!isStaffOrHR) {
+      coreItems.push({
         label: 'Student Portal',
         href: '/student',
         icon: BookOpen,
-      }
-    );
+      });
+    }
 
     const groups: NavGroup[] = [
       {
@@ -201,7 +208,61 @@ export function AppNavigation({
       },
     ];
 
-    // 2. Specialized Workspaces
+    // 2. Student LMS Administration (Leadership, Instructors, & HR)
+    if (isStaffOrHR) {
+      const studentLmsItems: NavItem[] = [];
+
+      if (isLeadership) {
+        studentLmsItems.push({
+          label: 'Courses & Curriculum',
+          href: '/student-portal/admin/courses',
+          icon: BookOpen,
+        });
+        studentLmsItems.push({
+          label: 'Workshops & Bootcamps',
+          href: '/student-portal/admin/workshops',
+          icon: Sparkles,
+        });
+      }
+
+      // QR Scanner prominently accessible to HR & Leadership
+      studentLmsItems.push({
+        label: 'Student QR Scanner',
+        href: '/student-portal/admin/attendance/scan',
+        icon: QrCode,
+        badge: 'SCANNER',
+        badgeColor: '#10B981',
+      });
+
+      if (isLeadership) {
+        studentLmsItems.push({
+          label: 'Mentor Dashboard',
+          href: '/student-portal/admin/mentorship',
+          icon: Users,
+        });
+        studentLmsItems.push({
+          label: 'Student Certificates',
+          href: '/student-portal/admin/certificates',
+          icon: GraduationCap,
+          badge: isPresident || isCoPresident ? 'APPROVAL' : undefined,
+          badgeColor: 'var(--google-yellow)',
+        });
+      }
+
+      // Quick launcher to live student portal
+      studentLmsItems.push({
+        label: 'Student Portal (Live)',
+        href: '/student',
+        icon: ExternalLink,
+      });
+
+      groups.push({
+        groupTitle: 'Student LMS Administration',
+        items: studentLmsItems,
+      });
+    }
+
+    // 3. Specialized Workspaces
     const workspaceItems: NavItem[] = [];
 
     if (isPresident || isCoPresident || deptCode === 'PR') {
@@ -245,25 +306,6 @@ export function AppNavigation({
       });
     }
 
-    // Student Portal Course Management (Leadership + Committee Heads)
-    if (isLeadership) {
-      workspaceItems.push({
-        label: 'Course Management',
-        href: '/student-portal/admin/courses',
-        icon: BookOpen,
-      });
-      workspaceItems.push({
-        label: 'Workshops & Bootcamps',
-        href: '/student-portal/admin/workshops',
-        icon: Sparkles,
-      });
-      workspaceItems.push({
-        label: 'Mentor Dashboard',
-        href: '/student-portal/admin/mentorship',
-        icon: Users,
-      });
-    }
-
     if (workspaceItems.length > 0) {
       groups.push({
         groupTitle: 'Specialized Workspaces',
@@ -271,10 +313,10 @@ export function AppNavigation({
       });
     }
 
-    // 3. Administration & Settings (President only)
-    if (isPresident) {
+    // 4. Administration & Settings (President & Co-President)
+    if (isPresident || isCoPresident) {
       groups.push({
-        groupTitle: 'Administration',
+        groupTitle: 'Administration & Governance',
         items: [
           {
             label: 'Committee Structure',
@@ -331,11 +373,20 @@ export function AppNavigation({
 
   const currentPageTitle = useMemo(() => {
     if (pathname === '/dashboard') return 'Dashboard';
+    if (pathname.startsWith('/student-portal/admin/attendance/scan')) return 'Student QR Scanner';
+    if (pathname.startsWith('/student-portal/admin/certificates')) return 'Student Certificates Hub';
+    if (pathname.startsWith('/student-portal/admin/courses')) return 'Course Management';
+    if (pathname.startsWith('/student-portal/admin/workshops')) return 'Workshops & Bootcamps';
+    if (pathname.startsWith('/student-portal/admin/mentorship')) return 'Mentorship Dashboard';
+    if (pathname.startsWith('/student/certificates')) return 'My Student Certificates';
+    if (pathname.startsWith('/student/my-qr')) return 'My Attendance Pass';
+    if (pathname.startsWith('/student')) return 'Student Portal';
     if (pathname.startsWith('/tasks')) return 'Tasks & Escalations';
     if (pathname.startsWith('/events')) return 'Events Hub';
+    if (pathname.startsWith('/meetings')) return 'Team Meetings';
     if (pathname.startsWith('/members')) return 'Members Directory';
     if (pathname.startsWith('/gamification') || pathname.startsWith('/leaderboard')) return 'Gamification & Leaderboard';
-    if (pathname.startsWith('/certificates')) return 'Certificates Center';
+    if (pathname.startsWith('/certificates')) return 'Chapter Certificates';
     if (pathname.startsWith('/pr')) return 'Public Relations';
     if (pathname.startsWith('/hr')) return 'HR & Attendance';
     if (pathname.startsWith('/approvals')) return 'Approvals & Membership';

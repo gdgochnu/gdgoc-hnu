@@ -129,6 +129,29 @@ export function StudentAppShell({ student, teamRole, children }: StudentAppShell
                 badge: 'TEAM',
                 badgeColor: '#10B981',
               },
+              {
+                label: 'Student QR Scanner',
+                href: '/student-portal/admin/attendance/scan',
+                icon: QrCode,
+                badge: 'STAFF',
+                badgeColor: '#10B981',
+              },
+              {
+                label: 'Course Management',
+                href: '/student-portal/admin/courses',
+                icon: BookOpen,
+              },
+              ...(['president', 'co_president'].includes(teamRole)
+                ? [
+                    {
+                      label: 'Issue Certificates',
+                      href: '/student-portal/admin/certificates',
+                      icon: Award,
+                      badge: 'LEADER',
+                      badgeColor: '#F59E0B',
+                    },
+                  ]
+                : []),
             ]
           : []),
         {
@@ -143,8 +166,12 @@ export function StudentAppShell({ student, teamRole, children }: StudentAppShell
   const currentPageTitle =
     pathname === '/student/my-qr'
       ? 'My Attendance Pass'
+      : pathname === '/student/certificates'
+      ? 'My Certificates'
       : pathname.startsWith('/student/courses')
       ? 'Tracks & Courses'
+      : pathname.startsWith('/student/workshops')
+      ? 'Workshops & Bootcamps'
       : 'Dashboard';
 
   return (

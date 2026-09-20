@@ -505,6 +505,30 @@ export function CertificatesClient({
               <Palette size={16} color={activeTab === 'templates' ? '#a855f7' : 'currentColor'} />
               <span>Template Builder ({templateList.length})</span>
             </button>
+
+            <Link
+              href="/student-portal/admin/certificates"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+                padding: '0.7rem 1.25rem',
+                borderRadius: '12px',
+                border: '1px solid rgba(251, 188, 4, 0.4)',
+                background: 'rgba(251, 188, 4, 0.12)',
+                color: '#FDE047',
+                fontSize: '0.85rem',
+                fontWeight: 700,
+                textDecoration: 'none',
+                cursor: 'pointer',
+                marginLeft: 'auto',
+                transition: 'all 0.2s',
+              }}
+            >
+              <Sparkles size={16} color="#FBBC04" />
+              <span>Student Certificates Panel</span>
+              <ExternalLink size={13} color="#FBBC04" />
+            </Link>
           </>
         )}
       </div>
