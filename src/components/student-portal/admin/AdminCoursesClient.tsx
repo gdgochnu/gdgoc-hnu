@@ -1542,6 +1542,36 @@ export function AdminCoursesClient({
                 />
               </div>
 
+              {/* Syllabus */}
+              <div>
+                <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, color: '#CBD5E1', marginBottom: '0.35rem' }}>
+                  Course Syllabus / Weekly Outline
+                  <span style={{ fontWeight: 400, color: '#64748B', marginLeft: '0.4rem' }}>(optional)</span>
+                </label>
+                <textarea
+                  value={formSyllabus}
+                  onChange={(e) => setFormSyllabus(e.target.value)}
+                  rows={5}
+                  placeholder={`e.g.\nWeek 1: Introduction to Programming – What is code?\nWeek 2: How the Internet Works\nWeek 3: Overview of Web Development\nWeek 4: Overview of AI & Machine Learning\nWeek 5: Mobile & Cloud Fundamentals\nWeek 6: Choosing Your Tech Path`}
+                  style={{
+                    width: '100%',
+                    padding: '0.7rem 0.9rem',
+                    borderRadius: '8px',
+                    background: 'rgba(255, 255, 255, 0.04)',
+                    border: '1px solid rgba(255, 255, 255, 0.12)',
+                    color: '#FFFFFF',
+                    fontSize: '0.85rem',
+                    outline: 'none',
+                    resize: 'vertical',
+                    lineHeight: 1.6,
+                    fontFamily: 'inherit',
+                  }}
+                />
+                <p style={{ margin: '0.3rem 0 0', fontSize: '0.74rem', color: '#64748B' }}>
+                  Shown to students on the course detail page. Write week-by-week or topic-by-topic.
+                </p>
+              </div>
+
               {/* Instructors Multi-Select */}
               <div>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.4rem', flexWrap: 'wrap', gap: '0.5rem' }}>
