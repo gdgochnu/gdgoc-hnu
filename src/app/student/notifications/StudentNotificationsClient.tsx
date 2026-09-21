@@ -276,15 +276,13 @@ export function StudentNotificationsClient({
       >
         {/* Filter Tabs */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', overflowX: 'auto' }}>
-          {(
-            [
-              { key: 'all', label: 'All Notifications', count: notifications.length },
-              { key: 'unread', label: 'Unread', count: unreadCount },
-              { key: 'course', label: 'Courses' },
-              { key: 'workshop', label: 'Workshops' },
-              { key: 'certificate', label: 'Certificates' },
-            ] as const
-          ).map((tab) => {
+          {([
+            { key: 'all', label: 'All Notifications', count: notifications.length },
+            { key: 'unread', label: 'Unread', count: unreadCount },
+            { key: 'course', label: 'Courses', count: notifications.filter((n) => n.type === 'course').length },
+            { key: 'workshop', label: 'Workshops', count: notifications.filter((n) => n.type === 'workshop').length },
+            { key: 'certificate', label: 'Certificates', count: notifications.filter((n) => n.type === 'certificate').length },
+          ] as Array<{ key: 'all' | 'unread' | 'course' | 'workshop' | 'certificate'; label: string; count: number }>).map((tab) => {
             const active = activeTab === tab.key;
             return (
               <button
@@ -310,7 +308,7 @@ export function StudentNotificationsClient({
                 }}
               >
                 <span>{tab.label}</span>
-                {tab.count !== undefined && tab.count > 0 && (
+                {tab.count > 0 && (
                   <span
                     style={{
                       padding: '0.1rem 0.45rem',
