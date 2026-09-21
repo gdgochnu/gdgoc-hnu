@@ -49,12 +49,9 @@ export function StudentNotificationCenter({
   const dropdownRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
 
-  // Keep unread count in sync if initial prop changes
-  useEffect(() => {
-    setUnreadCount(initialUnreadCount);
-  }, [initialUnreadCount]);
-
   // Fetch notifications on initial load to get accurate count, and whenever opened
+  // NOTE: We intentionally do NOT sync initialUnreadCount via useEffect, as that
+  // would re-trigger state updates on every parent re-render, contributing to render loops.
   const loadNotifications = () => {
     setIsLoading(true);
     getStudentNotifications({ limit: 30 })

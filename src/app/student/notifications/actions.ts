@@ -126,7 +126,9 @@ export async function markStudentNotificationAsRead(
       return { success: false, error: error.message };
     }
 
-    revalidatePath('/student');
+    // NOTE: Do NOT call revalidatePath here – the client does optimistic updates.
+    // Calling revalidatePath('/student') would re-render the layout and re-trigger
+    // the startTransition loop causing an infinite render cycle.
     return { success: true };
   } catch (err: any) {
     console.error('[markStudentNotificationAsRead] exception:', err);
@@ -157,7 +159,7 @@ export async function markAllStudentNotificationsAsRead(): Promise<{
       return { success: false, error: error.message };
     }
 
-    revalidatePath('/student');
+    // NOTE: Do NOT call revalidatePath here – the client does optimistic updates.
     return { success: true };
   } catch (err: any) {
     console.error('[markAllStudentNotificationsAsRead] exception:', err);
@@ -187,7 +189,7 @@ export async function deleteStudentNotification(
       return { success: false, error: error.message };
     }
 
-    revalidatePath('/student');
+    // NOTE: Do NOT call revalidatePath here – the client does optimistic updates.
     return { success: true };
   } catch (err: any) {
     console.error('[deleteStudentNotification] exception:', err);
