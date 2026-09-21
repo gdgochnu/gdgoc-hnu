@@ -13,12 +13,13 @@ export async function getCurrentStudentProfile(): Promise<{
   student: StudentProfile | null;
   isTeamMember: boolean;
   teamProfileId: string | null;
+  teamRole: string | null;
   error?: string;
 }> {
   try {
     const context = await getUserContext();
     if (!context.user) {
-      return { success: false, student: null, isTeamMember: false, teamProfileId: null, error: 'Unauthorized' };
+      return { success: false, student: null, isTeamMember: false, teamProfileId: null, teamRole: null, error: 'Unauthorized' };
     }
 
     const admin = createAdminClient();
@@ -32,11 +33,40 @@ export async function getCurrentStudentProfile(): Promise<{
 
     if (error) {
       console.error('getCurrentStudentProfile error:', error);
-      return { success: false, student: null, isTeamMember: false, teamProfileId: null, error: error.message };
+      return { success: false, student: null, isTeamMember: false, teamProfileId: null, teamRole: null, error: error.message };
     }
 
-    // Check if user is also a team member
-    const teamProfileId = context.profile?.id || student?.team_profile_id || null;
+    // Resolve team role & profile ID
+    let teamRole: string | null = context.profile?.role || null;
+    let teamProfileId = context.profile?.id || student?.team_profile_id || null;
+
+    if (!teamRole && teamProfileId) {
+      const { data: tp } = await admin
+        .from('profiles')
+        .select('id, role')
+        .eq('id', teamProfileId)
+        .maybeSingle();
+      if (tp) {
+        teamRole = tp.role;
+      }
+    } else if (!teamRole && context.user.email) {
+      const { data: matched } = await admin
+        .from('profiles')
+        .select('id, role')
+        .eq('email', context.user.email.toLowerCase().trim())
+        .maybeSingle();
+      if (matched) {
+        teamRole = matched.role;
+        teamProfileId = matched.id;
+        if (student && !student.team_profile_id) {
+          await admin
+            .from('student_profiles')
+            .update({ team_profile_id: matched.id, updated_at: new Date().toISOString() })
+            .eq('id', student.id);
+          student.team_profile_id = matched.id;
+        }
+      }
+    }
 
     // Auto-link team_profile_id if not linked yet
     if (student && !student.team_profile_id && context.profile?.id) {
@@ -50,12 +80,13 @@ export async function getCurrentStudentProfile(): Promise<{
     return {
       success: true,
       student: student as StudentProfile | null,
-      isTeamMember: Boolean(context.profile),
+      isTeamMember: Boolean(teamRole),
       teamProfileId,
+      teamRole,
     };
   } catch (err: any) {
     console.error('getCurrentStudentProfile exception:', err);
-    return { success: false, student: null, isTeamMember: false, teamProfileId: null, error: err.message };
+    return { success: false, student: null, isTeamMember: false, teamProfileId: null, teamRole: null, error: err.message };
   }
 }
 
@@ -357,15 +388,25 @@ export async function getStudentDashboardData(): Promise<{
 
     // 2. Fetch linked team member profile if exists
     let teamProfile: StudentDashboardData['teamProfile'] = null;
-    const teamProfileId = student.team_profile_id || context.profile?.id;
+    let teamProfileId = context.profile?.id || student.team_profile_id;
 
-    if (teamProfileId) {
+    if (context.profile) {
+      teamProfile = {
+        id: context.profile.id,
+        role: context.profile.role,
+        department: context.profile.department ? {
+          name: context.profile.department.name,
+          code: context.profile.department.code,
+          branch: context.profile.department.branch,
+        } : null,
+      };
+    } else if (teamProfileId) {
       const { data: tp } = await admin
         .from('profiles')
         .select(`
           id,
           role,
-          department:departments (
+          department:departments!profiles_department_id_fkey (
             name,
             code,
             branch
@@ -380,6 +421,34 @@ export async function getStudentDashboardData(): Promise<{
           role: tp.role,
           department: (tp.department as any) || null,
         };
+      }
+    } else if (context.user.email) {
+      const { data: matched } = await admin
+        .from('profiles')
+        .select(`
+          id,
+          role,
+          department:departments!profiles_department_id_fkey (
+            name,
+            code,
+            branch
+          )
+        `)
+        .eq('email', context.user.email.toLowerCase().trim())
+        .maybeSingle();
+
+      if (matched) {
+        teamProfile = {
+          id: matched.id,
+          role: matched.role,
+          department: (matched.department as any) || null,
+        };
+        teamProfileId = matched.id;
+        await admin
+          .from('student_profiles')
+          .update({ team_profile_id: matched.id, updated_at: new Date().toISOString() })
+          .eq('id', student.id);
+        student.team_profile_id = matched.id;
       }
     }
 
@@ -933,14 +1002,24 @@ export async function getStudentQrPassData(): Promise<{
       return { authenticated: true, needsOnboarding: true };
     }
 
-    let teamRole: string | null = null;
-    if (student.team_profile_id || context.profile?.id) {
-      const { data: tp } = await admin
-        .from('profiles')
-        .select('role')
-        .eq('id', student.team_profile_id || context.profile?.id)
-        .maybeSingle();
-      if (tp) teamRole = tp.role;
+    let teamRole: string | null = context.profile?.role || null;
+    if (!teamRole) {
+      const teamProfileId = student.team_profile_id;
+      if (teamProfileId) {
+        const { data: tp } = await admin
+          .from('profiles')
+          .select('role')
+          .eq('id', teamProfileId)
+          .maybeSingle();
+        if (tp) teamRole = tp.role;
+      } else if (context.user.email) {
+        const { data: matched } = await admin
+          .from('profiles')
+          .select('role')
+          .eq('email', context.user.email.toLowerCase().trim())
+          .maybeSingle();
+        if (matched) teamRole = matched.role;
+      }
     }
 
     return {

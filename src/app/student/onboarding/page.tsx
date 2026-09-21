@@ -103,10 +103,7 @@ export default async function StudentOnboardingPage() {
     );
   }
 
-  // If already active, redirect or show active confirmation
-  if (data.isAlreadyActive) {
-    redirect('/student/dashboard');
-  }
+  const isEditMode = data.isAlreadyActive;
 
   return (
     <div
@@ -122,7 +119,7 @@ export default async function StudentOnboardingPage() {
         {/* Back Link */}
         <div style={{ marginBottom: '1.5rem' }}>
           <Link
-            href="/student"
+            href={isEditMode ? '/student/dashboard' : '/student'}
             style={{
               display: 'inline-flex',
               alignItems: 'center',
@@ -134,7 +131,7 @@ export default async function StudentOnboardingPage() {
             }}
           >
             <ArrowLeft size={16} />
-            <span>Back to Student Portal</span>
+            <span>{isEditMode ? 'Back to Dashboard' : 'Back to Student Portal'}</span>
           </Link>
         </div>
 
@@ -178,8 +175,17 @@ export default async function StudentOnboardingPage() {
                 fontWeight: 800,
               }}
             >
-              <Sparkles size={13} />
-              <span>Step 2 of 2: Profile Activation</span>
+              {isEditMode ? (
+                <>
+                  <UserCheck size={13} />
+                  <span>Profile Information & Settings</span>
+                </>
+              ) : (
+                <>
+                  <Sparkles size={13} />
+                  <span>Step 2 of 2: Profile Activation</span>
+                </>
+              )}
             </span>
           </div>
 
@@ -192,12 +198,13 @@ export default async function StudentOnboardingPage() {
               margin: '0 0 0.65rem',
             }}
           >
-            Complete Your Student Profile
+            {isEditMode ? 'Edit Profile Information' : 'Complete Your Student Profile'}
           </h1>
 
           <p style={{ fontSize: '0.94rem', color: '#94A3B8', margin: 0, lineHeight: 1.6, maxWidth: '650px' }}>
-            Please fill in your academic and contact details below. Once submitted, your profile is immediately
-            active with your personal attendance QR code ready for sessions and workshops.
+            {isEditMode
+              ? 'Update your academic info, contact details, and social channels anytime. Changes will reflect across your attendance pass and certificates.'
+              : 'Please fill in your academic and contact details below. Once submitted, your profile is immediately active with your personal attendance QR code ready for sessions and workshops.'}
           </p>
         </div>
 
@@ -206,6 +213,7 @@ export default async function StudentOnboardingPage() {
           prefilled={data.prefilled}
           faculties={data.faculties}
           isTeamMember={data.isTeamMember}
+          isEditMode={isEditMode}
         />
       </div>
     </div>

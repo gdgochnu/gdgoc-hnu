@@ -47,12 +47,14 @@ interface CompleteStudentProfileFormProps {
   };
   faculties: FacultyOptionItem[];
   isTeamMember: boolean;
+  isEditMode?: boolean;
 }
 
 export function CompleteStudentProfileForm({
   prefilled,
   faculties,
   isTeamMember,
+  isEditMode = false,
 }: CompleteStudentProfileFormProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -209,10 +211,12 @@ export function CompleteStudentProfileForm({
           <CheckCircle2 size={32} color="#4ADE80" />
         </div>
         <h2 style={{ fontSize: '1.6rem', fontWeight: 900, color: '#FFFFFF', margin: '0 0 0.5rem' }}>
-          Student Profile Activated!
+          {isEditMode ? 'Profile Information Updated!' : 'Student Profile Activated!'}
         </h2>
         <p style={{ fontSize: '0.92rem', color: '#94A3B8', lineHeight: 1.6, margin: '0 0 2rem' }}>
-          Your permanent student attendance QR code has been generated. Redirecting to your Student Dashboard...
+          {isEditMode
+            ? 'Your profile information has been saved successfully. Redirecting to your dashboard...'
+            : 'Your permanent student attendance QR code has been generated. Redirecting to your Student Dashboard...'}
         </p>
         <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', color: '#60A5FA', fontSize: '0.9rem', fontWeight: 700 }}>
           <Loader2 size={18} className="animate-spin" />
@@ -708,11 +712,11 @@ export function CompleteStudentProfileForm({
           {isPending ? (
             <>
               <Loader2 size={18} className="animate-spin" />
-              <span>Activating Student Profile...</span>
+              <span>{isEditMode ? 'Saving Changes...' : 'Activating Student Profile...'}</span>
             </>
           ) : (
             <>
-              <span>Complete & Activate Profile</span>
+              <span>{isEditMode ? 'Save Changes' : 'Complete & Activate Profile'}</span>
               <ArrowRight size={18} />
             </>
           )}

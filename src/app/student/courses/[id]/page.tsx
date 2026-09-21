@@ -44,12 +44,11 @@ export default async function StudentCourseDetailPage({ params }: PageProps) {
   }
 
   const student = studentRes.student;
-  const isTeamMember = studentRes.isTeamMember;
 
   // If student profile exists and active, wrap in StudentAppShell
   if (student && student.status !== 'incomplete') {
     return (
-      <StudentAppShell student={student} teamRole={isTeamMember ? 'team_member' : null}>
+      <StudentAppShell student={student} teamRole={studentRes.teamRole || null}>
         <StudentCourseDetailClient initialData={courseRes.data} />
       </StudentAppShell>
     );

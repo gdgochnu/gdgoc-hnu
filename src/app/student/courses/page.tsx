@@ -29,12 +29,11 @@ export default async function StudentCoursesPage() {
   } = coursesRes;
 
   const student = studentRes.student;
-  const isTeamMember = studentRes.isTeamMember;
 
   // If student profile exists and is active, render inside StudentAppShell
   if (student && student.status !== 'incomplete') {
     return (
-      <StudentAppShell student={student} teamRole={isTeamMember ? 'team_member' : null}>
+      <StudentAppShell student={student} teamRole={studentRes.teamRole || null}>
         <StudentCoursesCatalogClient
           initialCourses={courses}
           categories={categories}

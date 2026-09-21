@@ -24,7 +24,7 @@ export default async function StudentCertificatesPage() {
   const certificates = certsRes.certificates || [];
 
   return (
-    <StudentAppShell student={profileRes.student} teamRole={profileRes.isTeamMember ? 'member' : null}>
+    <StudentAppShell student={profileRes.student} teamRole={profileRes.teamRole || null}>
       <StudentCertificatesClient
         student={profileRes.student}
         certificates={certificates}

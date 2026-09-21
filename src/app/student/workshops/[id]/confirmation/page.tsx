@@ -43,12 +43,11 @@ export default async function WorkshopConfirmationPage({
   }
 
   const student = studentRes.student;
-  const isTeamMember = studentRes.isTeamMember;
 
   // Wrap in StudentAppShell if active profile exists
   if (student && student.status !== 'incomplete') {
     return (
-      <StudentAppShell student={student} teamRole={isTeamMember ? 'team_member' : null}>
+      <StudentAppShell student={student} teamRole={studentRes.teamRole || null}>
         <StudentWorkshopConfirmationClient
           workshop={confirmRes.workshop}
           registration={confirmRes.registration}
