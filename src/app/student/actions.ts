@@ -128,7 +128,58 @@ export async function completeStudentProfile(input: StudentOnboardingInput): Pro
   try {
     const context = await getUserContext();
     if (!context.user) {
-      return { success: false, error: 'Authentication required.' };
+      return { success: false, error: 'Authentication required. Please sign in.' };
+    }
+
+    // Server-side validation 1: Full Name in Arabic (must be at least 4 parts, Arabic characters)
+    const cleanNameAr = (input.full_name_ar || '').trim();
+    const arParts = cleanNameAr.split(/\s+/).filter(Boolean);
+    if (arParts.length < 4) {
+      return { success: false, error: 'Please enter your official 4-part Arabic name (الاسم الرباعي باللغة العربية).' };
+    }
+    if (!/^[\u0600-\u06FF\s]+$/.test(cleanNameAr)) {
+      return { success: false, error: 'Arabic name must contain only Arabic letters and spaces.' };
+    }
+
+    // Server-side validation 2: Full Name in English (must be at least 4 parts, English characters)
+    const cleanNameEn = (input.full_name_en || '').trim();
+    const enParts = cleanNameEn.split(/\s+/).filter(Boolean);
+    if (enParts.length < 4) {
+      return { success: false, error: 'Please enter your full 4-part English name as shown in official documents.' };
+    }
+    if (!/^[a-zA-Z\s\-']+$/.test(cleanNameEn)) {
+      return { success: false, error: 'English name must contain only English characters and spaces.' };
+    }
+
+    // Server-side validation 3: National ID (exactly 14 digits)
+    const cleanNationalId = (input.national_id || '').trim();
+    if (!/^\d{14}$/.test(cleanNationalId)) {
+      return { success: false, error: 'National ID must be exactly 14 numeric digits.' };
+    }
+
+    // Server-side validation 4: Faculty & University
+    const cleanFaculty = (input.faculty || '').trim();
+    if (!cleanFaculty) {
+      return { success: false, error: 'Faculty / College is required.' };
+    }
+    const cleanUniversity = (input.university || '').trim() || 'Helwan National University';
+
+    // Server-side validation 5: Academic Year (1 to 5)
+    const yearNum = Number(input.academic_year);
+    if (!yearNum || isNaN(yearNum) || yearNum < 1 || yearNum > 5) {
+      return { success: false, error: 'Academic year must be an integer between 1 and 5.' };
+    }
+
+    // Server-side validation 6: Egyptian mobile phone and WhatsApp
+    const cleanPhone = (input.phone || '').replace(/[\s\-\(\)]/g, '');
+    const cleanWhatsapp = (input.whatsapp_number || '').replace(/[\s\-\(\)]/g, '');
+    const phoneRegex = /^(?:\+20|20|0)?1[0125]\d{8}$/;
+
+    if (!cleanPhone || !phoneRegex.test(cleanPhone)) {
+      return { success: false, error: 'Please enter a valid Egyptian mobile number (e.g. 010xxxxxxxx or +201xxxxxxxxx).' };
+    }
+    if (!cleanWhatsapp || !phoneRegex.test(cleanWhatsapp)) {
+      return { success: false, error: 'Please enter a valid Egyptian WhatsApp number (e.g. 010xxxxxxxx or +201xxxxxxxxx).' };
     }
 
     const admin = createAdminClient();
@@ -146,15 +197,15 @@ export async function completeStudentProfile(input: StudentOnboardingInput): Pro
       id: context.user.id,
       email: context.user.email?.toLowerCase().trim() || '',
       team_profile_id: teamProfileId,
-      full_name_ar: input.full_name_ar.trim(),
-      full_name_en: input.full_name_en.trim(),
-      national_id: input.national_id.trim(),
-      university: input.university?.trim() || 'Helwan National University',
-      faculty: input.faculty.trim(),
+      full_name_ar: cleanNameAr,
+      full_name_en: cleanNameEn,
+      national_id: cleanNationalId,
+      university: cleanUniversity,
+      faculty: cleanFaculty,
       department_major: input.department_major?.trim() || null,
-      academic_year: input.academic_year,
-      phone: input.phone.trim(),
-      whatsapp_number: input.whatsapp_number.trim(),
+      academic_year: yearNum,
+      phone: cleanPhone,
+      whatsapp_number: cleanWhatsapp,
       facebook_url: input.facebook_url?.trim() || null,
       instagram_url: input.instagram_url?.trim() || null,
       linkedin_url: input.linkedin_url?.trim() || null,
@@ -169,7 +220,23 @@ export async function completeStudentProfile(input: StudentOnboardingInput): Pro
 
     if (upsertErr) {
       console.error('completeStudentProfile upsert error:', upsertErr);
-      return { success: false, error: upsertErr.message };
+      if (
+        upsertErr.code === '23505' ||
+        upsertErr.message?.includes('national_id') ||
+        upsertErr.message?.includes('student_profiles_national_id_key')
+      ) {
+        return {
+          success: false,
+          error: 'This National ID is already registered to another student profile. Please verify your details.',
+        };
+      }
+      if (upsertErr.message?.includes('email')) {
+        return {
+          success: false,
+          error: 'This email is already registered to another student profile.',
+        };
+      }
+      return { success: false, error: upsertErr.message || 'Failed to save student profile.' };
     }
 
     revalidatePath('/student');
@@ -996,6 +1063,13 @@ export async function getStudentQrPassData(): Promise<{
 
     if (!student || student.status !== 'active') {
       return { authenticated: true, needsOnboarding: true };
+    }
+
+    // Defensive safeguard: ensure qr_code is never empty
+    if (!student.qr_code) {
+      const generatedQr = 'STU-' + Math.random().toString(36).substring(2, 10).toUpperCase();
+      await admin.from('student_profiles').update({ qr_code: generatedQr }).eq('id', student.id);
+      student.qr_code = generatedQr;
     }
 
     let teamRole: string | null = context.profile?.role || null;

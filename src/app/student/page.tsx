@@ -23,6 +23,7 @@ import {
   HelpCircle,
   ExternalLink,
   ChevronRight,
+  ChevronDown,
   Terminal,
   Layers,
 } from 'lucide-react';
@@ -865,26 +866,24 @@ export default async function StudentPortalLandingPage() {
           </h2>
         </div>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
           {faqs.map((f, idx) => (
-            <div
+            <details
               key={idx}
-              className="glass-panel"
-              style={{
-                borderRadius: '16px',
-                background: 'rgba(15, 23, 42, 0.65)',
-                border: '1px solid rgba(255, 255, 255, 0.07)',
-                padding: '1.4rem 1.5rem',
-              }}
+              className="student-faq-item glass-panel"
+              open={idx === 0}
             >
-              <div style={{ fontSize: '1rem', fontWeight: 800, color: '#FFFFFF', marginBottom: '0.45rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <HelpCircle size={17} color="#60A5FA" />
-                <span>{f.q}</span>
-              </div>
-              <div style={{ fontSize: '0.88rem', color: '#94A3B8', lineHeight: 1.6, paddingLeft: '1.55rem' }}>
+              <summary className="student-faq-summary">
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+                  <HelpCircle size={18} color="#60A5FA" style={{ flexShrink: 0 }} />
+                  <span>{f.q}</span>
+                </div>
+                <ChevronDown size={18} className="student-faq-chevron" />
+              </summary>
+              <div className="student-faq-content">
                 {f.a}
               </div>
-            </div>
+            </details>
           ))}
         </div>
       </section>
@@ -976,7 +975,7 @@ export default async function StudentPortalLandingPage() {
           <span>Google Developer Groups on Campus</span>
         </div>
         <div>
-          Helwan National University (HNU) Chapter • Built with Next.js, Supabase, and Tailwind-free Vanilla CSS.
+          Helwan National University (HNU) Chapter • Empowering students through open technology education.
         </div>
       </footer>
     </div>

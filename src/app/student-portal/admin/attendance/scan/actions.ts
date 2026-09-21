@@ -3,6 +3,7 @@
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getUserContext } from '@/lib/auth/get-user-context';
 import { revalidatePath } from 'next/cache';
+import { dispatchStudentNotification } from '@/app/student/notifications/actions';
 
 export interface SelectableSession {
   id: string;
@@ -478,6 +479,17 @@ export async function recordStudentAttendance(input: {
       console.error('recordStudentAttendance insert error:', insErr);
       return { success: false, error: insErr.message || 'Failed to record attendance.' };
     }
+
+    // Notify student in English
+    dispatchStudentNotification({
+      studentId: student.id,
+      type: 'session',
+      title: 'Attendance Confirmed',
+      message: `Your attendance has been recorded for today's session via ${input.method === 'manual' ? 'manual check-in' : 'QR pass scan'}. Keep up the great attendance rate!`,
+      linkUrl: '/student/dashboard?tab=attendance',
+      relatedEntityType: input.targetType === 'course' ? 'course_session' : 'workshop_session',
+      relatedEntityId: input.sessionId,
+    }).catch((notifErr) => console.warn('dispatchStudentNotification attendance warning:', notifErr));
 
     revalidatePath(`/student-portal/admin/attendance/scan`);
     revalidatePath(`/student-portal/admin/attendance/sessions/${input.sessionId}`);

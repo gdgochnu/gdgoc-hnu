@@ -4,6 +4,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { getUserContext } from '@/lib/auth/get-user-context';
 import { revalidatePath } from 'next/cache';
 import { EnrollmentStatus } from '@/types/student';
+import { dispatchStudentNotification } from '@/app/student/notifications/actions';
 
 export interface EnrollmentStudentItem {
   id: string; // enrollment id
@@ -266,6 +267,20 @@ async function autoAdvanceWaitlist(admin: ReturnType<typeof createAdminClient>, 
         })
         .eq('id', nextWaitlisted.id);
 
+      // Fetch course title and notify promoted student in English
+      const { data: c } = await admin.from('courses').select('title').eq('id', courseId).single();
+      const courseTitle = c?.title || 'the track';
+
+      dispatchStudentNotification({
+        studentId: nextWaitlisted.student_id,
+        type: 'course',
+        title: `Spot Available: ${courseTitle}`,
+        message: `Great news! A seat has opened up and you have been automatically promoted from the waitlist to confirmed enrollment in "${courseTitle}". Welcome aboard!`,
+        linkUrl: `/student/courses/${courseId}`,
+        relatedEntityType: 'course',
+        relatedEntityId: courseId,
+      }).catch((notifErr) => console.warn('dispatchStudentNotification waitlist warning:', notifErr));
+
       return nextWaitlisted.id;
     }
   }
@@ -304,7 +319,7 @@ export async function approveCourseEnrollment(courseId: string, enrollmentId: st
       }
     }
 
-    const { error: updateErr } = await admin
+    const { data: updatedEnrollment, error: updateErr } = await admin
       .from('course_enrollments')
       .update({
         status: 'confirmed',
@@ -313,11 +328,26 @@ export async function approveCourseEnrollment(courseId: string, enrollmentId: st
         updated_at: new Date().toISOString(),
       })
       .eq('id', enrollmentId)
-      .eq('course_id', courseId);
+      .eq('course_id', courseId)
+      .select('student_id')
+      .single();
 
     if (updateErr) {
       console.error('approveCourseEnrollment error:', updateErr);
       return { success: false, error: updateErr.message };
+    }
+
+    // Notify student in English
+    if (updatedEnrollment?.student_id) {
+      dispatchStudentNotification({
+        studentId: updatedEnrollment.student_id,
+        type: 'course',
+        title: `Enrollment Confirmed: ${course.title}`,
+        message: `Congratulations! Your application to enroll in "${course.title}" has been reviewed and approved by course instructors. You can now access all lectures, study materials, and assignments.`,
+        linkUrl: `/student/courses/${courseId}`,
+        relatedEntityType: 'course',
+        relatedEntityId: courseId,
+      }).catch((notifErr) => console.warn('dispatchStudentNotification approve warning:', notifErr));
     }
 
     revalidatePath(`/student-portal/admin/courses/${courseId}/enrollments`);
@@ -361,18 +391,35 @@ export async function rejectCourseEnrollment(
 
     const wasConfirmed = targetEnrollment?.status === 'confirmed';
 
-    const { error: updateErr } = await admin
+    const { data: rejectedEnrollment, error: updateErr } = await admin
       .from('course_enrollments')
       .update({
         status: 'rejected',
         updated_at: new Date().toISOString(),
       })
       .eq('id', enrollmentId)
-      .eq('course_id', courseId);
+      .eq('course_id', courseId)
+      .select('student_id')
+      .single();
 
     if (updateErr) {
       console.error('rejectCourseEnrollment error:', updateErr);
       return { success: false, error: updateErr.message };
+    }
+
+    // Notify student in English
+    if (rejectedEnrollment?.student_id) {
+      dispatchStudentNotification({
+        studentId: rejectedEnrollment.student_id,
+        type: 'course',
+        title: `Enrollment Update: ${course.title}`,
+        message: reason
+          ? `Thank you for your interest in "${course.title}". Unfortunately, your application could not be accepted at this time. Note from instructors: "${reason}".`
+          : `Thank you for your interest in "${course.title}". Unfortunately, your application could not be accepted at this time due to high volume and seat capacity constraints. We encourage you to apply for upcoming tracks!`,
+        linkUrl: `/student/courses`,
+        relatedEntityType: 'course',
+        relatedEntityId: courseId,
+      }).catch((notifErr) => console.warn('dispatchStudentNotification reject warning:', notifErr));
     }
 
     // If was confirmed, automatically advance the next waitlisted student!
@@ -408,7 +455,7 @@ export async function promoteWaitlistStudent(courseId: string, enrollmentId: str
 
     const { profile, admin } = access;
 
-    const { error: updateErr } = await admin
+    const { data: promotedEnrollment, error: updateErr } = await admin
       .from('course_enrollments')
       .update({
         status: 'confirmed',
@@ -417,11 +464,29 @@ export async function promoteWaitlistStudent(courseId: string, enrollmentId: str
         updated_at: new Date().toISOString(),
       })
       .eq('id', enrollmentId)
-      .eq('course_id', courseId);
+      .eq('course_id', courseId)
+      .select('student_id')
+      .single();
 
     if (updateErr) {
       console.error('promoteWaitlistStudent error:', updateErr);
       return { success: false, error: updateErr.message };
+    }
+
+    // Notify student in English
+    if (promotedEnrollment?.student_id) {
+      const { data: c } = await admin.from('courses').select('title').eq('id', courseId).single();
+      const courseTitle = c?.title || 'the track';
+
+      dispatchStudentNotification({
+        studentId: promotedEnrollment.student_id,
+        type: 'course',
+        title: `Spot Available: ${courseTitle}`,
+        message: `Great news! A seat has opened up and your enrollment in "${courseTitle}" is now confirmed. Welcome to the course!`,
+        linkUrl: `/student/courses/${courseId}`,
+        relatedEntityType: 'course',
+        relatedEntityId: courseId,
+      }).catch((notifErr) => console.warn('dispatchStudentNotification promote warning:', notifErr));
     }
 
     revalidatePath(`/student-portal/admin/courses/${courseId}/enrollments`);

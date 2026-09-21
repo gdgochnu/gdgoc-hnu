@@ -4,6 +4,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { getUserContext } from '@/lib/auth/get-user-context';
 import { revalidatePath } from 'next/cache';
 import { CourseInstructorRole, TaskSubmissionStatus, TaskSubmissionType } from '@/types/student';
+import { dispatchStudentNotification } from '@/app/student/notifications/actions';
 
 export interface CourseDetailHeader {
   id: string;
@@ -371,6 +372,45 @@ export async function gradeStudentSubmission(payload: {
     if (updateErr) {
       console.error('gradeStudentSubmission updateErr:', updateErr);
       return { success: false, error: 'Failed to record grading. Please try again.' };
+    }
+
+    // Notify student in English
+    if (updatedSub?.student_id) {
+      const { data: taskData } = await supabase
+        .from('student_tasks')
+        .select('title, max_score')
+        .eq('id', updatedSub.task_id)
+        .maybeSingle();
+
+      const taskTitle = taskData?.title || 'Assignment Deliverable';
+      const maxScore = taskData?.max_score || 10;
+      const cleanFeedback = payload.feedbackComment.trim();
+
+      if (payload.status === 'needs_revision') {
+        dispatchStudentNotification({
+          studentId: updatedSub.student_id,
+          type: 'task',
+          title: `Revision Requested: ${taskTitle}`,
+          message: cleanFeedback
+            ? `Your mentor reviewed your submission for "${taskTitle}" and requested changes. Mentor feedback: "${cleanFeedback}". Please update and resubmit your deliverable.`
+            : `Your mentor reviewed your submission for "${taskTitle}" and requested changes. Please check the feedback on your course page and resubmit your deliverable.`,
+          linkUrl: `/student/courses/${payload.courseId}`,
+          relatedEntityType: 'task',
+          relatedEntityId: updatedSub.task_id,
+        }).catch((notifErr) => console.warn('dispatchStudentNotification revision warning:', notifErr));
+      } else {
+        dispatchStudentNotification({
+          studentId: updatedSub.student_id,
+          type: 'task',
+          title: `Task Graded: ${taskTitle}`,
+          message: cleanFeedback
+            ? `Your submission for "${taskTitle}" has been graded. Score: ${payload.score}/${maxScore}. Feedback: "${cleanFeedback}".`
+            : `Your submission for "${taskTitle}" has been graded. Score: ${payload.score}/${maxScore}. Keep up the great work!`,
+          linkUrl: `/student/courses/${payload.courseId}`,
+          relatedEntityType: 'task',
+          relatedEntityId: updatedSub.task_id,
+        }).catch((notifErr) => console.warn('dispatchStudentNotification graded warning:', notifErr));
+      }
     }
 
     revalidatePath(`/student-portal/admin/courses/${payload.courseId}/submissions`);

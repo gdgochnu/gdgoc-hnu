@@ -93,13 +93,25 @@ export function CompleteStudentProfileForm({
     setErrorMessage(null);
 
     // Client-side validations
-    if (!fullNameAr.trim() || fullNameAr.trim().split(/\s+/).length < 3) {
-      setErrorMessage('Please enter your full Arabic name (at least 3 or 4 parts).');
+    const cleanNameAr = fullNameAr.trim();
+    const arParts = cleanNameAr.split(/\s+/).filter(Boolean);
+    if (!cleanNameAr || arParts.length < 4) {
+      setErrorMessage('Please enter your full 4-part Arabic name (الاسم الرباعي باللغة العربية).');
+      return;
+    }
+    if (!/^[\u0600-\u06FF\s]+$/.test(cleanNameAr)) {
+      setErrorMessage('Arabic name must contain only Arabic letters and spaces.');
       return;
     }
 
-    if (!fullNameEn.trim() || fullNameEn.trim().split(/\s+/).length < 3) {
-      setErrorMessage('Please enter your full English name (at least 3 or 4 parts).');
+    const cleanNameEn = fullNameEn.trim();
+    const enParts = cleanNameEn.split(/\s+/).filter(Boolean);
+    if (!cleanNameEn || enParts.length < 4) {
+      setErrorMessage('Please enter your full 4-part English name as shown in official documents.');
+      return;
+    }
+    if (!/^[a-zA-Z\s\-']+$/.test(cleanNameEn)) {
+      setErrorMessage('English name must contain only English characters and spaces.');
       return;
     }
 
@@ -120,13 +132,22 @@ export function CompleteStudentProfileForm({
       return;
     }
 
-    if (!phone.trim()) {
-      setErrorMessage('Please provide your mobile phone number.');
+    const yearNum = Number(academicYear);
+    if (!yearNum || isNaN(yearNum) || yearNum < 1 || yearNum > 5) {
+      setErrorMessage('Academic year must be between 1 and 5.');
       return;
     }
 
-    if (!whatsappNumber.trim()) {
-      setErrorMessage('Please provide your WhatsApp phone number.');
+    const cleanPhone = phone.replace(/[\s\-\(\)]/g, '');
+    const phoneRegex = /^(?:\+20|20|0)?1[0125]\d{8}$/;
+    if (!cleanPhone || !phoneRegex.test(cleanPhone)) {
+      setErrorMessage('Please provide a valid Egyptian mobile number (e.g. 010xxxxxxxx or +201xxxxxxxxx).');
+      return;
+    }
+
+    const cleanWhatsapp = whatsappNumber.replace(/[\s\-\(\)]/g, '');
+    if (!cleanWhatsapp || !phoneRegex.test(cleanWhatsapp)) {
+      setErrorMessage('Please provide a valid Egyptian WhatsApp number (e.g. 010xxxxxxxx or +201xxxxxxxxx).');
       return;
     }
 
@@ -308,22 +329,22 @@ export function CompleteStudentProfileForm({
           {/* Full Name in Arabic */}
           <div>
             <label style={labelStyle}>
-              Full Name in Arabic <span style={{ color: '#F87171' }}>*</span>
+              Full Name in Arabic (الاسم الرباعي) <span style={{ color: '#F87171' }}>*</span>
             </label>
             <div style={{ position: 'relative' }}>
-              <User size={16} color="#94A3B8" style={{ position: 'absolute', left: '0.85rem', top: '50%', transform: 'translateY(-50%)' }} />
+              <User size={16} color="#94A3B8" style={{ position: 'absolute', right: '0.85rem', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }} />
               <input
                 type="text"
                 value={fullNameAr}
                 onChange={(e) => setFullNameAr(e.target.value)}
-                placeholder="Official 4-part Arabic Name"
+                placeholder="الاسم الرباعي الرسمي بالعربية"
                 dir="rtl"
                 required
                 style={{ ...inputStyle, paddingRight: '2.5rem', paddingLeft: '1rem', textAlign: 'right' }}
               />
             </div>
-            <div style={{ fontSize: '0.74rem', color: '#64748B', marginTop: '0.3rem' }}>
-              Used for official certificates and university documentation.
+            <div style={{ fontSize: '0.74rem', color: '#64748B', marginTop: '0.3rem', textAlign: 'right', direction: 'rtl' }}>
+              يستخدم للشهادات الرسمية والتوثيق الجامعي (4 أجزاء).
             </div>
           </div>
 

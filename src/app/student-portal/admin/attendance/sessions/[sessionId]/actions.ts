@@ -3,6 +3,7 @@
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getUserContext } from '@/lib/auth/get-user-context';
 import { revalidatePath } from 'next/cache';
+import { dispatchStudentNotification } from '@/app/student/notifications/actions';
 
 export interface SiblingSessionOption {
   id: string;
@@ -525,6 +526,17 @@ export async function toggleStudentAttendance(input: {
       }
 
       revalidatePath(`/student-portal/admin/attendance/sessions/${input.sessionId}`);
+
+      // Notify student in English
+      dispatchStudentNotification({
+        studentId: input.studentId,
+        type: 'session',
+        title: 'Attendance Confirmed',
+        message: `Your attendance has been confirmed for the session by ${profile.full_name}. Keep up the great participation!`,
+        linkUrl: '/student/dashboard?tab=attendance',
+        relatedEntityType: input.targetType === 'course' ? 'course_session' : 'workshop_session',
+        relatedEntityId: input.sessionId,
+      }).catch((notifErr) => console.warn('dispatchStudentNotification manual attendance warning:', notifErr));
 
       return {
         success: true,

@@ -836,3 +836,58 @@ body[dir="rtl"] select,
     display: none !important;
   }
 }
+
+/* Student Portal FAQ Interactive Accordion */
+.student-faq-item {
+  border-radius: 16px;
+  background: rgba(15, 23, 42, 0.65);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  transition: all 0.25s ease;
+  overflow: hidden;
+}
+
+.student-faq-item[open] {
+  background: rgba(15, 23, 42, 0.88);
+  border-color: rgba(66, 133, 244, 0.35);
+  box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.5);
+}
+
+.student-faq-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1.25rem 1.5rem;
+  font-size: 1rem;
+  font-weight: 800;
+  color: #FFFFFF;
+  cursor: pointer;
+  user-select: none;
+  list-style: none;
+}
+
+.student-faq-summary::-webkit-details-marker {
+  display: none;
+}
+
+.student-faq-summary:hover {
+  color: #93C5FD;
+}
+
+.student-faq-chevron {
+  transition: transform 0.25s ease;
+  color: #64748B;
+  flex-shrink: 0;
+}
+
+.student-faq-item[open] .student-faq-chevron {
+  transform: rotate(180deg);
+  color: #60A5FA;
+}
+
+.student-faq-content {
+  padding: 0 1.5rem 1.4rem 3.1rem;
+  font-size: 0.9rem;
+  color: #94A3B8;
+  line-height: 1.65;
+}
+

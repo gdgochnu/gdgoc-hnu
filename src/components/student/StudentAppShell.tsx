@@ -55,6 +55,23 @@ export function StudentAppShell({ student, teamRole, children }: StudentAppShell
   const [isSigningOut, setIsSigningOut] = useState(false);
   const sidebarNavRef = useRef<HTMLDivElement | null>(null);
 
+  // Hydrate collapsed state from localStorage
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('student_sidebar_collapsed');
+      if (saved !== null) {
+        setIsCollapsed(saved === 'true');
+      }
+    } catch {}
+  }, []);
+
+  const toggleCollapse = (collapsed: boolean) => {
+    setIsCollapsed(collapsed);
+    try {
+      localStorage.setItem('student_sidebar_collapsed', String(collapsed));
+    } catch {}
+  };
+
   // Close mobile drawer on route change
   useEffect(() => {
     setIsMobileOpen(false);
@@ -291,7 +308,7 @@ export function StudentAppShell({ student, teamRole, children }: StudentAppShell
           {!isCollapsed && (
             <button
               type="button"
-              onClick={() => setIsCollapsed(true)}
+              onClick={() => toggleCollapse(true)}
               style={{
                 background: 'rgba(255, 255, 255, 0.04)',
                 border: '1px solid rgba(255, 255, 255, 0.08)',
@@ -314,7 +331,7 @@ export function StudentAppShell({ student, teamRole, children }: StudentAppShell
           <div style={{ display: 'flex', justifyContent: 'center', padding: '0.5rem 0' }}>
             <button
               type="button"
-              onClick={() => setIsCollapsed(false)}
+              onClick={() => toggleCollapse(false)}
               style={{
                 background: 'rgba(255, 255, 255, 0.05)',
                 border: 'none',

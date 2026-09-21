@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import {
   GraduationCap,
@@ -40,9 +40,31 @@ interface StudentDashboardClientProps {
 export function StudentDashboardClient({ initialData }: StudentDashboardClientProps) {
   const { student, teamProfile, stats, courses, workshops, tasks, quizzes, attendance, certificates } = initialData;
 
-  const [activeTab, setActiveTab] = useState<'courses' | 'workshops' | 'tasks' | 'quizzes' | 'attendance' | 'certificates'>('courses');
+  type TabType = 'courses' | 'workshops' | 'tasks' | 'quizzes' | 'attendance' | 'certificates';
+  const [activeTab, setActiveTab] = useState<TabType>('courses');
   const [workshopFilter, setWorkshopFilter] = useState<'all' | 'upcoming' | 'past'>('all');
   const [taskFilter, setTaskFilter] = useState<'all' | 'pending' | 'submitted' | 'graded'>('all');
+
+  // Hydrate active tab from URL (?tab=...)
+  useEffect(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const tabParam = params.get('tab');
+      const validTabs: TabType[] = ['courses', 'workshops', 'tasks', 'quizzes', 'attendance', 'certificates'];
+      if (tabParam && validTabs.includes(tabParam as TabType)) {
+        setActiveTab(tabParam as TabType);
+      }
+    } catch {}
+  }, []);
+
+  const handleTabChange = (newTab: TabType) => {
+    setActiveTab(newTab);
+    try {
+      const url = new URL(window.location.href);
+      url.searchParams.set('tab', newTab);
+      window.history.replaceState({}, '', url.toString());
+    } catch {}
+  };
 
   const pendingTasks = tasks.filter((t) => t.status === 'pending' || t.status === 'needs_revision');
   const availableQuizzes = quizzes.filter((q) => q.status === 'available');
@@ -242,7 +264,7 @@ export function StudentDashboardClient({ initialData }: StudentDashboardClientPr
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1.25rem' }}>
         {/* Card 1: Enrolled Courses */}
         <div
-          onClick={() => setActiveTab('courses')}
+          onClick={() => handleTabChange('courses')}
           className="glass-panel"
           style={{
             padding: '1.5rem',
@@ -283,7 +305,7 @@ export function StudentDashboardClient({ initialData }: StudentDashboardClientPr
 
         {/* Card 2: Workshops */}
         <div
-          onClick={() => setActiveTab('workshops')}
+          onClick={() => handleTabChange('workshops')}
           className="glass-panel"
           style={{
             padding: '1.5rem',
@@ -324,7 +346,7 @@ export function StudentDashboardClient({ initialData }: StudentDashboardClientPr
 
         {/* Card 3: Attendance Summary */}
         <div
-          onClick={() => setActiveTab('attendance')}
+          onClick={() => handleTabChange('attendance')}
           className="glass-panel"
           style={{
             padding: '1.5rem',
@@ -388,7 +410,7 @@ export function StudentDashboardClient({ initialData }: StudentDashboardClientPr
 
         {/* Card 4: Deliverables & Tasks */}
         <div
-          onClick={() => setActiveTab('tasks')}
+          onClick={() => handleTabChange('tasks')}
           className="glass-panel"
           style={{
             padding: '1.5rem',
@@ -513,7 +535,7 @@ export function StudentDashboardClient({ initialData }: StudentDashboardClientPr
 
           {/* Tool 3: Certificates */}
           <div
-            onClick={() => setActiveTab('certificates')}
+            onClick={() => handleTabChange('certificates')}
             className="glass-panel"
             style={{
               padding: '1.25rem',
@@ -739,7 +761,7 @@ export function StudentDashboardClient({ initialData }: StudentDashboardClientPr
 
             <button
               type="button"
-              onClick={() => setActiveTab('tasks')}
+              onClick={() => handleTabChange('tasks')}
               style={{
                 width: '100%',
                 display: 'flex',
@@ -879,7 +901,7 @@ export function StudentDashboardClient({ initialData }: StudentDashboardClientPr
 
             <button
               type="button"
-              onClick={() => setActiveTab('quizzes')}
+              onClick={() => handleTabChange('quizzes')}
               style={{
                 width: '100%',
                 display: 'flex',
@@ -1027,7 +1049,7 @@ export function StudentDashboardClient({ initialData }: StudentDashboardClientPr
 
             <button
               type="button"
-              onClick={() => setActiveTab('tasks')}
+              onClick={() => handleTabChange('tasks')}
               style={{
                 width: '100%',
                 display: 'flex',
@@ -1079,7 +1101,7 @@ export function StudentDashboardClient({ initialData }: StudentDashboardClientPr
               <button
                 key={tab.id}
                 type="button"
-                onClick={() => setActiveTab(tab.id as any)}
+                onClick={() => handleTabChange(tab.id as any)}
                 style={{
                   display: 'flex',
                   alignItems: 'center',
