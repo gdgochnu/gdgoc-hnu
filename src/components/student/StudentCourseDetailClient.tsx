@@ -74,12 +74,19 @@ export function StudentCourseDetailClient({ initialData }: StudentCourseDetailCl
     adminManageUrl,
   } = initialData;
 
-  const [activeTab, setActiveTab] = useState<'sessions' | 'lessons' | 'tasks' | 'quizzes'>('sessions');
-
   const [myEnrollment, setMyEnrollment] = useState(initialMyEnrollment);
   const [canEnroll, setCanEnroll] = useState(initialCanEnroll);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  const isConfirmed = myEnrollment?.status === 'confirmed';
+  const isPending = myEnrollment?.status === 'pending';
+  const isWaitlisted = myEnrollment?.status === 'waitlisted';
+  const isEnrolled = isConfirmed || isStaff;
+
+  const [activeTab, setActiveTab] = useState<'overview' | 'sessions' | 'lessons' | 'tasks' | 'quizzes'>(
+    initialMyEnrollment?.status === 'confirmed' || initialData.isStaff ? 'sessions' : 'overview'
+  );
 
   // Active modular session selection
   const [activeSessionId, setActiveSessionId] = useState<string>(
@@ -110,9 +117,6 @@ export function StudentCourseDetailClient({ initialData }: StudentCourseDetailCl
   const activeLesson = lessons[activeLessonIndex] || lessons[0] || null;
 
   const totalHours = Math.round((course.total_duration_minutes || 120) / 60);
-  const isConfirmed = myEnrollment?.status === 'confirmed';
-  const isPending = myEnrollment?.status === 'pending';
-  const isWaitlisted = myEnrollment?.status === 'waitlisted';
 
   // Attendance stats
   const attendedCount = sessions.filter((s) => s.is_attended).length;
@@ -145,6 +149,9 @@ export function StudentCourseDetailClient({ initialData }: StudentCourseDetailCl
         confirmed_at: res.status === 'confirmed' ? new Date().toISOString() : null,
       });
       setCanEnroll(false);
+      if (res.status === 'confirmed') {
+        setActiveTab('sessions');
+      }
       setActionMessage({ type: 'success', text: res.message || 'Enrollment processed successfully!' });
     } catch (err: any) {
       setActionMessage({ type: 'error', text: err.message || 'An unexpected error occurred.' });
@@ -366,7 +373,21 @@ export function StudentCourseDetailClient({ initialData }: StudentCourseDetailCl
           overflow: 'hidden',
         }}
       >
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', maxWidth: '880px' }}>
+        {course.cover_image_url && (
+          <div
+            style={{
+              position: 'absolute',
+              inset: 0,
+              backgroundImage: `url(${course.cover_image_url})`,
+              backgroundSize: 'cover',
+              backgroundPosition: 'center',
+              opacity: 0.18,
+              filter: 'blur(2px)',
+              pointerEvents: 'none',
+            }}
+          />
+        )}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', maxWidth: '880px', position: 'relative', zIndex: 1 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
             {course.category && (
               <span
@@ -525,69 +546,573 @@ export function StudentCourseDetailClient({ initialData }: StudentCourseDetailCl
         </div>
       </div>
 
-      {/* Course Workspace Navigation Tabs */}
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '0.6rem',
-          borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
-          paddingBottom: '0.75rem',
-          overflowX: 'auto',
-        }}
-      >
-        {[
-          { key: 'sessions', label: 'Sessions & Schedule', count: sessions.length, icon: Calendar },
-          { key: 'lessons', label: 'Lessons & Curriculum', count: lessons.length, icon: BookOpen },
-          { key: 'tasks', label: 'Tasks & Assignments', count: tasksList.length, icon: FileText },
-          { key: 'quizzes', label: 'Quizzes & Tests', count: quizzes.length, icon: Sparkles },
-        ].map((tab) => {
-          const isActive = activeTab === tab.key;
-          const Icon = tab.icon;
-          return (
-            <button
-              key={tab.key}
-              type="button"
-              onClick={() => setActiveTab(tab.key as any)}
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '0.6rem',
-                padding: '0.65rem 1.15rem',
-                borderRadius: '12px',
-                border: isActive ? '1px solid rgba(66, 133, 244, 0.5)' : '1px solid rgba(255, 255, 255, 0.08)',
-                background: isActive
-                  ? 'linear-gradient(135deg, rgba(66, 133, 244, 0.2) 0%, rgba(30, 41, 59, 0.9) 100%)'
-                  : 'rgba(255, 255, 255, 0.03)',
-                color: isActive ? '#60A5FA' : '#94A3B8',
-                fontSize: '0.88rem',
-                fontWeight: 700,
-                cursor: 'pointer',
-                transition: 'all 0.15s ease',
-                whiteSpace: 'nowrap',
-              }}
-            >
-              <Icon size={16} />
-              {tab.label}
-              <span
+      {/* Course Workspace Navigation Tabs (Only shown when enrolled or staff) */}
+      {isEnrolled && (
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.6rem',
+            borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
+            paddingBottom: '0.75rem',
+            overflowX: 'auto',
+          }}
+        >
+          {[
+            { key: 'overview', label: 'نظرة عامة عن الكورس', count: undefined, icon: BookOpen },
+            { key: 'sessions', label: 'الجلسات والجدول', count: sessions.length, icon: Calendar },
+            { key: 'lessons', label: 'المحاضرات والدروس', count: lessons.length, icon: Play },
+            { key: 'tasks', label: 'المهام والتكليفات', count: tasksList.length, icon: FileText },
+            { key: 'quizzes', label: 'الاختبارات والتقييمات', count: quizzes.length, icon: Sparkles },
+          ].map((tab) => {
+            const isActive = activeTab === tab.key;
+            const Icon = tab.icon;
+            return (
+              <button
+                key={tab.key}
+                type="button"
+                onClick={() => setActiveTab(tab.key as any)}
                 style={{
-                  padding: '0.1rem 0.45rem',
-                  borderRadius: '999px',
-                  fontSize: '0.72rem',
-                  fontWeight: 800,
-                  background: isActive ? '#4285F4' : 'rgba(255, 255, 255, 0.08)',
-                  color: isActive ? '#FFFFFF' : '#CBD5E1',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.6rem',
+                  padding: '0.65rem 1.15rem',
+                  borderRadius: '12px',
+                  border: isActive ? '1px solid rgba(66, 133, 244, 0.5)' : '1px solid rgba(255, 255, 255, 0.08)',
+                  background: isActive
+                    ? 'linear-gradient(135deg, rgba(66, 133, 244, 0.2) 0%, rgba(30, 41, 59, 0.9) 100%)'
+                    : 'rgba(255, 255, 255, 0.03)',
+                  color: isActive ? '#60A5FA' : '#94A3B8',
+                  fontSize: '0.88rem',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease',
+                  whiteSpace: 'nowrap',
                 }}
               >
-                {tab.count}
-              </span>
-            </button>
-          );
-        })}
-      </div>
+                <Icon size={16} />
+                {tab.label}
+                {tab.count !== undefined && (
+                  <span
+                    style={{
+                      padding: '0.1rem 0.45rem',
+                      borderRadius: '999px',
+                      fontSize: '0.72rem',
+                      fontWeight: 800,
+                      background: isActive ? '#4285F4' : 'rgba(255, 255, 255, 0.08)',
+                      color: isActive ? '#FFFFFF' : '#CBD5E1',
+                    }}
+                  >
+                    {tab.count}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      )}
 
-      {/* Main Content Layout: Modular LMS Workspace */}
-      {activeTab === 'sessions' && (
+      {/* ========================================================================= */}
+      {/* TAB 0: COURSE OVERVIEW (Exclusive view for non-enrolled students, or Overview tab for enrolled) */}
+      {/* ========================================================================= */}
+      {(!isEnrolled || activeTab === 'overview') && (
+        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(320px, 380px)', gap: '2rem', alignItems: 'start' }}>
+          {/* Left Column: Overview, Syllabus, Sessions outline, Instructors */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem', minWidth: 0 }}>
+            {/* 1. About the course */}
+            <div
+              className="glass-panel"
+              style={{
+                padding: '2rem',
+                borderRadius: '20px',
+                border: '1px solid rgba(255, 255, 255, 0.08)',
+                background: 'rgba(15, 23, 42, 0.65)',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '1rem',
+              }}
+            >
+              <h2 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#FFFFFF', margin: 0, display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                <BookOpen size={20} color="#4285F4" />
+                <span>عن الكورس ومخرجات المسار (About the Course)</span>
+              </h2>
+              <p style={{ color: '#CBD5E1', fontSize: '0.96rem', lineHeight: 1.7, margin: 0, whiteSpace: 'pre-line' }}>
+                {course.description || 'يقدم هذا المسار التعليمي تجربة تدريبية متكاملة مصممة من قِبل اللجان التقنية في GDGoC جامعة حلوان لبناء الكفاءات والمهارات المطلوبة في سوق العمل من خلال تطبيقات عملية وجلسات تفاعلية مستمرة.'}
+              </p>
+
+              {/* Learning Highlights Grid */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginTop: '0.5rem' }}>
+                <div style={{ padding: '1rem', borderRadius: '12px', background: 'rgba(66, 133, 244, 0.08)', border: '1px solid rgba(66, 133, 244, 0.2)' }}>
+                  <div style={{ fontSize: '0.8rem', color: '#60A5FA', fontWeight: 700 }}>نوع المسار</div>
+                  <div style={{ fontSize: '0.95rem', fontWeight: 800, color: '#FFFFFF', marginTop: '0.2rem' }}>{course.category || 'Technical Track'}</div>
+                </div>
+                <div style={{ padding: '1rem', borderRadius: '12px', background: 'rgba(52, 168, 83, 0.08)', border: '1px solid rgba(52, 168, 83, 0.2)' }}>
+                  <div style={{ fontSize: '0.8rem', color: '#34D399', fontWeight: 700 }}>إجمالي الساعات التدريبية</div>
+                  <div style={{ fontSize: '0.95rem', fontWeight: 800, color: '#FFFFFF', marginTop: '0.2rem' }}>~{totalHours} ساعة تدريبية</div>
+                </div>
+                <div style={{ padding: '1rem', borderRadius: '12px', background: 'rgba(251, 188, 4, 0.08)', border: '1px solid rgba(251, 188, 4, 0.2)' }}>
+                  <div style={{ fontSize: '0.8rem', color: '#FBBF24', fontWeight: 700 }}>الجلسات والورش</div>
+                  <div style={{ fontSize: '0.95rem', fontWeight: 800, color: '#FFFFFF', marginTop: '0.2rem' }}>{sessions.length} جلسات تفاعلية</div>
+                </div>
+                <div style={{ padding: '1rem', borderRadius: '12px', background: 'rgba(168, 85, 247, 0.08)', border: '1px solid rgba(168, 85, 247, 0.2)' }}>
+                  <div style={{ fontSize: '0.8rem', color: '#C084FC', fontWeight: 700 }}>الشهادة</div>
+                  <div style={{ fontSize: '0.95rem', fontWeight: 800, color: '#FFFFFF', marginTop: '0.2rem' }}>شهادة معتمدة من GDGoC</div>
+                </div>
+              </div>
+            </div>
+
+            {/* 2. Syllabus & Topics */}
+            {course.syllabus && (
+              <div
+                className="glass-panel"
+                style={{
+                  padding: '2rem',
+                  borderRadius: '20px',
+                  border: '1px solid rgba(255, 255, 255, 0.08)',
+                  background: 'rgba(15, 23, 42, 0.65)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '1rem',
+                }}
+              >
+                <h2 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#FFFFFF', margin: 0, display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                  <FileText size={20} color="#34A853" />
+                  <span>المنهج وخطة الدراسة (Syllabus & Curriculum)</span>
+                </h2>
+                <div style={{ color: '#CBD5E1', fontSize: '0.94rem', lineHeight: 1.7, whiteSpace: 'pre-line' }}>
+                  {course.syllabus}
+                </div>
+              </div>
+            )}
+
+            {/* 3. Sessions & Topics Outline */}
+            <div
+              className="glass-panel"
+              style={{
+                padding: '2rem',
+                borderRadius: '20px',
+                border: '1px solid rgba(255, 255, 255, 0.08)',
+                background: 'rgba(15, 23, 42, 0.65)',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '1.25rem',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem' }}>
+                <div>
+                  <h2 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#FFFFFF', margin: 0, display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                    <Calendar size={20} color="#F59E0B" />
+                    <span>الجلسات والمحاضرات المقررة ({sessions.length})</span>
+                  </h2>
+                  <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.84rem', color: '#94A3B8' }}>
+                    نظرة عامة على الجلسات والمواعيد المقررة لهذا المسار
+                  </p>
+                </div>
+                {!isEnrolled && (
+                  <span
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '0.4rem',
+                      padding: '0.3rem 0.75rem',
+                      borderRadius: '8px',
+                      background: 'rgba(255, 255, 255, 0.06)',
+                      border: '1px solid rgba(255, 255, 255, 0.12)',
+                      fontSize: '0.76rem',
+                      color: '#94A3B8',
+                      fontWeight: 600,
+                    }}
+                  >
+                    <Lock size={12} />
+                    المحتوى الكامل يفتح للمشتركين
+                  </span>
+                )}
+              </div>
+
+              {sessions.length === 0 ? (
+                <div style={{ padding: '2rem', textAlign: 'center', color: '#94A3B8', fontSize: '0.9rem' }}>
+                  سيتم الإعلان عن جدول الجلسات والمواعيد قريباً.
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
+                  {sessions.map((s) => {
+                    const isOnline = s.type === 'online';
+                    return (
+                      <div
+                        key={s.id}
+                        style={{
+                          padding: '1.15rem 1.35rem',
+                          borderRadius: '14px',
+                          background: 'rgba(255, 255, 255, 0.02)',
+                          border: '1px solid rgba(255, 255, 255, 0.06)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          flexWrap: 'wrap',
+                          gap: '1rem',
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.9rem', minWidth: 0 }}>
+                          <div
+                            style={{
+                              width: '38px',
+                              height: '38px',
+                              borderRadius: '10px',
+                              background: isOnline ? 'rgba(234, 67, 53, 0.15)' : 'rgba(66, 133, 244, 0.15)',
+                              color: isOnline ? '#F87171' : '#60A5FA',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              fontWeight: 800,
+                              fontSize: '0.85rem',
+                              flexShrink: 0,
+                            }}
+                          >
+                            #{s.session_number}
+                          </div>
+                          <div>
+                            <div style={{ fontSize: '0.95rem', fontWeight: 700, color: '#FFFFFF' }}>
+                              {s.title}
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginTop: '0.2rem', fontSize: '0.78rem', color: '#94A3B8', flexWrap: 'wrap' }}>
+                              <span>{new Date(s.session_date).toLocaleDateString('ar-EG', { weekday: 'long', year: 'numeric', month: 'short', day: 'numeric' })}</span>
+                              <span>•</span>
+                              <span>{s.duration_minutes || 120} دقيقة</span>
+                              <span>•</span>
+                              <span style={{ color: isOnline ? '#F87171' : '#34D399', fontWeight: 600 }}>
+                                {isOnline ? 'أونلاين (Online)' : (s.venue || 'مقر الشابتر بالجامعة')}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {!isEnrolled ? (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: '#64748B', fontSize: '0.78rem', fontWeight: 600 }}>
+                            <Lock size={14} />
+                            <span>محتوى مقفل</span>
+                          </div>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setActiveTab('sessions');
+                              setActiveSessionId(s.id);
+                            }}
+                            style={{
+                              padding: '0.45rem 0.9rem',
+                              borderRadius: '8px',
+                              background: 'rgba(66, 133, 244, 0.15)',
+                              border: '1px solid rgba(66, 133, 244, 0.3)',
+                              color: '#60A5FA',
+                              fontSize: '0.8rem',
+                              fontWeight: 700,
+                              cursor: 'pointer',
+                            }}
+                          >
+                            عرض الجلسة
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* 4. Instructors & Mentors */}
+            <div
+              className="glass-panel"
+              style={{
+                padding: '2rem',
+                borderRadius: '20px',
+                border: '1px solid rgba(255, 255, 255, 0.08)',
+                background: 'rgba(15, 23, 42, 0.65)',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '1.25rem',
+              }}
+            >
+              <h2 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#FFFFFF', margin: 0, display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                <GraduationCap size={22} color="#10B981" />
+                <span>فريق التدريس والمرشدين (Instructors & Mentors)</span>
+              </h2>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1rem' }}>
+                {instructors.map((ins) => (
+                  <div
+                    key={ins.id}
+                    style={{
+                      padding: '1.25rem',
+                      borderRadius: '14px',
+                      background: 'rgba(255, 255, 255, 0.02)',
+                      border: '1px solid rgba(255, 255, 255, 0.06)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.85rem',
+                    }}
+                  >
+                    <div
+                      style={{
+                        width: '46px',
+                        height: '46px',
+                        borderRadius: '50%',
+                        background: ins.role === 'instructor' ? '#4285F4' : '#10B981',
+                        color: '#FFFFFF',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontWeight: 800,
+                        fontSize: '1rem',
+                        overflow: 'hidden',
+                        flexShrink: 0,
+                      }}
+                    >
+                      {ins.avatar_url ? (
+                        <img src={ins.avatar_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      ) : (
+                        ins.full_name.slice(0, 1).toUpperCase()
+                      )}
+                    </div>
+                    <div>
+                      <div style={{ fontSize: '0.95rem', fontWeight: 800, color: '#FFFFFF' }}>
+                        {ins.full_name}
+                      </div>
+                      <div style={{ fontSize: '0.78rem', color: '#94A3B8', marginTop: '0.15rem' }}>
+                        {ins.department_name || ins.committee_role}
+                      </div>
+                      <span
+                        style={{
+                          display: 'inline-block',
+                          marginTop: '0.35rem',
+                          padding: '0.15rem 0.5rem',
+                          borderRadius: '4px',
+                          fontSize: '0.68rem',
+                          fontWeight: 800,
+                          textTransform: 'uppercase',
+                          background: ins.role === 'instructor' ? 'rgba(66, 133, 244, 0.15)' : 'rgba(52, 168, 83, 0.15)',
+                          color: ins.role === 'instructor' ? '#60A5FA' : '#34D399',
+                        }}
+                      >
+                        {ins.role}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Right Column: Sticky Admission & Enrollment Card */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', position: 'sticky', top: '5rem' }}>
+            {/* Cover Image Preview Card if available */}
+            {course.cover_image_url && (
+              <div
+                style={{
+                  width: '100%',
+                  aspectRatio: '16/9',
+                  borderRadius: '16px',
+                  overflow: 'hidden',
+                  border: '1px solid rgba(255, 255, 255, 0.15)',
+                  backgroundImage: `url(${course.cover_image_url})`,
+                  backgroundSize: 'cover',
+                  backgroundPosition: 'center',
+                  boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
+                }}
+              />
+            )}
+
+            {/* Admission Action Card */}
+            <div
+              className="glass-panel"
+              style={{
+                padding: '1.75rem',
+                borderRadius: '20px',
+                border: '1px solid rgba(66, 133, 244, 0.35)',
+                background: 'linear-gradient(135deg, rgba(66, 133, 244, 0.12) 0%, rgba(15, 23, 42, 0.95) 100%)',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '1.25rem',
+                boxShadow: '0 10px 30px rgba(0,0,0,0.5)',
+              }}
+            >
+              <div>
+                <div style={{ fontSize: '0.75rem', color: '#60A5FA', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                  {isConfirmed ? 'أنت مشترك بالفعل' : 'التسجيل والقبول'}
+                </div>
+                <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#FFFFFF', margin: '0.35rem 0 0 0' }}>
+                  {isConfirmed
+                    ? 'أنت مسجل في هذا المسار ✓'
+                    : isPending
+                    ? 'طلب انضمامك قيد المراجعة'
+                    : isWaitlisted
+                    ? 'أنت على قائمة الانتظار'
+                    : course.enrollment_type === 'open'
+                    ? 'انضم إلى مسار الكورس الآن'
+                    : 'تقديم طلب انضمام للمسار'}
+                </h3>
+              </div>
+
+              {/* Status Message */}
+              <p style={{ color: '#94A3B8', fontSize: '0.86rem', lineHeight: 1.6, margin: 0 }}>
+                {isConfirmed
+                  ? 'تم تأكيد اشتراكك في الكورس! يمكنك الآن الدخول إلى الجلسات والمحاضرات وتسليم المهام والاختبارات.'
+                  : isPending
+                  ? 'تم استلام طلبك بنجاح وهو قيد المراجعة والاعتماد من المحاضرين وإدارة الشابتر.'
+                  : isWaitlisted
+                  ? 'تم تسجيلك في قائمة الانتظار، وسيتم إشعارك فور توفر مقعد شاغر في هذا المسار.'
+                  : course.enrollment_type === 'open'
+                  ? 'القبول فوري ومجاني لجميع طلاب جامعة حلوان، اضغط على الزر أدناه لتأكيد حجز مكانك والبدء فوراً.'
+                  : 'يتطلب هذا المسار مراجعة وقبول من فريق التدريس لضمان توافق المتطلبات.'}
+              </p>
+
+              {/* Action Button */}
+              {isConfirmed ? (
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('sessions')}
+                  style={{
+                    width: '100%',
+                    padding: '0.9rem',
+                    borderRadius: '12px',
+                    background: '#34A853',
+                    color: '#FFFFFF',
+                    fontWeight: 800,
+                    fontSize: '0.95rem',
+                    border: 'none',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '0.5rem',
+                    boxShadow: '0 4px 14px rgba(52, 168, 83, 0.4)',
+                  }}
+                >
+                  <BookOpen size={18} />
+                  <span>دخول مساحة التعلم (Go to Sessions)</span>
+                </button>
+              ) : isPending ? (
+                <div
+                  style={{
+                    padding: '0.9rem',
+                    borderRadius: '12px',
+                    background: 'rgba(251, 188, 4, 0.15)',
+                    border: '1px solid rgba(251, 188, 4, 0.35)',
+                    color: '#FBBF24',
+                    fontWeight: 700,
+                    fontSize: '0.88rem',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '0.5rem',
+                  }}
+                >
+                  <Clock3 size={18} />
+                  <span>بانتظار موافقة المدرب...</span>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  disabled={isSubmitting}
+                  onClick={handleEnroll}
+                  style={{
+                    width: '100%',
+                    padding: '0.95rem',
+                    borderRadius: '12px',
+                    background: course.is_full ? '#A855F7' : '#4285F4',
+                    color: '#FFFFFF',
+                    fontWeight: 800,
+                    fontSize: '0.95rem',
+                    border: 'none',
+                    cursor: isSubmitting ? 'not-allowed' : 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '0.5rem',
+                    boxShadow: '0 4px 14px rgba(66, 133, 244, 0.4)',
+                    transition: 'all 0.15s ease',
+                  }}
+                >
+                  {isSubmitting ? (
+                    'جارٍ المعالجة...'
+                  ) : course.is_full ? (
+                    'الانضمام لقائمة الانتظار'
+                  ) : course.enrollment_type === 'open' ? (
+                    <>
+                      <Sparkles size={18} />
+                      <span>اشترك في الكورس الآن (فوري)</span>
+                    </>
+                  ) : (
+                    <>
+                      <Send size={18} />
+                      <span>إرسال طلب الانضمام</span>
+                    </>
+                  )}
+                </button>
+              )}
+
+              {/* What you will get */}
+              <div style={{ borderTop: '1px solid rgba(255, 255, 255, 0.08)', paddingTop: '1rem', display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
+                <div style={{ fontSize: '0.78rem', color: '#94A3B8', fontWeight: 700 }}>ماذا يشمل اشتراكك في الكورس:</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.82rem', color: '#E2E8F0' }}>
+                  <CheckCircle2 size={15} color="#34A853" />
+                  <span>حضور جميع الجلسات التفاعلية والنقاشات</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.82rem', color: '#E2E8F0' }}>
+                  <CheckCircle2 size={15} color="#34A853" />
+                  <span>تسجيلات المحاضرات وملفات الشرح و السلايدات</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.82rem', color: '#E2E8F0' }}>
+                  <CheckCircle2 size={15} color="#34A853" />
+                  <span>تسليم المهام والمشاريع واستلام التقييم</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.82rem', color: '#E2E8F0' }}>
+                  <CheckCircle2 size={15} color="#34A853" />
+                  <span>الاختبارات الإلكترونية لقياس استيعابك</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.82rem', color: '#E2E8F0' }}>
+                  <CheckCircle2 size={15} color="#34A853" />
+                  <span>شهادة حضور رسمية معتمدة عند إتمام المسار</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Additional Track Info Card */}
+            <div
+              className="glass-panel"
+              style={{
+                padding: '1.25rem 1.5rem',
+                borderRadius: '16px',
+                border: '1px solid rgba(255, 255, 255, 0.08)',
+                background: 'rgba(15, 23, 42, 0.6)',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '0.85rem',
+                fontSize: '0.85rem',
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', color: '#94A3B8' }}>
+                <span>القسم المنظم:</span>
+                <span style={{ color: '#FFFFFF', fontWeight: 600 }}>{course.department_name || 'Technical'}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', color: '#94A3B8' }}>
+                <span>نظام الحضور:</span>
+                <span style={{ color: '#FFFFFF', fontWeight: 600 }}>مختلط (حضوري + أونلاين)</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', color: '#94A3B8' }}>
+                <span>المقاعد المكتملة:</span>
+                <span style={{ color: '#FFFFFF', fontWeight: 600 }}>{course.enrollment_count} {course.capacity ? `/ ${course.capacity}` : ''}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', color: '#94A3B8' }}>
+                <span>حالة المسار:</span>
+                <span style={{ color: '#34D399', fontWeight: 700 }}>نشط ومتاح للتسجيل</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Main Content Layout: Modular LMS Workspace (Sessions Tab) */}
+      {isEnrolled && activeTab === 'sessions' && (
         <div style={{ display: 'grid', gridTemplateColumns: 'minmax(300px, 360px) 1fr', gap: '2rem', alignItems: 'start' }}>
         {/* ========================================================================= */}
         {/* LEFT COLUMN: Modular Session Navigator & Learning Progress */}
@@ -1574,7 +2099,7 @@ export function StudentCourseDetailClient({ initialData }: StudentCourseDetailCl
       {/* ========================================================================= */}
       {/* TAB 2: LESSONS & CURRICULUM */}
       {/* ========================================================================= */}
-      {activeTab === 'lessons' && (
+      {isEnrolled && activeTab === 'lessons' && (
         <div style={{ display: 'grid', gridTemplateColumns: 'minmax(300px, 360px) 1fr', gap: '2rem', alignItems: 'start' }}>
           {/* Left Column: Lessons Navigation */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
@@ -2058,7 +2583,7 @@ export function StudentCourseDetailClient({ initialData }: StudentCourseDetailCl
       {/* ========================================================================= */}
       {/* TAB 3: TASKS & ASSIGNMENTS */}
       {/* ========================================================================= */}
-      {activeTab === 'tasks' && (
+      {isEnrolled && activeTab === 'tasks' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
           {/* Header Overview Card */}
           <div
@@ -2442,7 +2967,7 @@ export function StudentCourseDetailClient({ initialData }: StudentCourseDetailCl
       {/* ========================================================================= */}
       {/* TAB 4: QUIZZES & TESTS */}
       {/* ========================================================================= */}
-      {activeTab === 'quizzes' && (
+      {isEnrolled && activeTab === 'quizzes' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
           {/* Header Overview Card */}
           <div
