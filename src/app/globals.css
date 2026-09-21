@@ -926,7 +926,7 @@ body[dir="rtl"] select,
 
 /* Mobile Sticky Bottom Navigation Bar (Hidden on desktop, active on mobile) */
 .student-mobile-bottom-nav {
-  display: none;
+  display: none !important;
 }
 
 @media (max-width: 768px) {
@@ -1059,4 +1059,55 @@ body[dir="rtl"] select,
     justify-content: center !important;
   }
 }
+
+/* Ensure all select elements never overflow their containers on mobile */
+select {
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+/* Course Detail Responsive Layouts */
+.student-course-detail-container {
+  max-width: 1360px;
+  margin: 0 auto;
+  padding: 2rem 2.5rem 5rem 2.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+.student-course-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 360px;
+  gap: 2rem;
+  align-items: start;
+}
+
+.student-course-sidebar-layout {
+  display: grid;
+  grid-template-columns: 340px minmax(0, 1fr);
+  gap: 2rem;
+  align-items: start;
+}
+
+@media (max-width: 1024px) {
+  .student-course-layout,
+  .student-course-sidebar-layout {
+    grid-template-columns: 1fr !important;
+    gap: 1.5rem !important;
+  }
+}
+
+@media (max-width: 768px) {
+  .student-course-detail-container {
+    padding: 1rem 0.85rem calc(80px + env(safe-area-inset-bottom, 0px)) !important;
+    gap: 1.25rem !important;
+  }
+
+  .student-course-hero {
+    padding: 1.25rem 1rem !important;
+    border-radius: 16px !important;
+  }
+}
+
 

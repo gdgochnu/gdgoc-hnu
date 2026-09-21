@@ -344,14 +344,17 @@ export function StudentCoursesCatalogClient({
         </div>
 
         {/* Dropdowns row: Committee & Track */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem', flexWrap: 'wrap', width: '100%' }}>
           {/* Committee Filter */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <span style={{ fontSize: '0.78rem', color: '#94A3B8', fontWeight: 600 }}>Committee:</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', flex: '1 1 220px', minWidth: 0, maxWidth: '100%' }}>
+            <span style={{ fontSize: '0.78rem', color: '#94A3B8', fontWeight: 600, flexShrink: 0 }}>Committee:</span>
             <select
               value={selectedDept}
               onChange={(e) => setSelectedDept(e.target.value)}
               style={{
+                width: '100%',
+                maxWidth: '100%',
+                minWidth: 0,
                 padding: '0.45rem 0.85rem',
                 borderRadius: '8px',
                 background: 'rgba(255, 255, 255, 0.05)',
@@ -360,6 +363,8 @@ export function StudentCoursesCatalogClient({
                 fontSize: '0.82rem',
                 outline: 'none',
                 cursor: 'pointer',
+                textOverflow: 'ellipsis',
+                boxSizing: 'border-box',
               }}
             >
               <option value="all" style={{ background: '#0F172A', color: '#FFFFFF' }}>
@@ -375,12 +380,15 @@ export function StudentCoursesCatalogClient({
 
           {/* Category / Track Filter */}
           {categories.length > 0 && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <span style={{ fontSize: '0.78rem', color: '#94A3B8', fontWeight: 600 }}>Track:</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', flex: '1 1 180px', minWidth: 0, maxWidth: '100%' }}>
+              <span style={{ fontSize: '0.78rem', color: '#94A3B8', fontWeight: 600, flexShrink: 0 }}>Track:</span>
               <select
                 value={selectedCategory}
                 onChange={(e) => setSelectedCategory(e.target.value)}
                 style={{
+                  width: '100%',
+                  maxWidth: '100%',
+                  minWidth: 0,
                   padding: '0.45rem 0.85rem',
                   borderRadius: '8px',
                   background: 'rgba(255, 255, 255, 0.05)',
@@ -389,6 +397,8 @@ export function StudentCoursesCatalogClient({
                   fontSize: '0.82rem',
                   outline: 'none',
                   cursor: 'pointer',
+                  textOverflow: 'ellipsis',
+                  boxSizing: 'border-box',
                 }}
               >
                 <option value="all" style={{ background: '#0F172A', color: '#FFFFFF' }}>

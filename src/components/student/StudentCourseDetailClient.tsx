@@ -240,16 +240,7 @@ export function StudentCourseDetailClient({ initialData }: StudentCourseDetailCl
   };
 
   return (
-    <div
-      style={{
-        maxWidth: '1360px',
-        margin: '0 auto',
-        padding: '2rem 2.5rem 4rem 2.5rem',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '2rem',
-      }}
-    >
+    <div className="student-course-detail-container">
       {/* Top Breadcrumb & Quick Actions */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', fontSize: '0.88rem' }}>
@@ -363,7 +354,7 @@ export function StudentCourseDetailClient({ initialData }: StudentCourseDetailCl
 
       {/* Course Hero Banner */}
       <div
-        className="glass-panel"
+        className="glass-panel student-course-hero"
         style={{
           borderRadius: '20px',
           border: '1px solid rgba(255, 255, 255, 0.08)',
@@ -549,6 +540,7 @@ export function StudentCourseDetailClient({ initialData }: StudentCourseDetailCl
       {/* Course Workspace Navigation Tabs (Only shown when enrolled or staff) */}
       {isEnrolled && (
         <div
+          className="student-scroll-tabs"
           style={{
             display: 'flex',
             alignItems: 'center',
@@ -616,7 +608,7 @@ export function StudentCourseDetailClient({ initialData }: StudentCourseDetailCl
       {/* TAB 0: COURSE OVERVIEW (Exclusive view for non-enrolled students, or Overview tab for enrolled) */}
       {/* ========================================================================= */}
       {(!isEnrolled || activeTab === 'overview') && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(320px, 380px)', gap: '2rem', alignItems: 'start' }}>
+        <div className="student-course-layout">
           {/* Left Column: Overview, Syllabus, Sessions outline, Instructors */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem', minWidth: 0 }}>
             {/* 1. About the course */}
@@ -1114,7 +1106,7 @@ export function StudentCourseDetailClient({ initialData }: StudentCourseDetailCl
 
       {/* Main Content Layout: Modular LMS Workspace (Sessions Tab) */}
       {isEnrolled && activeTab === 'sessions' && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(300px, 360px) 1fr', gap: '2rem', alignItems: 'start' }}>
+        <div className="student-course-sidebar-layout">
         {/* ========================================================================= */}
         {/* LEFT COLUMN: Modular Session Navigator & Learning Progress */}
         {/* ========================================================================= */}
@@ -2101,7 +2093,7 @@ export function StudentCourseDetailClient({ initialData }: StudentCourseDetailCl
       {/* TAB 2: LESSONS & CURRICULUM */}
       {/* ========================================================================= */}
       {isEnrolled && activeTab === 'lessons' && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(300px, 360px) 1fr', gap: '2rem', alignItems: 'start' }}>
+        <div className="student-course-sidebar-layout">
           {/* Left Column: Lessons Navigation */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
             <div
@@ -3024,7 +3016,7 @@ export function StudentCourseDetailClient({ initialData }: StudentCourseDetailCl
               </div>
             </div>
           ) : (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(360px, 1fr))', gap: '1.25rem' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 280px), 1fr))', gap: '1.25rem' }}>
               {quizzes.map((q) => {
                 const attempts = q.my_attempts || [];
                 const latestAttempt = attempts[attempts.length - 1];
