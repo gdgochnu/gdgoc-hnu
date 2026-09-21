@@ -1,7 +1,6 @@
 import React from 'react';
 import { Metadata } from 'next';
 import { redirect } from 'next/navigation';
-import { AppShell } from '@/components/layout/AppShell';
 import { getQuizAttemptsForReview } from './actions';
 import { QuizReviewClient } from '@/components/student-portal/admin/QuizReviewClient';
 
@@ -36,13 +35,11 @@ export default async function QuizReviewPage({
   }
 
   return (
-    <AppShell>
-      <QuizReviewClient
-        courseId={id}
-        courseTitle={result.course?.title || 'Course'}
-        quiz={result.quiz}
-        initialAttempts={result.attempts}
-      />
-    </AppShell>
+    <QuizReviewClient
+      courseId={id}
+      courseTitle={result.course?.title || 'Course'}
+      quiz={result.quiz}
+      initialAttempts={result.attempts}
+    />
   );
 }
