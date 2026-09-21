@@ -33,6 +33,11 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
+  // Only cache GET requests. Cache API does not support POST, PUT, DELETE, etc.
+  if (event.request.method !== 'GET') {
+    return;
+  }
+
   // Navigation requests: network first with cache fallback
   if (event.request.mode === 'navigate') {
     event.respondWith(

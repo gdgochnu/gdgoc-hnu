@@ -575,21 +575,22 @@ export function StudentAppShell({ student, teamRole, children }: StudentAppShell
           }}
           className="student-topbar"
         >
-          {/* Left: Mobile Menu + Breadcrumb */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
+          {/* Left: Mobile Menu + Title */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
             <button
               type="button"
               onClick={() => setIsMobileOpen(true)}
               style={{
                 background: 'rgba(255, 255, 255, 0.06)',
                 border: '1px solid rgba(255, 255, 255, 0.1)',
-                borderRadius: '8px',
-                width: '36px',
-                height: '36px',
+                borderRadius: '10px',
+                width: '38px',
+                height: '38px',
                 color: '#CBD5E1',
                 alignItems: 'center',
                 justifyContent: 'center',
                 cursor: 'pointer',
+                flexShrink: 0,
               }}
               className="student-mobile-menu-btn"
               aria-label="Open mobile menu"
@@ -597,13 +598,15 @@ export function StudentAppShell({ student, teamRole, children }: StudentAppShell
               <Menu size={18} />
             </button>
 
-            {/* Breadcrumb */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', fontSize: '0.86rem' }}>
-              <span style={{ color: 'var(--text-muted, #64748B)', whiteSpace: 'nowrap' }}>
-                Student Portal
+            {/* Breadcrumb / Title */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+              <span
+                style={{ color: 'var(--text-muted, #64748B)', whiteSpace: 'nowrap', fontSize: '0.85rem' }}
+                className="student-topbar-breadcrumb-prefix"
+              >
+                Student Portal <span style={{ color: 'rgba(255, 255, 255, 0.2)', margin: '0 0.2rem' }}>/</span>
               </span>
-              <span style={{ color: 'rgba(255, 255, 255, 0.2)' }}>/</span>
-              <span style={{ color: '#FFFFFF', fontWeight: 700 }}>
+              <span style={{ color: '#FFFFFF', fontWeight: 800, fontSize: '1rem', letterSpacing: '-0.01em' }}>
                 {currentPageTitle}
               </span>
             </div>
@@ -632,12 +635,11 @@ export function StudentAppShell({ student, teamRole, children }: StudentAppShell
           </div>
 
           {/* Right Controls */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-            {/* Quick Attendance Pass Shortcut Button */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+            {/* Quick Attendance Pass Shortcut Button (Desktop Only: hidden on mobile) */}
             <Link
               href="/student/my-qr"
               style={{
-                display: 'flex',
                 alignItems: 'center',
                 gap: '0.45rem',
                 padding: '0.38rem 0.8rem',
@@ -651,10 +653,11 @@ export function StudentAppShell({ student, teamRole, children }: StudentAppShell
                 fontFamily: 'monospace',
                 transition: 'all 0.15s ease',
               }}
+              className="student-topbar-qr-badge"
               title="Open Permanent Attendance Pass"
             >
               <QrCode size={14} />
-              <span title="Click to view your full Attendance QR Code">
+              <span>
                 QR-••••{student.qr_code ? student.qr_code.slice(-6) : '------'}
               </span>
             </Link>
@@ -690,17 +693,20 @@ export function StudentAppShell({ student, teamRole, children }: StudentAppShell
               style={{
                 display: 'flex',
                 alignItems: 'center',
-                gap: '0.5rem',
-                padding: '0.25rem 0.5rem',
+                gap: '0.45rem',
+                padding: '0.2rem 0.45rem 0.2rem 0.2rem',
                 borderRadius: '999px',
                 background: 'rgba(255, 255, 255, 0.05)',
                 border: '1px solid rgba(255, 255, 255, 0.1)',
+                cursor: 'pointer',
               }}
+              onClick={() => setIsMobileOpen(true)}
+              title="Open Navigation Menu"
             >
               <div
                 style={{
-                  width: '28px',
-                  height: '28px',
+                  width: '32px',
+                  height: '32px',
                   borderRadius: '50%',
                   background: 'linear-gradient(135deg, #3B82F6, #1D4ED8)',
                   display: 'flex',
@@ -708,8 +714,9 @@ export function StudentAppShell({ student, teamRole, children }: StudentAppShell
                   justifyContent: 'center',
                   color: '#FFFFFF',
                   fontWeight: 800,
-                  fontSize: '0.76rem',
+                  fontSize: '0.8rem',
                   overflow: 'hidden',
+                  flexShrink: 0,
                 }}
               >
                 {student.avatar_url ? (
@@ -723,10 +730,11 @@ export function StudentAppShell({ student, teamRole, children }: StudentAppShell
                   fontSize: '0.8rem',
                   fontWeight: 600,
                   color: '#E2E8F0',
-                  maxWidth: '120px',
+                  maxWidth: '100px',
                   overflow: 'hidden',
                   textOverflow: 'ellipsis',
                   whiteSpace: 'nowrap',
+                  paddingRight: '0.35rem',
                 }}
                 className="student-topbar-name"
               >
@@ -910,44 +918,151 @@ export function StudentAppShell({ student, teamRole, children }: StudentAppShell
       {/* ========================================================================= */}
       {/* MOBILE BOTTOM NAVIGATION BAR */}
       {/* ========================================================================= */}
-      <nav className="student-mobile-bottom-nav" aria-label="Student Mobile Navigation">
+      <nav
+        className="student-mobile-bottom-nav"
+        aria-label="Student Mobile Navigation"
+        style={{
+          position: 'fixed',
+          bottom: 0,
+          left: 0,
+          right: 0,
+          background: 'rgba(11, 15, 25, 0.96)',
+          backdropFilter: 'blur(24px)',
+          WebkitBackdropFilter: 'blur(24px)',
+          borderTop: '1px solid rgba(255, 255, 255, 0.1)',
+          zIndex: 99,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-around',
+          boxShadow: '0 -8px 30px rgba(0, 0, 0, 0.6)',
+        }}
+      >
         <Link
           href="/student/dashboard"
           className={`student-mobile-nav-item ${pathname === '/student/dashboard' ? 'active' : ''}`}
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            flex: 1,
+            height: '100%',
+            color: pathname === '/student/dashboard' ? '#60A5FA' : '#94A3B8',
+            textDecoration: 'none',
+            fontSize: '0.68rem',
+            fontWeight: pathname === '/student/dashboard' ? 700 : 500,
+            gap: '3px',
+            WebkitTapHighlightColor: 'transparent',
+          }}
         >
-          <LayoutGrid size={20} />
-          <span>Dashboard</span>
+          <LayoutGrid size={20} color={pathname === '/student/dashboard' ? '#60A5FA' : '#94A3B8'} />
+          <span style={{ fontSize: '0.68rem', textDecoration: 'none' }}>Dashboard</span>
         </Link>
+
         <Link
           href="/student/courses"
           className={`student-mobile-nav-item ${pathname?.startsWith('/student/courses') ? 'active' : ''}`}
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            flex: 1,
+            height: '100%',
+            color: pathname?.startsWith('/student/courses') ? '#60A5FA' : '#94A3B8',
+            textDecoration: 'none',
+            fontSize: '0.68rem',
+            fontWeight: pathname?.startsWith('/student/courses') ? 700 : 500,
+            gap: '3px',
+            WebkitTapHighlightColor: 'transparent',
+          }}
         >
-          <BookOpen size={20} />
-          <span>Courses</span>
+          <BookOpen size={20} color={pathname?.startsWith('/student/courses') ? '#60A5FA' : '#94A3B8'} />
+          <span style={{ fontSize: '0.68rem', textDecoration: 'none' }}>Courses</span>
         </Link>
+
+        {/* Primary Raised Action: QR Pass */}
         <Link
           href="/student/my-qr"
           className={`student-mobile-nav-item primary-action ${pathname === '/student/my-qr' ? 'active' : ''}`}
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            flex: 1,
+            height: '100%',
+            marginTop: '-18px',
+            color: '#93C5FD',
+            textDecoration: 'none',
+            fontSize: '0.68rem',
+            fontWeight: 700,
+            gap: '2px',
+            WebkitTapHighlightColor: 'transparent',
+          }}
           aria-label="My Attendance QR Pass"
         >
-          <div className="action-circle">
-            <QrCode size={22} />
+          <div
+            className="action-circle"
+            style={{
+              width: '46px',
+              height: '46px',
+              borderRadius: '50%',
+              background: 'linear-gradient(135deg, #4285F4 0%, #1D4ED8 100%)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: '#FFFFFF',
+              boxShadow: '0 4px 16px rgba(66, 133, 244, 0.5), 0 0 0 3px rgba(11, 15, 25, 0.95)',
+            }}
+          >
+            <QrCode size={22} color="#FFFFFF" />
           </div>
-          <span style={{ marginTop: '2px', fontWeight: 700 }}>Pass</span>
+          <span style={{ fontSize: '0.68rem', fontWeight: 700, textDecoration: 'none' }}>Pass</span>
         </Link>
+
         <Link
           href="/student/workshops"
           className={`student-mobile-nav-item ${pathname?.startsWith('/student/workshops') ? 'active' : ''}`}
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            flex: 1,
+            height: '100%',
+            color: pathname?.startsWith('/student/workshops') ? '#60A5FA' : '#94A3B8',
+            textDecoration: 'none',
+            fontSize: '0.68rem',
+            fontWeight: pathname?.startsWith('/student/workshops') ? 700 : 500,
+            gap: '3px',
+            WebkitTapHighlightColor: 'transparent',
+          }}
         >
-          <Calendar size={20} />
-          <span>Workshops</span>
+          <Calendar size={20} color={pathname?.startsWith('/student/workshops') ? '#60A5FA' : '#94A3B8'} />
+          <span style={{ fontSize: '0.68rem', textDecoration: 'none' }}>Workshops</span>
         </Link>
+
         <Link
           href="/student/certificates"
           className={`student-mobile-nav-item ${pathname?.startsWith('/student/certificates') ? 'active' : ''}`}
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            flex: 1,
+            height: '100%',
+            color: pathname?.startsWith('/student/certificates') ? '#60A5FA' : '#94A3B8',
+            textDecoration: 'none',
+            fontSize: '0.68rem',
+            fontWeight: pathname?.startsWith('/student/certificates') ? 700 : 500,
+            gap: '3px',
+            WebkitTapHighlightColor: 'transparent',
+          }}
         >
-          <Award size={20} />
-          <span>Certificates</span>
+          <Award size={20} color={pathname?.startsWith('/student/certificates') ? '#60A5FA' : '#94A3B8'} />
+          <span style={{ fontSize: '0.68rem', textDecoration: 'none' }}>Certificates</span>
         </Link>
       </nav>
     </div>

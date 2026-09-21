@@ -803,6 +803,21 @@ body[dir="rtl"] select,
   .student-topbar-name {
     display: none !important;
   }
+
+  /* Hide bulky QR code badge on mobile (user has the bottom nav Pass button) */
+  .student-topbar-qr-badge {
+    display: none !important;
+  }
+
+  /* Hide "Student Portal /" prefix on mobile to save space for page title */
+  .student-topbar-breadcrumb-prefix {
+    display: none !important;
+  }
+}
+
+/* Default state on desktop */
+.student-topbar-qr-badge {
+  display: flex !important;
 }
 
 @media (max-width: 640px) {
@@ -921,16 +936,76 @@ body[dir="rtl"] select,
     bottom: 0 !important;
     left: 0 !important;
     right: 0 !important;
-    height: calc(60px + env(safe-area-inset-bottom, 0px)) !important;
-    padding-bottom: env(safe-area-inset-bottom, 0px) !important;
-    background: rgba(11, 15, 25, 0.94) !important;
-    backdrop-filter: blur(20px) !important;
-    -webkit-backdrop-filter: blur(20px) !important;
+    height: calc(64px + env(safe-area-inset-bottom, 0px)) !important;
+    padding: 0 0.5rem env(safe-area-inset-bottom, 0px) !important;
+    background: rgba(11, 15, 25, 0.96) !important;
+    backdrop-filter: blur(24px) !important;
+    -webkit-backdrop-filter: blur(24px) !important;
     border-top: 1px solid rgba(255, 255, 255, 0.1) !important;
     z-index: 99 !important;
     align-items: center !important;
     justify-content: space-around !important;
-    box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.5) !important;
+    box-shadow: 0 -8px 30px rgba(0, 0, 0, 0.6) !important;
+  }
+
+  .student-mobile-nav-item {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
+    flex: 1 !important;
+    min-width: 0 !important;
+    height: 100% !important;
+    color: #94A3B8 !important;
+    text-decoration: none !important;
+    font-size: 0.68rem !important;
+    font-weight: 600 !important;
+    gap: 3px !important;
+    transition: color 0.15s ease, transform 0.15s ease !important;
+    padding: 4px 2px !important;
+    -webkit-tap-highlight-color: transparent !important;
+  }
+
+  .student-mobile-nav-item span {
+    font-size: 0.68rem !important;
+    letter-spacing: -0.01em !important;
+    white-space: nowrap !important;
+    text-overflow: ellipsis !important;
+    overflow: hidden !important;
+    text-decoration: none !important;
+  }
+
+  .student-mobile-nav-item.active {
+    color: #60A5FA !important;
+    font-weight: 700 !important;
+  }
+
+  /* Center Raised "Pass" Action */
+  .student-mobile-nav-item.primary-action {
+    position: relative !important;
+    margin-top: -18px !important;
+    color: #93C5FD !important;
+  }
+
+  .student-mobile-nav-item.primary-action .action-circle {
+    width: 46px !important;
+    height: 46px !important;
+    border-radius: 50% !important;
+    background: linear-gradient(135deg, #4285F4 0%, #1D4ED8 100%) !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    color: #FFFFFF !important;
+    box-shadow: 0 4px 16px rgba(66, 133, 244, 0.5), 0 0 0 3px rgba(11, 15, 25, 0.95) !important;
+    transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1) !important;
+  }
+
+  .student-mobile-nav-item.primary-action:active .action-circle {
+    transform: scale(0.92) !important;
+  }
+
+  .student-mobile-nav-item.primary-action.active .action-circle {
+    box-shadow: 0 4px 20px rgba(66, 133, 244, 0.7), 0 0 0 3px #3B82F6 !important;
   }
 
   /* Ensure page content has bottom padding so it is never obscured by the bottom bar */
