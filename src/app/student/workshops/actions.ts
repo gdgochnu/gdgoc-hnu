@@ -308,7 +308,7 @@ export async function getWorkshopDetail(workshopId: string): Promise<{
     const admin = createAdminClient();
     const context = await getUserContext();
     const userId = context.user?.id || null;
-    const teamProfile = context.profile;
+    const teamProfile = context.profile?.status === 'active' ? context.profile : null;
 
     let studentProfileId: string | null = null;
     let needsOnboarding = false;

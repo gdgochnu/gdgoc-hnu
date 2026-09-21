@@ -1,5 +1,6 @@
 import React, { Suspense } from 'react';
 import Link from 'next/link';
+import { AppShell } from '@/components/layout/AppShell';
 import { createClient } from '@/lib/supabase/server';
 import { MembersDirectoryClient } from '@/components/MembersDirectoryClient';
 import { MembersSkeleton } from '@/components/skeletons/MembersSkeleton';

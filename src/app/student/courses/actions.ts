@@ -414,7 +414,7 @@ export async function getCourseDetail(courseId: string): Promise<{
       }
     }
 
-    const teamProf = context.profile;
+    const teamProf = context.profile?.status === 'active' ? context.profile : null;
     const isPresident = teamProf?.role === 'president' || teamProf?.role === 'co_president';
     const isOwningHead =
       (teamProf?.role === 'committee_head' || teamProf?.role === 'committee_co_head') &&

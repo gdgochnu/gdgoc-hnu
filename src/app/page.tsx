@@ -59,7 +59,9 @@ export default async function HomePage(props: HomePageProps) {
   try {
     const context = await getUserContext().catch(() => null);
     currentUser = context?.user || null;
-    teamProfile = context?.profile || null;
+    if (context?.profile && context.profile.status === 'active') {
+      teamProfile = context.profile;
+    }
 
     if (currentUser) {
       const res = await getCurrentStudentProfile().catch(() => null);
@@ -154,7 +156,6 @@ export default async function HomePage(props: HomePageProps) {
       color: '#4285F4', // Google Blue
       badge: 'People & Operations',
       curriculum: 'Talent Recruitment • Appraisals • Engagement',
-      href: '/dashboard',
     },
     {
       code: 'PR',
@@ -165,7 +166,6 @@ export default async function HomePage(props: HomePageProps) {
       color: '#EA4335', // Google Red
       badge: 'External Partnerships',
       curriculum: 'Sponsorships • Industry Relations • Speaker Outreach',
-      href: '/student/workshops',
     },
     {
       code: 'MEDIA',
@@ -176,7 +176,6 @@ export default async function HomePage(props: HomePageProps) {
       color: '#FBBC04', // Google Yellow
       badge: 'Creative & Design',
       curriculum: 'Visual Identity • Figma • Motion Graphics • Coverage',
-      href: '/student/workshops',
     },
     {
       code: 'OPS',
@@ -187,7 +186,6 @@ export default async function HomePage(props: HomePageProps) {
       color: '#34A853', // Google Green
       badge: 'Event Logistics',
       curriculum: 'Event Logistics • Venue Preparation • Stage Execution',
-      href: '/student/workshops',
     },
   ];
 
@@ -226,9 +224,9 @@ export default async function HomePage(props: HomePageProps) {
       }}
     >
       {/* ========================================================================= */}
-      {/* 1. TOP DUAL-ROLE BANNER (SHOWN ONLY IF LOGGED IN AS TEAM MEMBER) */}
+      {/* 1. TOP DUAL-ROLE BANNER (SHOWN ONLY IF LOGGED IN AS ACTIVE TEAM MEMBER) */}
       {/* ========================================================================= */}
-      {teamProfile && (
+      {teamProfile && teamProfile.status === 'active' && (
         <div
           style={{
             background: 'linear-gradient(90deg, rgba(66, 133, 244, 0.15) 0%, rgba(52, 168, 83, 0.15) 100%)',
@@ -984,24 +982,28 @@ export default async function HomePage(props: HomePageProps) {
                       justifyContent: 'space-between',
                     }}
                   >
-                    <span style={{ fontSize: '0.76rem', color: comm.color, fontWeight: 700 }}>
-                      {comm.badge}
-                    </span>
-                    <Link
-                      href={comm.href}
+                    <span
                       style={{
-                        fontSize: '0.82rem',
+                        fontSize: '0.76rem',
+                        color: comm.color,
                         fontWeight: 700,
-                        color: '#FFFFFF',
-                        textDecoration: 'none',
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '0.3rem',
+                        background: `${comm.color}15`,
+                        border: `1px solid ${comm.color}30`,
+                        padding: '0.25rem 0.65rem',
+                        borderRadius: '6px',
                       }}
                     >
-                      <span>Learn More</span>
-                      <ArrowRight size={13} color={comm.color} />
-                    </Link>
+                      {comm.badge}
+                    </span>
+                    <span
+                      style={{
+                        fontSize: '0.76rem',
+                        color: '#64748B',
+                        fontWeight: 600,
+                      }}
+                    >
+                      Internal Chapter Team
+                    </span>
                   </div>
                 </div>
               );

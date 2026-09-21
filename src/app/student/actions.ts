@@ -38,34 +38,49 @@ export async function getCurrentStudentProfile(): Promise<{
     }
 
     // --- Single consolidated auto-link block ---
-    // Priority: context.profile (already loaded) → student.team_profile_id → email lookup
-    let teamRole: string | null = context.profile?.role || null;
-    let teamProfileId: string | null = context.profile?.id || student?.team_profile_id || null;
+    // A user is ONLY an active Chapter Team Member if their profiles.status === 'active'
+    const isProfileActive = context.profile?.status === 'active';
+    let teamRole: string | null = isProfileActive ? (context.profile?.role || null) : null;
+    let teamProfileId: string | null = isProfileActive ? (context.profile?.id || null) : null;
+
+    if (!isProfileActive && student?.team_profile_id) {
+      // Check if student's linked profile is actually active
+      const { data: tp } = await admin
+        .from('profiles')
+        .select('id, role, status')
+        .eq('id', student.team_profile_id)
+        .eq('status', 'active')
+        .maybeSingle();
+
+      if (tp) {
+        teamRole = tp.role;
+        teamProfileId = tp.id;
+      } else {
+        // Clean up invalid/non-active linkage
+        await admin
+          .from('student_profiles')
+          .update({ team_profile_id: null, updated_at: new Date().toISOString() })
+          .eq('id', student.id);
+        student.team_profile_id = null;
+      }
+    }
 
     if (!teamRole && !teamProfileId && context.user.email) {
-      // Email-based lookup as last resort
+      // Email-based lookup as last resort (ONLY active profiles)
       const { data: matched } = await admin
         .from('profiles')
-        .select('id, role')
+        .select('id, role, status')
         .eq('email', context.user.email.toLowerCase().trim())
+        .eq('status', 'active')
         .maybeSingle();
+
       if (matched) {
         teamRole = matched.role;
         teamProfileId = matched.id;
       }
-    } else if (!teamRole && teamProfileId) {
-      // We have a team_profile_id but no role — fetch the role
-      const { data: tp } = await admin
-        .from('profiles')
-        .select('id, role')
-        .eq('id', teamProfileId)
-        .maybeSingle();
-      if (tp) {
-        teamRole = tp.role;
-      }
     }
 
-    // Auto-link team_profile_id if student exists but not yet linked (single UPDATE, no race condition)
+    // Auto-link team_profile_id ONLY if we found a verified ACTIVE team profile and student exists
     if (student && !student.team_profile_id && teamProfileId) {
       await admin
         .from('student_profiles')
@@ -100,8 +115,9 @@ export async function linkStudentToTeamMember(studentId: string, email: string):
 
     const { data: teamProf } = await admin
       .from('profiles')
-      .select('id')
+      .select('id, status')
       .eq('email', email.trim().toLowerCase())
+      .eq('status', 'active')
       .maybeSingle();
 
     if (teamProf?.id) {
@@ -192,7 +208,21 @@ export async function completeStudentProfile(input: StudentOnboardingInput): Pro
       .eq('id', context.user.id)
       .maybeSingle();
 
-    const teamProfileId = existing?.team_profile_id || context.profile?.id || null;
+    // Only associate team_profile_id if the user is an active Chapter Team Member
+    let teamProfileId: string | null = null;
+    if (context.profile?.status === 'active') {
+      teamProfileId = context.profile.id;
+    } else if (existing?.team_profile_id) {
+      const { data: checkActive } = await admin
+        .from('profiles')
+        .select('id, status')
+        .eq('id', existing.team_profile_id)
+        .eq('status', 'active')
+        .maybeSingle();
+      if (checkActive) {
+        teamProfileId = checkActive.id;
+      }
+    }
 
     const profileData = {
       id: context.user.id,
@@ -317,13 +347,14 @@ export async function getStudentOnboardingData(): Promise<{
 
     const faculties = facultiesData || [];
 
-    // 2. Fetch team profile if exists
-    let teamProfile = context.profile;
+    // 2. Fetch team profile if exists AND is active
+    let teamProfile = (context.profile?.status === 'active') ? context.profile : null;
     if (!teamProfile && context.user.email) {
       const { data: matchedProfile } = await admin
         .from('profiles')
         .select('*')
         .eq('email', context.user.email.toLowerCase().trim())
+        .eq('status', 'active')
         .maybeSingle();
       if (matchedProfile) {
         teamProfile = matchedProfile as any;
@@ -361,7 +392,7 @@ export async function getStudentOnboardingData(): Promise<{
     }
 
     const isAlreadyActive = isStudentProfileComplete(student as StudentProfile);
-    const isTeamMember = Boolean(teamProfile);
+    const isTeamMember = Boolean(teamProfile && teamProfile.status === 'active');
 
     const prefilled = {
       fullNameAr: student?.full_name_ar || (teamProfile as any)?.full_name_ar || '',
@@ -450,11 +481,11 @@ export async function getStudentDashboardData(): Promise<{
       return { authenticated: true, needsOnboarding: true };
     }
 
-    // 2. Fetch linked team member profile if exists
+    // 2. Fetch linked team member profile if exists AND is active
     let teamProfile: StudentDashboardData['teamProfile'] = null;
-    let teamProfileId = context.profile?.id || student.team_profile_id;
+    const isTeamActive = context.profile?.status === 'active';
 
-    if (context.profile) {
+    if (isTeamActive && context.profile) {
       teamProfile = {
         id: context.profile.id,
         role: context.profile.role,
@@ -464,19 +495,21 @@ export async function getStudentDashboardData(): Promise<{
           branch: context.profile.department.branch,
         } : null,
       };
-    } else if (teamProfileId) {
+    } else if (student.team_profile_id) {
       const { data: tp } = await admin
         .from('profiles')
         .select(`
           id,
           role,
+          status,
           department:departments!profiles_department_id_fkey (
             name,
             code,
             branch
           )
         `)
-        .eq('id', teamProfileId)
+        .eq('id', student.team_profile_id)
+        .eq('status', 'active')
         .maybeSingle();
 
       if (tp) {
@@ -485,6 +518,13 @@ export async function getStudentDashboardData(): Promise<{
           role: tp.role,
           department: (tp.department as any) || null,
         };
+      } else {
+        // Clean up invalid/non-active link
+        await admin
+          .from('student_profiles')
+          .update({ team_profile_id: null, updated_at: new Date().toISOString() })
+          .eq('id', student.id);
+        student.team_profile_id = null;
       }
     } else if (context.user.email) {
       const { data: matched } = await admin
@@ -492,6 +532,7 @@ export async function getStudentDashboardData(): Promise<{
         .select(`
           id,
           role,
+          status,
           department:departments!profiles_department_id_fkey (
             name,
             code,
@@ -499,6 +540,7 @@ export async function getStudentDashboardData(): Promise<{
           )
         `)
         .eq('email', context.user.email.toLowerCase().trim())
+        .eq('status', 'active')
         .maybeSingle();
 
       if (matched) {
@@ -507,7 +549,6 @@ export async function getStudentDashboardData(): Promise<{
           role: matched.role,
           department: (matched.department as any) || null,
         };
-        teamProfileId = matched.id;
         await admin
           .from('student_profiles')
           .update({ team_profile_id: matched.id, updated_at: new Date().toISOString() })
@@ -1073,24 +1114,24 @@ export async function getStudentQrPassData(): Promise<{
       student.qr_code = generatedQr;
     }
 
-    let teamRole: string | null = context.profile?.role || null;
-    if (!teamRole) {
-      const teamProfileId = student.team_profile_id;
-      if (teamProfileId) {
-        const { data: tp } = await admin
-          .from('profiles')
-          .select('role')
-          .eq('id', teamProfileId)
-          .maybeSingle();
-        if (tp) teamRole = tp.role;
-      } else if (context.user.email) {
-        const { data: matched } = await admin
-          .from('profiles')
-          .select('role')
-          .eq('email', context.user.email.toLowerCase().trim())
-          .maybeSingle();
-        if (matched) teamRole = matched.role;
-      }
+    const isTeamActive = context.profile?.status === 'active';
+    let teamRole: string | null = isTeamActive ? (context.profile?.role || null) : null;
+    if (!teamRole && student.team_profile_id) {
+      const { data: tp } = await admin
+        .from('profiles')
+        .select('role, status')
+        .eq('id', student.team_profile_id)
+        .eq('status', 'active')
+        .maybeSingle();
+      if (tp) teamRole = tp.role;
+    } else if (!teamRole && context.user.email) {
+      const { data: matched } = await admin
+        .from('profiles')
+        .select('role, status')
+        .eq('email', context.user.email.toLowerCase().trim())
+        .eq('status', 'active')
+        .maybeSingle();
+      if (matched) teamRole = matched.role;
     }
 
     return {
