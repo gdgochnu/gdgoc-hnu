@@ -559,11 +559,11 @@ export function StudentCourseDetailClient({ initialData }: StudentCourseDetailCl
           }}
         >
           {[
-            { key: 'overview', label: 'نظرة عامة عن الكورس', count: undefined, icon: BookOpen },
-            { key: 'sessions', label: 'الجلسات والجدول', count: sessions.length, icon: Calendar },
-            { key: 'lessons', label: 'المحاضرات والدروس', count: lessons.length, icon: Play },
-            { key: 'tasks', label: 'المهام والتكليفات', count: tasksList.length, icon: FileText },
-            { key: 'quizzes', label: 'الاختبارات والتقييمات', count: quizzes.length, icon: Sparkles },
+            { key: 'overview', label: 'Course Overview', count: undefined, icon: BookOpen },
+            { key: 'sessions', label: 'Sessions & Schedule', count: sessions.length, icon: Calendar },
+            { key: 'lessons', label: 'Lessons & Curriculum', count: lessons.length, icon: Play },
+            { key: 'tasks', label: 'Tasks & Assignments', count: tasksList.length, icon: FileText },
+            { key: 'quizzes', label: 'Quizzes & Tests', count: quizzes.length, icon: Sparkles },
           ].map((tab) => {
             const isActive = activeTab === tab.key;
             const Icon = tab.icon;
@@ -634,29 +634,30 @@ export function StudentCourseDetailClient({ initialData }: StudentCourseDetailCl
             >
               <h2 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#FFFFFF', margin: 0, display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
                 <BookOpen size={20} color="#4285F4" />
-                <span>عن الكورس ومخرجات المسار (About the Course)</span>
+                <span>About this Course & Curriculum</span>
               </h2>
               <p style={{ color: '#CBD5E1', fontSize: '0.96rem', lineHeight: 1.7, margin: 0, whiteSpace: 'pre-line' }}>
-                {course.description || 'يقدم هذا المسار التعليمي تجربة تدريبية متكاملة مصممة من قِبل اللجان التقنية في GDGoC جامعة حلوان لبناء الكفاءات والمهارات المطلوبة في سوق العمل من خلال تطبيقات عملية وجلسات تفاعلية مستمرة.'}
+                {course.description ||
+                  'This comprehensive learning journey is designed by Google Developer Groups on Campus Helwan University technical departments to equip students with production-grade skills through structured sessions and practical milestones.'}
               </p>
 
               {/* Learning Highlights Grid */}
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginTop: '0.5rem' }}>
                 <div style={{ padding: '1rem', borderRadius: '12px', background: 'rgba(66, 133, 244, 0.08)', border: '1px solid rgba(66, 133, 244, 0.2)' }}>
-                  <div style={{ fontSize: '0.8rem', color: '#60A5FA', fontWeight: 700 }}>نوع المسار</div>
+                  <div style={{ fontSize: '0.8rem', color: '#60A5FA', fontWeight: 700 }}>Track Category</div>
                   <div style={{ fontSize: '0.95rem', fontWeight: 800, color: '#FFFFFF', marginTop: '0.2rem' }}>{course.category || 'Technical Track'}</div>
                 </div>
                 <div style={{ padding: '1rem', borderRadius: '12px', background: 'rgba(52, 168, 83, 0.08)', border: '1px solid rgba(52, 168, 83, 0.2)' }}>
-                  <div style={{ fontSize: '0.8rem', color: '#34D399', fontWeight: 700 }}>إجمالي الساعات التدريبية</div>
-                  <div style={{ fontSize: '0.95rem', fontWeight: 800, color: '#FFFFFF', marginTop: '0.2rem' }}>~{totalHours} ساعة تدريبية</div>
+                  <div style={{ fontSize: '0.8rem', color: '#34D399', fontWeight: 700 }}>Total Curriculum Duration</div>
+                  <div style={{ fontSize: '0.95rem', fontWeight: 800, color: '#FFFFFF', marginTop: '0.2rem' }}>~{totalHours} Training Hours</div>
                 </div>
                 <div style={{ padding: '1rem', borderRadius: '12px', background: 'rgba(251, 188, 4, 0.08)', border: '1px solid rgba(251, 188, 4, 0.2)' }}>
-                  <div style={{ fontSize: '0.8rem', color: '#FBBF24', fontWeight: 700 }}>الجلسات والورش</div>
-                  <div style={{ fontSize: '0.95rem', fontWeight: 800, color: '#FFFFFF', marginTop: '0.2rem' }}>{sessions.length} جلسات تفاعلية</div>
+                  <div style={{ fontSize: '0.8rem', color: '#FBBF24', fontWeight: 700 }}>Sessions & Workshops</div>
+                  <div style={{ fontSize: '0.95rem', fontWeight: 800, color: '#FFFFFF', marginTop: '0.2rem' }}>{sessions.length} Interactive Sessions</div>
                 </div>
                 <div style={{ padding: '1rem', borderRadius: '12px', background: 'rgba(168, 85, 247, 0.08)', border: '1px solid rgba(168, 85, 247, 0.2)' }}>
-                  <div style={{ fontSize: '0.8rem', color: '#C084FC', fontWeight: 700 }}>الشهادة</div>
-                  <div style={{ fontSize: '0.95rem', fontWeight: 800, color: '#FFFFFF', marginTop: '0.2rem' }}>شهادة معتمدة من GDGoC</div>
+                  <div style={{ fontSize: '0.8rem', color: '#C084FC', fontWeight: 700 }}>Credential</div>
+                  <div style={{ fontSize: '0.95rem', fontWeight: 800, color: '#FFFFFF', marginTop: '0.2rem' }}>Official GDGoC Certificate</div>
                 </div>
               </div>
             </div>
@@ -677,7 +678,7 @@ export function StudentCourseDetailClient({ initialData }: StudentCourseDetailCl
               >
                 <h2 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#FFFFFF', margin: 0, display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
                   <FileText size={20} color="#34A853" />
-                  <span>المنهج وخطة الدراسة (Syllabus & Curriculum)</span>
+                  <span>Syllabus & Learning Path</span>
                 </h2>
                 <div style={{ color: '#CBD5E1', fontSize: '0.94rem', lineHeight: 1.7, whiteSpace: 'pre-line' }}>
                   {course.syllabus}
@@ -702,10 +703,10 @@ export function StudentCourseDetailClient({ initialData }: StudentCourseDetailCl
                 <div>
                   <h2 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#FFFFFF', margin: 0, display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
                     <Calendar size={20} color="#F59E0B" />
-                    <span>الجلسات والمحاضرات المقررة ({sessions.length})</span>
+                    <span>Curriculum & Scheduled Sessions ({sessions.length})</span>
                   </h2>
                   <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.84rem', color: '#94A3B8' }}>
-                    نظرة عامة على الجلسات والمواعيد المقررة لهذا المسار
+                    High-level curriculum schedule of interactive lectures and hands-on milestones
                   </p>
                 </div>
                 {!isEnrolled && (
@@ -724,14 +725,14 @@ export function StudentCourseDetailClient({ initialData }: StudentCourseDetailCl
                     }}
                   >
                     <Lock size={12} />
-                    المحتوى الكامل يفتح للمشتركين
+                    Full materials unlocked upon enrollment
                   </span>
                 )}
               </div>
 
               {sessions.length === 0 ? (
                 <div style={{ padding: '2rem', textAlign: 'center', color: '#94A3B8', fontSize: '0.9rem' }}>
-                  سيتم الإعلان عن جدول الجلسات والمواعيد قريباً.
+                  Session schedule and curriculum dates will be announced shortly.
                 </div>
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
@@ -775,12 +776,12 @@ export function StudentCourseDetailClient({ initialData }: StudentCourseDetailCl
                               {s.title}
                             </div>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginTop: '0.2rem', fontSize: '0.78rem', color: '#94A3B8', flexWrap: 'wrap' }}>
-                              <span>{new Date(s.session_date).toLocaleDateString('ar-EG', { weekday: 'long', year: 'numeric', month: 'short', day: 'numeric' })}</span>
+                              <span>{new Date(s.session_date).toLocaleDateString('en-US', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' })}</span>
                               <span>•</span>
-                              <span>{s.duration_minutes || 120} دقيقة</span>
+                              <span>{s.duration_minutes || 120} mins</span>
                               <span>•</span>
                               <span style={{ color: isOnline ? '#F87171' : '#34D399', fontWeight: 600 }}>
-                                {isOnline ? 'أونلاين (Online)' : (s.venue || 'مقر الشابتر بالجامعة')}
+                                {isOnline ? 'Online (Virtual Meeting)' : (s.venue || 'Chapter Campus Hall')}
                               </span>
                             </div>
                           </div>
@@ -789,7 +790,7 @@ export function StudentCourseDetailClient({ initialData }: StudentCourseDetailCl
                         {!isEnrolled ? (
                           <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: '#64748B', fontSize: '0.78rem', fontWeight: 600 }}>
                             <Lock size={14} />
-                            <span>محتوى مقفل</span>
+                            <span>Locked Content</span>
                           </div>
                         ) : (
                           <button
@@ -809,7 +810,7 @@ export function StudentCourseDetailClient({ initialData }: StudentCourseDetailCl
                               cursor: 'pointer',
                             }}
                           >
-                            عرض الجلسة
+                            View Session
                           </button>
                         )}
                       </div>
@@ -834,7 +835,7 @@ export function StudentCourseDetailClient({ initialData }: StudentCourseDetailCl
             >
               <h2 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#FFFFFF', margin: 0, display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
                 <GraduationCap size={22} color="#10B981" />
-                <span>فريق التدريس والمرشدين (Instructors & Mentors)</span>
+                <span>Teaching Staff & Mentors ({instructors.length})</span>
               </h2>
 
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1rem' }}>
@@ -937,32 +938,32 @@ export function StudentCourseDetailClient({ initialData }: StudentCourseDetailCl
             >
               <div>
                 <div style={{ fontSize: '0.75rem', color: '#60A5FA', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                  {isConfirmed ? 'أنت مشترك بالفعل' : 'التسجيل والقبول'}
+                  {isConfirmed ? 'Enrolled Student' : 'Admission & Enrollment'}
                 </div>
                 <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#FFFFFF', margin: '0.35rem 0 0 0' }}>
                   {isConfirmed
-                    ? 'أنت مسجل في هذا المسار ✓'
+                    ? 'You are enrolled in this track ✓'
                     : isPending
-                    ? 'طلب انضمامك قيد المراجعة'
+                    ? 'Application Pending Review'
                     : isWaitlisted
-                    ? 'أنت على قائمة الانتظار'
+                    ? 'You are on the Waitlist'
                     : course.enrollment_type === 'open'
-                    ? 'انضم إلى مسار الكورس الآن'
-                    : 'تقديم طلب انضمام للمسار'}
+                    ? 'Join Course Track'
+                    : 'Apply for Admission'}
                 </h3>
               </div>
 
               {/* Status Message */}
               <p style={{ color: '#94A3B8', fontSize: '0.86rem', lineHeight: 1.6, margin: 0 }}>
                 {isConfirmed
-                  ? 'تم تأكيد اشتراكك في الكورس! يمكنك الآن الدخول إلى الجلسات والمحاضرات وتسليم المهام والاختبارات.'
+                  ? 'Your enrollment is confirmed! You have full access to interactive sessions, lecture notes, assignments, and quizzes.'
                   : isPending
-                  ? 'تم استلام طلبك بنجاح وهو قيد المراجعة والاعتماد من المحاضرين وإدارة الشابتر.'
+                  ? 'Your application has been received and is currently being reviewed by course instructors and chapter leadership.'
                   : isWaitlisted
-                  ? 'تم تسجيلك في قائمة الانتظار، وسيتم إشعارك فور توفر مقعد شاغر في هذا المسار.'
+                  ? 'You are registered on the waitlist. You will be notified automatically if an enrollment spot becomes available.'
                   : course.enrollment_type === 'open'
-                  ? 'القبول فوري ومجاني لجميع طلاب جامعة حلوان، اضغط على الزر أدناه لتأكيد حجز مكانك والبدء فوراً.'
-                  : 'يتطلب هذا المسار مراجعة وقبول من فريق التدريس لضمان توافق المتطلبات.'}
+                  ? 'Open admission program: click below to confirm your spot immediately.'
+                  : 'Gated program: requires instructor approval before enrollment is confirmed.'}
               </p>
 
               {/* Action Button */}
@@ -988,7 +989,7 @@ export function StudentCourseDetailClient({ initialData }: StudentCourseDetailCl
                   }}
                 >
                   <BookOpen size={18} />
-                  <span>دخول مساحة التعلم (Go to Sessions)</span>
+                  <span>Go to Learning Workspace (Sessions)</span>
                 </button>
               ) : isPending ? (
                 <div
@@ -1007,7 +1008,7 @@ export function StudentCourseDetailClient({ initialData }: StudentCourseDetailCl
                   }}
                 >
                   <Clock3 size={18} />
-                  <span>بانتظار موافقة المدرب...</span>
+                  <span>Awaiting Instructor Review...</span>
                 </div>
               ) : (
                 <button
@@ -1033,18 +1034,18 @@ export function StudentCourseDetailClient({ initialData }: StudentCourseDetailCl
                   }}
                 >
                   {isSubmitting ? (
-                    'جارٍ المعالجة...'
+                    'Processing...'
                   ) : course.is_full ? (
-                    'الانضمام لقائمة الانتظار'
+                    'Join Waitlist'
                   ) : course.enrollment_type === 'open' ? (
                     <>
                       <Sparkles size={18} />
-                      <span>اشترك في الكورس الآن (فوري)</span>
+                      <span>Enroll in Track (Instant)</span>
                     </>
                   ) : (
                     <>
                       <Send size={18} />
-                      <span>إرسال طلب الانضمام</span>
+                      <span>Submit Application</span>
                     </>
                   )}
                 </button>
@@ -1052,26 +1053,26 @@ export function StudentCourseDetailClient({ initialData }: StudentCourseDetailCl
 
               {/* What you will get */}
               <div style={{ borderTop: '1px solid rgba(255, 255, 255, 0.08)', paddingTop: '1rem', display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
-                <div style={{ fontSize: '0.78rem', color: '#94A3B8', fontWeight: 700 }}>ماذا يشمل اشتراكك في الكورس:</div>
+                <div style={{ fontSize: '0.78rem', color: '#94A3B8', fontWeight: 700 }}>Included with your course track:</div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.82rem', color: '#E2E8F0' }}>
                   <CheckCircle2 size={15} color="#34A853" />
-                  <span>حضور جميع الجلسات التفاعلية والنقاشات</span>
+                  <span>Interactive live sessions & workshops</span>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.82rem', color: '#E2E8F0' }}>
                   <CheckCircle2 size={15} color="#34A853" />
-                  <span>تسجيلات المحاضرات وملفات الشرح و السلايدات</span>
+                  <span>Lecture recordings, slides, and learning assets</span>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.82rem', color: '#E2E8F0' }}>
                   <CheckCircle2 size={15} color="#34A853" />
-                  <span>تسليم المهام والمشاريع واستلام التقييم</span>
+                  <span>Hands-on milestone assignments & grading</span>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.82rem', color: '#E2E8F0' }}>
                   <CheckCircle2 size={15} color="#34A853" />
-                  <span>الاختبارات الإلكترونية لقياس استيعابك</span>
+                  <span>Quizzes & comprehension assessments</span>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.82rem', color: '#E2E8F0' }}>
                   <CheckCircle2 size={15} color="#34A853" />
-                  <span>شهادة حضور رسمية معتمدة عند إتمام المسار</span>
+                  <span>Official verified GDGoC completion certificate</span>
                 </div>
               </div>
             </div>
@@ -1091,20 +1092,20 @@ export function StudentCourseDetailClient({ initialData }: StudentCourseDetailCl
               }}
             >
               <div style={{ display: 'flex', justifyContent: 'space-between', color: '#94A3B8' }}>
-                <span>القسم المنظم:</span>
+                <span>Organizing Department:</span>
                 <span style={{ color: '#FFFFFF', fontWeight: 600 }}>{course.department_name || 'Technical'}</span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', color: '#94A3B8' }}>
-                <span>نظام الحضور:</span>
-                <span style={{ color: '#FFFFFF', fontWeight: 600 }}>مختلط (حضوري + أونلاين)</span>
+                <span>Delivery Format:</span>
+                <span style={{ color: '#FFFFFF', fontWeight: 600 }}>Hybrid (Campus + Online)</span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', color: '#94A3B8' }}>
-                <span>المقاعد المكتملة:</span>
+                <span>Confirmed Seats:</span>
                 <span style={{ color: '#FFFFFF', fontWeight: 600 }}>{course.enrollment_count} {course.capacity ? `/ ${course.capacity}` : ''}</span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', color: '#94A3B8' }}>
-                <span>حالة المسار:</span>
-                <span style={{ color: '#34D399', fontWeight: 700 }}>نشط ومتاح للتسجيل</span>
+                <span>Track Status:</span>
+                <span style={{ color: '#34D399', fontWeight: 700 }}>Active & Open</span>
               </div>
             </div>
           </div>

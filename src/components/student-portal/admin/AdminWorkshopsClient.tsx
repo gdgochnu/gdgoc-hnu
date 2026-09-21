@@ -91,11 +91,11 @@ export function AdminWorkshopsClient({
   const handleCoverUpload = async (file: File) => {
     if (!file) return;
     if (!file.type.startsWith('image/')) {
-      alert('يرجى اختيار ملف صورة صالح (PNG, JPG, WebP, GIF)');
+      alert('Please select a valid image file (PNG, JPG, WebP, GIF)');
       return;
     }
     if (file.size > 10 * 1024 * 1024) {
-      alert('حجم الصورة كبير جداً، الحد الأقصى 10MB');
+      alert('Image size exceeds the 10MB limit.');
       return;
     }
 
@@ -107,10 +107,10 @@ export function AdminWorkshopsClient({
       if (res.success && res.url) {
         setFormCoverUrl(res.url);
       } else {
-        alert(res.error || 'فشل في رفع الصورة إلى Google Drive');
+        alert(res.error || 'Failed to upload image to Google Drive.');
       }
     } catch (err: any) {
-      alert(err.message || 'حدث خطأ أثناء رفع الصورة');
+      alert(err.message || 'An error occurred while uploading image.');
     } finally {
       setIsUploadingCover(false);
       if (coverFileInputRef.current) {
@@ -1166,7 +1166,7 @@ export function AdminWorkshopsClient({
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.45rem' }}>
                   <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.82rem', fontWeight: 700, color: '#CBD5E1' }}>
                     <ImageIcon size={15} color="#A855F7" />
-                    <span>صورة غلاف الورشة (16:9 موصى بها) • Google Drive</span>
+                    <span>Workshop Cover Image (16:9 Recommended) • Google Drive</span>
                   </label>
                   <button
                     type="button"
@@ -1181,7 +1181,7 @@ export function AdminWorkshopsClient({
                       textDecoration: 'underline',
                     }}
                   >
-                    {showManualUrlInput ? 'إخفاء الرابط اليدوي' : 'إدخال رابط صورة يدوي'}
+                    {showManualUrlInput ? 'Hide Manual URL' : 'Enter Direct Image URL'}
                   </button>
                 </div>
 
@@ -1216,7 +1216,7 @@ export function AdminWorkshopsClient({
                   >
                     <Loader2 size={32} className="animate-spin" color="#A855F7" />
                     <span style={{ fontSize: '0.88rem', fontWeight: 600 }}>
-                      جارٍ رفع الصورة إلى Google Drive الشابتر...
+                      Uploading cover image to chapter Google Drive...
                     </span>
                   </div>
                 )}
@@ -1259,7 +1259,7 @@ export function AdminWorkshopsClient({
                       }}
                     >
                       <CheckCircle2 size={13} />
-                      <span>متصلة بـ Google Drive</span>
+                      <span>Stored in Google Drive</span>
                     </div>
 
                     <div
@@ -1289,7 +1289,7 @@ export function AdminWorkshopsClient({
                         }}
                       >
                         <UploadCloud size={14} />
-                        <span>تغيير الصورة</span>
+                        <span>Change Image</span>
                       </button>
                       <button
                         type="button"
@@ -1309,7 +1309,7 @@ export function AdminWorkshopsClient({
                         }}
                       >
                         <Trash2 size={14} />
-                        <span>حذف</span>
+                        <span>Remove</span>
                       </button>
                     </div>
                   </div>
@@ -1364,10 +1364,10 @@ export function AdminWorkshopsClient({
                     </div>
                     <div>
                       <span style={{ fontSize: '0.88rem', fontWeight: 600, color: '#F1F5F9' }}>
-                        اضغط لرفع صورة الغلاف أو اسحبها هنا
+                        Click to upload or drag & drop cover image here
                       </span>
                       <p style={{ margin: '2px 0 0', fontSize: '0.75rem', color: '#94A3B8' }}>
-                        يتم الرفع إلى Google Drive الخاص بالشابتر (PNG, JPG, WebP - أقصى حجم 10MB)
+                        Directly uploaded to chapter Google Drive (PNG, JPG, WebP • Max 10MB)
                       </p>
                     </div>
                   </div>
@@ -1380,7 +1380,7 @@ export function AdminWorkshopsClient({
                       type="url"
                       value={formCoverUrl}
                       onChange={(e) => setFormCoverUrl(e.target.value)}
-                      placeholder="https://images.unsplash.com/... أو أي رابط صورة مباشر"
+                      placeholder="https://images.unsplash.com/... or direct image URL"
                       style={{
                         width: '100%',
                         padding: '0.6rem 0.85rem',
