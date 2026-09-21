@@ -36,20 +36,13 @@ export async function getCurrentStudentProfile(): Promise<{
       return { success: false, student: null, isTeamMember: false, teamProfileId: null, teamRole: null, error: error.message };
     }
 
-    // Resolve team role & profile ID
+    // --- Single consolidated auto-link block ---
+    // Priority: context.profile (already loaded) → student.team_profile_id → email lookup
     let teamRole: string | null = context.profile?.role || null;
-    let teamProfileId = context.profile?.id || student?.team_profile_id || null;
+    let teamProfileId: string | null = context.profile?.id || student?.team_profile_id || null;
 
-    if (!teamRole && teamProfileId) {
-      const { data: tp } = await admin
-        .from('profiles')
-        .select('id, role')
-        .eq('id', teamProfileId)
-        .maybeSingle();
-      if (tp) {
-        teamRole = tp.role;
-      }
-    } else if (!teamRole && context.user.email) {
+    if (!teamRole && !teamProfileId && context.user.email) {
+      // Email-based lookup as last resort
       const { data: matched } = await admin
         .from('profiles')
         .select('id, role')
@@ -58,23 +51,26 @@ export async function getCurrentStudentProfile(): Promise<{
       if (matched) {
         teamRole = matched.role;
         teamProfileId = matched.id;
-        if (student && !student.team_profile_id) {
-          await admin
-            .from('student_profiles')
-            .update({ team_profile_id: matched.id, updated_at: new Date().toISOString() })
-            .eq('id', student.id);
-          student.team_profile_id = matched.id;
-        }
+      }
+    } else if (!teamRole && teamProfileId) {
+      // We have a team_profile_id but no role — fetch the role
+      const { data: tp } = await admin
+        .from('profiles')
+        .select('id, role')
+        .eq('id', teamProfileId)
+        .maybeSingle();
+      if (tp) {
+        teamRole = tp.role;
       }
     }
 
-    // Auto-link team_profile_id if not linked yet
-    if (student && !student.team_profile_id && context.profile?.id) {
+    // Auto-link team_profile_id if student exists but not yet linked (single UPDATE, no race condition)
+    if (student && !student.team_profile_id && teamProfileId) {
       await admin
         .from('student_profiles')
-        .update({ team_profile_id: context.profile.id, updated_at: new Date().toISOString() })
+        .update({ team_profile_id: teamProfileId, updated_at: new Date().toISOString() })
         .eq('id', student.id);
-      student.team_profile_id = context.profile.id;
+      student.team_profile_id = teamProfileId;
     }
 
     return {
@@ -452,13 +448,13 @@ export async function getStudentDashboardData(): Promise<{
       }
     }
 
-    // 3. Certificates query
+    // 3. Certificates query — student_certificates table (Spec §4.S.8, §4.S.10)
     let certificates: StudentDashboardData['certificates'] = [];
     try {
       const { data: certs } = await admin
-        .from('certificates')
+        .from('student_certificates')
         .select('id, title, certificate_number, verification_code, issue_date, pdf_drive_url')
-        .or(`recipient_email.eq.${student.email}${teamProfileId ? `,recipient_profile_id.eq.${teamProfileId}` : ''}`)
+        .eq('student_id', student.id)
         .order('created_at', { ascending: false });
 
       if (certs) {

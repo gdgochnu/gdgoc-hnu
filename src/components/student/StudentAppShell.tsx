@@ -198,11 +198,10 @@ export function StudentAppShell({ student, teamRole, children }: StudentAppShell
           left: 0,
           bottom: 0,
           zIndex: 50,
-          display: 'flex',
           flexDirection: 'column',
           boxShadow: '4px 0 24px rgba(0, 0, 0, 0.3)',
         }}
-        className="hidden md:flex"
+        className="student-sidebar"
       >
         {/* Top Google 4-Color Accent Strip */}
         <div
@@ -571,12 +570,11 @@ export function StudentAppShell({ student, teamRole, children }: StudentAppShell
                 width: '36px',
                 height: '36px',
                 color: '#CBD5E1',
-                display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 cursor: 'pointer',
               }}
-              className="md:hidden"
+              className="student-mobile-menu-btn"
               aria-label="Open mobile menu"
             >
               <Menu size={18} />
@@ -597,7 +595,6 @@ export function StudentAppShell({ student, teamRole, children }: StudentAppShell
             {student.faculty && (
               <div
                 style={{
-                  display: 'none',
                   alignItems: 'center',
                   gap: '0.45rem',
                   padding: '0.28rem 0.65rem',
@@ -609,7 +606,7 @@ export function StudentAppShell({ student, teamRole, children }: StudentAppShell
                   fontWeight: 600,
                   whiteSpace: 'nowrap',
                 }}
-                className="lg:flex"
+                className="student-faculty-badge"
               >
                 <GraduationCap size={14} />
                 <span>{student.faculty}</span>
@@ -640,7 +637,9 @@ export function StudentAppShell({ student, teamRole, children }: StudentAppShell
               title="Open Permanent Attendance Pass"
             >
               <QrCode size={14} />
-              <span>{student.qr_code}</span>
+              <span title="Click to view your full Attendance QR Code">
+                QR-••••{student.qr_code ? student.qr_code.slice(-6) : '------'}
+              </span>
             </Link>
 
             {/* In-App Student Notification Center */}
@@ -651,7 +650,6 @@ export function StudentAppShell({ student, teamRole, children }: StudentAppShell
               <Link
                 href="/dashboard"
                 style={{
-                  display: 'none',
                   alignItems: 'center',
                   gap: '0.45rem',
                   padding: '0.38rem 0.8rem',
@@ -663,7 +661,7 @@ export function StudentAppShell({ student, teamRole, children }: StudentAppShell
                   fontWeight: 700,
                   textDecoration: 'none',
                 }}
-                className="sm:flex"
+                className="student-chapter-switcher"
               >
                 <ShieldCheck size={14} />
                 <span>Chapter OS</span>
@@ -712,9 +710,8 @@ export function StudentAppShell({ student, teamRole, children }: StudentAppShell
                   overflow: 'hidden',
                   textOverflow: 'ellipsis',
                   whiteSpace: 'nowrap',
-                  display: 'none',
                 }}
-                className="md:inline"
+                className="student-topbar-name"
               >
                 {student.full_name_en?.split(' ')[0] || 'Student'}
               </span>
@@ -731,21 +728,20 @@ export function StudentAppShell({ student, teamRole, children }: StudentAppShell
       {/* ========================================================================= */}
       {/* MOBILE DRAWER */}
       {/* ========================================================================= */}
-      {isMobileOpen && (
-        <div
-          style={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            background: 'rgba(0, 0, 0, 0.78)',
-            backdropFilter: 'blur(10px)',
-            zIndex: 1000,
-            display: 'flex',
-          }}
-          className="md:hidden"
-        >
+      <div
+        style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0, 0, 0, 0.78)',
+          backdropFilter: 'blur(10px)',
+          zIndex: 1000,
+        }}
+        className={`student-mobile-overlay${isMobileOpen ? ' is-open' : ''}`}
+        onClick={(e) => { if (e.target === e.currentTarget) setIsMobileOpen(false); }}
+      >
           <div
             style={{
               width: '290px',
@@ -872,7 +868,7 @@ export function StudentAppShell({ student, teamRole, children }: StudentAppShell
                   {student.full_name_en || 'Student'}
                 </div>
                 <div style={{ fontSize: '0.72rem', color: '#94A3B8' }}>
-                  {student.qr_code}
+                  QR-••••{student.qr_code ? student.qr_code.slice(-6) : '------'}
                 </div>
               </div>
               <button
@@ -891,20 +887,7 @@ export function StudentAppShell({ student, teamRole, children }: StudentAppShell
               </button>
             </div>
           </div>
-        </div>
-      )}
-
-      {/* Global Responsive Overrides */}
-      <style jsx global>{`
-        @media (max-width: 768px) {
-          .main-content-layout {
-            margin-left: 0 !important;
-          }
-          .student-topbar {
-            left: 0 !important;
-          }
-        }
-      `}</style>
+      </div>
     </div>
   );
 }

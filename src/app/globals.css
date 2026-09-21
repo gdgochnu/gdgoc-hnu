@@ -733,4 +733,106 @@ body[dir="rtl"] select,
 }
 
 
+/* Student Portal Landing Page — Nav Links (desktop only) */
+.student-landing-nav-links {
+  display: flex;
+}
 
+@media (max-width: 768px) {
+  .student-landing-nav-links {
+    display: none !important;
+  }
+}
+
+/* ==========================================================================
+   Student Portal App Shell — Responsive Layout (replaces broken Tailwind classes)
+   ========================================================================== */
+
+/* Desktop sidebar: shown by default */
+.student-sidebar {
+  display: flex;
+}
+
+/* Mobile hamburger: hidden by default on desktop */
+.student-mobile-menu-btn {
+  display: none;
+}
+
+/* Topbar faculty badge: hidden on small screens, shown on large */
+.student-faculty-badge {
+  display: none;
+}
+
+/* Chapter OS switcher in topbar: hidden by default */
+.student-chapter-switcher {
+  display: flex;
+}
+
+/* User first name in topbar: shown on md+ */
+.student-topbar-name {
+  display: inline;
+}
+
+/* Mobile overlay (mobile drawer): hidden by default */
+.student-mobile-overlay {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  /* Hide desktop sidebar on mobile */
+  .student-sidebar {
+    display: none !important;
+  }
+
+  /* Show hamburger button on mobile */
+  .student-mobile-menu-btn {
+    display: flex !important;
+  }
+
+  /* On mobile, content fills full width (no sidebar offset) */
+  .main-content-layout {
+    margin-left: 0 !important;
+  }
+
+  /* On mobile, topbar starts from left edge */
+  .student-topbar {
+    left: 0 !important;
+  }
+
+  /* Hide name label on very small screens */
+  .student-topbar-name {
+    display: none !important;
+  }
+}
+
+@media (max-width: 640px) {
+  .student-chapter-switcher {
+    display: none !important;
+  }
+}
+
+@media (min-width: 1024px) {
+  /* Show faculty badge on large screens */
+  .student-faculty-badge {
+    display: flex !important;
+  }
+}
+
+/* Mobile overlay: shown via JS when isMobileOpen = true */
+.student-mobile-overlay.is-open {
+  display: flex !important;
+}
+
+/* When mobile drawer is open, hide everything behind it on small screens */
+@media (max-width: 768px) {
+  .student-mobile-overlay.is-open {
+    display: flex !important;
+  }
+}
+
+/* Hide desktop sidebar on mobile (applied to student-mobile-overlay at all times */
+@media (min-width: 769px) {
+  .student-mobile-overlay {
+    display: none !important;
+  }
+}

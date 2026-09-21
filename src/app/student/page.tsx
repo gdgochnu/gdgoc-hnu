@@ -228,17 +228,17 @@ export default async function StudentPortalLandingPage() {
             </div>
           </Link>
 
-          {/* Quick Nav Links */}
+          {/* Quick Nav Links — desktop only via CSS class */}
           <div
             style={{
-              display: 'none',
+              display: 'flex',
               alignItems: 'center',
               gap: '1.5rem',
             }}
-            className="md:flex"
+            className="student-landing-nav-links"
           >
             <a href="#tracks" style={{ color: '#CBD5E1', fontSize: '0.86rem', fontWeight: 600, textDecoration: 'none' }}>
-              Tracks & Courses
+              Tracks &amp; Courses
             </a>
             <a href="#how-it-works" style={{ color: '#CBD5E1', fontSize: '0.86rem', fontWeight: 600, textDecoration: 'none' }}>
               How It Works
