@@ -905,6 +905,52 @@ export function StudentAppShell({ student, teamRole, children }: StudentAppShell
             </div>
           </div>
       </div>
+
+
+      {/* ========================================================================= */}
+      {/* MOBILE BOTTOM NAVIGATION BAR */}
+      {/* ========================================================================= */}
+      <nav className="student-mobile-bottom-nav" aria-label="Student Mobile Navigation">
+        <Link
+          href="/student/dashboard"
+          className={`student-mobile-nav-item ${pathname === '/student/dashboard' ? 'active' : ''}`}
+        >
+          <LayoutGrid size={20} />
+          <span>Dashboard</span>
+        </Link>
+        <Link
+          href="/student/courses"
+          className={`student-mobile-nav-item ${pathname?.startsWith('/student/courses') ? 'active' : ''}`}
+        >
+          <BookOpen size={20} />
+          <span>Courses</span>
+        </Link>
+        <Link
+          href="/student/my-qr"
+          className={`student-mobile-nav-item primary-action ${pathname === '/student/my-qr' ? 'active' : ''}`}
+          aria-label="My Attendance QR Pass"
+        >
+          <div className="action-circle">
+            <QrCode size={22} />
+          </div>
+          <span style={{ marginTop: '2px', fontWeight: 700 }}>Pass</span>
+        </Link>
+        <Link
+          href="/student/workshops"
+          className={`student-mobile-nav-item ${pathname?.startsWith('/student/workshops') ? 'active' : ''}`}
+        >
+          <Calendar size={20} />
+          <span>Workshops</span>
+        </Link>
+        <Link
+          href="/student/certificates"
+          className={`student-mobile-nav-item ${pathname?.startsWith('/student/certificates') ? 'active' : ''}`}
+        >
+          <Award size={20} />
+          <span>Certificates</span>
+        </Link>
+      </nav>
     </div>
   );
 }
+

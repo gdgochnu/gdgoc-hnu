@@ -214,13 +214,14 @@ export function StudentDashboardClient({ initialData }: StudentDashboardClientPr
           </div>
 
           {/* Quick Action Buttons */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap', width: '100%' }}>
             <Link
               href="/student/my-qr"
-              className="btn-primary"
+              className="btn-primary student-mobile-full-btn"
               style={{
                 display: 'flex',
                 alignItems: 'center',
+                justifyContent: 'center',
                 gap: '0.5rem',
                 padding: '0.65rem 1.25rem',
                 fontSize: '0.9rem',
@@ -235,9 +236,11 @@ export function StudentDashboardClient({ initialData }: StudentDashboardClientPr
             {teamProfile && (
               <Link
                 href="/dashboard"
+                className="student-mobile-full-btn"
                 style={{
                   display: 'flex',
                   alignItems: 'center',
+                  justifyContent: 'center',
                   gap: '0.5rem',
                   padding: '0.65rem 1.15rem',
                   borderRadius: '8px',
@@ -261,11 +264,11 @@ export function StudentDashboardClient({ initialData }: StudentDashboardClientPr
       {/* ========================================================================= */}
       {/* 2. METRIC CARDS (MATCHES TEAM DASHBOARD KPI GRID) */}
       {/* ========================================================================= */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1.25rem' }}>
+      <div className="student-dashboard-kpis" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1.25rem' }}>
         {/* Card 1: Enrolled Courses */}
         <div
           onClick={() => handleTabChange('courses')}
-          className="glass-panel"
+          className="glass-panel kpi-card"
           style={{
             padding: '1.5rem',
             display: 'flex',
@@ -294,7 +297,7 @@ export function StudentDashboardClient({ initialData }: StudentDashboardClientPr
               <BookOpen size={20} color="var(--google-blue, #4285F4)" />
             </div>
           </div>
-          <div style={{ fontSize: '2rem', fontWeight: 800, color: '#93C5FD' }}>
+          <div className="kpi-number" style={{ fontSize: '2rem', fontWeight: 800, color: '#93C5FD' }}>
             {stats.enrolledCoursesCount}
           </div>
           <div style={{ fontSize: '0.8rem', color: 'var(--text-muted, #64748B)', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
@@ -306,7 +309,7 @@ export function StudentDashboardClient({ initialData }: StudentDashboardClientPr
         {/* Card 2: Workshops */}
         <div
           onClick={() => handleTabChange('workshops')}
-          className="glass-panel"
+          className="glass-panel kpi-card"
           style={{
             padding: '1.5rem',
             display: 'flex',
@@ -335,7 +338,7 @@ export function StudentDashboardClient({ initialData }: StudentDashboardClientPr
               <Calendar size={20} color="var(--google-green, #34A853)" />
             </div>
           </div>
-          <div style={{ fontSize: '2rem', fontWeight: 800, color: '#86EFAC' }}>
+          <div className="kpi-number" style={{ fontSize: '2rem', fontWeight: 800, color: '#86EFAC' }}>
             {stats.workshopsCount}
           </div>
           <div style={{ fontSize: '0.8rem', color: 'var(--text-muted, #64748B)', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
@@ -347,7 +350,7 @@ export function StudentDashboardClient({ initialData }: StudentDashboardClientPr
         {/* Card 3: Attendance Summary */}
         <div
           onClick={() => handleTabChange('attendance')}
-          className="glass-panel"
+          className="glass-panel kpi-card"
           style={{
             padding: '1.5rem',
             display: 'flex',
@@ -377,7 +380,7 @@ export function StudentDashboardClient({ initialData }: StudentDashboardClientPr
             </div>
           </div>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.5rem' }}>
-            <div style={{ fontSize: '2rem', fontWeight: 800, color: '#FDE047' }}>
+            <div className="kpi-number" style={{ fontSize: '2rem', fontWeight: 800, color: '#FDE047' }}>
               {stats.attendanceRate}%
             </div>
             <span style={{ fontSize: '0.82rem', color: '#94A3B8', fontWeight: 600 }}>
@@ -411,7 +414,7 @@ export function StudentDashboardClient({ initialData }: StudentDashboardClientPr
         {/* Card 4: Deliverables & Tasks */}
         <div
           onClick={() => handleTabChange('tasks')}
-          className="glass-panel"
+          className="glass-panel kpi-card"
           style={{
             padding: '1.5rem',
             display: 'flex',
@@ -440,7 +443,7 @@ export function StudentDashboardClient({ initialData }: StudentDashboardClientPr
               <CheckSquare size={20} color="var(--google-red, #EA4335)" />
             </div>
           </div>
-          <div style={{ fontSize: '2rem', fontWeight: 800, color: '#FCA5A5' }}>
+          <div className="kpi-number" style={{ fontSize: '2rem', fontWeight: 800, color: '#FCA5A5' }}>
             {stats.pendingTasksCount} Pending
           </div>
           <div style={{ fontSize: '0.8rem', color: 'var(--text-muted, #64748B)', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
@@ -626,7 +629,7 @@ export function StudentDashboardClient({ initialData }: StudentDashboardClientPr
           </div>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: '1.25rem' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 300px), 1fr))', gap: '1.25rem' }}>
           {/* Widget 1: Pending Deliverables */}
           <div
             className="glass-panel"
@@ -1079,6 +1082,7 @@ export function StudentDashboardClient({ initialData }: StudentDashboardClientPr
       <div className="glass-panel" style={{ padding: '1.75rem', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
         {/* Tab Headers */}
         <div
+          className="student-scroll-tabs"
           style={{
             display: 'flex',
             alignItems: 'center',

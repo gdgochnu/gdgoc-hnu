@@ -108,6 +108,7 @@ export default async function StudentOnboardingPage() {
 
   return (
     <div
+      className="student-form-page"
       style={{
         minHeight: '100vh',
         background: '#070B14',
@@ -127,7 +128,7 @@ export default async function StudentOnboardingPage() {
 
         {/* Page Header Banner */}
         <div
-          className="glass-panel"
+          className="glass-panel student-form-card"
           style={{
             borderRadius: '24px',
             background: 'linear-gradient(180deg, #131B2E 0%, #0F172A 100%)',

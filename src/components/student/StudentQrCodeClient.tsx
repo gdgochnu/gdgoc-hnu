@@ -123,6 +123,7 @@ export function StudentQrCodeClient({ student, teamRole }: StudentQrCodeClientPr
 
   return (
     <div
+      className="student-form-page"
       style={{
         minHeight: '100vh',
         background: '#070B14',
@@ -169,13 +170,15 @@ export function StudentQrCodeClient({ student, teamRole }: StudentQrCodeClientPr
           </div>
 
           {/* Quick Action Buttons */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }} className="no-print">
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap', width: '100%' }} className="no-print">
             <button
               type="button"
               onClick={handlePrint}
+              className="student-mobile-full-btn"
               style={{
                 display: 'flex',
                 alignItems: 'center',
+                justifyContent: 'center',
                 gap: '0.5rem',
                 padding: '0.65rem 1rem',
                 borderRadius: '10px',
@@ -195,9 +198,11 @@ export function StudentQrCodeClient({ student, teamRole }: StudentQrCodeClientPr
               type="button"
               onClick={handleDownloadCardPng}
               disabled={isExporting}
+              className="student-mobile-full-btn"
               style={{
                 display: 'flex',
                 alignItems: 'center',
+                justifyContent: 'center',
                 gap: '0.5rem',
                 padding: '0.65rem 1.15rem',
                 borderRadius: '10px',
@@ -220,6 +225,7 @@ export function StudentQrCodeClient({ student, teamRole }: StudentQrCodeClientPr
         <div style={{ display: 'flex', justifyContent: 'center' }}>
           <div
             ref={passCardRef}
+            className="student-form-card"
             style={{
               width: '100%',
               maxWidth: '460px',

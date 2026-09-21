@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useTransition } from 'react';
+import React, { useState, useTransition, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { completeStudentProfile } from '@/app/student/actions';
 import {
@@ -88,6 +88,15 @@ export function CompleteStudentProfileForm({
     }
   };
 
+  const bottomErrorRef = useRef<HTMLDivElement | null>(null);
+
+  const triggerError = (msg: string) => {
+    setErrorMessage(msg);
+    setTimeout(() => {
+      bottomErrorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 50);
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage(null);
@@ -96,58 +105,58 @@ export function CompleteStudentProfileForm({
     const cleanNameAr = fullNameAr.trim();
     const arParts = cleanNameAr.split(/\s+/).filter(Boolean);
     if (!cleanNameAr || arParts.length < 4) {
-      setErrorMessage('Please enter your full 4-part Arabic name (الاسم الرباعي باللغة العربية).');
+      triggerError('Please enter your full 4-part Arabic name (الاسم الرباعي باللغة العربية).');
       return;
     }
     if (!/^[\u0600-\u06FF\s]+$/.test(cleanNameAr)) {
-      setErrorMessage('Arabic name must contain only Arabic letters and spaces.');
+      triggerError('Arabic name must contain only Arabic letters and spaces.');
       return;
     }
 
     const cleanNameEn = fullNameEn.trim();
     const enParts = cleanNameEn.split(/\s+/).filter(Boolean);
     if (!cleanNameEn || enParts.length < 4) {
-      setErrorMessage('Please enter your full 4-part English name as shown in official documents.');
+      triggerError('Please enter your full 4-part English name as shown in official documents.');
       return;
     }
     if (!/^[a-zA-Z\s\-']+$/.test(cleanNameEn)) {
-      setErrorMessage('English name must contain only English characters and spaces.');
+      triggerError('English name must contain only English characters and spaces.');
       return;
     }
 
     const cleanNationalId = nationalId.trim();
     if (!cleanNationalId || !/^\d{14}$/.test(cleanNationalId)) {
-      setErrorMessage('National ID must be exactly 14 numeric digits.');
+      triggerError('National ID must be exactly 14 numeric digits.');
       return;
     }
 
     const finalUniversity = universityType === 'hnu' ? 'Helwan National University' : customUniversity.trim();
     if (!finalUniversity) {
-      setErrorMessage('Please enter your University name.');
+      triggerError('Please enter your University name.');
       return;
     }
 
     if (!faculty.trim()) {
-      setErrorMessage('Please provide your Faculty / College.');
+      triggerError('Please provide your Faculty / College.');
       return;
     }
 
     const yearNum = Number(academicYear);
     if (!yearNum || isNaN(yearNum) || yearNum < 1 || yearNum > 5) {
-      setErrorMessage('Academic year must be between 1 and 5.');
+      triggerError('Academic year must be between 1 and 5.');
       return;
     }
 
     const cleanPhone = phone.replace(/[\s\-\(\)]/g, '');
     const phoneRegex = /^(?:\+20|20|0)?1[0125]\d{8}$/;
     if (!cleanPhone || !phoneRegex.test(cleanPhone)) {
-      setErrorMessage('Please provide a valid Egyptian mobile number (e.g. 010xxxxxxxx or +201xxxxxxxxx).');
+      triggerError('Please provide a valid Egyptian mobile number (e.g. 010xxxxxxxx or +201xxxxxxxxx).');
       return;
     }
 
     const cleanWhatsapp = whatsappNumber.replace(/[\s\-\(\)]/g, '');
     if (!cleanWhatsapp || !phoneRegex.test(cleanWhatsapp)) {
-      setErrorMessage('Please provide a valid Egyptian WhatsApp number (e.g. 010xxxxxxxx or +201xxxxxxxxx).');
+      triggerError('Please provide a valid Egyptian WhatsApp number (e.g. 010xxxxxxxx or +201xxxxxxxxx).');
       return;
     }
 
@@ -173,10 +182,10 @@ export function CompleteStudentProfileForm({
           router.push('/student/dashboard');
           router.refresh();
         } else {
-          setErrorMessage(res.error || 'Failed to complete profile.');
+          triggerError(res.error || 'Failed to complete profile.');
         }
       } catch (err: any) {
-        setErrorMessage(err.message || 'An unexpected error occurred.');
+        triggerError(err.message || 'An unexpected error occurred.');
       }
     });
   };
@@ -310,7 +319,7 @@ export function CompleteStudentProfileForm({
 
       {/* Section 1: Personal & Legal Identification */}
       <div
-        className="glass-panel"
+        className="glass-panel student-form-card"
         style={{
           borderRadius: '20px',
           padding: '1.75rem',
@@ -375,7 +384,7 @@ export function CompleteStudentProfileForm({
               National ID (14 digits) <span style={{ color: '#F87171' }}>*</span>
             </label>
             <div style={{ position: 'relative' }}>
-              <CreditCard size={16} color="#94A3B8" style={{ position: 'absolute', left: '0.85rem', top: '50%', transform: 'translateY(-50%)' }} />
+              <CreditCard size={16} color={errorMessage?.toLowerCase().includes('national id') ? '#EF4444' : '#94A3B8'} style={{ position: 'absolute', left: '0.85rem', top: '50%', transform: 'translateY(-50%)' }} />
               <input
                 type="text"
                 value={nationalId}
@@ -383,12 +392,23 @@ export function CompleteStudentProfileForm({
                 placeholder="29901011234567"
                 maxLength={14}
                 required
-                style={inputStyle}
+                style={{
+                  ...inputStyle,
+                  borderColor: errorMessage?.toLowerCase().includes('national id') ? '#EF4444' : undefined,
+                  boxShadow: errorMessage?.toLowerCase().includes('national id') ? '0 0 0 3px rgba(239, 68, 68, 0.25)' : undefined,
+                }}
               />
             </div>
-            <div style={{ fontSize: '0.74rem', color: '#64748B', marginTop: '0.3rem' }}>
-              14 digits required for campus event security and verification.
-            </div>
+            {errorMessage?.toLowerCase().includes('national id') ? (
+              <div style={{ fontSize: '0.78rem', color: '#F87171', fontWeight: 700, marginTop: '0.35rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                <AlertCircle size={13} color="#EF4444" />
+                <span>{errorMessage}</span>
+              </div>
+            ) : (
+              <div style={{ fontSize: '0.74rem', color: '#64748B', marginTop: '0.3rem' }}>
+                14 digits required for campus event security and verification.
+              </div>
+            )}
           </div>
 
           {/* Registered Email (Disabled) */}
@@ -412,7 +432,7 @@ export function CompleteStudentProfileForm({
 
       {/* Section 2: University & Academic Information */}
       <div
-        className="glass-panel"
+        className="glass-panel student-form-card"
         style={{
           borderRadius: '20px',
           padding: '1.75rem',
@@ -565,7 +585,7 @@ export function CompleteStudentProfileForm({
 
       {/* Section 3: Contact & Communication */}
       <div
-        className="glass-panel"
+        className="glass-panel student-form-card"
         style={{
           borderRadius: '20px',
           padding: '1.75rem',
@@ -645,7 +665,7 @@ export function CompleteStudentProfileForm({
 
       {/* Section 4: Professional & Social Profiles (Optional) */}
       <div
-        className="glass-panel"
+        className="glass-panel student-form-card"
         style={{
           borderRadius: '20px',
           padding: '1.75rem',
@@ -708,11 +728,96 @@ export function CompleteStudentProfileForm({
         </div>
       </div>
 
+      {/* Bottom Error Alert (Placed directly above the activation button) */}
+      {errorMessage && (
+        <div
+          ref={bottomErrorRef}
+          style={{
+            borderRadius: '14px',
+            padding: '1rem 1.25rem',
+            background: 'rgba(234, 67, 53, 0.15)',
+            border: '1.5px solid rgba(234, 67, 53, 0.5)',
+            color: '#FCA5A5',
+            fontSize: '0.92rem',
+            fontWeight: 700,
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.75rem',
+            boxShadow: '0 8px 30px rgba(234, 67, 53, 0.25)',
+          }}
+        >
+          <div
+            style={{
+              width: '32px',
+              height: '32px',
+              borderRadius: '8px',
+              background: 'rgba(234, 67, 53, 0.25)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexShrink: 0,
+            }}
+          >
+            <AlertCircle size={18} color="#EF4444" />
+          </div>
+          <span style={{ lineHeight: 1.5, flex: 1 }}>{errorMessage}</span>
+        </div>
+      )}
+
+      {/* Floating Bottom Toast Error so it is 100% visible on screen anywhere */}
+      {errorMessage && (
+        <div
+          style={{
+            position: 'fixed',
+            bottom: '2rem',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            zIndex: 9999,
+            maxWidth: '92vw',
+            width: 'auto',
+            background: 'rgba(15, 23, 42, 0.96)',
+            backdropFilter: 'blur(12px)',
+            border: '1.5px solid #EF4444',
+            borderRadius: '16px',
+            padding: '0.9rem 1.3rem',
+            boxShadow: '0 20px 45px rgba(0, 0, 0, 0.8), 0 0 25px rgba(239, 68, 68, 0.35)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.75rem',
+            color: '#FEE2E2',
+            fontSize: '0.9rem',
+            fontWeight: 700,
+          }}
+        >
+          <AlertCircle size={20} color="#EF4444" style={{ flexShrink: 0 }} />
+          <span style={{ lineHeight: 1.4 }}>{errorMessage}</span>
+          <button
+            type="button"
+            onClick={() => setErrorMessage(null)}
+            style={{
+              background: 'rgba(255, 255, 255, 0.12)',
+              border: 'none',
+              color: '#CBD5E1',
+              borderRadius: '8px',
+              padding: '0.35rem 0.65rem',
+              cursor: 'pointer',
+              fontSize: '0.78rem',
+              fontWeight: 700,
+              marginLeft: '0.5rem',
+              flexShrink: 0,
+            }}
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
+
       {/* Submit Button */}
-      <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '0.5rem' }}>
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '0.5rem', width: '100%' }}>
         <button
           type="submit"
           disabled={isPending}
+          className="student-mobile-full-btn"
           style={{
             padding: '1rem 2.25rem',
             borderRadius: '12px',
@@ -724,6 +829,7 @@ export function CompleteStudentProfileForm({
             cursor: isPending ? 'wait' : 'pointer',
             display: 'inline-flex',
             alignItems: 'center',
+            justifyContent: 'center',
             gap: '0.6rem',
             boxShadow: '0 8px 25px rgba(66, 133, 244, 0.4)',
             opacity: isPending ? 0.7 : 1,

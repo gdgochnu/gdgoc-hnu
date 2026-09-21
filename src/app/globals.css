@@ -891,3 +891,97 @@ body[dir="rtl"] select,
   line-height: 1.65;
 }
 
+/* ========================================================================= */
+/* STUDENT PORTAL NATIVE MOBILE OPTIMIZATIONS */
+/* ========================================================================= */
+
+/* Prevent iOS Safari 100% zoom-in when tapping form inputs */
+@media (max-width: 768px) {
+  input[type='text'],
+  input[type='email'],
+  input[type='tel'],
+  input[type='url'],
+  input[type='password'],
+  input[type='number'],
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+}
+
+/* Mobile Sticky Bottom Navigation Bar (Hidden on desktop, active on mobile) */
+.student-mobile-bottom-nav {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .student-mobile-bottom-nav {
+    display: flex !important;
+    position: fixed !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    height: calc(60px + env(safe-area-inset-bottom, 0px)) !important;
+    padding-bottom: env(safe-area-inset-bottom, 0px) !important;
+    background: rgba(11, 15, 25, 0.94) !important;
+    backdrop-filter: blur(20px) !important;
+    -webkit-backdrop-filter: blur(20px) !important;
+    border-top: 1px solid rgba(255, 255, 255, 0.1) !important;
+    z-index: 99 !important;
+    align-items: center !important;
+    justify-content: space-around !important;
+    box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.5) !important;
+  }
+
+  /* Ensure page content has bottom padding so it is never obscured by the bottom bar */
+  .main-content-layout main {
+    padding-bottom: calc(76px + env(safe-area-inset-bottom, 0px)) !important;
+  }
+}
+
+/* Smooth Horizontal Scroll Tabs with Hidden Scrollbar */
+.student-scroll-tabs {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.student-scroll-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+/* Mobile 2x2 KPI Grid on Small Screens */
+@media (max-width: 640px) {
+  .student-dashboard-kpis {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 0.75rem !important;
+  }
+
+  .student-dashboard-kpis .glass-panel {
+    padding: 1rem 0.85rem !important;
+  }
+
+  .student-dashboard-kpis .kpi-number {
+    font-size: 1.5rem !important;
+  }
+
+  /* Compact padding for student form containers on mobile */
+  .student-form-page {
+    padding: 1.25rem 0.85rem calc(76px + env(safe-area-inset-bottom, 0px)) !important;
+  }
+
+  .student-form-card {
+    padding: 1.25rem 1rem !important;
+    border-radius: 16px !important;
+  }
+
+  /* Full-width action buttons on mobile */
+  .student-mobile-full-btn {
+    width: 100% !important;
+    justify-content: center !important;
+  }
+}
+
