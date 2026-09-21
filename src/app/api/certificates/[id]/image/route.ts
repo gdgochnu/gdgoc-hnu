@@ -35,9 +35,11 @@ export async function GET(
     }
 
     const admin = createAdminClient();
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    const isUuid = uuidRegex.test(id);
 
     // 1. Fetch certificate record
-    const { data: cert, error: certErr } = await admin
+    let certQuery = admin
       .from('certificates')
       .select(`
         id,
@@ -50,14 +52,16 @@ export async function GET(
         template_id,
         event_id,
         issued_by
-      `)
-      .eq('id', id)
-      .maybeSingle();
+      `);
+
+    const { data: cert } = isUuid
+      ? await certQuery.eq('id', id).maybeSingle()
+      : await certQuery.ilike('certificate_number', id).maybeSingle();
 
     let certToRender: any = cert;
 
     if (!certToRender) {
-      const { data: stuCert } = await admin
+      let stuCertQuery = admin
         .from('student_certificates')
         .select(`
           id,
@@ -67,9 +71,11 @@ export async function GET(
           verification_code,
           template_id,
           student:student_profiles(full_name_en, full_name_ar, email)
-        `)
-        .eq('id', id)
-        .maybeSingle();
+        `);
+
+      const { data: stuCert } = isUuid
+        ? await stuCertQuery.eq('id', id).maybeSingle()
+        : await stuCertQuery.ilike('certificate_number', id).maybeSingle();
 
       if (stuCert) {
         const studentObj = Array.isArray(stuCert.student) ? stuCert.student[0] : stuCert.student;

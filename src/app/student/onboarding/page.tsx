@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { getStudentOnboardingData } from '@/app/student/actions';
 import { CompleteStudentProfileForm } from '@/components/student/CompleteStudentProfileForm';
+import { StudentOnboardingHeader } from '@/components/student/StudentOnboardingHeader';
 import { SignInWithGoogleButton } from '@/components/SignInWithGoogleButton';
 import {
   GraduationCap,
@@ -83,7 +84,7 @@ export default async function StudentOnboardingPage() {
 
           <div style={{ marginTop: '2rem', paddingTop: '1.5rem', borderTop: '1px solid rgba(255, 255, 255, 0.08)' }}>
             <Link
-              href="/student"
+              href="/"
               style={{
                 display: 'inline-flex',
                 alignItems: 'center',
@@ -95,7 +96,7 @@ export default async function StudentOnboardingPage() {
               }}
             >
               <ArrowLeft size={15} />
-              <span>Back to Student Portal Home</span>
+              <span>Back to Home</span>
             </Link>
           </div>
         </div>
@@ -104,13 +105,6 @@ export default async function StudentOnboardingPage() {
   }
 
   const isEditMode = data.isAlreadyActive;
-
-  // Active students arriving via sign-in redirect → send them straight to dashboard.
-  // They can still access this page intentionally via the sidebar "Edit Profile Info" link.
-  // We detect sign-in flow vs direct edit intent by checking the referrer isn't the portal itself.
-  // Simplest approach: always redirect active students, since the sidebar uses the same URL.
-  // To allow editing, the sidebar should still land here (isAlreadyActive = true shows edit form).
-  // So we DON'T redirect — the form shows in edit mode with pre-filled data. This is correct UX.
 
   return (
     <div
@@ -123,24 +117,13 @@ export default async function StudentOnboardingPage() {
       }}
     >
       <div style={{ maxWidth: '820px', margin: '0 auto' }}>
-        {/* Back Link */}
-        <div style={{ marginBottom: '1.5rem' }}>
-          <Link
-            href={isEditMode ? '/student/dashboard' : '/student'}
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '0.4rem',
-              color: '#94A3B8',
-              fontSize: '0.86rem',
-              fontWeight: 600,
-              textDecoration: 'none',
-            }}
-          >
-            <ArrowLeft size={16} />
-            <span>{isEditMode ? 'Back to Dashboard' : 'Back to Student Portal'}</span>
-          </Link>
-        </div>
+        {/* Onboarding Header with strict access state & signout */}
+        <StudentOnboardingHeader
+          isEditMode={isEditMode}
+          email={data.prefilled.email}
+          avatarUrl={data.prefilled.avatarUrl}
+          displayName={data.prefilled.fullNameEn || data.prefilled.fullNameAr}
+        />
 
         {/* Page Header Banner */}
         <div

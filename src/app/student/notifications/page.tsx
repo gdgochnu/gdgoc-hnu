@@ -2,6 +2,7 @@ import React from 'react';
 import { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 import { getCurrentStudentProfile } from '@/app/student/actions';
+import { isStudentProfileComplete } from '@/lib/student/profile-validation';
 import { getStudentNotifications } from './actions';
 import { StudentAppShell } from '@/components/student/StudentAppShell';
 import { StudentNotificationsClient } from './StudentNotificationsClient';
@@ -23,7 +24,7 @@ export default async function StudentNotificationsPage() {
     redirect('/student?signin=true');
   }
 
-  if (profileRes.student.status === 'incomplete') {
+  if (!isStudentProfileComplete(profileRes.student)) {
     redirect('/student/onboarding');
   }
 

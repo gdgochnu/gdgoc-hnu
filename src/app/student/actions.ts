@@ -3,6 +3,7 @@
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getUserContext } from '@/lib/auth/get-user-context';
 import { StudentProfile, StudentOnboardingInput, StudentDashboardData } from '@/types/student';
+import { isStudentProfileComplete } from '@/lib/student/profile-validation';
 import { revalidatePath } from 'next/cache';
 
 /**
@@ -359,7 +360,7 @@ export async function getStudentOnboardingData(): Promise<{
       student.team_profile_id = teamProfile.id;
     }
 
-    const isAlreadyActive = student?.status === 'active';
+    const isAlreadyActive = isStudentProfileComplete(student as StudentProfile);
     const isTeamMember = Boolean(teamProfile);
 
     const prefilled = {
@@ -442,10 +443,10 @@ export async function getStudentDashboardData(): Promise<{
 
     if (stuErr) {
       console.error('getStudentDashboardData student error:', stuErr);
-      return { authenticated: true, needsOnboarding: false, error: stuErr.message };
+      return { authenticated: true, needsOnboarding: true, error: stuErr.message };
     }
 
-    if (!student || student.status !== 'active') {
+    if (!isStudentProfileComplete(student as StudentProfile)) {
       return { authenticated: true, needsOnboarding: true };
     }
 
@@ -1061,7 +1062,7 @@ export async function getStudentQrPassData(): Promise<{
       .eq('id', context.user.id)
       .maybeSingle();
 
-    if (!student || student.status !== 'active') {
+    if (!isStudentProfileComplete(student as StudentProfile)) {
       return { authenticated: true, needsOnboarding: true };
     }
 

@@ -6,6 +6,8 @@ import { renderCertificatePDFBuffer } from '@/lib/certificates/issue-engine';
 import { uploadFileToDrive } from '@/lib/drive/drive-client';
 import { notifyCertificateIssued } from '@/lib/notifications/triggers';
 import { dispatchStudentNotification } from '@/app/student/notifications/actions';
+import { sendStudentCertificateEmail } from '@/lib/email/service';
+import { getAppBaseUrl } from '@/lib/utils';
 import { DEFAULT_FIELD_LAYOUT, CertificateTemplate } from '@/types/certificates';
 import type {
   StudentCertificate,
@@ -664,6 +666,25 @@ export async function issueStudentCertificatesBatch(input: {
           });
         } catch (notifErr) {
           console.warn('Student certificate notification warning:', notifErr);
+        }
+
+        // 8. Dispatch Email to student with PDF download link and verify URL (Checklist S.F.3 & S.F.6)
+        try {
+          if (studentInfo.email) {
+            const baseUrl = getAppBaseUrl();
+            const downloadUrl = driveUrl || `${baseUrl}/api/certificates/${insertedCert.id}/download`;
+            await sendStudentCertificateEmail({
+              to: studentInfo.email,
+              recipientName: recipientDisplayName,
+              programTitle,
+              certificateNumber,
+              verificationCode,
+              downloadUrl,
+              verifyUrl,
+            });
+          }
+        } catch (emailErr) {
+          console.warn('Student certificate email warning:', emailErr);
         }
 
         issuedCertificates.push({

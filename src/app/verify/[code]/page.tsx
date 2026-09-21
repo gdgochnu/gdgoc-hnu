@@ -42,6 +42,9 @@ export default async function CertificateVerificationPage({ params }: VerifyPage
   const code = decodeURIComponent(rawCode).trim();
   const admin = createAdminClient();
 
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  const isCodeUuid = uuidRegex.test(code);
+
   // 1. Query certificate by certificate_number first (case-insensitive)
   let { data: cert } = await admin
     .from('certificates')
@@ -60,8 +63,8 @@ export default async function CertificateVerificationPage({ params }: VerifyPage
     .ilike('certificate_number', code)
     .maybeSingle();
 
-  // 2. If not found by certificate_number, check verification_code (legacy UUID)
-  if (!cert) {
+  // 2. If not found by certificate_number, check verification_code (UUID)
+  if (!cert && isCodeUuid) {
     const { data: byCode } = await admin
       .from('certificates')
       .select(`
@@ -81,8 +84,8 @@ export default async function CertificateVerificationPage({ params }: VerifyPage
     cert = byCode;
   }
 
-  // 3. Fallback: check by database ID
-  if (!cert) {
+  // 3. Fallback: check by database ID (UUID)
+  if (!cert && isCodeUuid) {
     const { data: byId } = await admin
       .from('certificates')
       .select(`
@@ -126,7 +129,7 @@ export default async function CertificateVerificationPage({ params }: VerifyPage
       .ilike('certificate_number', code)
       .maybeSingle();
 
-    if (!stuCert) {
+    if (!stuCert && isCodeUuid) {
       const { data: byVerifyCode } = await admin
         .from('student_certificates')
         .select(`
@@ -151,7 +154,7 @@ export default async function CertificateVerificationPage({ params }: VerifyPage
       stuCert = byVerifyCode;
     }
 
-    if (!stuCert) {
+    if (!stuCert && isCodeUuid) {
       const { data: byStuId } = await admin
         .from('student_certificates')
         .select(`

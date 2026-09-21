@@ -3,6 +3,7 @@
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getUserContext } from '@/lib/auth/get-user-context';
 import { revalidatePath } from 'next/cache';
+import { isStudentProfileComplete } from '@/lib/student/profile-validation';
 import { sendWorkshopRegistrationEmail } from '@/lib/email/service';
 import { dispatchStudentNotification } from '@/app/student/notifications/actions';
 import {
@@ -108,13 +109,13 @@ export async function getPublishedWorkshops(): Promise<{
     if (userId) {
       const { data: stu } = await admin
         .from('student_profiles')
-        .select('id, status')
+        .select('*')
         .eq('id', userId)
         .maybeSingle();
 
       if (stu) {
         studentProfileId = stu.id;
-        if (stu.status === 'incomplete') {
+        if (!isStudentProfileComplete(stu)) {
           needsOnboarding = true;
         }
       } else {
@@ -315,13 +316,13 @@ export async function getWorkshopDetail(workshopId: string): Promise<{
     if (userId) {
       const { data: stu } = await admin
         .from('student_profiles')
-        .select('id, status')
+        .select('*')
         .eq('id', userId)
         .maybeSingle();
 
       if (stu) {
         studentProfileId = stu.id;
-        if (stu.status === 'incomplete') {
+        if (!isStudentProfileComplete(stu)) {
           needsOnboarding = true;
         }
       } else {

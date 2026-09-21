@@ -2,6 +2,7 @@ import React from 'react';
 import { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 import { getStudentQrPassData } from '@/app/student/actions';
+import { isStudentProfileComplete } from '@/lib/student/profile-validation';
 import { StudentAppShell } from '@/components/student/StudentAppShell';
 import { StudentQrCodeClient } from '@/components/student/StudentQrCodeClient';
 
@@ -19,7 +20,7 @@ export default async function StudentMyQrPage() {
     redirect('/student?signin=true');
   }
 
-  if (result.needsOnboarding || !result.student) {
+  if (result.needsOnboarding || !result.student || !isStudentProfileComplete(result.student)) {
     redirect('/student/onboarding');
   }
 

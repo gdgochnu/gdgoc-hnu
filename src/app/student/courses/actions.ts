@@ -3,6 +3,7 @@
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getUserContext } from '@/lib/auth/get-user-context';
 import { revalidatePath } from 'next/cache';
+import { isStudentProfileComplete } from '@/lib/student/profile-validation';
 import { dispatchStudentNotification } from '@/app/student/notifications/actions';
 import {
   Course,
@@ -148,13 +149,13 @@ export async function getPublishedCourses(): Promise<{
     if (userId) {
       const { data: stu } = await admin
         .from('student_profiles')
-        .select('id, status')
+        .select('*')
         .eq('id', userId)
         .maybeSingle();
 
       if (stu) {
         studentProfileId = stu.id;
-        if (stu.status === 'incomplete') {
+        if (!isStudentProfileComplete(stu)) {
           needsOnboarding = true;
         }
       } else {
@@ -316,13 +317,13 @@ export async function getCourseDetail(courseId: string): Promise<{
     if (userId) {
       const { data: stu } = await admin
         .from('student_profiles')
-        .select('id, status')
+        .select('*')
         .eq('id', userId)
         .maybeSingle();
 
       if (stu) {
         studentProfileId = stu.id;
-        if (stu.status === 'incomplete') {
+        if (!isStudentProfileComplete(stu)) {
           needsOnboarding = true;
         }
       } else {

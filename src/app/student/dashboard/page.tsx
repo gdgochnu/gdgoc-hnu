@@ -2,6 +2,7 @@ import React from 'react';
 import { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 import { getStudentDashboardData } from '@/app/student/actions';
+import { isStudentProfileComplete } from '@/lib/student/profile-validation';
 import { StudentAppShell } from '@/components/student/StudentAppShell';
 import { StudentDashboardClient } from '@/components/student/StudentDashboardClient';
 
@@ -21,7 +22,7 @@ export default async function StudentDashboardPage() {
   }
 
   // If onboarding not completed, redirect to onboarding form
-  if (result.needsOnboarding || !result.data) {
+  if (result.needsOnboarding || !result.data || !isStudentProfileComplete(result.data.student)) {
     redirect('/student/onboarding');
   }
 

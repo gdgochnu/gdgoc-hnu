@@ -1086,3 +1086,89 @@ export async function sendWorkshopRegistrationEmail(params: {
   });
 }
 
+/**
+ * Student Certificate Delivery Email
+ * Spec §4.S.3, §4.S.8: Sends verified completion certificate notice with direct download link & verify URL
+ */
+export interface SendStudentCertificateEmailParams {
+  to: string;
+  recipientName: string;
+  programTitle: string;
+  certificateNumber: string;
+  verificationCode: string;
+  downloadUrl?: string | null;
+  verifyUrl: string;
+}
+
+export async function sendStudentCertificateEmail(params: SendStudentCertificateEmailParams): Promise<EmailResult> {
+  const downloadButtonHtml = params.downloadUrl
+    ? `
+      <td align="center" style="border-radius: 8px; background-color: #4285F4; margin-right: 8px;">
+        <a href="${params.downloadUrl}" target="_blank" style="font-size: 14px; font-weight: 700; color: #FFFFFF; text-decoration: none; padding: 12px 24px; display: inline-block; border-radius: 8px;">
+          ⬇️ Download Official PDF
+        </a>
+      </td>
+      <td style="width: 12px;"></td>
+    `
+    : '';
+
+  const content = `
+    <div style="margin-bottom: 24px;">
+      <span style="display: inline-block; padding: 4px 12px; border-radius: 999px; background-color: rgba(251, 188, 4, 0.15); color: #FBBC04; font-size: 12px; font-weight: 700; text-transform: uppercase;">
+        Official Credential Conferred 📜
+      </span>
+      <h1 style="font-size: 22px; font-weight: 800; color: #FFFFFF; margin: 12px 0 8px 0;">
+        Congratulations, ${params.recipientName}!
+      </h1>
+      <p style="margin: 0; color: #9CA3AF; font-size: 15px; line-height: 1.6;">
+        Your completion certificate for <strong>${params.programTitle}</strong> has been officially approved and issued by the Chapter Leadership at Google Developer Groups on Campus — Helwan National University.
+      </p>
+    </div>
+
+    <!-- Certificate Serial & Verification Box -->
+    <table width="100%" border="0" cellspacing="0" cellpadding="0" style="margin-bottom: 24px; background: rgba(15, 23, 42, 0.9); border: 1px solid rgba(66, 133, 244, 0.3); border-radius: 14px; padding: 20px; text-align: center;">
+      <tr>
+        <td align="center">
+          <div style="font-size: 11px; font-weight: 700; color: #9CA3AF; text-transform: uppercase; letter-spacing: 0.05em;">
+            Permanent Credential Serial
+          </div>
+          <div style="font-size: 18px; font-weight: 900; color: #60A5FA; letter-spacing: 0.08em; font-family: monospace; margin: 6px 0;">
+            ${params.certificateNumber}
+          </div>
+          <div style="font-size: 12px; color: #6B7280;">
+            Cryptographically signed and publicly verifiable by employers worldwide.
+          </div>
+        </td>
+      </tr>
+    </table>
+
+    <!-- Action Buttons -->
+    <table border="0" cellspacing="0" cellpadding="0" style="margin-bottom: 20px;">
+      <tr>
+        ${downloadButtonHtml}
+        <td align="center" style="border-radius: 8px; background-color: rgba(255, 255, 255, 0.08); border: 1px solid rgba(255, 255, 255, 0.15);">
+          <a href="${params.verifyUrl}" target="_blank" style="font-size: 14px; font-weight: 700; color: #FFFFFF; text-decoration: none; padding: 12px 22px; display: inline-block; border-radius: 8px;">
+            🛡️ Verify Credential Online &rarr;
+          </a>
+        </td>
+      </tr>
+    </table>
+
+    <div style="padding: 16px; border-radius: 10px; background-color: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.07); margin-top: 20px; font-size: 13px; color: #9CA3AF;">
+      💡 <strong>Pro Tip:</strong> You can view, share on LinkedIn, and download all your earned certificates anytime in your <a href="${getAppBaseUrl()}/student/certificates" style="color: #60A5FA; text-decoration: underline;">Student Portal Certificate Gallery</a>.
+    </div>
+  `;
+
+  return sendEmail({
+    to: params.to,
+    subject: `🎓 Official Certificate Issued: ${params.programTitle} — GDGoC HNU`,
+    html: renderEmailLayout('Certificate Conferred — GDGoC HNU', content),
+    metadata: {
+      type: 'student_certificate_issued',
+      certificate_number: params.certificateNumber,
+      verification_code: params.verificationCode,
+    },
+  });
+}
+
+

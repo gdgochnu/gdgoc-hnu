@@ -3,6 +3,7 @@ import { Metadata } from 'next';
 import Link from 'next/link';
 import { getPublishedCourses } from './actions';
 import { getCurrentStudentProfile } from '@/app/student/actions';
+import { isStudentProfileComplete } from '@/lib/student/profile-validation';
 import { StudentAppShell } from '@/components/student/StudentAppShell';
 import { StudentCoursesCatalogClient } from '@/components/student/StudentCoursesCatalogClient';
 import { Sparkles, ArrowLeft, LogIn } from 'lucide-react';
@@ -29,9 +30,10 @@ export default async function StudentCoursesPage() {
   } = coursesRes;
 
   const student = studentRes.student;
+  const isProfileComplete = isStudentProfileComplete(student);
 
-  // If student profile exists and is active, render inside StudentAppShell
-  if (student && student.status !== 'incomplete') {
+  // If student profile exists and is 100% complete, render inside StudentAppShell
+  if (student && isProfileComplete) {
     return (
       <StudentAppShell student={student} teamRole={studentRes.teamRole || null}>
         <StudentCoursesCatalogClient
@@ -39,7 +41,7 @@ export default async function StudentCoursesPage() {
           categories={categories}
           departments={departments}
           isAuthenticated={isAuthenticated}
-          needsOnboarding={needsOnboarding}
+          needsOnboarding={needsOnboarding || !isProfileComplete}
         />
       </StudentAppShell>
     );
@@ -121,20 +123,38 @@ export default async function StudentCoursesPage() {
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
             {isAuthenticated ? (
-              <Link
-                href="/student/dashboard"
-                style={{
-                  padding: '0.5rem 1rem',
-                  borderRadius: '8px',
-                  background: '#4285F4',
-                  color: '#FFFFFF',
-                  fontWeight: 700,
-                  fontSize: '0.84rem',
-                  textDecoration: 'none',
-                }}
-              >
-                Go to Dashboard
-              </Link>
+              needsOnboarding || !isProfileComplete ? (
+                <Link
+                  href="/student/onboarding"
+                  style={{
+                    padding: '0.5rem 1rem',
+                    borderRadius: '8px',
+                    background: 'linear-gradient(135deg, #EA4335 0%, #D93025 100%)',
+                    color: '#FFFFFF',
+                    fontWeight: 700,
+                    fontSize: '0.84rem',
+                    textDecoration: 'none',
+                    boxShadow: '0 4px 12px rgba(234, 67, 53, 0.35)',
+                  }}
+                >
+                  Complete Profile to Enroll
+                </Link>
+              ) : (
+                <Link
+                  href="/student/dashboard"
+                  style={{
+                    padding: '0.5rem 1rem',
+                    borderRadius: '8px',
+                    background: '#4285F4',
+                    color: '#FFFFFF',
+                    fontWeight: 700,
+                    fontSize: '0.84rem',
+                    textDecoration: 'none',
+                  }}
+                >
+                  Go to Dashboard
+                </Link>
+              )
             ) : (
               <Link
                 href="/student?signin=true"

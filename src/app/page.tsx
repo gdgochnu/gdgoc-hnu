@@ -4,6 +4,7 @@ import { Metadata } from 'next';
 import { getUserContext } from '@/lib/auth/get-user-context';
 import { getCurrentStudentProfile } from '@/app/student/actions';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { isStudentProfileComplete } from '@/lib/student/profile-validation';
 import { SignInWithGoogleButton } from '@/components/SignInWithGoogleButton';
 import {
   GraduationCap,
@@ -69,6 +70,8 @@ export default async function HomePage(props: HomePageProps) {
   } catch (err) {
     console.warn('HomePage session retrieval notice:', err);
   }
+
+  const isProfileComplete = isStudentProfileComplete(studentProfile);
 
   // 2. Fetch live portal counts from database
   let studentsCount = 0;
@@ -376,25 +379,47 @@ export default async function HomePage(props: HomePageProps) {
           {/* Auth Action */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
             {currentUser ? (
-              <Link
-                href="/student/dashboard"
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '0.5rem',
-                  padding: '0.55rem 1.15rem',
-                  borderRadius: '10px',
-                  background: 'linear-gradient(135deg, #4285F4 0%, #2563EB 100%)',
-                  color: '#FFFFFF',
-                  fontSize: '0.86rem',
-                  fontWeight: 700,
-                  textDecoration: 'none',
-                  boxShadow: '0 4px 14px rgba(66, 133, 244, 0.4)',
-                }}
-              >
-                <LayoutGrid size={15} />
-                <span>My Dashboard</span>
-              </Link>
+              isProfileComplete ? (
+                <Link
+                  href="/student/dashboard"
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '0.5rem',
+                    padding: '0.55rem 1.15rem',
+                    borderRadius: '10px',
+                    background: 'linear-gradient(135deg, #4285F4 0%, #2563EB 100%)',
+                    color: '#FFFFFF',
+                    fontSize: '0.86rem',
+                    fontWeight: 700,
+                    textDecoration: 'none',
+                    boxShadow: '0 4px 14px rgba(66, 133, 244, 0.4)',
+                  }}
+                >
+                  <LayoutGrid size={15} />
+                  <span>My Dashboard</span>
+                </Link>
+              ) : (
+                <Link
+                  href="/student/onboarding"
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '0.5rem',
+                    padding: '0.55rem 1.15rem',
+                    borderRadius: '10px',
+                    background: 'linear-gradient(135deg, #EA4335 0%, #D93025 100%)',
+                    color: '#FFFFFF',
+                    fontSize: '0.86rem',
+                    fontWeight: 700,
+                    textDecoration: 'none',
+                    boxShadow: '0 4px 14px rgba(234, 67, 53, 0.4)',
+                  }}
+                >
+                  <Sparkles size={15} />
+                  <span>Complete Profile</span>
+                </Link>
+              )
             ) : (
               <SignInWithGoogleButton
                 label="Sign In"
@@ -504,47 +529,75 @@ export default async function HomePage(props: HomePageProps) {
             }}
           >
             {currentUser ? (
-              <>
-                <Link
-                  href="/student/dashboard"
-                  style={{
-                    padding: '0.95rem 2rem',
-                    borderRadius: '12px',
-                    background: 'linear-gradient(135deg, #4285F4 0%, #2563EB 100%)',
-                    color: '#FFFFFF',
-                    fontSize: '1rem',
-                    fontWeight: 800,
-                    textDecoration: 'none',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '0.6rem',
-                    boxShadow: '0 10px 30px rgba(66, 133, 244, 0.4)',
-                  }}
-                >
-                  <LayoutGrid size={18} />
-                  <span>Open Student Dashboard</span>
-                </Link>
+              isProfileComplete ? (
+                <>
+                  <Link
+                    href="/student/dashboard"
+                    style={{
+                      padding: '0.95rem 2rem',
+                      borderRadius: '12px',
+                      background: 'linear-gradient(135deg, #4285F4 0%, #2563EB 100%)',
+                      color: '#FFFFFF',
+                      fontSize: '1rem',
+                      fontWeight: 800,
+                      textDecoration: 'none',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '0.6rem',
+                      boxShadow: '0 10px 30px rgba(66, 133, 244, 0.4)',
+                    }}
+                  >
+                    <LayoutGrid size={18} />
+                    <span>Open Student Dashboard</span>
+                  </Link>
 
-                <Link
-                  href="/student/courses"
-                  style={{
-                    padding: '0.95rem 1.75rem',
-                    borderRadius: '12px',
-                    background: 'rgba(255, 255, 255, 0.05)',
-                    border: '1px solid rgba(255, 255, 255, 0.12)',
-                    color: '#FFFFFF',
-                    fontSize: '1rem',
-                    fontWeight: 700,
-                    textDecoration: 'none',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '0.5rem',
-                  }}
-                >
-                  <span>Explore Courses</span>
-                  <ChevronRight size={17} />
-                </Link>
-              </>
+                  <Link
+                    href="/student/courses"
+                    style={{
+                      padding: '0.95rem 1.75rem',
+                      borderRadius: '12px',
+                      background: 'rgba(255, 255, 255, 0.05)',
+                      border: '1px solid rgba(255, 255, 255, 0.12)',
+                      color: '#FFFFFF',
+                      fontSize: '1rem',
+                      fontWeight: 700,
+                      textDecoration: 'none',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '0.5rem',
+                    }}
+                  >
+                    <span>Explore Courses</span>
+                    <ChevronRight size={17} />
+                  </Link>
+                </>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.85rem' }}>
+                  <Link
+                    href="/student/onboarding"
+                    style={{
+                      padding: '1rem 2.25rem',
+                      borderRadius: '14px',
+                      background: 'linear-gradient(135deg, #EA4335 0%, #4285F4 100%)',
+                      color: '#FFFFFF',
+                      fontSize: '1.05rem',
+                      fontWeight: 900,
+                      textDecoration: 'none',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '0.75rem',
+                      boxShadow: '0 10px 30px rgba(234, 67, 53, 0.4)',
+                    }}
+                  >
+                    <Sparkles size={19} />
+                    <span>Complete Your Profile to Get Started</span>
+                    <ArrowRight size={18} />
+                  </Link>
+                  <p style={{ margin: 0, fontSize: '0.86rem', color: '#FCA5A5' }}>
+                    Registration required before accessing the student portal and attendance QR pass.
+                  </p>
+                </div>
+              )
             ) : (
               <>
                 <SignInWithGoogleButton
