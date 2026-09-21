@@ -119,6 +119,31 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
           Sign in using your Google account to access your chapter workspace, team delegations, events, and reports.
         </p>
 
+        {/* Notice if currently signed in with a non-team account */}
+        {context.user && (!context.profile || context.profile.status !== 'active') && (
+          <div style={{
+            background: 'rgba(251, 188, 4, 0.12)',
+            border: '1px solid rgba(251, 188, 4, 0.35)',
+            borderRadius: '14px',
+            padding: '1rem 1.15rem',
+            marginBottom: '1.5rem',
+            display: 'flex',
+            alignItems: 'flex-start',
+            gap: '0.75rem',
+            textAlign: 'left',
+            fontSize: '0.84rem',
+            color: '#FDE047',
+          }}>
+            <AlertCircle size={18} color="var(--google-yellow, #FBBC04)" style={{ flexShrink: 0, marginTop: '2px' }} />
+            <div>
+              <div style={{ fontWeight: 700, marginBottom: '0.2rem' }}>Currently Signed In with Non-Team Account</div>
+              <div style={{ color: '#E2E8F0', fontSize: '0.8rem', lineHeight: 1.45 }}>
+                Signed in as <strong>{context.user.email}</strong>. Chapter Leadership OS is restricted to approved Team Members. Click below to sign in with your official Chapter Google account.
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Error notification if returned from callback */}
         {errorParam && (
           <div style={{
@@ -146,7 +171,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
         {/* Google Sign In Action */}
         <div style={{ width: '100%', marginBottom: '1.75rem' }}>
           <SignInWithGoogleButton
-            label="Continue with Google"
+            label={context.user ? 'Switch to Chapter Google Account' : 'Sign in with Chapter Google Account'}
             variant="primary"
             redirectTo={redirectTarget}
           />

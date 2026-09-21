@@ -73,6 +73,7 @@ export default async function HomePage(props: HomePageProps) {
     console.warn('HomePage session retrieval notice:', err);
   }
 
+  const isChapterTeamMember = Boolean(teamProfile && teamProfile.status === 'active');
   const isProfileComplete = isStudentProfileComplete(studentProfile);
 
   // 2. Fetch live portal counts from database
@@ -1522,7 +1523,7 @@ export default async function HomePage(props: HomePageProps) {
             </div>
           </div>
 
-          {/* Column 4: Chapter Leadership & Team OS (USER REQUEST) */}
+          {/* Column 4: Chapter Leadership & Team OS */}
           <div>
             <div
               className="glass-panel"
@@ -1544,36 +1545,100 @@ export default async function HomePage(props: HomePageProps) {
                 Internal governance workspace for GDGoC HNU organizing leads, committee heads, and team members.
               </p>
 
-              <Link
-                href="/dashboard"
-                style={{
-                  width: '100%',
-                  padding: '0.6rem 0.8rem',
-                  borderRadius: '8px',
-                  background: 'linear-gradient(135deg, #4285F4 0%, #2563EB 100%)',
-                  color: '#FFFFFF',
-                  fontSize: '0.82rem',
-                  fontWeight: 700,
-                  textDecoration: 'none',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '0.4rem',
-                  boxShadow: '0 4px 14px rgba(66, 133, 244, 0.35)',
-                  boxSizing: 'border-box',
-                }}
-              >
-                <span>Sign in to Team OS</span>
-                <ArrowRight size={13} />
-              </Link>
+              {isChapterTeamMember && teamProfile ? (
+                <>
+                  <div
+                    style={{
+                      marginBottom: '0.75rem',
+                      padding: '0.35rem 0.65rem',
+                      borderRadius: '8px',
+                      background: 'rgba(52, 168, 83, 0.15)',
+                      border: '1px solid rgba(52, 168, 83, 0.35)',
+                      fontSize: '0.74rem',
+                      color: '#86EFAC',
+                      fontWeight: 700,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.35rem',
+                    }}
+                  >
+                    <CheckCircle2 size={13} color="#34A853" />
+                    <span>Logged in as {teamProfile.role?.replace(/_/g, ' ')}</span>
+                  </div>
 
-              <div style={{ marginTop: '0.85rem', display: 'flex', justifyContent: 'space-between', fontSize: '0.72rem', color: '#64748B' }}>
-                <Link href="/approvals" style={{ color: 'inherit', textDecoration: 'none' }}>Approvals</Link>
-                <span>•</span>
-                <Link href="/tasks" style={{ color: 'inherit', textDecoration: 'none' }}>Tasks</Link>
-                <span>•</span>
-                <Link href="/members" style={{ color: 'inherit', textDecoration: 'none' }}>Directory</Link>
-              </div>
+                  <Link
+                    href="/dashboard"
+                    style={{
+                      width: '100%',
+                      padding: '0.6rem 0.8rem',
+                      borderRadius: '8px',
+                      background: 'linear-gradient(135deg, #4285F4 0%, #2563EB 100%)',
+                      color: '#FFFFFF',
+                      fontSize: '0.82rem',
+                      fontWeight: 700,
+                      textDecoration: 'none',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '0.4rem',
+                      boxShadow: '0 4px 14px rgba(66, 133, 244, 0.35)',
+                      boxSizing: 'border-box',
+                    }}
+                  >
+                    <span>Open Chapter OS</span>
+                    <ArrowRight size={13} />
+                  </Link>
+
+                  <div style={{ marginTop: '0.85rem', display: 'flex', justifyContent: 'space-between', fontSize: '0.72rem', color: '#64748B' }}>
+                    <Link href="/approvals" style={{ color: 'inherit', textDecoration: 'none' }}>Approvals</Link>
+                    <span>•</span>
+                    <Link href="/tasks" style={{ color: 'inherit', textDecoration: 'none' }}>Tasks</Link>
+                    <span>•</span>
+                    <Link href="/members" style={{ color: 'inherit', textDecoration: 'none' }}>Directory</Link>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <Link
+                    href="/auth/login"
+                    style={{
+                      width: '100%',
+                      padding: '0.6rem 0.8rem',
+                      borderRadius: '8px',
+                      background: 'rgba(255, 255, 255, 0.06)',
+                      border: '1px solid rgba(255, 255, 255, 0.15)',
+                      color: '#FFFFFF',
+                      fontSize: '0.82rem',
+                      fontWeight: 700,
+                      textDecoration: 'none',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '0.45rem',
+                      boxSizing: 'border-box',
+                    }}
+                  >
+                    <Lock size={13} color="#94A3B8" />
+                    <span>Chapter Team Sign In</span>
+                    <ArrowRight size={13} />
+                  </Link>
+
+                  <div
+                    style={{
+                      marginTop: '0.85rem',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.4rem',
+                      fontSize: '0.72rem',
+                      color: '#64748B',
+                      lineHeight: 1.4,
+                    }}
+                  >
+                    <Lock size={12} color="#475569" style={{ flexShrink: 0 }} />
+                    <span>Restricted to approved GDGoC team members</span>
+                  </div>
+                </>
+              )}
             </div>
           </div>
         </div>
