@@ -1,7 +1,6 @@
 import React from 'react';
 import { Metadata } from 'next';
 import { redirect } from 'next/navigation';
-import { AppShell } from '@/components/layout/AppShell';
 import { getCourseWithTasks } from './actions';
 import { CourseTasksClient } from '@/components/student-portal/admin/CourseTasksClient';
 
@@ -35,15 +34,13 @@ export default async function CourseTasksPage({
   }
 
   return (
-    <AppShell>
-      <CourseTasksClient
-        course={result.course}
-        initialTasks={result.tasks}
-        availableLessons={result.availableLessons}
-        enrolledStudents={result.enrolledStudents}
-        canManage={result.canManage}
-        userRole={result.userRole}
-      />
-    </AppShell>
+    <CourseTasksClient
+      course={result.course}
+      initialTasks={result.tasks}
+      availableLessons={result.availableLessons}
+      enrolledStudents={result.enrolledStudents}
+      canManage={result.canManage}
+      userRole={result.userRole}
+    />
   );
 }

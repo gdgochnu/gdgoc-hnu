@@ -1,7 +1,6 @@
 import React from 'react';
 import { Metadata } from 'next';
 import { redirect } from 'next/navigation';
-import { AppShell } from '@/components/layout/AppShell';
 import { getCourseSubmissions } from './actions';
 import { CourseSubmissionsClient } from '@/components/student-portal/admin/CourseSubmissionsClient';
 
@@ -35,14 +34,12 @@ export default async function CourseSubmissionsPage({
   }
 
   return (
-    <AppShell>
-      <CourseSubmissionsClient
-        course={result.course}
-        initialTasks={result.tasks}
-        initialSubmissions={result.submissions}
-        canManage={result.canManage}
-        userRole={result.userRole}
-      />
-    </AppShell>
+    <CourseSubmissionsClient
+      course={result.course}
+      initialTasks={result.tasks}
+      initialSubmissions={result.submissions}
+      canManage={result.canManage}
+      userRole={result.userRole}
+    />
   );
 }

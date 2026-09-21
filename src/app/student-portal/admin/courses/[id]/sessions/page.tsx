@@ -1,7 +1,6 @@
 import React from 'react';
 import { Metadata } from 'next';
 import { redirect } from 'next/navigation';
-import { AppShell } from '@/components/layout/AppShell';
 import { getCourseWithSessions } from './actions';
 import { CourseSessionsClient } from '@/components/student-portal/admin/CourseSessionsClient';
 
@@ -35,13 +34,11 @@ export default async function CourseSessionsPage({
   }
 
   return (
-    <AppShell>
-      <CourseSessionsClient
-        course={result.course}
-        initialSessions={result.sessions}
-        canManage={result.canManage}
-        userRole={result.userRole}
-      />
-    </AppShell>
+    <CourseSessionsClient
+      course={result.course}
+      initialSessions={result.sessions}
+      canManage={result.canManage}
+      userRole={result.userRole}
+    />
   );
 }

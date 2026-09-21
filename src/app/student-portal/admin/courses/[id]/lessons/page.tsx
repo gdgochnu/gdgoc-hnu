@@ -1,7 +1,6 @@
 import React from 'react';
 import { Metadata } from 'next';
 import { redirect } from 'next/navigation';
-import { AppShell } from '@/components/layout/AppShell';
 import { getCourseWithLessons } from './actions';
 import { CourseLessonsClient } from '@/components/student-portal/admin/CourseLessonsClient';
 
@@ -35,14 +34,12 @@ export default async function CourseLessonsPage({
   }
 
   return (
-    <AppShell>
-      <CourseLessonsClient
-        course={result.course}
-        initialLessons={result.lessons}
-        availableSessions={result.availableSessions}
-        canManage={result.canManage}
-        userRole={result.userRole}
-      />
-    </AppShell>
+    <CourseLessonsClient
+      course={result.course}
+      initialLessons={result.lessons}
+      availableSessions={result.availableSessions}
+      canManage={result.canManage}
+      userRole={result.userRole}
+    />
   );
 }

@@ -1,7 +1,6 @@
 import React from 'react';
 import { Metadata } from 'next';
 import { redirect } from 'next/navigation';
-import { AppShell } from '@/components/layout/AppShell';
 import { getCourseEnrollmentsRoster } from './actions';
 import { CourseEnrollmentsClient } from '@/components/student-portal/admin/CourseEnrollmentsClient';
 
@@ -35,12 +34,10 @@ export default async function CourseEnrollmentsPage({
   }
 
   return (
-    <AppShell>
-      <CourseEnrollmentsClient
-        header={result.header}
-        initialEnrollments={result.enrollments || []}
-        canManage={result.canManage || false}
-      />
-    </AppShell>
+    <CourseEnrollmentsClient
+      header={result.header}
+      initialEnrollments={result.enrollments || []}
+      canManage={result.canManage || false}
+    />
   );
 }

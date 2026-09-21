@@ -1,7 +1,6 @@
 import React from 'react';
 import { Metadata } from 'next';
 import { redirect } from 'next/navigation';
-import { AppShell } from '@/components/layout/AppShell';
 import { getCourseInstructorsRoster } from './actions';
 import { CourseInstructorsClient } from '@/components/student-portal/admin/CourseInstructorsClient';
 
@@ -35,14 +34,12 @@ export default async function CourseInstructorsPage({
   }
 
   return (
-    <AppShell>
-      <CourseInstructorsClient
-        course={result.course}
-        initialAssigned={result.assigned}
-        initialCandidates={result.candidates}
-        canManage={result.canManage}
-        userRole={result.userRole}
-      />
-    </AppShell>
+    <CourseInstructorsClient
+      course={result.course}
+      initialAssigned={result.assigned}
+      initialCandidates={result.candidates}
+      canManage={result.canManage}
+      userRole={result.userRole}
+    />
   );
 }

@@ -1,7 +1,6 @@
 import React from 'react';
 import { Metadata } from 'next';
 import { redirect } from 'next/navigation';
-import { AppShell } from '@/components/layout/AppShell';
 import { getCourseWithQuizzes } from './actions';
 import { CourseQuizzesClient } from '@/components/student-portal/admin/CourseQuizzesClient';
 
@@ -35,14 +34,12 @@ export default async function CourseQuizzesPage({
   }
 
   return (
-    <AppShell>
-      <CourseQuizzesClient
-        course={result.course}
-        initialQuizzes={result.quizzes}
-        availableLessons={result.availableLessons}
-        canManage={result.canManage}
-        userRole={result.userRole}
-      />
-    </AppShell>
+    <CourseQuizzesClient
+      course={result.course}
+      initialQuizzes={result.quizzes}
+      availableLessons={result.availableLessons}
+      canManage={result.canManage}
+      userRole={result.userRole}
+    />
   );
 }
