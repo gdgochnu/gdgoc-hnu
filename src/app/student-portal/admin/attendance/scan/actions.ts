@@ -278,6 +278,18 @@ export async function getAttendanceScannerData(): Promise<{
   }
 }
 
+// Short-term in-memory scan cache to lock out rapid multi-frame race conditions (TTL 5 seconds)
+const recentScansCache = new Map<string, { timestamp: number; officerName: string }>();
+
+function cleanOldScans() {
+  const now = Date.now();
+  for (const [key, val] of recentScansCache.entries()) {
+    if (now - val.timestamp > 15000) {
+      recentScansCache.delete(key);
+    }
+  }
+}
+
 /**
  * 2. Record student attendance (QR Scan or Walk-in)
  */
@@ -357,6 +369,11 @@ export async function recordStudentAttendance(input: {
 
     studentId = student.id;
 
+    // Fast-path duplicate check using in-memory lock cache
+    const scanKey = `${input.sessionId}_${studentId}`;
+    const recentScan = recentScansCache.get(scanKey);
+    const now = Date.now();
+
     // 2. Fetch session details & verify enrollment
     let isEnrolled = false;
     let enrollmentStatus = 'not_enrolled';
@@ -407,7 +424,35 @@ export async function recordStudentAttendance(input: {
       }
     }
 
-    // 3. Check duplicate check-in
+    // Rapid double-scan prevention: if this exact student was processed for this session in the last 4 seconds
+    if (recentScan && now - recentScan.timestamp < 4000) {
+      return {
+        success: false,
+        alreadyCheckedIn: true,
+        checkInTime: new Date(recentScan.timestamp).toISOString(),
+        checkedInBy: recentScan.officerName || officer.full_name,
+        student: {
+          id: student.id,
+          full_name_en: student.full_name_en,
+          full_name_ar: student.full_name_ar,
+          email: student.email,
+          phone: student.phone,
+          faculty: student.faculty,
+          academic_year: student.academic_year,
+          qr_code: student.qr_code,
+          avatar_url: student.avatar_url,
+          is_enrolled: isEnrolled,
+          enrollment_status: enrollmentStatus,
+          is_checked_in: true,
+          check_in_time: new Date(recentScan.timestamp).toISOString(),
+          check_in_method: input.method || 'qr',
+          checked_in_by_name: recentScan.officerName || officer.full_name,
+        },
+        message: `Already checked in just now for this session (${student.full_name_en}).`,
+      };
+    }
+
+    // 3. Check duplicate check-in in database
     const query = admin.from('student_attendance').select(`
       id,
       check_in_time,
@@ -428,6 +473,11 @@ export async function recordStudentAttendance(input: {
       const off = Array.isArray(existingAttendance.officer)
         ? existingAttendance.officer[0]
         : existingAttendance.officer;
+
+      recentScansCache.set(scanKey, {
+        timestamp: Date.now(),
+        officerName: off?.full_name || 'Staff Member',
+      });
 
       return {
         success: false,
@@ -476,9 +526,73 @@ export async function recordStudentAttendance(input: {
       .single();
 
     if (insErr) {
+      // Handle unique constraint violation gracefully if another scan request won the race condition
+      const isUniqueViolation =
+        insErr.code === '23505' ||
+        insErr.message?.toLowerCase().includes('unique') ||
+        insErr.message?.toLowerCase().includes('duplicate');
+
+      if (isUniqueViolation) {
+        const { data: duplicateAtt } = await admin
+          .from('student_attendance')
+          .select(`
+            id,
+            check_in_time,
+            method,
+            checked_in_by,
+            officer:profiles!student_attendance_checked_in_by_fkey(full_name)
+          `)
+          .eq(input.targetType === 'course' ? 'session_id' : 'workshop_session_id', input.sessionId)
+          .eq('student_id', studentId)
+          .maybeSingle();
+
+        if (duplicateAtt) {
+          const off = Array.isArray(duplicateAtt.officer)
+            ? duplicateAtt.officer[0]
+            : duplicateAtt.officer;
+
+          recentScansCache.set(scanKey, {
+            timestamp: Date.now(),
+            officerName: off?.full_name || officer.full_name,
+          });
+
+          return {
+            success: false,
+            alreadyCheckedIn: true,
+            checkInTime: duplicateAtt.check_in_time,
+            checkedInBy: off?.full_name || officer.full_name,
+            student: {
+              id: student.id,
+              full_name_en: student.full_name_en,
+              full_name_ar: student.full_name_ar,
+              email: student.email,
+              phone: student.phone,
+              faculty: student.faculty,
+              academic_year: student.academic_year,
+              qr_code: student.qr_code,
+              avatar_url: student.avatar_url,
+              is_enrolled: isEnrolled,
+              enrollment_status: enrollmentStatus,
+              is_checked_in: true,
+              check_in_time: duplicateAtt.check_in_time,
+              check_in_method: duplicateAtt.method,
+              checked_in_by_name: off?.full_name || officer.full_name,
+            },
+            message: `Already checked in at ${new Date(duplicateAtt.check_in_time).toLocaleTimeString()}`,
+          };
+        }
+      }
+
       console.error('recordStudentAttendance insert error:', insErr);
       return { success: false, error: insErr.message || 'Failed to record attendance.' };
     }
+
+    // Register in recent scans cache
+    recentScansCache.set(scanKey, {
+      timestamp: Date.now(),
+      officerName: officer.full_name,
+    });
+    cleanOldScans();
 
     // Notify student in English
     dispatchStudentNotification({

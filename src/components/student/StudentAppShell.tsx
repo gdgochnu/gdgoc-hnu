@@ -636,32 +636,6 @@ export function StudentAppShell({ student, teamRole, children }: StudentAppShell
 
           {/* Right Controls */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
-            {/* Quick Attendance Pass Shortcut Button (Desktop Only: hidden on mobile) */}
-            <Link
-              href="/student/my-qr"
-              style={{
-                alignItems: 'center',
-                gap: '0.45rem',
-                padding: '0.38rem 0.8rem',
-                borderRadius: '8px',
-                background: 'rgba(66, 133, 244, 0.12)',
-                border: '1px solid rgba(66, 133, 244, 0.3)',
-                color: '#60A5FA',
-                fontSize: '0.78rem',
-                fontWeight: 700,
-                textDecoration: 'none',
-                fontFamily: 'monospace',
-                transition: 'all 0.15s ease',
-              }}
-              className="student-topbar-qr-badge"
-              title="Open Permanent Attendance Pass"
-            >
-              <QrCode size={14} />
-              <span>
-                QR-••••{student.qr_code ? student.qr_code.slice(-6) : '------'}
-              </span>
-            </Link>
-
             {/* In-App Student Notification Center */}
             <StudentNotificationCenter studentId={student.id} />
 

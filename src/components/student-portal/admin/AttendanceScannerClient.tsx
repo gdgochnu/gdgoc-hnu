@@ -197,8 +197,9 @@ export function AttendanceScannerClient({
     } catch {}
   };
 
-  // Camera Scanner Reference
+  // Camera Scanner Reference & Rapid Double-Scan Lock
   const scannerRef = useRef<Html5Qrcode | null>(null);
+  const lastScannedRef = useRef<{ code: string; timestamp: number }>({ code: '', timestamp: 0 });
   const [isCameraActive, setIsCameraActive] = useState(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
 
@@ -228,7 +229,17 @@ export function AttendanceScannerClient({
             },
             (decodedText) => {
               if (isSubscribed) {
-                handleScannedCode(decodedText, 'qr');
+                const cleanCode = decodedText.trim();
+                const now = Date.now();
+                // Suppress repeated frame triggers for the same QR code within 5 seconds
+                if (
+                  lastScannedRef.current.code === cleanCode &&
+                  now - lastScannedRef.current.timestamp < 5000
+                ) {
+                  return;
+                }
+                lastScannedRef.current = { code: cleanCode, timestamp: now };
+                handleScannedCode(cleanCode, 'qr');
               }
             },
             () => {} // suppress frame errors
@@ -269,13 +280,18 @@ export function AttendanceScannerClient({
   // Process Scanned Code
   const handleScannedCode = async (code: string, method: 'qr' | 'manual' = 'qr') => {
     if (isProcessing || !activeSession) return;
+    const cleanCode = code.trim();
+    if (!cleanCode) return;
+
+    // Track last scanned code to suppress duplicate rapid triggers
+    lastScannedRef.current = { code: cleanCode, timestamp: Date.now() };
 
     try {
       setIsProcessing(true);
       const res = await recordStudentAttendance({
         targetType: activeSession.target_type,
         sessionId: activeSession.id,
-        qrCodeOrQuery: code,
+        qrCodeOrQuery: cleanCode,
         method,
       });
 
@@ -312,7 +328,9 @@ export function AttendanceScannerClient({
         setLastResult({
           type: 'warning',
           student: res.student,
-          message: `Already checked in at ${new Date(res.checkInTime || '').toLocaleTimeString()} by ${res.checkedInBy}`,
+          message:
+            res.message ||
+            `Already checked in at ${new Date(res.checkInTime || '').toLocaleTimeString()} by ${res.checkedInBy}`,
           alreadyCheckedIn: true,
         });
       } else {
@@ -329,10 +347,10 @@ export function AttendanceScannerClient({
         message: err.message || 'An unexpected error occurred.',
       });
     } finally {
-      // Pause slightly so rapid camera frames don't double trigger
+      // Cooldown buffer so camera and UI remain stable
       setTimeout(() => {
         setIsProcessing(false);
-      }, 1400);
+      }, 1200);
     }
   };
 

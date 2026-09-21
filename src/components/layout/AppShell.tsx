@@ -2,7 +2,7 @@ import { getUserContext } from '@/lib/auth/get-user-context';
 import { AppNavigation } from './AppNavigation';
 import Link from 'next/link';
 import { SignInWithGoogleButton } from '@/components/SignInWithGoogleButton';
-import { ShieldAlert, AlertCircle, ArrowRight } from 'lucide-react';
+import { ShieldAlert, AlertCircle, ArrowRight, GraduationCap } from 'lucide-react';
 
 interface AppShellProps {
   children: React.ReactNode;
@@ -11,8 +11,8 @@ interface AppShellProps {
 export async function AppShell({ children }: AppShellProps) {
   const context = await getUserContext();
 
-  // 1. Unauthenticated Visitor
-  if (!context.user || !context.profile) {
+  // 1. Unauthenticated Visitor (Not logged in at all)
+  if (!context.user) {
     return (
       <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
         <header className="header-nav">
@@ -52,6 +52,85 @@ export async function AppShell({ children }: AppShellProps) {
               Sign in with your Google account to enter your chapter workspace.
             </p>
             <SignInWithGoogleButton label="Sign in with Google" variant="primary" />
+          </div>
+        </main>
+      </div>
+    );
+  }
+
+  // 1.5 Signed in as Student (Not an active Chapter Team Member)
+  if (!context.profile) {
+    return (
+      <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+        <header className="header-nav">
+          <div className="nav-content">
+            <Link href="/" className="brand-badge">
+              <div className="brand-logo-wrap" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '4px' }}>
+                <img
+                  src="/icons/icon.svg"
+                  alt="GDGoC Logo"
+                  style={{ width: '100%', height: 'auto', maxHeight: '20px', objectFit: 'contain' }}
+                />
+              </div>
+              <div>
+                <div className="brand-title">GDGoC HNU OS</div>
+                <div className="brand-sub">Operating System</div>
+              </div>
+            </Link>
+          </div>
+        </header>
+
+        <main style={{ maxWidth: '540px', margin: '6rem auto', padding: '0 1.5rem', textAlign: 'center', width: '100%' }}>
+          <div className="glass-panel" style={{ padding: '3rem 2rem' }}>
+            <div style={{
+              width: '56px',
+              height: '56px',
+              borderRadius: '14px',
+              background: 'rgba(66, 133, 244, 0.15)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              margin: '0 auto 1.5rem',
+            }}>
+              <GraduationCap size={28} color="var(--google-blue)" />
+            </div>
+            <h1 style={{ fontSize: '1.5rem', fontWeight: 800, marginBottom: '0.75rem', color: '#FFFFFF' }}>
+              Chapter Team Workspace
+            </h1>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '0.92rem', lineHeight: 1.6, marginBottom: '2rem' }}>
+              You are currently signed in as a student. This workspace is reserved for official GDGoC Chapter Team Members.
+            </p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+              <Link
+                href="/student/dashboard"
+                className="btn-primary"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '0.5rem',
+                  padding: '0.75rem 1.5rem',
+                  textDecoration: 'none',
+                  fontWeight: 700,
+                  borderRadius: '10px',
+                }}
+              >
+                <span>Go to Student Portal</span>
+                <ArrowRight size={16} />
+              </Link>
+              <Link
+                href="/"
+                style={{
+                  color: '#94A3B8',
+                  fontSize: '0.85rem',
+                  textDecoration: 'none',
+                  fontWeight: 600,
+                  marginTop: '0.5rem',
+                }}
+              >
+                Back to Home
+              </Link>
+            </div>
           </div>
         </main>
       </div>

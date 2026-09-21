@@ -804,20 +804,24 @@ body[dir="rtl"] select,
     display: none !important;
   }
 
-  /* Hide bulky QR code badge on mobile (user has the bottom nav Pass button) */
-  .student-topbar-qr-badge {
-    display: none !important;
-  }
-
   /* Hide "Student Portal /" prefix on mobile to save space for page title */
   .student-topbar-breadcrumb-prefix {
     display: none !important;
   }
-}
 
-/* Default state on desktop */
-.student-topbar-qr-badge {
-  display: flex !important;
+  /* Responsive Notification Popovers: Lock within screen bounds on mobile / tablets */
+  .student-notifications-dropdown,
+  #notifications-popover-panel {
+    position: fixed !important;
+    top: 68px !important;
+    left: 12px !important;
+    right: 12px !important;
+    width: auto !important;
+    max-width: calc(100vw - 24px) !important;
+    margin: 0 !important;
+    border-radius: 16px !important;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(255, 255, 255, 0.12) !important;
+  }
 }
 
 @media (max-width: 640px) {

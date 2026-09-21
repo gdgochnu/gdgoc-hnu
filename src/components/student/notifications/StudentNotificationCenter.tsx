@@ -28,6 +28,7 @@ import {
   Loader2,
   FileText,
   HelpCircle,
+  X,
 } from 'lucide-react';
 
 interface StudentNotificationCenterProps {
@@ -76,18 +77,20 @@ export function StudentNotificationCenter({
     }
   }, [isOpen]);
 
-  // Close when clicking outside
+  // Close when clicking outside (mouse or touch)
   useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
+    function handleClickOutside(event: MouseEvent | TouchEvent) {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
         setIsOpen(false);
       }
     }
     if (isOpen) {
       document.addEventListener('mousedown', handleClickOutside);
+      document.addEventListener('touchstart', handleClickOutside);
     }
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('touchstart', handleClickOutside);
     };
   }, [isOpen]);
 
@@ -276,6 +279,7 @@ export function StudentNotificationCenter({
       {/* Popover Dropdown Panel */}
       {isOpen && (
         <div
+          className="student-notifications-dropdown"
           style={{
             position: 'absolute',
             top: 'calc(100% + 10px)',
@@ -331,31 +335,55 @@ export function StudentNotificationCenter({
               )}
             </div>
 
-            {unreadCount > 0 && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              {unreadCount > 0 && (
+                <button
+                  type="button"
+                  onClick={handleMarkAllAsRead}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: '#94A3B8',
+                    fontSize: '0.74rem',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    padding: '0.2rem 0.4rem',
+                    borderRadius: '6px',
+                    transition: 'color 0.15s ease',
+                  }}
+                  onMouseEnter={(e) => (e.currentTarget.style.color = '#60A5FA')}
+                  onMouseLeave={(e) => (e.currentTarget.style.color = '#94A3B8')}
+                >
+                  <CheckCheck size={14} />
+                  <span>Mark all</span>
+                </button>
+              )}
+
               <button
                 type="button"
-                onClick={handleMarkAllAsRead}
+                onClick={() => setIsOpen(false)}
                 style={{
-                  background: 'none',
+                  background: 'rgba(255, 255, 255, 0.06)',
                   border: 'none',
                   color: '#94A3B8',
-                  fontSize: '0.74rem',
-                  fontWeight: 600,
                   cursor: 'pointer',
+                  width: '26px',
+                  height: '26px',
+                  borderRadius: '6px',
                   display: 'flex',
                   alignItems: 'center',
-                  gap: '4px',
-                  padding: '0.2rem 0.4rem',
-                  borderRadius: '6px',
-                  transition: 'color 0.15s ease',
+                  justifyContent: 'center',
+                  transition: 'all 0.15s ease',
                 }}
-                onMouseEnter={(e) => (e.currentTarget.style.color = '#60A5FA')}
-                onMouseLeave={(e) => (e.currentTarget.style.color = '#94A3B8')}
+                aria-label="Close notifications"
+                title="Close"
               >
-                <CheckCheck size={14} />
-                <span>Mark all as read</span>
+                <X size={14} />
               </button>
-            )}
+            </div>
           </div>
 
           {/* Filter Chips */}
@@ -407,7 +435,7 @@ export function StudentNotificationCenter({
           {/* Notifications List Body */}
           <div
             style={{
-              maxHeight: '340px',
+              maxHeight: 'min(360px, calc(75vh - 160px))',
               overflowY: 'auto',
               display: 'flex',
               flexDirection: 'column',
