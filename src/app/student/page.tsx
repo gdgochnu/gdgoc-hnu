@@ -301,7 +301,7 @@ export default async function StudentPortalLandingPage() {
               <SignInWithGoogleButton
                 label="Sign In"
                 variant="nav"
-                redirectTo="/student/dashboard"
+                redirectTo="/student/onboarding"
               />
             )}
           </div>
@@ -501,7 +501,7 @@ export default async function StudentPortalLandingPage() {
               <>
                 <SignInWithGoogleButton
                   label="Join as Student with Google"
-                  redirectTo="/student/dashboard"
+                  redirectTo="/student/onboarding"
                 />
                 <a
                   href="#tracks"
@@ -837,7 +837,7 @@ export default async function StudentPortalLandingPage() {
             ) : (
               <SignInWithGoogleButton
                 label="Sign In with Team Email"
-                redirectTo="/student/dashboard"
+                redirectTo="/student/onboarding"
               />
             )}
             <div style={{ fontSize: '0.75rem', color: '#94A3B8', textAlign: 'center' }}>
@@ -951,7 +951,7 @@ export default async function StudentPortalLandingPage() {
             ) : (
               <SignInWithGoogleButton
                 label="Sign In with Google — It's Free"
-                redirectTo="/student/dashboard"
+                redirectTo="/student/onboarding"
               />
             )}
           </div>

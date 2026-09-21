@@ -562,9 +562,6 @@ export default async function HomePage(props: HomePageProps) {
               <h2 style={{ fontSize: '1.65rem', fontWeight: 700, letterSpacing: '-0.02em' }}>Platform Core Modules</h2>
               <p style={{ fontSize: '0.95rem', color: 'var(--text-secondary)' }}>Engineered end-to-end to eliminate manual spreadsheets and fragmented chats</p>
             </div>
-            <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontFamily: 'JetBrains Mono, monospace' }}>
-              Phase 2: Auth Active
-            </div>
           </div>
 
           <div className="grid-cards">
@@ -620,9 +617,9 @@ export default async function HomePage(props: HomePageProps) {
           </div>
           <div style={{ display: 'flex', gap: '1.5rem', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
             <Link href="/" style={{ color: 'inherit', textDecoration: 'none' }}>Home</Link>
+            <Link href="/student" style={{ color: 'inherit', textDecoration: 'none' }}>Student Portal</Link>
             <Link href="/certificates" style={{ color: 'inherit', textDecoration: 'none' }}>Certificates</Link>
-            <Link href="/api/db-verify" style={{ color: 'inherit', textDecoration: 'none' }}>System Health</Link>
-            <Link href="/manifest.webmanifest" style={{ color: 'inherit', textDecoration: 'none' }}>PWA Manifest</Link>
+            <Link href="/verify" style={{ color: 'inherit', textDecoration: 'none' }}>Verify Certificate</Link>
           </div>
         </div>
       </footer>

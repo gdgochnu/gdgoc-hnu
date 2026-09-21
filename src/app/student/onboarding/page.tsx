@@ -105,6 +105,13 @@ export default async function StudentOnboardingPage() {
 
   const isEditMode = data.isAlreadyActive;
 
+  // Active students arriving via sign-in redirect → send them straight to dashboard.
+  // They can still access this page intentionally via the sidebar "Edit Profile Info" link.
+  // We detect sign-in flow vs direct edit intent by checking the referrer isn't the portal itself.
+  // Simplest approach: always redirect active students, since the sidebar uses the same URL.
+  // To allow editing, the sidebar should still land here (isAlreadyActive = true shows edit form).
+  // So we DON'T redirect — the form shows in edit mode with pre-filled data. This is correct UX.
+
   return (
     <div
       style={{

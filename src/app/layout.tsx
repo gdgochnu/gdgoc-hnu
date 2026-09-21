@@ -8,13 +8,13 @@ export const metadata: Metadata = {
   description: "One platform. One source of truth. For people, events, tasks, attendance, growth. Google Developer Groups on Campus — Helwan National University.",
   manifest: "/manifest.webmanifest",
   icons: {
-    icon: "/icons/icon.svg",
-    apple: "/icons/icon.svg",
+    icon: '/icons/icon.svg',
+    apple: '/icons/icon.svg',
   },
   appleWebApp: {
     capable: true,
-    statusBarStyle: "black-translucent",
-    title: "GDGoC HNU OS",
+    statusBarStyle: 'black-translucent',
+    title: 'GDGoC HNU OS',
   },
   applicationName: "GDGoC HNU OS",
   authors: [{ name: "GDGoC Helwan National University" }],
