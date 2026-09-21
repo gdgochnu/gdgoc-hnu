@@ -21,9 +21,11 @@ import {
   Sparkles,
   ArrowRight,
   Award,
+  Bell,
 } from 'lucide-react';
 import { StudentProfile } from '@/types/student';
 import { createClient } from '@/lib/supabase/client';
+import { StudentNotificationCenter } from './notifications/StudentNotificationCenter';
 
 interface NavItem {
   label: string;
@@ -89,6 +91,11 @@ export function StudentAppShell({ student, teamRole, children }: StudentAppShell
           icon: QrCode,
           badge: 'ID Pass',
           badgeColor: 'var(--google-blue)',
+        },
+        {
+          label: 'Notifications',
+          href: '/student/notifications',
+          icon: Bell,
         },
       ],
     },
@@ -635,6 +642,9 @@ export function StudentAppShell({ student, teamRole, children }: StudentAppShell
               <QrCode size={14} />
               <span>{student.qr_code}</span>
             </Link>
+
+            {/* In-App Student Notification Center */}
+            <StudentNotificationCenter studentId={student.id} />
 
             {/* Dual-Role Chapter Switcher */}
             {teamRole && (

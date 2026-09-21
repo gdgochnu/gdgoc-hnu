@@ -5,6 +5,7 @@ import { getUserContext } from '@/lib/auth/get-user-context';
 import { renderCertificatePDFBuffer } from '@/lib/certificates/issue-engine';
 import { uploadFileToDrive } from '@/lib/drive/drive-client';
 import { notifyCertificateIssued } from '@/lib/notifications/triggers';
+import { dispatchStudentNotification } from '@/app/student/notifications/actions';
 import { DEFAULT_FIELD_LAYOUT, CertificateTemplate } from '@/types/certificates';
 import type {
   StudentCertificate,
@@ -652,10 +653,14 @@ export async function issueStudentCertificatesBatch(input: {
 
         // 7. Dispatch student in-app notification
         try {
-          await notifyCertificateIssued({
-            certificateId: insertedCert.id,
-            certificateTitle: programTitle,
-            recipientId: studentId,
+          await dispatchStudentNotification({
+            studentId,
+            type: 'certificate',
+            title: 'Official Certificate Issued!',
+            message: `Congratulations! Your certificate for "${programTitle}" (${certificateNumber}) is ready for download and verification.`,
+            linkUrl: '/student/certificates',
+            relatedEntityType: 'certificate',
+            relatedEntityId: insertedCert.id,
           });
         } catch (notifErr) {
           console.warn('Student certificate notification warning:', notifErr);

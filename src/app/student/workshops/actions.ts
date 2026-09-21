@@ -4,6 +4,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { getUserContext } from '@/lib/auth/get-user-context';
 import { revalidatePath } from 'next/cache';
 import { sendWorkshopRegistrationEmail } from '@/lib/email/service';
+import { dispatchStudentNotification } from '@/app/student/notifications/actions';
 import {
   Workshop,
   WorkshopSession,
@@ -726,6 +727,19 @@ export async function registerForWorkshop(workshopId: string): Promise<{
         console.warn('sendWorkshopRegistrationEmail background error:', mailErr);
       }
     })();
+
+    // Dispatch in-app notification
+    dispatchStudentNotification({
+      studentId: stu.id,
+      type: 'workshop',
+      title: initialStatus === 'waitlisted' ? 'Added to Workshop Waitlist' : 'Workshop Registration Confirmed!',
+      message: initialStatus === 'waitlisted'
+        ? `You have been added to the waitlist for "${ws.title}". We will notify you if an enrollment spot becomes available.`
+        : `Your registration for "${ws.title}" is confirmed! Check your attendance QR pass and upcoming session schedule.`,
+      linkUrl: `/student/workshops/${workshopId}`,
+      relatedEntityType: 'workshop',
+      relatedEntityId: workshopId,
+    }).catch((notifErr) => console.warn('dispatchStudentNotification workshop warning:', notifErr));
 
     revalidatePath('/student/workshops');
     revalidatePath(`/student/workshops/${workshopId}`);

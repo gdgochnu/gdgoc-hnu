@@ -586,5 +586,32 @@ export interface MentorNote {
   student?: StudentProfile;
 }
 
+export type StudentNotificationType =
+  | 'course'
+  | 'workshop'
+  | 'session'
+  | 'certificate'
+  | 'task'
+  | 'quiz'
+  | 'system'
+  | 'announcement'
+  | 'general';
 
+export interface StudentNotification {
+  id: string;
+  student_id: string;
+  type: StudentNotificationType;
+  title: string;
+  message: string;
+  link_url: string | null;
+  related_entity_type?: string | null;
+  related_entity_id?: string | null;
+  is_read: boolean;
+  created_at: string;
+}
 
+export interface StudentNotificationCenterSummary {
+  unreadCount: number;
+  totalCount: number;
+  notifications: StudentNotification[];
+}

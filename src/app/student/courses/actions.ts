@@ -3,6 +3,7 @@
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getUserContext } from '@/lib/auth/get-user-context';
 import { revalidatePath } from 'next/cache';
+import { dispatchStudentNotification } from '@/app/student/notifications/actions';
 import {
   Course,
   CourseSession,
@@ -789,6 +790,19 @@ export async function enrollInCourse(courseId: string): Promise<{
       console.error('enrollInCourse insert error:', insErr);
       return { success: false, error: insErr.message || 'Failed to record enrollment.' };
     }
+
+    // Dispatch in-app notification
+    dispatchStudentNotification({
+      studentId: student.id,
+      type: 'course',
+      title: enrollmentStatus === 'confirmed' ? 'Course Track Enrolled!' : 'Enrollment Application Submitted',
+      message: enrollmentStatus === 'confirmed'
+        ? `You are enrolled in "${course.title}". Check your sessions, lecture materials, and syllabus.`
+        : `Your application for "${course.title}" has been submitted for instructor review.`,
+      linkUrl: `/student/courses/${courseId}`,
+      relatedEntityType: 'course',
+      relatedEntityId: courseId,
+    }).catch((notifErr) => console.warn('dispatchStudentNotification course warning:', notifErr));
 
     revalidatePath(`/student/courses`);
     revalidatePath(`/student/courses/${courseId}`);
