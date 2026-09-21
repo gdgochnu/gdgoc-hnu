@@ -1012,9 +1012,11 @@ body[dir="rtl"] select,
     box-shadow: 0 4px 20px rgba(66, 133, 244, 0.7), 0 0 0 3px #3B82F6 !important;
   }
 
-  /* Ensure page content has bottom padding so it is never obscured by the bottom bar */
+  /* Ensure student page content has plenty of bottom padding so it is never obscured by the mobile bottom nav */
+  .student-bottom-safe-area,
+  .student-main-content,
   .main-content-layout main {
-    padding-bottom: calc(76px + env(safe-area-inset-bottom, 0px)) !important;
+    padding-bottom: calc(92px + env(safe-area-inset-bottom, 0px)) !important;
   }
 }
 
@@ -1104,7 +1106,7 @@ select {
 
 @media (max-width: 768px) {
   .student-course-detail-container {
-    padding: 1rem 0.85rem calc(80px + env(safe-area-inset-bottom, 0px)) !important;
+    padding: 1rem 0.85rem calc(92px + env(safe-area-inset-bottom, 0px)) !important;
     gap: 1.25rem !important;
   }
 

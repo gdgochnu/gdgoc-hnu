@@ -782,7 +782,10 @@ export function QuizTakingClient({
       </header>
 
       {/* Main Question Area */}
-      <main style={{ flex: 1, maxWidth: '840px', width: '100%', margin: '2rem auto', padding: '0 1.5rem' }}>
+      <main
+        className="student-bottom-safe-area"
+        style={{ flex: 1, maxWidth: '840px', width: '100%', margin: '2rem auto', padding: '0 1.5rem' }}
+      >
         <div
           style={{
             background: 'rgba(30, 41, 59, 0.65)',

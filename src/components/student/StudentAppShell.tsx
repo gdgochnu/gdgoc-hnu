@@ -718,8 +718,11 @@ export function StudentAppShell({ student, teamRole, children }: StudentAppShell
           </div>
         </header>
 
-        {/* Page Content with top clearance for fixed header */}
-        <main style={{ flex: 1, paddingTop: '64px', minHeight: 'calc(100vh - 64px)' }}>
+        {/* Page Content with top clearance for fixed header and mobile safe-area bottom padding */}
+        <main
+          className="student-main-content student-bottom-safe-area"
+          style={{ flex: 1, paddingTop: '64px', minHeight: 'calc(100vh - 64px)' }}
+        >
           {children}
         </main>
       </div>

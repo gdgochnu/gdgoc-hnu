@@ -152,7 +152,7 @@ export async function completeStudentProfile(input: StudentOnboardingInput): Pro
     const cleanNameAr = (input.full_name_ar || '').trim();
     const arParts = cleanNameAr.split(/\s+/).filter(Boolean);
     if (arParts.length < 4) {
-      return { success: false, error: 'Please enter your official 4-part Arabic name (الاسم الرباعي باللغة العربية).' };
+      return { success: false, error: 'Please enter your official 4-part Arabic name for certificate accreditation.' };
     }
     if (!/^[\u0600-\u06FF\s]+$/.test(cleanNameAr)) {
       return { success: false, error: 'Arabic name must contain only Arabic letters and spaces.' };

@@ -105,7 +105,7 @@ export function CompleteStudentProfileForm({
     const cleanNameAr = fullNameAr.trim();
     const arParts = cleanNameAr.split(/\s+/).filter(Boolean);
     if (!cleanNameAr || arParts.length < 4) {
-      triggerError('Please enter your full 4-part Arabic name (الاسم الرباعي باللغة العربية).');
+      triggerError('Please enter your official 4-part Arabic name for certificate accreditation.');
       return;
     }
     if (!/^[\u0600-\u06FF\s]+$/.test(cleanNameAr)) {
@@ -338,7 +338,7 @@ export function CompleteStudentProfileForm({
           {/* Full Name in Arabic */}
           <div>
             <label style={labelStyle}>
-              Full Name in Arabic (الاسم الرباعي) <span style={{ color: '#F87171' }}>*</span>
+              Official 4-Part Arabic Name <span style={{ color: '#F87171' }}>*</span>
             </label>
             <div style={{ position: 'relative' }}>
               <User size={16} color="#94A3B8" style={{ position: 'absolute', right: '0.85rem', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }} />
@@ -346,14 +346,14 @@ export function CompleteStudentProfileForm({
                 type="text"
                 value={fullNameAr}
                 onChange={(e) => setFullNameAr(e.target.value)}
-                placeholder="الاسم الرباعي الرسمي بالعربية"
+                placeholder="e.g. أحمد محمد علي حسن"
                 dir="rtl"
                 required
                 style={{ ...inputStyle, paddingRight: '2.5rem', paddingLeft: '1rem', textAlign: 'right' }}
               />
             </div>
-            <div style={{ fontSize: '0.74rem', color: '#64748B', marginTop: '0.3rem', textAlign: 'right', direction: 'rtl' }}>
-              يستخدم للشهادات الرسمية والتوثيق الجامعي (4 أجزاء).
+            <div style={{ fontSize: '0.74rem', color: '#64748B', marginTop: '0.3rem' }}>
+              Official 4-part legal Arabic name used for university accreditation and certificate issuance.
             </div>
           </div>
 
