@@ -758,10 +758,6 @@ body[dir="rtl"] select,
   display: none;
 }
 
-/* Topbar faculty badge: hidden on small screens, shown on large */
-.student-faculty-badge {
-  display: none;
-}
 
 /* Chapter OS switcher in topbar: hidden by default */
 .student-chapter-switcher {
@@ -830,12 +826,6 @@ body[dir="rtl"] select,
   }
 }
 
-@media (min-width: 1024px) {
-  /* Show faculty badge on large screens */
-  .student-faculty-badge {
-    display: flex !important;
-  }
-}
 
 /* Mobile overlay: shown via JS when isMobileOpen = true */
 .student-mobile-overlay.is-open {

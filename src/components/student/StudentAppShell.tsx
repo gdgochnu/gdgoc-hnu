@@ -17,7 +17,6 @@ import {
   Menu,
   X,
   ExternalLink,
-  GraduationCap,
   Sparkles,
   ArrowRight,
   Award,
@@ -610,28 +609,6 @@ export function StudentAppShell({ student, teamRole, children }: StudentAppShell
                 {currentPageTitle}
               </span>
             </div>
-
-            {/* Faculty Badge */}
-            {student.faculty && (
-              <div
-                style={{
-                  alignItems: 'center',
-                  gap: '0.45rem',
-                  padding: '0.28rem 0.65rem',
-                  borderRadius: '8px',
-                  background: 'rgba(66, 133, 244, 0.12)',
-                  border: '1px solid rgba(66, 133, 244, 0.25)',
-                  fontSize: '0.76rem',
-                  color: '#93C5FD',
-                  fontWeight: 600,
-                  whiteSpace: 'nowrap',
-                }}
-                className="student-faculty-badge"
-              >
-                <GraduationCap size={14} />
-                <span>{student.faculty}</span>
-              </div>
-            )}
           </div>
 
           {/* Right Controls */}
