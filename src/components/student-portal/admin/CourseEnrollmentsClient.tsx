@@ -630,16 +630,17 @@ export function CourseEnrollmentsClient({
                 style={{
                   borderRadius: '16px',
                   border: '1px solid rgba(255, 255, 255, 0.08)',
-                  padding: '1.5rem',
+                  padding: '1.25rem',
                   display: 'flex',
                   flexDirection: 'column',
-                  gap: '1rem',
+                  gap: '0.85rem',
                   background: 'rgba(15, 23, 42, 0.65)',
+                  overflow: 'hidden',
                 }}
               >
                 {/* Student Identity Row */}
                 <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '0.75rem' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', minWidth: 0 }}>
                     <div
                       style={{
                         width: '46px',
@@ -663,12 +664,31 @@ export function CourseEnrollmentsClient({
                       )}
                     </div>
 
-                    <div>
-                      <div style={{ fontSize: '1rem', fontWeight: 800, color: '#FFFFFF' }}>
+                    <div style={{ minWidth: 0, overflow: 'hidden' }}>
+                      <div
+                        style={{
+                          fontSize: '1rem',
+                          fontWeight: 800,
+                          color: '#FFFFFF',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
                         {s.full_name_en}
                       </div>
                       {s.full_name_ar && (
-                        <div style={{ fontSize: '0.8rem', color: '#94A3B8', marginTop: '0.1rem' }} dir="rtl">
+                        <div
+                          style={{
+                            fontSize: '0.8rem',
+                            color: '#94A3B8',
+                            marginTop: '0.1rem',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                          }}
+                          dir="rtl"
+                        >
                           {s.full_name_ar}
                         </div>
                       )}
@@ -685,6 +705,7 @@ export function CourseEnrollmentsClient({
                       background: 'rgba(255, 255, 255, 0.05)',
                       color: '#60A5FA',
                       border: '1px solid rgba(66, 133, 244, 0.25)',
+                      flexShrink: 0,
                     }}
                   >
                     {s.qr_code}
@@ -705,15 +726,15 @@ export function CourseEnrollmentsClient({
                   }}
                 >
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
-                    <GraduationCap size={14} style={{ color: '#34A853' }} />
-                    <span>
+                    <GraduationCap size={14} style={{ color: '#34A853', flexShrink: 0 }} />
+                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {s.faculty || 'Faculty not specified'} • Year {s.academic_year || 1}
                     </span>
                   </div>
 
                   {s.phone && (
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
-                      <Phone size={14} style={{ color: '#60A5FA' }} />
+                      <Phone size={14} style={{ color: '#60A5FA', flexShrink: 0 }} />
                       <span>{s.phone}</span>
                       {s.whatsapp_number && (
                         <a
@@ -729,6 +750,7 @@ export function CourseEnrollmentsClient({
                             textDecoration: 'none',
                             fontWeight: 700,
                             fontSize: '0.74rem',
+                            flexShrink: 0,
                           }}
                           title="Open WhatsApp chat"
                         >
@@ -740,7 +762,7 @@ export function CourseEnrollmentsClient({
                   )}
 
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
-                    <Mail size={14} style={{ color: '#FBBC04' }} />
+                    <Mail size={14} style={{ color: '#FBBC04', flexShrink: 0 }} />
                     <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {s.email}
                     </span>
@@ -753,12 +775,12 @@ export function CourseEnrollmentsClient({
                   {new Date(item.enrolled_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                 </div>
 
-                {/* Actions Row */}
+                {/* Actions Footer */}
                 <div
                   style={{
                     display: 'flex',
-                    alignItems: 'center',
-                    gap: '0.5rem',
+                    flexDirection: 'column',
+                    gap: '0.45rem',
                     marginTop: 'auto',
                     paddingTop: '0.75rem',
                     borderTop: '1px solid rgba(255, 255, 255, 0.06)',
@@ -769,7 +791,8 @@ export function CourseEnrollmentsClient({
                     type="button"
                     onClick={() => setSelectedStudent(item)}
                     style={{
-                      padding: '0.45rem 0.75rem',
+                      width: '100%',
+                      padding: '0.48rem 0.75rem',
                       borderRadius: '8px',
                       background: 'rgba(255, 255, 255, 0.05)',
                       border: '1px solid rgba(255, 255, 255, 0.1)',
@@ -779,23 +802,24 @@ export function CourseEnrollmentsClient({
                       cursor: 'pointer',
                       display: 'inline-flex',
                       alignItems: 'center',
-                      gap: '0.35rem',
+                      justifyContent: 'center',
+                      gap: '0.4rem',
+                      transition: 'all 0.15s ease',
                     }}
                   >
                     <Eye size={13} />
-                    Profile
+                    View Profile & Application
                   </button>
 
                   {/* Pending Decision Buttons */}
                   {canManage && item.status === 'pending' && (
-                    <>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.45rem' }}>
                       <button
                         type="button"
                         disabled={isProcessing}
                         onClick={() => handleApprove(item)}
                         style={{
-                          flex: 1,
-                          padding: '0.45rem 0.75rem',
+                          padding: '0.45rem 0.5rem',
                           borderRadius: '8px',
                           background: '#34A853',
                           border: 'none',
@@ -806,7 +830,7 @@ export function CourseEnrollmentsClient({
                           display: 'inline-flex',
                           alignItems: 'center',
                           justifyContent: 'center',
-                          gap: '0.35rem',
+                          gap: '0.3rem',
                         }}
                       >
                         <Check size={14} />
@@ -818,7 +842,7 @@ export function CourseEnrollmentsClient({
                         disabled={isProcessing}
                         onClick={() => handleWaitlist(item)}
                         style={{
-                          padding: '0.45rem 0.75rem',
+                          padding: '0.45rem 0.5rem',
                           borderRadius: '8px',
                           background: 'rgba(245, 158, 11, 0.15)',
                           border: '1px solid rgba(245, 158, 11, 0.35)',
@@ -828,7 +852,8 @@ export function CourseEnrollmentsClient({
                           cursor: isProcessing ? 'not-allowed' : 'pointer',
                           display: 'inline-flex',
                           alignItems: 'center',
-                          gap: '0.35rem',
+                          justifyContent: 'center',
+                          gap: '0.3rem',
                         }}
                         title="Move applicant to waitlist"
                       >
@@ -841,7 +866,7 @@ export function CourseEnrollmentsClient({
                         disabled={isProcessing}
                         onClick={() => handleReject(item)}
                         style={{
-                          padding: '0.45rem 0.75rem',
+                          padding: '0.45rem 0.5rem',
                           borderRadius: '8px',
                           background: 'rgba(234, 67, 53, 0.15)',
                           border: '1px solid rgba(234, 67, 53, 0.3)',
@@ -851,18 +876,19 @@ export function CourseEnrollmentsClient({
                           cursor: isProcessing ? 'not-allowed' : 'pointer',
                           display: 'inline-flex',
                           alignItems: 'center',
-                          gap: '0.35rem',
+                          justifyContent: 'center',
+                          gap: '0.3rem',
                         }}
                       >
                         <X size={14} />
                         Reject
                       </button>
-                    </>
+                    </div>
                   )}
 
                   {/* Waitlist Promotion Button */}
                   {canManage && item.status === 'waitlisted' && (
-                    <>
+                    <div style={{ display: 'flex', gap: '0.45rem' }}>
                       <button
                         type="button"
                         disabled={isProcessing}
@@ -892,7 +918,7 @@ export function CourseEnrollmentsClient({
                         disabled={isProcessing}
                         onClick={() => handleReject(item)}
                         style={{
-                          padding: '0.45rem 0.65rem',
+                          padding: '0.45rem 0.75rem',
                           borderRadius: '8px',
                           background: 'rgba(234, 67, 53, 0.15)',
                           border: '1px solid rgba(234, 67, 53, 0.3)',
@@ -900,23 +926,26 @@ export function CourseEnrollmentsClient({
                           fontSize: '0.78rem',
                           fontWeight: 700,
                           cursor: isProcessing ? 'not-allowed' : 'pointer',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
                         }}
                         title="Remove from Waitlist"
                       >
                         <X size={14} />
                       </button>
-                    </>
+                    </div>
                   )}
 
                   {/* Confirmed Student Actions */}
                   {canManage && item.status === 'confirmed' && (
-                    <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.45rem' }}>
                       <button
                         type="button"
                         disabled={isProcessing}
                         onClick={() => handleWaitlist(item)}
                         style={{
-                          padding: '0.45rem 0.75rem',
+                          padding: '0.45rem 0.65rem',
                           borderRadius: '8px',
                           background: 'rgba(245, 158, 11, 0.12)',
                           border: '1px solid rgba(245, 158, 11, 0.25)',
@@ -926,6 +955,7 @@ export function CourseEnrollmentsClient({
                           cursor: isProcessing ? 'not-allowed' : 'pointer',
                           display: 'inline-flex',
                           alignItems: 'center',
+                          justifyContent: 'center',
                           gap: '0.35rem',
                         }}
                         title="Move to Waitlist"
@@ -939,7 +969,7 @@ export function CourseEnrollmentsClient({
                         disabled={isProcessing}
                         onClick={() => handleReject(item)}
                         style={{
-                          padding: '0.45rem 0.75rem',
+                          padding: '0.45rem 0.65rem',
                           borderRadius: '8px',
                           background: 'rgba(234, 67, 53, 0.12)',
                           border: '1px solid rgba(234, 67, 53, 0.25)',
@@ -949,24 +979,25 @@ export function CourseEnrollmentsClient({
                           cursor: isProcessing ? 'not-allowed' : 'pointer',
                           display: 'inline-flex',
                           alignItems: 'center',
+                          justifyContent: 'center',
                           gap: '0.35rem',
                         }}
                       >
                         <UserX size={13} />
-                        Withdraw Spot
+                        Withdraw
                       </button>
                     </div>
                   )}
 
                   {/* Rejected / Withdrawn Student Actions */}
                   {canManage && (item.status === 'rejected' || item.status === 'withdrawn') && (
-                    <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.45rem' }}>
                       <button
                         type="button"
                         disabled={isProcessing}
                         onClick={() => handleResetToPending(item)}
                         style={{
-                          padding: '0.45rem 0.75rem',
+                          padding: '0.45rem 0.65rem',
                           borderRadius: '8px',
                           background: 'rgba(251, 188, 4, 0.12)',
                           border: '1px solid rgba(251, 188, 4, 0.3)',
@@ -976,6 +1007,7 @@ export function CourseEnrollmentsClient({
                           cursor: isProcessing ? 'not-allowed' : 'pointer',
                           display: 'inline-flex',
                           alignItems: 'center',
+                          justifyContent: 'center',
                           gap: '0.35rem',
                         }}
                         title="Move back to Pending review"
@@ -989,7 +1021,7 @@ export function CourseEnrollmentsClient({
                         disabled={isProcessing}
                         onClick={() => handleRemove(item)}
                         style={{
-                          padding: '0.45rem 0.75rem',
+                          padding: '0.45rem 0.65rem',
                           borderRadius: '8px',
                           background: 'rgba(234, 67, 53, 0.15)',
                           border: '1px solid rgba(234, 67, 53, 0.35)',
@@ -999,12 +1031,13 @@ export function CourseEnrollmentsClient({
                           cursor: isProcessing ? 'not-allowed' : 'pointer',
                           display: 'inline-flex',
                           alignItems: 'center',
+                          justifyContent: 'center',
                           gap: '0.35rem',
                         }}
                         title="Delete enrollment record so student can apply again"
                       >
                         <Trash2 size={13} />
-                        Remove & Allow Re-apply
+                        Remove
                       </button>
                     </div>
                   )}
