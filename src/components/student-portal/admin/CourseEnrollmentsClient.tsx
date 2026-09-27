@@ -35,6 +35,7 @@ import {
   approveCourseEnrollment,
   rejectCourseEnrollment,
   promoteWaitlistStudent,
+  waitlistCourseEnrollment,
   removeCourseEnrollment,
   resetEnrollmentToPending,
 } from '@/app/student-portal/admin/courses/[id]/enrollments/actions';
@@ -122,6 +123,12 @@ export function CourseEnrollmentsClient({
         )
       );
 
+      if (selectedStudent?.id === item.id) {
+        setSelectedStudent((prev) =>
+          prev ? { ...prev, status: 'confirmed', confirmed_at: new Date().toISOString() } : null
+        );
+      }
+
       setFeedback({
         type: 'success',
         text: `Approved application for ${item.student.full_name_en}. Spot is now confirmed.`,
@@ -161,6 +168,10 @@ export function CourseEnrollmentsClient({
         })
       );
 
+      if (selectedStudent?.id === item.id) {
+        setSelectedStudent((prev) => (prev ? { ...prev, status: 'rejected' } : null));
+      }
+
       const autoNote = res.promotedWaitlistId
         ? ' A spot was freed and the next student on the waitlist was automatically confirmed!'
         : '';
@@ -195,9 +206,51 @@ export function CourseEnrollmentsClient({
         )
       );
 
+      if (selectedStudent?.id === item.id) {
+        setSelectedStudent((prev) =>
+          prev ? { ...prev, status: 'confirmed', confirmed_at: new Date().toISOString() } : null
+        );
+      }
+
       setFeedback({
         type: 'success',
         text: `Promoted ${item.student.full_name_en} from waitlist to confirmed!`,
+      });
+    } catch (err: any) {
+      setFeedback({ type: 'error', text: err.message || 'An error occurred.' });
+    } finally {
+      setProcessingId(null);
+    }
+  };
+
+  const handleWaitlist = async (item: EnrollmentStudentItem) => {
+    try {
+      setProcessingId(item.id);
+      setFeedback(null);
+
+      const res = await waitlistCourseEnrollment(header.id, item.id);
+      if (!res.success) {
+        setFeedback({ type: 'error', text: res.error || 'Failed to move student to waitlist.' });
+        return;
+      }
+
+      setEnrollments((prev) =>
+        prev.map((e) =>
+          e.id === item.id
+            ? { ...e, status: 'waitlisted', confirmed_at: null }
+            : e
+        )
+      );
+
+      if (selectedStudent?.id === item.id) {
+        setSelectedStudent((prev) =>
+          prev ? { ...prev, status: 'waitlisted', confirmed_at: null } : null
+        );
+      }
+
+      setFeedback({
+        type: 'success',
+        text: `Moved ${item.student.full_name_en} to the waitlist queue.`,
       });
     } catch (err: any) {
       setFeedback({ type: 'error', text: err.message || 'An error occurred.' });
@@ -763,6 +816,29 @@ export function CourseEnrollmentsClient({
                       <button
                         type="button"
                         disabled={isProcessing}
+                        onClick={() => handleWaitlist(item)}
+                        style={{
+                          padding: '0.45rem 0.75rem',
+                          borderRadius: '8px',
+                          background: 'rgba(245, 158, 11, 0.15)',
+                          border: '1px solid rgba(245, 158, 11, 0.35)',
+                          color: '#FBBF24',
+                          fontSize: '0.78rem',
+                          fontWeight: 700,
+                          cursor: isProcessing ? 'not-allowed' : 'pointer',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '0.35rem',
+                        }}
+                        title="Move applicant to waitlist"
+                      >
+                        <Clock3 size={14} />
+                        Waitlist
+                      </button>
+
+                      <button
+                        type="button"
+                        disabled={isProcessing}
                         onClick={() => handleReject(item)}
                         style={{
                           padding: '0.45rem 0.75rem',
@@ -834,28 +910,52 @@ export function CourseEnrollmentsClient({
 
                   {/* Confirmed Student Actions */}
                   {canManage && item.status === 'confirmed' && (
-                    <button
-                      type="button"
-                      disabled={isProcessing}
-                      onClick={() => handleReject(item)}
-                      style={{
-                        marginLeft: 'auto',
-                        padding: '0.45rem 0.75rem',
-                        borderRadius: '8px',
-                        background: 'rgba(234, 67, 53, 0.12)',
-                        border: '1px solid rgba(234, 67, 53, 0.25)',
-                        color: '#EA4335',
-                        fontSize: '0.76rem',
-                        fontWeight: 600,
-                        cursor: isProcessing ? 'not-allowed' : 'pointer',
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '0.35rem',
-                      }}
-                    >
-                      <UserX size={13} />
-                      Withdraw Spot
-                    </button>
+                    <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+                      <button
+                        type="button"
+                        disabled={isProcessing}
+                        onClick={() => handleWaitlist(item)}
+                        style={{
+                          padding: '0.45rem 0.75rem',
+                          borderRadius: '8px',
+                          background: 'rgba(245, 158, 11, 0.12)',
+                          border: '1px solid rgba(245, 158, 11, 0.25)',
+                          color: '#FBBF24',
+                          fontSize: '0.76rem',
+                          fontWeight: 600,
+                          cursor: isProcessing ? 'not-allowed' : 'pointer',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '0.35rem',
+                        }}
+                        title="Move to Waitlist"
+                      >
+                        <Clock3 size={13} />
+                        Waitlist
+                      </button>
+
+                      <button
+                        type="button"
+                        disabled={isProcessing}
+                        onClick={() => handleReject(item)}
+                        style={{
+                          padding: '0.45rem 0.75rem',
+                          borderRadius: '8px',
+                          background: 'rgba(234, 67, 53, 0.12)',
+                          border: '1px solid rgba(234, 67, 53, 0.25)',
+                          color: '#EA4335',
+                          fontSize: '0.76rem',
+                          fontWeight: 600,
+                          cursor: isProcessing ? 'not-allowed' : 'pointer',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '0.35rem',
+                        }}
+                      >
+                        <UserX size={13} />
+                        Withdraw Spot
+                      </button>
+                    </div>
                   )}
 
                   {/* Rejected / Withdrawn Student Actions */}
@@ -1134,6 +1234,95 @@ export function CourseEnrollmentsClient({
                       <button
                         type="button"
                         disabled={processingId === selectedStudent.id}
+                        onClick={() => handleWaitlist(selectedStudent)}
+                        style={{
+                          padding: '0.55rem 1.1rem',
+                          borderRadius: '8px',
+                          background: 'rgba(245, 158, 11, 0.18)',
+                          border: '1px solid rgba(245, 158, 11, 0.4)',
+                          color: '#FBBF24',
+                          fontSize: '0.82rem',
+                          fontWeight: 700,
+                          cursor: 'pointer',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '0.4rem',
+                        }}
+                      >
+                        <Clock3 size={14} />
+                        Move to Waitlist
+                      </button>
+                      <button
+                        type="button"
+                        disabled={processingId === selectedStudent.id}
+                        onClick={() => handleReject(selectedStudent)}
+                        style={{
+                          padding: '0.55rem 1.1rem',
+                          borderRadius: '8px',
+                          background: 'rgba(234, 67, 53, 0.15)',
+                          border: '1px solid rgba(234, 67, 53, 0.35)',
+                          color: '#F87171',
+                          fontSize: '0.82rem',
+                          fontWeight: 700,
+                          cursor: 'pointer',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '0.4rem',
+                        }}
+                      >
+                        <X size={14} />
+                        Reject Application
+                      </button>
+                    </>
+                  )}
+
+                  {selectedStudent.status === 'waitlisted' && (
+                    <>
+                      <button
+                        type="button"
+                        disabled={processingId === selectedStudent.id}
+                        onClick={() => handlePromote(selectedStudent)}
+                        style={{
+                          padding: '0.55rem 1.1rem',
+                          borderRadius: '8px',
+                          background: '#4285F4',
+                          border: 'none',
+                          color: '#FFFFFF',
+                          fontSize: '0.82rem',
+                          fontWeight: 700,
+                          cursor: 'pointer',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '0.4rem',
+                        }}
+                      >
+                        <Sparkles size={14} />
+                        Promote to Confirmed
+                      </button>
+                      <button
+                        type="button"
+                        disabled={processingId === selectedStudent.id}
+                        onClick={() => handleResetToPending(selectedStudent)}
+                        style={{
+                          padding: '0.55rem 1.1rem',
+                          borderRadius: '8px',
+                          background: 'rgba(255, 255, 255, 0.08)',
+                          border: '1px solid rgba(255, 255, 255, 0.15)',
+                          color: '#E2E8F0',
+                          fontSize: '0.82rem',
+                          fontWeight: 700,
+                          cursor: 'pointer',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '0.4rem',
+                        }}
+                      >
+                        <RotateCcw size={14} />
+                        Move to Pending Review
+                      </button>
+                      <button
+                        type="button"
+                        disabled={processingId === selectedStudent.id}
                         onClick={() => handleReject(selectedStudent)}
                         style={{
                           padding: '0.55rem 1.1rem',
@@ -1203,27 +1392,50 @@ export function CourseEnrollmentsClient({
                   )}
 
                   {selectedStudent.status === 'confirmed' && (
-                    <button
-                      type="button"
-                      disabled={processingId === selectedStudent.id}
-                      onClick={() => handleReject(selectedStudent)}
-                      style={{
-                        padding: '0.55rem 1.1rem',
-                        borderRadius: '8px',
-                        background: 'rgba(234, 67, 53, 0.12)',
-                        border: '1px solid rgba(234, 67, 53, 0.3)',
-                        color: '#EA4335',
-                        fontSize: '0.82rem',
-                        fontWeight: 700,
-                        cursor: 'pointer',
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '0.4rem',
-                      }}
-                    >
-                      <UserX size={14} />
-                      Withdraw Spot
-                    </button>
+                    <>
+                      <button
+                        type="button"
+                        disabled={processingId === selectedStudent.id}
+                        onClick={() => handleWaitlist(selectedStudent)}
+                        style={{
+                          padding: '0.55rem 1.1rem',
+                          borderRadius: '8px',
+                          background: 'rgba(245, 158, 11, 0.15)',
+                          border: '1px solid rgba(245, 158, 11, 0.35)',
+                          color: '#FBBF24',
+                          fontSize: '0.82rem',
+                          fontWeight: 700,
+                          cursor: 'pointer',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '0.4rem',
+                        }}
+                      >
+                        <Clock3 size={14} />
+                        Move to Waitlist
+                      </button>
+                      <button
+                        type="button"
+                        disabled={processingId === selectedStudent.id}
+                        onClick={() => handleReject(selectedStudent)}
+                        style={{
+                          padding: '0.55rem 1.1rem',
+                          borderRadius: '8px',
+                          background: 'rgba(234, 67, 53, 0.12)',
+                          border: '1px solid rgba(234, 67, 53, 0.3)',
+                          color: '#EA4335',
+                          fontSize: '0.82rem',
+                          fontWeight: 700,
+                          cursor: 'pointer',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '0.4rem',
+                        }}
+                      >
+                        <UserX size={14} />
+                        Withdraw Spot
+                      </button>
+                    </>
                   )}
                 </div>
               )}

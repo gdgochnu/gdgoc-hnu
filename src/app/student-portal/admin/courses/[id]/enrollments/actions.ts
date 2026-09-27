@@ -602,7 +602,81 @@ export async function resetEnrollmentToPending(courseId: string, enrollmentId: s
       return { success: false, error: updateErr.message };
     }
 
-    // If was confirmed, advance waitlist
+    revalidatePath(`/student-portal/admin/courses/${courseId}/enrollments`);
+    revalidatePath(`/student/courses/${courseId}`);
+    revalidatePath(`/student/courses`);
+    revalidatePath(`/student/dashboard`);
+
+    return { success: true };
+  } catch (err: any) {
+    console.error('resetEnrollmentToPending exception:', err);
+    return { success: false, error: err.message || 'Failed to reset enrollment.' };
+  }
+}
+
+/**
+ * 7. Move an enrollment to waitlisted status (from pending, confirmed, or rejected)
+ */
+export async function waitlistCourseEnrollment(
+  courseId: string,
+  enrollmentId: string,
+  reason?: string
+): Promise<{
+  success: boolean;
+  error?: string;
+}> {
+  try {
+    const access = await verifyEnrollmentAccess(courseId);
+    if (!access.authorized || !access.course) {
+      return { success: false, error: access.error };
+    }
+
+    const { course, admin } = access;
+
+    // Check previous status of the enrollment
+    const { data: targetEnrollment } = await admin
+      .from('course_enrollments')
+      .select('status')
+      .eq('id', enrollmentId)
+      .eq('course_id', courseId)
+      .single();
+
+    const wasConfirmed = targetEnrollment?.status === 'confirmed';
+
+    const { data: updatedEnrollment, error: updateErr } = await admin
+      .from('course_enrollments')
+      .update({
+        status: 'waitlisted',
+        confirmed_at: null,
+        confirmed_by: null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', enrollmentId)
+      .eq('course_id', courseId)
+      .select('student_id')
+      .single();
+
+    if (updateErr) {
+      console.error('waitlistCourseEnrollment error:', updateErr);
+      return { success: false, error: updateErr.message };
+    }
+
+    // Notify student in English
+    if (updatedEnrollment?.student_id) {
+      dispatchStudentNotification({
+        studentId: updatedEnrollment.student_id,
+        type: 'course',
+        title: `Added to Waitlist: ${course.title}`,
+        message: reason
+          ? `Your application for "${course.title}" has been placed on the waiting list. Note from instructors: "${reason}". We will notify you immediately if a seat becomes available.`
+          : `Your application for "${course.title}" has been placed on the waiting list. As soon as a seat opens up or capacity expands, you will be notified!`,
+        linkUrl: `/student/courses/${courseId}`,
+        relatedEntityType: 'course',
+        relatedEntityId: courseId,
+      }).catch((notifErr) => console.warn('dispatchStudentNotification waitlist warning:', notifErr));
+    }
+
+    // If was confirmed previously and is now waitlisted, auto-advance next waitlist student
     if (wasConfirmed) {
       await autoAdvanceWaitlist(admin, courseId, course.capacity);
     }
@@ -614,8 +688,8 @@ export async function resetEnrollmentToPending(courseId: string, enrollmentId: s
 
     return { success: true };
   } catch (err: any) {
-    console.error('resetEnrollmentToPending exception:', err);
-    return { success: false, error: err.message || 'Failed to reset enrollment.' };
+    console.error('waitlistCourseEnrollment exception:', err);
+    return { success: false, error: err.message || 'Failed to waitlist enrollment.' };
   }
 }
 
