@@ -68,7 +68,7 @@ export function StudentWorkshopConfirmationClient({
 
     const locationText =
       firstSession.type === 'offline'
-        ? firstSession.venue || 'Helwan University Campus Lab'
+        ? firstSession.venue || 'Helwan National University Campus Lab'
         : 'Online Live Stream';
 
     const detailsText = `GDGoC HNU Workshop: ${workshop.title}\nPass Code: ${registration.qr_code}`;
@@ -94,7 +94,7 @@ export function StudentWorkshopConfirmationClient({
 
       const loc =
         s.type === 'offline'
-          ? s.venue || 'Helwan University Campus'
+          ? s.venue || 'Helwan National University Campus'
           : s.online_meeting_url || 'Online Live Stream';
 
       icsEvents += `
@@ -112,7 +112,7 @@ END:VEVENT`;
 
     const icsContent = `BEGIN:VCALENDAR
 VERSION:2.0
-PRODID:-//GDGoC Helwan University//Workshop Pass//EN
+PRODID:-//GDGoC Helwan National University//Workshop Pass//EN
 CALSCALE:GREGORIAN
 METHOD:PUBLISH${icsEvents}
 END:VCALENDAR`.trim();

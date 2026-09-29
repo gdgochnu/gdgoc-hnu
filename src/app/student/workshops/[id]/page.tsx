@@ -27,7 +27,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const w = res.data.workshop;
   return {
     title: `${w.title} — Workshops & Bootcamps | GDGoC HNU`,
-    description: w.description || `Interactive bootcamp and sessions schedule for ${w.title} at GDGoC Helwan University.`,
+    description: w.description || `Interactive bootcamp and sessions schedule for ${w.title} at GDGoC Helwan National University.`,
   };
 }
 
@@ -185,7 +185,7 @@ export default async function StudentWorkshopDetailPage({ params }: PageProps) {
         }}
       >
         <p style={{ margin: 0 }}>
-          Google Developer Groups on Campus — Helwan University • All rights reserved
+          Google Developer Groups on Campus — Helwan National University • All rights reserved
         </p>
       </footer>
     </div>

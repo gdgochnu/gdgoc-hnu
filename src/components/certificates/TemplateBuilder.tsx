@@ -469,7 +469,7 @@ export function TemplateBuilder({
                     GOOGLE DEVELOPER GROUPS ON CAMPUS
                   </div>
                   <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--google-yellow)' }}>
-                    HELWAN UNIVERSITY
+                    HELWAN NATIONAL UNIVERSITY
                   </div>
                 </div>
 

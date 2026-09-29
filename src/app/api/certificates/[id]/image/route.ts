@@ -222,7 +222,7 @@ export async function GET(
             <rect width="${W}" height="${H}" fill="url(#bgGrad)"/>
             <rect x="36" y="36" width="${W - 72}" height="${H - 72}" rx="20" fill="none" stroke="rgba(251, 188, 4, 0.25)" stroke-width="3"/>
             <text x="70" y="90" font-family="system-ui, -apple-system, sans-serif" font-weight="900" font-size="22" fill="#ffffff" letter-spacing="2">GOOGLE DEVELOPER GROUPS ON CAMPUS</text>
-            <text x="${W - 70}" y="90" text-anchor="end" font-family="system-ui, -apple-system, sans-serif" font-weight="700" font-size="18" fill="#FBBC04">HELWAN UNIVERSITY</text>
+            <text x="${W - 70}" y="90" text-anchor="end" font-family="system-ui, -apple-system, sans-serif" font-weight="700" font-size="16" fill="#FBBC04">HELWAN NATIONAL UNIVERSITY</text>
             <text x="${W / 2}" y="740" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-weight="900" font-size="120" fill="#ffffff" fill-opacity="0.05" letter-spacing="20">CERTIFICATE</text>
           `
       }

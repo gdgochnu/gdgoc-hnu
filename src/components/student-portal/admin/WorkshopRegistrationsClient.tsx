@@ -992,7 +992,7 @@ export function WorkshopRegistrationsClient({
             >
               <div>
                 <span style={{ color: '#64748B', fontSize: '0.72rem', textTransform: 'uppercase', fontWeight: 700 }}>University</span>
-                <div style={{ color: '#FFFFFF', fontWeight: 600 }}>{selectedStudent.student.university || 'Helwan University'}</div>
+                <div style={{ color: '#FFFFFF', fontWeight: 600 }}>{selectedStudent.student.university || 'Helwan National University'}</div>
               </div>
 
               <div>

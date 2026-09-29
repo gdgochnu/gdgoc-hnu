@@ -100,7 +100,7 @@ export function CertificatePreviewCanvas({
               GOOGLE DEVELOPER GROUPS ON CAMPUS
             </div>
             <div style={{ fontSize: fs(8), fontWeight: 700, color: 'var(--google-yellow)' }}>
-              HELWAN UNIVERSITY
+              HELWAN NATIONAL UNIVERSITY
             </div>
           </div>
           <div style={{ textAlign: 'center', opacity: 0.12, fontSize: fs(36), fontWeight: 900, color: '#fff', letterSpacing: '0.1em' }}>

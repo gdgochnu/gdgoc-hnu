@@ -23,7 +23,7 @@ export async function generateMetadata({
 
   return {
     title: `Registration Confirmed: ${title} — Student Portal | GDGoC HNU`,
-    description: `Official registration confirmation and workshop pass for ${title} at GDGoC Helwan University.`,
+    description: `Official registration confirmation and workshop pass for ${title} at GDGoC Helwan National University.`,
   };
 }
 

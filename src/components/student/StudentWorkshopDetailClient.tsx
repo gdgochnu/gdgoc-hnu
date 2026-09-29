@@ -1068,7 +1068,7 @@ export function StudentWorkshopDetailClient({ initialData }: StudentWorkshopDeta
                         Physical Venue Location
                       </div>
                       <div style={{ fontSize: '1rem', fontWeight: 700, color: '#F8FAFC', marginTop: '0.2rem' }}>
-                        {activeSession.venue || 'Campus Lab / Hall (Helwan University)'}
+                        {activeSession.venue || 'Campus Lab / Hall (Helwan National University)'}
                       </div>
                       <div style={{ fontSize: '0.8rem', color: '#94A3B8', marginTop: '0.2rem' }}>
                         Scan your Student ID Pass or Workshop QR code at the door for HR check-in.

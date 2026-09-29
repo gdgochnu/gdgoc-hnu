@@ -977,7 +977,7 @@ export async function sendWorkshopRegistrationEmail(params: {
 
     const locationText =
       firstSession.type === 'offline'
-        ? firstSession.venue || 'Helwan University Campus Lab'
+        ? firstSession.venue || 'Helwan National University Campus Lab'
         : 'Online Stream (Check workshop portal for link)';
 
     const detailsText = `GDGoC HNU Workshop: ${params.workshopTitle}\nSession: ${firstSession.title}\nPass Code: ${params.qrCode}\nPortal link: ${confirmationUrl}`;

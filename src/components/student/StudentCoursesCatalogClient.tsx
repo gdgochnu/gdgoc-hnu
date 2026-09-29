@@ -197,7 +197,7 @@ export function StudentCoursesCatalogClient({
           </h1>
 
           <p style={{ color: '#94A3B8', fontSize: '1.02rem', lineHeight: 1.6, margin: '0 0 1.75rem 0' }}>
-            Comprehensive hands-on programs taught by Google Developer Groups on Campus Helwan University technical
+            Comprehensive hands-on programs taught by Google Developer Groups on Campus Helwan National University technical
             leads. Attend in-person workshops or online sessions with recorded video lectures, practical labs, and
             graduation certificates.
           </p>

@@ -12,7 +12,7 @@ export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
   title: 'Tracks & Courses — Student Portal | GDGoC HNU',
-  description: 'Browse official learning tracks, multi-session bootcamps, and courses at GDGoC Helwan University.',
+  description: 'Browse official learning tracks, multi-session bootcamps, and courses at GDGoC Helwan National University.',
 };
 
 export default async function StudentCoursesPage() {

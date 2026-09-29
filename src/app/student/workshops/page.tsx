@@ -12,7 +12,7 @@ export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
   title: 'Workshops & Bootcamps — Student Portal | GDGoC HNU',
-  description: 'Browse interactive technical bootcamps, workshops, and hands-on coding sessions at Google Developer Groups on Campus Helwan University.',
+  description: 'Browse interactive technical bootcamps, workshops, and hands-on coding sessions at Google Developer Groups on Campus Helwan National University.',
 };
 
 export default async function StudentWorkshopsPage() {
@@ -202,7 +202,7 @@ export default async function StudentWorkshopsPage() {
         }}
       >
         <p style={{ margin: 0 }}>
-          Google Developer Groups on Campus — Helwan University • Empowering students through tech education
+          Google Developer Groups on Campus — Helwan National University • Empowering students through tech education
         </p>
       </footer>
     </div>

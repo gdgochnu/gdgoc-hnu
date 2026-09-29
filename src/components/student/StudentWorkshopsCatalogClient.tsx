@@ -215,7 +215,7 @@ export function StudentWorkshopsCatalogClient({
               fontWeight: 600,
             }}
           >
-            • GDGoC Helwan University
+            • GDGoC Helwan National University
           </div>
         </div>
 

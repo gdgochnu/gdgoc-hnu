@@ -43,7 +43,7 @@ async function FacultiesDataLoader() {
             Faculty Options Management
           </h1>
           <p style={{ color: 'var(--text-secondary)', fontSize: '0.98rem', maxWidth: '650px', lineHeight: 1.6, margin: 0 }}>
-            Configure the official Helwan University faculties and colleges offered in recruitment and member profile forms.
+            Configure the official Helwan National University faculties and colleges offered in recruitment and member profile forms.
           </p>
         </div>
       </div>

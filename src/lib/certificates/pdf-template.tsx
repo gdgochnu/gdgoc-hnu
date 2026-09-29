@@ -203,7 +203,7 @@ export function CertificatePDFDocument({ data }: { data: CertificateData }) {
             {/* Chapter Header */}
             <View style={{ position: 'absolute', top: 50, left: 0, right: 0 }}>
               <Text style={styles.headerText}>Google Developer Groups on Campus</Text>
-              <Text style={styles.subHeaderText}>Helwan University Chapter • Cairo, Egypt</Text>
+              <Text style={styles.subHeaderText}>Helwan National University Chapter • Cairo, Egypt</Text>
             </View>
           </>
         )}

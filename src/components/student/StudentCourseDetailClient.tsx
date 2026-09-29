@@ -646,7 +646,7 @@ export function StudentCourseDetailClient({ initialData }: StudentCourseDetailCl
               </h2>
               <p style={{ color: '#CBD5E1', fontSize: '0.96rem', lineHeight: 1.7, margin: 0, whiteSpace: 'pre-line' }}>
                 {course.description ||
-                  'This comprehensive learning journey is designed by Google Developer Groups on Campus Helwan University technical departments to equip students with production-grade skills through structured sessions and practical milestones.'}
+                  'This comprehensive learning journey is designed by Google Developer Groups on Campus Helwan National University technical departments to equip students with production-grade skills through structured sessions and practical milestones.'}
               </p>
 
               {/* Learning Highlights Grid */}

@@ -27,7 +27,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const c = res.data.course;
   return {
     title: `${c.title} — Tracks & Courses | GDGoC HNU`,
-    description: c.description || `Course syllabus and curriculum for ${c.title} at GDGoC Helwan University.`,
+    description: c.description || `Course syllabus and curriculum for ${c.title} at GDGoC Helwan National University.`,
   };
 }
 

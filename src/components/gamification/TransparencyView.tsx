@@ -133,7 +133,7 @@ export function TransparencyView({
             How Points, Levels & Badges Work
           </h2>
           <p style={{ margin: '0.4rem 0 0 0', fontSize: '0.88rem', color: 'var(--text-muted)', lineHeight: 1.5, maxWidth: '750px' }}>
-            At GDGoC Helwan University, we believe in 100% transparency. Every point earned, every tier reached,
+            At GDGoC Helwan National University, we believe in 100% transparency. Every point earned, every tier reached,
             and every badge unlocked follows public, objective rules with zero hidden scoring.
           </p>
 

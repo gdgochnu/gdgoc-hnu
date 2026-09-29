@@ -9,7 +9,7 @@ import { ArrowLeft } from 'lucide-react';
 
 export const metadata: Metadata = {
   title: 'How Points & Levels Work | GDGoC HNU OS',
-  description: 'Full transparency into GDGoC Helwan University points rules, level tiers, streaks, and badge criteria.',
+  description: 'Full transparency into GDGoC Helwan National University points rules, level tiers, streaks, and badge criteria.',
 };
 
 export default async function GamificationRulesPage() {

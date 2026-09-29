@@ -956,7 +956,7 @@ export function AttendanceScannerClient({
                         {s.full_name_en} {s.full_name_ar ? `(${s.full_name_ar})` : ''}
                       </div>
                       <div style={{ fontSize: '0.76rem', color: '#94A3B8', marginTop: '0.15rem' }}>
-                        {s.faculty || 'Helwan University'} • {s.email}
+                        {s.faculty || 'Helwan National University'} • {s.email}
                       </div>
                       <div style={{ fontSize: '0.74rem', color: s.is_enrolled ? '#34D399' : '#FBBF24', marginTop: '0.15rem' }}>
                         {s.is_enrolled ? 'Enrolled in Course / Workshop' : `Status: ${s.enrollment_status}`}
@@ -1060,7 +1060,7 @@ export function AttendanceScannerClient({
 
                 {lastResult.student && (
                   <div style={{ fontSize: '0.78rem', color: '#94A3B8', marginTop: '0.25rem' }}>
-                    {lastResult.student.faculty || 'Helwan University'} • {lastResult.student.email}
+                    {lastResult.student.faculty || 'Helwan National University'} • {lastResult.student.email}
                   </div>
                 )}
               </div>
