@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
 import {
   StudentNotification,
@@ -17,9 +18,7 @@ import {
   Clock,
   ExternalLink,
   Trash2,
-  CheckCircle2,
   Check,
-  ArrowRight,
   ShieldCheck,
   Info,
 } from 'lucide-react';
@@ -40,6 +39,11 @@ export function StudentNotificationDetailModal({
   onDelete,
 }: StudentNotificationDetailModalProps) {
   const router = useRouter();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Close on escape key
   useEffect(() => {
@@ -56,7 +60,7 @@ export function StudentNotificationDetailModal({
     };
   }, [isOpen, onClose]);
 
-  if (!isOpen || !notification) return null;
+  if (!isOpen || !notification || !mounted) return null;
 
   const getTypeMeta = (type: StudentNotificationType) => {
     switch (type) {
@@ -66,7 +70,7 @@ export function StudentNotificationDetailModal({
           color: '#3B82F6',
           bg: 'rgba(59, 130, 246, 0.15)',
           border: 'rgba(59, 130, 246, 0.35)',
-          label: 'مسار تعليمي • Course Track',
+          label: 'Course Track',
           accentGradient: 'linear-gradient(135deg, #3B82F6 0%, #1D4ED8 100%)',
         };
       case 'workshop':
@@ -75,7 +79,7 @@ export function StudentNotificationDetailModal({
           color: '#A855F7',
           bg: 'rgba(168, 85, 247, 0.15)',
           border: 'rgba(168, 85, 247, 0.35)',
-          label: 'ورشة عمل • Workshop',
+          label: 'Workshop',
           accentGradient: 'linear-gradient(135deg, #A855F7 0%, #7E22CE 100%)',
         };
       case 'certificate':
@@ -84,7 +88,7 @@ export function StudentNotificationDetailModal({
           color: '#10B981',
           bg: 'rgba(16, 185, 129, 0.15)',
           border: 'rgba(16, 185, 129, 0.35)',
-          label: 'شهادة معتمدة • Certificate',
+          label: 'Certificate',
           accentGradient: 'linear-gradient(135deg, #10B981 0%, #047857 100%)',
         };
       case 'task':
@@ -93,7 +97,7 @@ export function StudentNotificationDetailModal({
           color: '#F59E0B',
           bg: 'rgba(245, 158, 11, 0.15)',
           border: 'rgba(245, 158, 11, 0.35)',
-          label: 'مهمة وتكليف • Task / Assignment',
+          label: 'Task / Assignment',
           accentGradient: 'linear-gradient(135deg, #F59E0B 0%, #B45309 100%)',
         };
       case 'quiz':
@@ -102,7 +106,7 @@ export function StudentNotificationDetailModal({
           color: '#EC4899',
           bg: 'rgba(236, 72, 153, 0.15)',
           border: 'rgba(236, 72, 153, 0.35)',
-          label: 'اختبار تقييمي • Quiz',
+          label: 'Quiz',
           accentGradient: 'linear-gradient(135deg, #EC4899 0%, #BE185D 100%)',
         };
       case 'session':
@@ -111,7 +115,7 @@ export function StudentNotificationDetailModal({
           color: '#06B6D4',
           bg: 'rgba(6, 182, 212, 0.15)',
           border: 'rgba(6, 182, 212, 0.35)',
-          label: 'جلسة / محاضرة • Session',
+          label: 'Session / Lecture',
           accentGradient: 'linear-gradient(135deg, #06B6D4 0%, #0E7490 100%)',
         };
       case 'announcement':
@@ -120,7 +124,7 @@ export function StudentNotificationDetailModal({
           color: '#F97316',
           bg: 'rgba(249, 115, 22, 0.15)',
           border: 'rgba(249, 115, 22, 0.35)',
-          label: 'إعلان عام • Announcement',
+          label: 'Announcement',
           accentGradient: 'linear-gradient(135deg, #F97316 0%, #C2410C 100%)',
         };
       default:
@@ -129,7 +133,7 @@ export function StudentNotificationDetailModal({
           color: '#38BDF8',
           bg: 'rgba(56, 189, 248, 0.15)',
           border: 'rgba(56, 189, 248, 0.35)',
-          label: 'إشعار أكاديمي • Academic Notice',
+          label: 'Academic Notice',
           accentGradient: 'linear-gradient(135deg, #38BDF8 0%, #0284C7 100%)',
         };
     }
@@ -141,7 +145,7 @@ export function StudentNotificationDetailModal({
   const formatFullDateTime = (dateStr: string) => {
     try {
       const d = new Date(dateStr);
-      return d.toLocaleDateString('ar-EG', {
+      return d.toLocaleDateString('en-US', {
         weekday: 'long',
         year: 'numeric',
         month: 'long',
@@ -159,12 +163,12 @@ export function StudentNotificationDetailModal({
     try {
       const diff = Date.now() - new Date(dateStr).getTime();
       const minutes = Math.floor(diff / 60000);
-      if (minutes < 1) return 'الآن';
-      if (minutes < 60) return `منذ ${minutes} دقيقة`;
+      if (minutes < 1) return 'Just now';
+      if (minutes < 60) return `${minutes}m ago`;
       const hours = Math.floor(minutes / 60);
-      if (hours < 24) return `منذ ${hours} ساعة`;
+      if (hours < 24) return `${hours}h ago`;
       const days = Math.floor(hours / 24);
-      if (days < 7) return `منذ ${days} يوم`;
+      if (days < 7) return `${days}d ago`;
       return new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
     } catch {
       return '';
@@ -188,12 +192,12 @@ export function StudentNotificationDetailModal({
     }
   };
 
-  return (
+  return createPortal(
     <div
       style={{
         position: 'fixed',
         inset: 0,
-        zIndex: 99999,
+        zIndex: 999999,
         background: 'rgba(5, 8, 16, 0.82)',
         backdropFilter: 'blur(12px)',
         display: 'flex',
@@ -306,7 +310,7 @@ export function StudentNotificationDetailModal({
                 }}
               >
                 <Check size={12} />
-                <span>مقروء</span>
+                <span>Read</span>
               </span>
             ) : (
               <span
@@ -320,7 +324,7 @@ export function StudentNotificationDetailModal({
                   color: '#93C5FD',
                 }}
               >
-                جديد غير مقروء
+                Unread
               </span>
             )}
 
@@ -340,7 +344,7 @@ export function StudentNotificationDetailModal({
                 justifyContent: 'center',
                 transition: 'all 0.15s ease',
               }}
-              title="إغلاق"
+              title="Close"
             >
               <X size={16} />
             </button>
@@ -420,7 +424,7 @@ export function StudentNotificationDetailModal({
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#93C5FD' }}>
                 <Info size={16} />
                 <span style={{ fontSize: '0.82rem', fontWeight: 700 }}>
-                  هذا الإشعار مرتبط بصفحة أو مسار مخصص:
+                  This notification includes an attached link:
                 </span>
               </div>
 
@@ -453,7 +457,7 @@ export function StudentNotificationDetailModal({
                   e.currentTarget.style.boxShadow = '0 4px 14px rgba(66, 133, 244, 0.35)';
                 }}
               >
-                <span>الانتقال إلى التفاصيل والصفحة الموجهة</span>
+                <span>View Details & Open Link</span>
                 <ExternalLink size={16} />
               </button>
             </div>
@@ -496,7 +500,7 @@ export function StudentNotificationDetailModal({
               onMouseLeave={(e) => (e.currentTarget.style.background = 'rgba(239, 68, 68, 0.08)')}
             >
               <Trash2 size={14} />
-              <span>حذف الإشعار</span>
+              <span>Delete</span>
             </button>
           )}
 
@@ -521,7 +525,7 @@ export function StudentNotificationDetailModal({
                 }}
               >
                 <Check size={14} color="#60A5FA" />
-                <span>تمييز كمقروء</span>
+                <span>Mark as read</span>
               </button>
             )}
 
@@ -540,11 +544,12 @@ export function StudentNotificationDetailModal({
                 transition: 'all 0.15s ease',
               }}
             >
-              إغلاق
+              Close
             </button>
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

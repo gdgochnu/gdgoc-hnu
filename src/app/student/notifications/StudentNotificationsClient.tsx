@@ -540,7 +540,7 @@ export function StudentNotificationsClient({
                         }}
                       >
                         <Maximize2 size={12} />
-                        <span>عرض التفاصيل الكاملة</span>
+                        <span>View Full Details</span>
                       </button>
 
                       {notif.link_url && (
@@ -555,7 +555,7 @@ export function StudentNotificationsClient({
                           }}
                         >
                           <ExternalLink size={12} />
-                          <span>يتضمن رابط موجه</span>
+                          <span>Includes Link</span>
                         </span>
                       )}
                     </div>
