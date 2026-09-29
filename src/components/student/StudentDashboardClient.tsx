@@ -91,12 +91,14 @@ export function StudentDashboardClient({ initialData }: StudentDashboardClientPr
   return (
     <div
       style={{
-        padding: '2.5rem 2rem',
+        padding: 'clamp(1.25rem, 3vw, 2.5rem) clamp(0.75rem, 2.5vw, 1.5rem)',
         maxWidth: '1200px',
         margin: '0 auto',
         display: 'flex',
         flexDirection: 'column',
         gap: '2.5rem',
+        width: '100%',
+        boxSizing: 'border-box',
       }}
     >
       {/* ========================================================================= */}

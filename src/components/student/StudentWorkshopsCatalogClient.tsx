@@ -123,13 +123,15 @@ export function StudentWorkshopsCatalogClient({
   return (
     <div
       style={{
-        padding: '2.5rem 2rem',
+        padding: 'clamp(1.25rem, 3vw, 2.5rem) clamp(0.75rem, 2.5vw, 1.5rem)',
         maxWidth: '1240px',
         margin: '0 auto',
         display: 'flex',
         flexDirection: 'column',
         gap: '2rem',
         paddingBottom: '4rem',
+        width: '100%',
+        boxSizing: 'border-box',
       }}
     >
       {/* Onboarding Notice for incomplete profiles */}
@@ -730,8 +732,10 @@ export function StudentWorkshopsCatalogClient({
         <div
           style={{
             display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))',
+            gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 320px), 1fr))',
             gap: '1.5rem',
+            justifyContent: 'center',
+            width: '100%',
           }}
         >
           {filteredWorkshops.map((workshop) => {
@@ -741,18 +745,40 @@ export function StudentWorkshopsCatalogClient({
             return (
               <div
                 key={workshop.id}
+                className="glass-panel"
                 style={{
-                  borderRadius: '18px',
-                  background: 'rgba(15, 23, 42, 0.65)',
+                  borderRadius: '20px',
+                  background: isRegistered
+                    ? 'linear-gradient(180deg, rgba(30, 41, 59, 0.75) 0%, rgba(15, 23, 42, 0.9) 100%)'
+                    : 'linear-gradient(180deg, rgba(30, 41, 59, 0.7) 0%, rgba(15, 23, 42, 0.88) 100%)',
                   border: isRegistered
-                    ? '1px solid rgba(52, 168, 83, 0.4)'
+                    ? '1px solid rgba(52, 168, 83, 0.45)'
                     : '1px solid rgba(255, 255, 255, 0.08)',
-                  backdropFilter: 'blur(12px)',
+                  backdropFilter: 'blur(16px)',
                   overflow: 'hidden',
                   display: 'flex',
                   flexDirection: 'column',
-                  transition: 'transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease',
+                  transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
                   position: 'relative',
+                  width: '100%',
+                  boxSizing: 'border-box',
+                  boxShadow: '0 8px 24px -4px rgba(0, 0, 0, 0.4)',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.transform = 'translateY(-5px)';
+                  e.currentTarget.style.borderColor = isRegistered
+                    ? 'rgba(52, 168, 83, 0.7)'
+                    : 'rgba(66, 133, 244, 0.5)';
+                  e.currentTarget.style.boxShadow = isRegistered
+                    ? '0 16px 36px -6px rgba(0, 0, 0, 0.6), 0 0 20px rgba(52, 168, 83, 0.2)'
+                    : '0 16px 36px -6px rgba(0, 0, 0, 0.6), 0 0 20px rgba(66, 133, 244, 0.25)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.transform = 'translateY(0)';
+                  e.currentTarget.style.borderColor = isRegistered
+                    ? 'rgba(52, 168, 83, 0.45)'
+                    : 'rgba(255, 255, 255, 0.08)';
+                  e.currentTarget.style.boxShadow = '0 8px 24px -4px rgba(0, 0, 0, 0.4)';
                 }}
               >
                 {/* Registered Glow Tag */}
@@ -760,18 +786,18 @@ export function StudentWorkshopsCatalogClient({
                   <div
                     style={{
                       position: 'absolute',
-                      top: '1rem',
-                      right: '1rem',
+                      top: '0.9rem',
+                      right: '0.9rem',
                       zIndex: 10,
                       display: 'inline-flex',
                       alignItems: 'center',
                       gap: '0.35rem',
-                      padding: '0.35rem 0.8rem',
-                      borderRadius: '9999px',
-                      background: 'rgba(52, 168, 83, 0.9)',
+                      padding: '0.3rem 0.75rem',
+                      borderRadius: '8px',
+                      background: 'rgba(52, 168, 83, 0.95)',
                       color: '#FFFFFF',
-                      fontSize: '0.75rem',
-                      fontWeight: 700,
+                      fontSize: '0.74rem',
+                      fontWeight: 800,
                       boxShadow: '0 4px 14px rgba(52, 168, 83, 0.4)',
                     }}
                   >
@@ -786,18 +812,19 @@ export function StudentWorkshopsCatalogClient({
                     position: 'relative',
                     background: workshop.cover_image_url
                       ? `url(${workshop.cover_image_url}) center/cover no-repeat`
-                      : 'linear-gradient(135deg, #1E293B 0%, #0F172A 100%)',
+                      : 'linear-gradient(135deg, rgba(66, 133, 244, 0.35) 0%, rgba(251, 188, 4, 0.2) 50%, rgba(15, 23, 42, 0.9) 100%)',
                     display: 'flex',
                     flexDirection: 'column',
                     justifyContent: 'space-between',
-                    padding: '1rem',
+                    padding: '0.9rem',
+                    borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
                   }}
                 >
                   <div
                     style={{
                       position: 'absolute',
                       inset: 0,
-                      background: 'linear-gradient(to bottom, rgba(15, 23, 42, 0.2) 0%, rgba(15, 23, 42, 0.85) 100%)',
+                      background: 'linear-gradient(to bottom, rgba(15, 23, 42, 0.15) 0%, rgba(15, 23, 42, 0.6) 60%, rgba(15, 23, 42, 0.95) 100%)',
                     }}
                   />
 
@@ -807,21 +834,24 @@ export function StudentWorkshopsCatalogClient({
                       position: 'relative',
                       zIndex: 2,
                       display: 'flex',
-                      gap: '0.5rem',
+                      gap: '0.45rem',
                       flexWrap: 'wrap',
+                      alignItems: 'center',
                     }}
                   >
                     {workshop.department_code && (
                       <span
                         style={{
-                          padding: '0.25rem 0.65rem',
-                          borderRadius: '6px',
-                          background: 'rgba(15, 23, 42, 0.8)',
-                          border: '1px solid rgba(255, 255, 255, 0.15)',
+                          padding: '0.3rem 0.75rem',
+                          borderRadius: '8px',
+                          background: 'rgba(15, 23, 42, 0.85)',
+                          border: '1px solid rgba(66, 133, 244, 0.35)',
                           color: '#60A5FA',
-                          fontSize: '0.75rem',
+                          fontSize: '0.74rem',
                           fontWeight: 700,
                           letterSpacing: '0.03em',
+                          backdropFilter: 'blur(10px)',
+                          boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
                         }}
                       >
                         {workshop.department_code}
@@ -830,13 +860,14 @@ export function StudentWorkshopsCatalogClient({
                     {workshop.category && (
                       <span
                         style={{
-                          padding: '0.25rem 0.65rem',
-                          borderRadius: '6px',
-                          background: 'rgba(15, 23, 42, 0.8)',
+                          padding: '0.3rem 0.75rem',
+                          borderRadius: '8px',
+                          background: 'rgba(15, 23, 42, 0.85)',
                           border: '1px solid rgba(255, 255, 255, 0.15)',
                           color: '#CBD5E1',
-                          fontSize: '0.75rem',
+                          fontSize: '0.74rem',
                           fontWeight: 600,
+                          backdropFilter: 'blur(10px)',
                         }}
                       >
                         {workshop.category}
@@ -850,7 +881,7 @@ export function StudentWorkshopsCatalogClient({
                       position: 'relative',
                       zIndex: 2,
                       display: 'flex',
-                      gap: '0.5rem',
+                      gap: '0.45rem',
                       alignItems: 'center',
                     }}
                   >
@@ -860,13 +891,14 @@ export function StudentWorkshopsCatalogClient({
                           display: 'inline-flex',
                           alignItems: 'center',
                           gap: '0.3rem',
-                          padding: '0.2rem 0.55rem',
+                          padding: '0.22rem 0.6rem',
                           borderRadius: '6px',
-                          background: 'rgba(52, 168, 83, 0.25)',
-                          border: '1px solid rgba(52, 168, 83, 0.4)',
+                          background: 'rgba(52, 168, 83, 0.3)',
+                          border: '1px solid rgba(52, 168, 83, 0.5)',
                           color: '#4ADE80',
                           fontSize: '0.72rem',
                           fontWeight: 600,
+                          backdropFilter: 'blur(6px)',
                         }}
                       >
                         <MapPin size={11} /> {workshop.offline_sessions_count} Offline
@@ -878,13 +910,14 @@ export function StudentWorkshopsCatalogClient({
                           display: 'inline-flex',
                           alignItems: 'center',
                           gap: '0.3rem',
-                          padding: '0.2rem 0.55rem',
+                          padding: '0.22rem 0.6rem',
                           borderRadius: '6px',
-                          background: 'rgba(66, 133, 244, 0.25)',
-                          border: '1px solid rgba(66, 133, 244, 0.4)',
+                          background: 'rgba(66, 133, 244, 0.3)',
+                          border: '1px solid rgba(66, 133, 244, 0.5)',
                           color: '#93C5FD',
                           fontSize: '0.72rem',
                           fontWeight: 600,
+                          backdropFilter: 'blur(6px)',
                         }}
                       >
                         <Video size={11} /> {workshop.online_sessions_count} Online
@@ -896,41 +929,40 @@ export function StudentWorkshopsCatalogClient({
                 {/* Content Section */}
                 <div
                   style={{
-                    padding: '1.25rem',
+                    padding: '1.4rem',
                     display: 'flex',
                     flexDirection: 'column',
                     flex: 1,
-                    gap: '1rem',
+                    gap: '0.9rem',
                   }}
                 >
-                  <div>
-                    <h3
-                      style={{
-                        fontSize: '1.2rem',
-                        fontWeight: 700,
-                        color: '#F8FAFC',
-                        margin: 0,
-                        lineHeight: 1.35,
-                      }}
-                    >
-                      {workshop.title}
-                    </h3>
-                    <p
-                      style={{
-                        color: '#94A3B8',
-                        fontSize: '0.875rem',
-                        marginTop: '0.4rem',
-                        lineHeight: 1.5,
-                        display: '-webkit-box',
-                        WebkitLineClamp: 2,
-                        WebkitBoxOrient: 'vertical',
-                        overflow: 'hidden',
-                        minHeight: '2.6em',
-                      }}
-                    >
-                      {workshop.description || 'Hands-on practical bootcamp organized by Google Developer Groups on Campus HNU.'}
-                    </p>
-                  </div>
+                  <h3
+                    style={{
+                      fontSize: '1.18rem',
+                      fontWeight: 800,
+                      color: '#F8FAFC',
+                      margin: 0,
+                      lineHeight: 1.35,
+                      letterSpacing: '-0.01em',
+                    }}
+                  >
+                    {workshop.title}
+                  </h3>
+                  <p
+                    style={{
+                      color: '#94A3B8',
+                      fontSize: '0.86rem',
+                      lineHeight: 1.55,
+                      margin: 0,
+                      display: '-webkit-box',
+                      WebkitLineClamp: 2,
+                      WebkitBoxOrient: 'vertical',
+                      overflow: 'hidden',
+                      minHeight: '2.7em',
+                    }}
+                  >
+                    {workshop.description || 'Hands-on practical bootcamp organized by Google Developer Groups on Campus HNU.'}
+                  </p>
 
                   {/* Workshop Metrics Meta */}
                   <div
@@ -938,70 +970,71 @@ export function StudentWorkshopsCatalogClient({
                       display: 'grid',
                       gridTemplateColumns: '1fr 1fr',
                       gap: '0.6rem',
-                      padding: '0.75rem',
-                      borderRadius: '10px',
+                      padding: '0.75rem 0.9rem',
+                      borderRadius: '12px',
                       background: 'rgba(255, 255, 255, 0.03)',
-                      border: '1px solid rgba(255, 255, 255, 0.05)',
+                      border: '1px solid rgba(255, 255, 255, 0.06)',
                     }}
                   >
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
-                      <Calendar size={14} style={{ color: 'var(--google-blue)' }} />
+                      <Calendar size={15} style={{ color: '#60A5FA', flexShrink: 0 }} />
                       <span style={{ fontSize: '0.8rem', color: '#CBD5E1', fontWeight: 600 }}>
                         {workshop.sessions_count} Sessions
                       </span>
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
-                      <Clock size={14} style={{ color: '#FBBF24' }} />
+                      <Clock size={15} style={{ color: '#FBBF24', flexShrink: 0 }} />
                       <span style={{ fontSize: '0.8rem', color: '#CBD5E1', fontWeight: 600 }}>
                         ~{totalHours} hrs Total
                       </span>
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', gridColumn: 'span 2' }}>
                       {workshop.is_full ? (
-                        <span style={{ fontSize: '0.8rem', color: '#EF4444', fontWeight: 700 }}>
-                          Full
+                        <span style={{ fontSize: '0.78rem', color: '#EF4444', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}>
+                          <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#EF4444' }} /> Full (Waitlist Only)
                         </span>
                       ) : workshop.registration_open ? (
-                        <span style={{ fontSize: '0.8rem', color: '#34A853', fontWeight: 700 }}>
-                          Open to Enroll
+                        <span style={{ fontSize: '0.78rem', color: '#34D399', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}>
+                          <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#34D399' }} /> Open for Registration
                         </span>
                       ) : (
-                        <span style={{ fontSize: '0.8rem', color: '#94A3B8', fontWeight: 600 }}>
-                          Registration Closed
+                        <span style={{ fontSize: '0.78rem', color: '#94A3B8', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}>
+                          <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#94A3B8' }} /> Registration Closed
                         </span>
                       )}
                     </div>
                   </div>
 
                   {/* Instructors Row */}
-                  {workshop.instructors.length > 0 && (
-                    <div
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        paddingTop: '0.3rem',
-                      }}
-                    >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                        <div style={{ display: 'flex', marginLeft: '-4px' }}>
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      paddingTop: '0.2rem',
+                    }}
+                  >
+                    {workshop.instructors.length > 0 ? (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', minWidth: 0 }}>
+                        <div style={{ display: 'flex', alignItems: 'center' }}>
                           {workshop.instructors.slice(0, 3).map((ins, i) => (
                             <div
                               key={ins.id}
                               style={{
-                                width: '28px',
-                                height: '28px',
+                                width: '30px',
+                                height: '30px',
                                 borderRadius: '50%',
                                 background: 'linear-gradient(135deg, #4285F4 0%, #34A853 100%)',
                                 border: '2px solid #0F172A',
-                                marginLeft: i > 0 ? '-8px' : 0,
+                                marginLeft: i > 0 ? '-9px' : 0,
                                 display: 'flex',
                                 alignItems: 'center',
                                 justifyContent: 'center',
                                 color: '#FFF',
-                                fontSize: '0.7rem',
+                                fontSize: '0.75rem',
                                 fontWeight: 700,
                                 overflow: 'hidden',
+                                boxShadow: '0 2px 6px rgba(0,0,0,0.4)',
                               }}
                               title={ins.full_name}
                             >
@@ -1009,8 +1042,8 @@ export function StudentWorkshopsCatalogClient({
                                 <Image
                                   src={ins.avatar_url}
                                   alt={ins.full_name}
-                                  width={28}
-                                  height={28}
+                                  width={30}
+                                  height={30}
                                   style={{ objectFit: 'cover', borderRadius: '50%' }}
                                 />
                               ) : (
@@ -1019,35 +1052,38 @@ export function StudentWorkshopsCatalogClient({
                             </div>
                           ))}
                         </div>
-                        <span style={{ fontSize: '0.8rem', color: '#94A3B8' }}>
+                        <span style={{ fontSize: '0.78rem', color: '#94A3B8', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: 500 }}>
                           {workshop.instructors[0].full_name}
                           {workshop.instructors.length > 1 && ` +${workshop.instructors.length - 1}`}
                         </span>
                       </div>
-                    </div>
-                  )}
+                    ) : (
+                      <span style={{ fontSize: '0.78rem', color: '#94A3B8', fontWeight: 500 }}>GDGoC Chapter</span>
+                    )}
+                  </div>
 
                   {/* Bottom Action CTA */}
-                  <div style={{ marginTop: 'auto', paddingTop: '0.5rem' }}>
+                  <div style={{ marginTop: 'auto', paddingTop: '0.4rem' }}>
                     <Link
                       href={`/student/workshops/${workshop.id}`}
                       style={{
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        gap: '0.5rem',
+                        gap: '0.45rem',
                         width: '100%',
-                        padding: '0.75rem',
+                        padding: '0.65rem 1rem',
                         borderRadius: '11px',
                         background: isRegistered
-                          ? 'linear-gradient(135deg, rgba(52, 168, 83, 0.2) 0%, rgba(66, 133, 244, 0.15) 100%)'
-                          : 'linear-gradient(135deg, var(--google-blue, #4285F4) 0%, #2563EB 100%)',
-                        border: isRegistered ? '1px solid rgba(52, 168, 83, 0.4)' : 'none',
+                          ? 'linear-gradient(135deg, rgba(52, 168, 83, 0.25) 0%, rgba(66, 133, 244, 0.2) 100%)'
+                          : 'linear-gradient(135deg, #4285F4 0%, #2563EB 100%)',
+                        border: isRegistered ? '1px solid rgba(52, 168, 83, 0.45)' : 'none',
                         color: '#FFFFFF',
                         fontWeight: 700,
-                        fontSize: '0.875rem',
+                        fontSize: '0.86rem',
                         textDecoration: 'none',
-                        transition: 'opacity 0.15s ease',
+                        boxShadow: isRegistered ? 'none' : '0 4px 14px rgba(66, 133, 244, 0.35)',
+                        transition: 'all 0.15s ease',
                       }}
                     >
                       {isRegistered ? (
@@ -1056,15 +1092,15 @@ export function StudentWorkshopsCatalogClient({
                         </>
                       ) : workshop.is_full ? (
                         <>
-                          View Workshop Details <ArrowRight size={16} />
+                          View Workshop Details <ArrowRight size={15} />
                         </>
                       ) : workshop.registration_open ? (
                         <>
-                          View Details & Register <ArrowRight size={16} />
+                          View Details & Register <ArrowRight size={15} />
                         </>
                       ) : (
                         <>
-                          View Workshop Details <ArrowRight size={16} />
+                          View Workshop Details <ArrowRight size={15} />
                         </>
                       )}
                     </Link>

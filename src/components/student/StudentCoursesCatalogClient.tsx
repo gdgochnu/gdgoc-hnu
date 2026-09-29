@@ -93,13 +93,15 @@ export function StudentCoursesCatalogClient({
   return (
     <div
       style={{
-        padding: '2.5rem 2rem',
+        padding: 'clamp(1.25rem, 3vw, 2.5rem) clamp(0.75rem, 2.5vw, 1.5rem)',
         maxWidth: '1240px',
         margin: '0 auto',
         display: 'flex',
         flexDirection: 'column',
         gap: '2rem',
         paddingBottom: '4rem',
+        width: '100%',
+        boxSizing: 'border-box',
       }}
     >
       {/* Onboarding Notice for incomplete profiles */}
@@ -504,49 +506,63 @@ export function StudentCoursesCatalogClient({
         <div
           style={{
             display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))',
+            gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 320px), 1fr))',
             gap: '1.5rem',
+            justifyContent: 'center',
+            width: '100%',
           }}
         >
           {filteredCourses.map((course) => {
             const isEnrolled = course.my_enrollment_status === 'confirmed';
             const isPending = course.my_enrollment_status === 'pending';
             const isWaitlisted = course.my_enrollment_status === 'waitlisted';
-            const hoursEst = Math.round(course.total_duration_minutes / 60);
+            const hoursEst = Math.max(1, Math.round(course.total_duration_minutes / 60));
 
             return (
               <div
                 key={course.id}
                 className="glass-panel"
                 style={{
-                  borderRadius: '16px',
-                  border: '1px solid rgba(255, 255, 255, 0.08)',
+                  borderRadius: '20px',
+                  border: isEnrolled
+                    ? '1px solid rgba(52, 168, 83, 0.4)'
+                    : '1px solid rgba(255, 255, 255, 0.08)',
                   overflow: 'hidden',
                   display: 'flex',
                   flexDirection: 'column',
-                  transition: 'transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease',
-                  background: 'rgba(15, 23, 42, 0.65)',
+                  transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
+                  background: 'linear-gradient(180deg, rgba(30, 41, 59, 0.7) 0%, rgba(15, 23, 42, 0.88) 100%)',
+                  boxShadow: '0 8px 24px -4px rgba(0, 0, 0, 0.4)',
+                  width: '100%',
+                  boxSizing: 'border-box',
+                  position: 'relative',
                 }}
                 onMouseEnter={(e) => {
-                  e.currentTarget.style.transform = 'translateY(-4px)';
-                  e.currentTarget.style.borderColor = 'rgba(66, 133, 244, 0.4)';
-                  e.currentTarget.style.boxShadow = '0 12px 28px -6px rgba(0, 0, 0, 0.5)';
+                  e.currentTarget.style.transform = 'translateY(-5px)';
+                  e.currentTarget.style.borderColor = isEnrolled
+                    ? 'rgba(52, 168, 83, 0.7)'
+                    : 'rgba(66, 133, 244, 0.5)';
+                  e.currentTarget.style.boxShadow = isEnrolled
+                    ? '0 16px 36px -6px rgba(0, 0, 0, 0.6), 0 0 20px rgba(52, 168, 83, 0.2)'
+                    : '0 16px 36px -6px rgba(0, 0, 0, 0.6), 0 0 20px rgba(66, 133, 244, 0.25)';
                 }}
                 onMouseLeave={(e) => {
                   e.currentTarget.style.transform = 'translateY(0)';
-                  e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.08)';
-                  e.currentTarget.style.boxShadow = 'none';
+                  e.currentTarget.style.borderColor = isEnrolled
+                    ? 'rgba(52, 168, 83, 0.4)'
+                    : 'rgba(255, 255, 255, 0.08)';
+                  e.currentTarget.style.boxShadow = '0 8px 24px -4px rgba(0, 0, 0, 0.4)';
                 }}
               >
                 {/* Cover Banner */}
                 <div
                   style={{
-                    height: '140px',
+                    height: '160px',
                     position: 'relative',
                     background: course.cover_image_url
                       ? `url(${course.cover_image_url}) center/cover no-repeat`
-                      : 'linear-gradient(135deg, rgba(66, 133, 244, 0.3) 0%, rgba(52, 168, 83, 0.2) 100%)',
-                    borderBottom: '1px solid rgba(255, 255, 255, 0.06)',
+                      : 'linear-gradient(135deg, rgba(66, 133, 244, 0.35) 0%, rgba(52, 168, 83, 0.25) 50%, rgba(15, 23, 42, 0.9) 100%)',
+                    borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
                   }}
                 >
                   <div
@@ -554,7 +570,7 @@ export function StudentCoursesCatalogClient({
                       position: 'absolute',
                       inset: 0,
                       background:
-                        'linear-gradient(to bottom, rgba(15, 23, 42, 0.1) 0%, rgba(15, 23, 42, 0.85) 100%)',
+                        'linear-gradient(to bottom, rgba(15, 23, 42, 0.15) 0%, rgba(15, 23, 42, 0.6) 60%, rgba(15, 23, 42, 0.95) 100%)',
                     }}
                   />
 
@@ -562,25 +578,28 @@ export function StudentCoursesCatalogClient({
                   <div
                     style={{
                       position: 'absolute',
-                      top: '0.85rem',
-                      left: '0.85rem',
-                      right: '0.85rem',
+                      top: '0.9rem',
+                      left: '0.9rem',
+                      right: '0.9rem',
                       display: 'flex',
                       justifyContent: 'space-between',
                       alignItems: 'center',
+                      gap: '0.5rem',
+                      zIndex: 2,
                     }}
                   >
                     {course.category ? (
                       <span
                         style={{
-                          padding: '0.25rem 0.65rem',
-                          borderRadius: '6px',
-                          fontSize: '0.72rem',
+                          padding: '0.3rem 0.75rem',
+                          borderRadius: '8px',
+                          fontSize: '0.74rem',
                           fontWeight: 700,
                           background: 'rgba(15, 23, 42, 0.85)',
                           color: '#60A5FA',
-                          border: '1px solid rgba(66, 133, 244, 0.3)',
-                          backdropFilter: 'blur(8px)',
+                          border: '1px solid rgba(66, 133, 244, 0.35)',
+                          backdropFilter: 'blur(10px)',
+                          boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
                         }}
                       >
                         {course.category}
@@ -593,17 +612,17 @@ export function StudentCoursesCatalogClient({
                         style={{
                           display: 'inline-flex',
                           alignItems: 'center',
-                          gap: '0.3rem',
-                          padding: '0.25rem 0.65rem',
-                          borderRadius: '6px',
-                          fontSize: '0.72rem',
+                          gap: '0.35rem',
+                          padding: '0.3rem 0.75rem',
+                          borderRadius: '8px',
+                          fontSize: '0.74rem',
                           fontWeight: 800,
-                          background: 'rgba(52, 168, 83, 0.9)',
+                          background: 'rgba(52, 168, 83, 0.95)',
                           color: '#FFFFFF',
-                          boxShadow: '0 2px 8px rgba(52, 168, 83, 0.4)',
+                          boxShadow: '0 4px 12px rgba(52, 168, 83, 0.4)',
                         }}
                       >
-                        <CheckCircle2 size={12} />
+                        <CheckCircle2 size={13} />
                         Enrolled
                       </span>
                     ) : isPending ? (
@@ -611,17 +630,17 @@ export function StudentCoursesCatalogClient({
                         style={{
                           display: 'inline-flex',
                           alignItems: 'center',
-                          gap: '0.3rem',
-                          padding: '0.25rem 0.65rem',
-                          borderRadius: '6px',
-                          fontSize: '0.72rem',
+                          gap: '0.35rem',
+                          padding: '0.3rem 0.75rem',
+                          borderRadius: '8px',
+                          fontSize: '0.74rem',
                           fontWeight: 800,
-                          background: 'rgba(251, 188, 4, 0.9)',
+                          background: 'rgba(251, 188, 4, 0.95)',
                           color: '#0F172A',
-                          boxShadow: '0 2px 8px rgba(251, 188, 4, 0.4)',
+                          boxShadow: '0 4px 12px rgba(251, 188, 4, 0.35)',
                         }}
                       >
-                        <Clock3 size={12} />
+                        <Clock3 size={13} />
                         Pending Approval
                       </span>
                     ) : isWaitlisted ? (
@@ -629,12 +648,12 @@ export function StudentCoursesCatalogClient({
                         style={{
                           display: 'inline-flex',
                           alignItems: 'center',
-                          gap: '0.3rem',
-                          padding: '0.25rem 0.65rem',
-                          borderRadius: '6px',
-                          fontSize: '0.72rem',
+                          gap: '0.35rem',
+                          padding: '0.3rem 0.75rem',
+                          borderRadius: '8px',
+                          fontSize: '0.74rem',
                           fontWeight: 800,
-                          background: 'rgba(168, 85, 247, 0.9)',
+                          background: 'rgba(168, 85, 247, 0.95)',
                           color: '#FFFFFF',
                         }}
                       >
@@ -643,11 +662,11 @@ export function StudentCoursesCatalogClient({
                     ) : course.is_full ? (
                       <span
                         style={{
-                          padding: '0.25rem 0.65rem',
-                          borderRadius: '6px',
-                          fontSize: '0.72rem',
+                          padding: '0.3rem 0.75rem',
+                          borderRadius: '8px',
+                          fontSize: '0.74rem',
                           fontWeight: 800,
-                          background: 'rgba(234, 67, 53, 0.85)',
+                          background: 'rgba(234, 67, 53, 0.9)',
                           color: '#FFFFFF',
                         }}
                       >
@@ -656,14 +675,14 @@ export function StudentCoursesCatalogClient({
                     ) : (
                       <span
                         style={{
-                          padding: '0.25rem 0.65rem',
-                          borderRadius: '6px',
-                          fontSize: '0.72rem',
+                          padding: '0.3rem 0.75rem',
+                          borderRadius: '8px',
+                          fontSize: '0.74rem',
                           fontWeight: 700,
                           background: 'rgba(15, 23, 42, 0.85)',
                           color: '#34D399',
-                          border: '1px solid rgba(52, 168, 83, 0.3)',
-                          backdropFilter: 'blur(8px)',
+                          border: '1px solid rgba(52, 168, 83, 0.4)',
+                          backdropFilter: 'blur(10px)',
                         }}
                       >
                         {course.enrollment_type === 'open' ? 'Open Enrollment' : 'Gated Entry'}
@@ -676,28 +695,38 @@ export function StudentCoursesCatalogClient({
                     <div
                       style={{
                         position: 'absolute',
-                        bottom: '0.65rem',
-                        left: '0.85rem',
-                        fontSize: '0.74rem',
-                        color: '#CBD5E1',
+                        bottom: '0.75rem',
+                        left: '0.9rem',
+                        fontSize: '0.75rem',
+                        color: '#E2E8F0',
                         fontWeight: 600,
-                        textShadow: '0 1px 3px rgba(0, 0, 0, 0.8)',
+                        textShadow: '0 1px 4px rgba(0, 0, 0, 0.9)',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '0.35rem',
+                        background: 'rgba(15, 23, 42, 0.65)',
+                        padding: '0.2rem 0.6rem',
+                        borderRadius: '6px',
+                        backdropFilter: 'blur(6px)',
+                        border: '1px solid rgba(255, 255, 255, 0.08)',
                       }}
                     >
+                      <Sparkles size={11} color="#60A5FA" />
                       {course.department_name}
                     </div>
                   )}
                 </div>
 
                 {/* Card Content Body */}
-                <div style={{ padding: '1.25rem', display: 'flex', flexDirection: 'column', flex: 1 }}>
+                <div style={{ padding: '1.4rem', display: 'flex', flexDirection: 'column', flex: 1, gap: '0.9rem' }}>
                   <h3
                     style={{
-                      fontSize: '1.15rem',
+                      fontSize: '1.18rem',
                       fontWeight: 800,
                       color: '#FFFFFF',
-                      margin: '0 0 0.5rem 0',
+                      margin: 0,
                       lineHeight: 1.35,
+                      letterSpacing: '-0.01em',
                     }}
                   >
                     {course.title}
@@ -706,14 +735,14 @@ export function StudentCoursesCatalogClient({
                   <p
                     style={{
                       color: '#94A3B8',
-                      fontSize: '0.84rem',
-                      lineHeight: 1.5,
-                      margin: '0 0 1.25rem 0',
+                      fontSize: '0.86rem',
+                      lineHeight: 1.55,
+                      margin: 0,
                       display: '-webkit-box',
                       WebkitLineClamp: 2,
                       WebkitBoxOrient: 'vertical',
                       overflow: 'hidden',
-                      flex: 1,
+                      minHeight: '2.7em',
                     }}
                   >
                     {course.description || 'Comprehensive curriculum covering core concepts and practical real-world engineering.'}
@@ -722,39 +751,48 @@ export function StudentCoursesCatalogClient({
                   {/* Stats Row */}
                   <div
                     style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '1rem',
-                      padding: '0.75rem 0',
-                      borderTop: '1px solid rgba(255, 255, 255, 0.06)',
-                      borderBottom: '1px solid rgba(255, 255, 255, 0.06)',
-                      marginBottom: '1rem',
-                      fontSize: '0.78rem',
+                      display: 'grid',
+                      gridTemplateColumns: '1fr 1fr',
+                      gap: '0.6rem',
+                      padding: '0.75rem 0.9rem',
+                      borderRadius: '12px',
+                      background: 'rgba(255, 255, 255, 0.03)',
+                      border: '1px solid rgba(255, 255, 255, 0.06)',
+                      fontSize: '0.8rem',
                       color: '#CBD5E1',
                     }}
                   >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                      <Calendar size={14} style={{ color: '#60A5FA' }} />
-                      <span>{course.sessions_count} Sessions</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+                      <Calendar size={15} style={{ color: '#60A5FA', flexShrink: 0 }} />
+                      <span style={{ fontWeight: 600 }}>{course.sessions_count} Sessions</span>
                     </div>
 
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                      <Clock size={14} style={{ color: '#34D399' }} />
-                      <span>~{hoursEst} hrs</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+                      <Clock size={15} style={{ color: '#34D399', flexShrink: 0 }} />
+                      <span style={{ fontWeight: 600 }}>~{hoursEst} hrs Total</span>
                     </div>
                   </div>
 
                   {/* Teaching Staff Avatars & Footer Action */}
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.75rem' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', minWidth: 0 }}>
+                  <div
+                    style={{
+                      marginTop: 'auto',
+                      paddingTop: '0.5rem',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      gap: '0.75rem',
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', minWidth: 0 }}>
                       {course.instructors.length > 0 ? (
                         <div style={{ display: 'flex', alignItems: 'center' }}>
                           {course.instructors.slice(0, 3).map((ins, idx) => (
                             <div
                               key={ins.id}
                               style={{
-                                width: '28px',
-                                height: '28px',
+                                width: '30px',
+                                height: '30px',
                                 borderRadius: '50%',
                                 background: idx === 0 ? '#4285F4' : '#10B981',
                                 border: '2px solid #0F172A',
@@ -763,9 +801,10 @@ export function StudentCoursesCatalogClient({
                                 alignItems: 'center',
                                 justifyContent: 'center',
                                 fontWeight: 700,
-                                fontSize: '0.72rem',
-                                marginLeft: idx > 0 ? '-8px' : '0',
+                                fontSize: '0.75rem',
+                                marginLeft: idx > 0 ? '-9px' : '0',
                                 overflow: 'hidden',
+                                boxShadow: '0 2px 6px rgba(0,0,0,0.4)',
                               }}
                               title={ins.full_name}
                             >
@@ -773,8 +812,8 @@ export function StudentCoursesCatalogClient({
                                 <Image
                                   src={ins.avatar_url}
                                   alt={ins.full_name}
-                                  width={28}
-                                  height={28}
+                                  width={30}
+                                  height={30}
                                   style={{ objectFit: 'cover', borderRadius: '50%' }}
                                 />
                               ) : (
@@ -787,16 +826,17 @@ export function StudentCoursesCatalogClient({
 
                       <span
                         style={{
-                          fontSize: '0.76rem',
+                          fontSize: '0.78rem',
                           color: '#94A3B8',
                           overflow: 'hidden',
                           textOverflow: 'ellipsis',
                           whiteSpace: 'nowrap',
+                          fontWeight: 500,
                         }}
                       >
                         {course.instructors.length > 0
                           ? course.instructors[0].full_name + (course.instructors.length > 1 ? ` +${course.instructors.length - 1}` : '')
-                          : 'GDGoC Staff'}
+                          : 'GDGoC Chapter'}
                       </span>
                     </div>
 
@@ -804,23 +844,26 @@ export function StudentCoursesCatalogClient({
                     <Link
                       href={`/student/courses/${course.id}`}
                       style={{
-                        padding: '0.45rem 0.85rem',
-                        borderRadius: '8px',
-                        background: 'rgba(66, 133, 244, 0.15)',
-                        border: '1px solid rgba(66, 133, 244, 0.3)',
-                        color: '#60A5FA',
-                        fontSize: '0.8rem',
+                        padding: '0.55rem 1.05rem',
+                        borderRadius: '10px',
+                        background: isEnrolled
+                          ? 'linear-gradient(135deg, rgba(52, 168, 83, 0.25) 0%, rgba(66, 133, 244, 0.2) 100%)'
+                          : 'linear-gradient(135deg, #4285F4 0%, #2563EB 100%)',
+                        border: isEnrolled ? '1px solid rgba(52, 168, 83, 0.45)' : 'none',
+                        color: '#FFFFFF',
+                        fontSize: '0.84rem',
                         fontWeight: 700,
                         textDecoration: 'none',
                         display: 'inline-flex',
                         alignItems: 'center',
-                        gap: '0.35rem',
+                        gap: '0.4rem',
                         flexShrink: 0,
+                        boxShadow: isEnrolled ? 'none' : '0 4px 14px rgba(66, 133, 244, 0.35)',
                         transition: 'all 0.15s ease',
                       }}
                     >
-                      View
-                      <ArrowRight size={13} />
+                      {isEnrolled ? 'Open Track' : 'View Course'}
+                      <ArrowRight size={14} />
                     </Link>
                   </div>
                 </div>
