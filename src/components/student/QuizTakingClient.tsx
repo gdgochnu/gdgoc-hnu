@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
+import { useToast, createToastHelpers } from '@/components/student/StudentToast';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
@@ -51,6 +52,8 @@ export function QuizTakingClient({
   initialMode = 'take',
 }: QuizTakingClientProps) {
   const router = useRouter();
+  const { addToast } = useToast();
+  const toast = createToastHelpers(addToast);
 
   // Answers state: question_id -> answer value
   const [answers, setAnswers] = useState<Record<string, any>>({});
@@ -134,11 +137,11 @@ export function QuizTakingClient({
       if (res.success && res.attempt) {
         setSubmissionResult(res);
       } else {
-        alert(res.error || 'Failed to submit quiz.');
+        toast.error('Submission Failed', res.error || 'Failed to submit quiz. Please try again.');
         setIsSubmitting(false);
       }
     } catch {
-      alert('An unexpected network error occurred. Please try again.');
+      toast.error('Network Error', 'An unexpected error occurred. Please check your connection and try again.');
       setIsSubmitting(false);
     }
   };

@@ -1271,12 +1271,30 @@ export function StudentDashboardClient({ initialData }: StudentDashboardClientPr
                             )}
                           </div>
 
-                          {/* Progress Bar: Attendance */}
+                          {/* Progress Bar: Attendance / Completion */}
                           <div style={{ background: 'rgba(255, 255, 255, 0.02)', padding: '0.75rem', borderRadius: '10px', border: '1px solid rgba(255, 255, 255, 0.05)' }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.78rem', color: 'var(--text-muted, #94A3B8)', marginBottom: '0.45rem' }}>
-                              <span style={{ fontWeight: 600 }}>Attendance Record</span>
-                              <span style={{ fontWeight: 700, color: '#FFFFFF' }}>
-                                {course.sessions_attended} of {course.sessions_total} sessions ({attendancePercent}%)
+                              <span style={{ fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                                <span
+                                  style={{
+                                    display: 'inline-block',
+                                    width: '7px',
+                                    height: '7px',
+                                    borderRadius: '50%',
+                                    background: attendancePercent >= 75 ? '#34D399' : attendancePercent >= 50 ? '#FBBF24' : '#F87171',
+                                    flexShrink: 0,
+                                  }}
+                                />
+                                Course Progress
+                              </span>
+                              <span
+                                style={{
+                                  fontWeight: 800,
+                                  color: attendancePercent >= 75 ? '#34D399' : attendancePercent >= 50 ? '#FBBF24' : '#F87171',
+                                  fontSize: '0.85rem',
+                                }}
+                              >
+                                {attendancePercent}%
                               </span>
                             </div>
                             <div style={{ height: '7px', width: '100%', background: 'rgba(255, 255, 255, 0.08)', borderRadius: '999px', overflow: 'hidden' }}>
@@ -1284,11 +1302,21 @@ export function StudentDashboardClient({ initialData }: StudentDashboardClientPr
                                 style={{
                                   height: '100%',
                                   width: `${attendancePercent}%`,
-                                  background: 'linear-gradient(90deg, #4285F4, #34A853)',
+                                  background: attendancePercent >= 75
+                                    ? 'linear-gradient(90deg, #10B981, #34D399)'
+                                    : attendancePercent >= 50
+                                    ? 'linear-gradient(90deg, #F59E0B, #FBBF24)'
+                                    : 'linear-gradient(90deg, #EF4444, #F87171)',
                                   borderRadius: '999px',
-                                  transition: 'width 0.4s ease',
+                                  transition: 'width 0.6s cubic-bezier(0.34, 1.56, 0.64, 1)',
                                 }}
                               />
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.4rem', fontSize: '0.72rem', color: '#64748B' }}>
+                              <span>{course.sessions_attended} / {course.sessions_total} sessions attended</span>
+                              <span style={{ color: attendancePercent >= 75 ? '#34D399' : attendancePercent >= 50 ? '#FBBF24' : '#F87171', fontWeight: 600 }}>
+                                {attendancePercent >= 75 ? 'On Track ✓' : attendancePercent >= 50 ? 'Needs Attention' : 'Low Attendance'}
+                              </span>
                             </div>
                           </div>
 

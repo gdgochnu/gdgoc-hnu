@@ -416,38 +416,88 @@ export function StudentCoursesCatalogClient({
         <div
           className="glass-panel"
           style={{
-            padding: '4rem 2rem',
-            borderRadius: '20px',
+            padding: '4.5rem 2rem',
+            borderRadius: '24px',
             textAlign: 'center',
-            border: '1px solid rgba(255, 255, 255, 0.08)',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: '1.25rem',
+            background: hasActiveFilters
+              ? 'radial-gradient(ellipse at center, rgba(234, 67, 53, 0.06) 0%, rgba(15, 23, 42, 0.5) 70%)'
+              : 'radial-gradient(ellipse at center, rgba(66, 133, 244, 0.08) 0%, rgba(15, 23, 42, 0.5) 70%)',
+            border: hasActiveFilters
+              ? '1px solid rgba(234, 67, 53, 0.2)'
+              : '1px dashed rgba(66, 133, 244, 0.3)',
           }}
         >
-          <BookOpen size={48} style={{ color: '#64748B', margin: '0 auto 1rem auto' }} />
-          <h3 style={{ fontSize: '1.25rem', fontWeight: 700, color: '#FFFFFF', margin: '0 0 0.5rem 0' }}>
-            No Courses Found
-          </h3>
-          <p style={{ color: '#94A3B8', fontSize: '0.9rem', maxWidth: '440px', margin: '0 auto 1.5rem auto' }}>
-            {hasActiveFilters
-              ? 'No courses match your active search filters or committee selection.'
-              : 'There are currently no published courses available. Check back soon!'}
-          </p>
-          {hasActiveFilters && (
+          {/* Animated icon */}
+          <div style={{ position: 'relative', width: '80px', height: '80px' }}>
+            <div
+              style={{
+                position: 'absolute',
+                inset: 0,
+                borderRadius: '50%',
+                background: hasActiveFilters ? 'rgba(234, 67, 53, 0.1)' : 'rgba(66, 133, 244, 0.1)',
+                animation: 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+              }}
+            />
+            <div
+              style={{
+                position: 'absolute',
+                inset: '8px',
+                borderRadius: '50%',
+                background: hasActiveFilters ? 'rgba(234, 67, 53, 0.15)' : 'rgba(66, 133, 244, 0.15)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: hasActiveFilters ? '#F87171' : '#60A5FA',
+              }}
+            >
+              <BookOpen size={34} />
+            </div>
+          </div>
+
+          <div>
+            <h3 style={{ fontSize: '1.35rem', fontWeight: 800, color: '#FFFFFF', margin: '0 0 0.5rem 0' }}>
+              {hasActiveFilters ? 'No Courses Match' : 'No Courses Published Yet'}
+            </h3>
+            <p style={{ color: '#94A3B8', fontSize: '0.92rem', maxWidth: '480px', margin: '0 auto', lineHeight: 1.6 }}>
+              {hasActiveFilters
+                ? 'No courses match your active filters. Try broadening your search or clearing the track and status filters to see all available courses.'
+                : 'Chapter technical tracks are preparing course curricula. New courses covering Web, Mobile, AI, Cloud, and Cybersecurity will appear here soon.'}
+            </p>
+          </div>
+
+          {hasActiveFilters ? (
             <button
               type="button"
               onClick={handleResetFilters}
               style={{
-                padding: '0.65rem 1.25rem',
-                borderRadius: '8px',
-                background: '#4285F4',
-                color: '#FFFFFF',
+                padding: '0.7rem 1.5rem',
+                borderRadius: '10px',
+                background: 'rgba(66, 133, 244, 0.15)',
+                border: '1px solid rgba(66, 133, 244, 0.35)',
+                color: '#60A5FA',
                 fontWeight: 700,
                 fontSize: '0.88rem',
-                border: 'none',
                 cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+                transition: 'all 0.15s ease',
               }}
+              onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(66, 133, 244, 0.25)')}
+              onMouseLeave={(e) => (e.currentTarget.style.background = 'rgba(66, 133, 244, 0.15)')}
             >
+              <X size={15} />
               Clear All Filters
             </button>
+          ) : (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.82rem', color: '#64748B', marginTop: '0.25rem' }}>
+              <Sparkles size={14} color="#4285F4" />
+              <span>New courses are added each semester — check back soon!</span>
+            </div>
           )}
         </div>
       ) : (

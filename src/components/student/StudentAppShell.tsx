@@ -25,6 +25,8 @@ import {
 import { StudentProfile } from '@/types/student';
 import { createClient } from '@/lib/supabase/client';
 import { StudentNotificationCenter } from './notifications/StudentNotificationCenter';
+import { ToastProvider } from './StudentToast';
+import { BackToTopButton } from './BackToTopButton';
 
 interface NavItem {
   label: string;
@@ -158,6 +160,7 @@ export function StudentAppShell({ student, teamRole, children }: StudentAppShell
       : 'Dashboard';
 
   return (
+    <ToastProvider>
     <div style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg-main, #070B14)' }}>
       {/* ========================================================================= */}
       {/* DESKTOP COLLAPSIBLE SIDEBAR */}
@@ -1026,7 +1029,9 @@ export function StudentAppShell({ student, teamRole, children }: StudentAppShell
           <span style={{ fontSize: '0.68rem', textDecoration: 'none' }}>Certificates</span>
         </Link>
       </nav>
+      <BackToTopButton />
     </div>
+    </ToastProvider>
   );
 }
 

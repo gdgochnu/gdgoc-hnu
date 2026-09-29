@@ -636,60 +636,94 @@ export function StudentWorkshopsCatalogClient({
       {/* Workshops Grid */}
       {filteredWorkshops.length === 0 ? (
         <div
+          className="glass-panel"
           style={{
-            padding: '4rem 2rem',
-            borderRadius: '20px',
-            background: 'rgba(15, 23, 42, 0.4)',
-            border: '1px dashed rgba(255, 255, 255, 0.12)',
+            padding: '4.5rem 2rem',
+            borderRadius: '24px',
             textAlign: 'center',
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
-            gap: '1rem',
+            gap: '1.25rem',
+            background: hasActiveFilters
+              ? 'radial-gradient(ellipse at center, rgba(234, 67, 53, 0.06) 0%, rgba(15, 23, 42, 0.5) 70%)'
+              : 'radial-gradient(ellipse at center, rgba(168, 85, 247, 0.08) 0%, rgba(15, 23, 42, 0.5) 70%)',
+            border: hasActiveFilters
+              ? '1px solid rgba(234, 67, 53, 0.2)'
+              : '1px dashed rgba(168, 85, 247, 0.25)',
           }}
         >
-          <div
-            style={{
-              width: '64px',
-              height: '64px',
-              borderRadius: '20px',
-              background: 'rgba(255, 255, 255, 0.05)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: '#64748B',
-            }}
-          >
-            <Calendar size={32} />
+          {/* Animated icon stack */}
+          <div style={{ position: 'relative', width: '80px', height: '80px' }}>
+            <div
+              style={{
+                position: 'absolute',
+                inset: 0,
+                borderRadius: '50%',
+                background: hasActiveFilters
+                  ? 'rgba(234, 67, 53, 0.1)'
+                  : 'rgba(168, 85, 247, 0.1)',
+                animation: 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+              }}
+            />
+            <div
+              style={{
+                position: 'absolute',
+                inset: '8px',
+                borderRadius: '50%',
+                background: hasActiveFilters
+                  ? 'rgba(234, 67, 53, 0.15)'
+                  : 'rgba(168, 85, 247, 0.15)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: hasActiveFilters ? '#F87171' : '#C084FC',
+              }}
+            >
+              <Calendar size={34} />
+            </div>
           </div>
+
           <div>
-            <h3 style={{ fontSize: '1.25rem', fontWeight: 700, color: '#F8FAFC', margin: 0 }}>
-              No Workshops Found
+            <h3 style={{ fontSize: '1.35rem', fontWeight: 800, color: '#FFFFFF', margin: '0 0 0.5rem 0' }}>
+              {hasActiveFilters ? 'No Matches Found' : 'No Workshops Yet'}
             </h3>
-            <p style={{ color: '#94A3B8', fontSize: '0.9rem', maxWidth: '440px', marginTop: '0.4rem' }}>
+            <p style={{ color: '#94A3B8', fontSize: '0.92rem', maxWidth: '480px', margin: '0 auto', lineHeight: 1.6 }}>
               {hasActiveFilters
-                ? 'No workshops match your selected search terms and filters. Try resetting the filters to view all available bootcamps.'
-                : 'Stay tuned! New hands-on bootcamps and technical workshops will be published soon by our chapter heads.'}
+                ? 'No workshops match your current search and filters. Try adjusting the committee or category filters, or clear them to see all available bootcamps.'
+                : 'New hands-on bootcamps and technical workshops will appear here as chapter committees publish them. Check back soon!'}
             </p>
           </div>
-          {hasActiveFilters && (
+
+          {hasActiveFilters ? (
             <button
               type="button"
               onClick={handleResetFilters}
               style={{
-                marginTop: '0.5rem',
-                padding: '0.65rem 1.4rem',
+                padding: '0.7rem 1.5rem',
                 borderRadius: '10px',
-                background: 'rgba(255, 255, 255, 0.08)',
-                border: '1px solid rgba(255, 255, 255, 0.15)',
-                color: '#F8FAFC',
-                fontWeight: 600,
-                fontSize: '0.875rem',
+                background: 'rgba(66, 133, 244, 0.15)',
+                border: '1px solid rgba(66, 133, 244, 0.35)',
+                color: '#60A5FA',
+                fontWeight: 700,
+                fontSize: '0.88rem',
                 cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+                transition: 'all 0.15s ease',
               }}
+              onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(66, 133, 244, 0.25)')}
+              onMouseLeave={(e) => (e.currentTarget.style.background = 'rgba(66, 133, 244, 0.15)')}
             >
+              <X size={15} />
               Clear All Filters
             </button>
+          ) : (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.82rem', color: '#64748B', marginTop: '0.25rem' }}>
+              <Sparkles size={14} color="#A855F7" />
+              <span>New workshops are added regularly — stay tuned!</span>
+            </div>
           )}
         </div>
       ) : (
