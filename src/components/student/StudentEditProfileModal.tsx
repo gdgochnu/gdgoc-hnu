@@ -38,7 +38,25 @@ export function StudentEditProfileModal({
     full_name_ar: student.full_name_ar || '',
     full_name_en: student.full_name_en || '',
     faculty: student.faculty || (faculties[0]?.name_en || ''),
-    department_major: student.department_major || '',
+  const effectiveFaculties = useMemo(() => {
+    if (faculties && faculties.length > 0) return faculties;
+    return [
+      { id: 'f-csai', name_en: 'Faculty of Computer Science & Artificial Intelligence', name_ar: 'كلية الحاسبات والذكاء الاصطناعي', sort_order: 1 },
+      { id: 'f-eng', name_en: 'Faculty of Engineering', name_ar: 'كلية الهندسة', sort_order: 2 },
+      { id: 'f-sci', name_en: 'Faculty of Science', name_ar: 'كلية العلوم', sort_order: 3 },
+      { id: 'f-comm', name_en: 'Faculty of Commerce & Business Administration', name_ar: 'كلية التجارة وإدارة الأعمال', sort_order: 4 },
+      { id: 'f-arts', name_en: 'Faculty of Applied Arts', name_ar: 'كلية الفنون التطبيقية', sort_order: 5 },
+      { id: 'f-med', name_en: 'Faculty of Medicine', name_ar: 'كلية الطب', sort_order: 6 },
+      { id: 'f-dent', name_en: 'Faculty of Dentistry', name_ar: 'كلية طب الأسنان', sort_order: 7 },
+      { id: 'f-pharm', name_en: 'Faculty of Pharmacy', name_ar: 'كلية الصيدلة', sort_order: 8 },
+      { id: 'f-nurs', name_en: 'Faculty of Nursing', name_ar: 'كلية التمريض', sort_order: 9 },
+      { id: 'f-other', name_en: 'Other Faculty', name_ar: 'كلية أخرى', sort_order: 10 },
+    ];
+  }, [faculties]);
+
+  const isCurrentFacultyInList = effectiveFaculties.some(
+    (f) => f.name_en === formData.faculty || f.name_ar === formData.faculty
+  );
     academic_year: student.academic_year || 1,
     phone: student.phone || '',
     whatsapp_number: student.whatsapp_number || '',

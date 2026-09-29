@@ -676,6 +676,7 @@ export async function getStudentDashboardData(): Promise<{
             id,
             title,
             description,
+            status,
             department:departments(name),
             sessions:course_sessions(id, title, session_date, start_time, end_time, type, venue, youtube_url, duration_minutes, deadline, status)
           )
@@ -684,7 +685,12 @@ export async function getStudentDashboardData(): Promise<{
         .eq('status', 'confirmed');
 
       if (enrollmentRows) {
-        courses = enrollmentRows.map((e: any) => {
+        courses = enrollmentRows
+          .filter((e: any) => {
+            const c = Array.isArray(e.course) ? e.course[0] : e.course;
+            return c && c.status === 'published';
+          })
+          .map((e: any) => {
           const c = Array.isArray(e.course) ? e.course[0] : e.course;
           const dept = Array.isArray(c?.department) ? c?.department[0] : c?.department;
           const sList = c?.sessions || [];
@@ -737,6 +743,7 @@ export async function getStudentDashboardData(): Promise<{
             title,
             description,
             category,
+            status,
             department:departments(name),
             sessions:workshop_sessions(
               id,
@@ -757,7 +764,12 @@ export async function getStudentDashboardData(): Promise<{
       if (wsRows && wsRows.length > 0) {
         const today = new Date().toISOString().split('T')[0];
 
-        workshops = wsRows.map((row: any) => {
+        workshops = wsRows
+          .filter((row: any) => {
+            const w = Array.isArray(row.workshop) ? row.workshop[0] : row.workshop;
+            return w && w.status === 'published';
+          })
+          .map((row: any) => {
           const w = Array.isArray(row.workshop) ? row.workshop[0] : row.workshop;
           const dept = Array.isArray(w?.department) ? w?.department[0] : w?.department;
           const sList = (w?.sessions || [])
@@ -1251,13 +1263,30 @@ export async function getStudentProfilePageData(): Promise<{
       student.qr_code = generatedQr;
     }
 
-    // 2. Fetch Faculties
+    // 2. Fetch Faculties from faculty_options
     const { data: facultiesData } = await admin
-      .from('faculties')
+      .from('faculty_options')
       .select('id, name_ar, name_en, sort_order')
+      .eq('is_active', true)
       .order('sort_order', { ascending: true });
 
-    const faculties = facultiesData || [];
+    let faculties = facultiesData || [];
+
+    // Fallback if table is empty or unpopulated
+    if (faculties.length === 0) {
+      faculties = [
+        { id: 'f-csai', name_en: 'Faculty of Computer Science & Artificial Intelligence', name_ar: 'كلية الحاسبات والذكاء الاصطناعي', sort_order: 1 },
+        { id: 'f-eng', name_en: 'Faculty of Engineering', name_ar: 'كلية الهندسة', sort_order: 2 },
+        { id: 'f-sci', name_en: 'Faculty of Science', name_ar: 'كلية العلوم', sort_order: 3 },
+        { id: 'f-comm', name_en: 'Faculty of Commerce & Business Administration', name_ar: 'كلية التجارة وإدارة الأعمال', sort_order: 4 },
+        { id: 'f-arts', name_en: 'Faculty of Applied Arts', name_ar: 'كلية الفنون التطبيقية', sort_order: 5 },
+        { id: 'f-med', name_en: 'Faculty of Medicine', name_ar: 'كلية الطب', sort_order: 6 },
+        { id: 'f-dent', name_en: 'Faculty of Dentistry', name_ar: 'كلية طب الأسنان', sort_order: 7 },
+        { id: 'f-pharm', name_en: 'Faculty of Pharmacy', name_ar: 'كلية الصيدلة', sort_order: 8 },
+        { id: 'f-nurs', name_en: 'Faculty of Nursing', name_ar: 'كلية التمريض', sort_order: 9 },
+        { id: 'f-other', name_en: 'Other Faculty', name_ar: 'كلية أخرى', sort_order: 10 },
+      ];
+    }
 
     // 3. Team Role Check
     const isTeamActive = context.profile?.status === 'active';
@@ -1370,9 +1399,9 @@ export async function getStudentProfilePageData(): Promise<{
       .eq('student_id', student.id)
       .order('issue_date', { ascending: false });
 
-    // Format course list
+    // Format course list (only published tracks)
     const formattedCourses = (enrollments || [])
-      .filter((e: any) => e.courses)
+      .filter((e: any) => e.courses && e.courses.status === 'published')
       .map((e: any) => {
         const stats = courseSessionsMap[e.course_id] || { total: 0, attended: 0 };
         return {
@@ -1387,9 +1416,9 @@ export async function getStudentProfilePageData(): Promise<{
         };
       });
 
-    // Format workshop list
+    // Format workshop list (only published workshops)
     const formattedWorkshops = (registrations || [])
-      .filter((r: any) => r.workshops)
+      .filter((r: any) => r.workshops && r.workshops.status === 'published')
       .map((r: any) => {
         const stats = workshopSessionsMap[r.workshop_id] || { total: 0, attended: 0 };
         return {

@@ -547,6 +547,7 @@ export function StudentWorkshopsCatalogClient({
         </div>
 
         {/* Department Pills */}
+        {/* Department Pills (Tech Committees Only) */}
         {departments.length > 0 && (
           <div
             style={{
@@ -559,7 +560,7 @@ export function StudentWorkshopsCatalogClient({
             }}
           >
             <span style={{ fontSize: '0.8rem', color: '#64748B', fontWeight: 600, marginRight: '0.25rem' }}>
-              Committee:
+              Tech Committee:
             </span>
             <button
               type="button"
@@ -575,27 +576,32 @@ export function StudentWorkshopsCatalogClient({
                 cursor: 'pointer',
               }}
             >
-              All Committees
+              All Tech Committees
             </button>
-            {departments.map((d) => (
-              <button
-                key={d.id}
-                type="button"
-                onClick={() => setSelectedDept(d.id)}
-                style={{
-                  padding: '0.35rem 0.8rem',
-                  borderRadius: '9999px',
-                  fontSize: '0.8rem',
-                  fontWeight: selectedDept === d.id ? 700 : 500,
-                  border: selectedDept === d.id ? '1px solid rgba(66, 133, 244, 0.4)' : '1px solid rgba(255, 255, 255, 0.08)',
-                  background: selectedDept === d.id ? 'rgba(66, 133, 244, 0.15)' : 'rgba(255, 255, 255, 0.03)',
-                  color: selectedDept === d.id ? '#60A5FA' : '#94A3B8',
-                  cursor: 'pointer',
-                }}
-              >
-                {d.name} ({d.code})
-              </button>
-            ))}
+            {departments
+              .filter((d) => {
+                const nonTechCodes = ['HR', 'MEDIA', 'OPS', 'PR', 'G', 'GEN', 'LOG'];
+                return !nonTechCodes.includes((d.code || '').toUpperCase()) && (!('branch' in d) || (d as any).branch === 'tech');
+              })
+              .map((d) => (
+                <button
+                  key={d.id}
+                  type="button"
+                  onClick={() => setSelectedDept(d.id)}
+                  style={{
+                    padding: '0.35rem 0.8rem',
+                    borderRadius: '9999px',
+                    fontSize: '0.8rem',
+                    fontWeight: selectedDept === d.id ? 700 : 500,
+                    border: selectedDept === d.id ? '1px solid rgba(66, 133, 244, 0.4)' : '1px solid rgba(255, 255, 255, 0.08)',
+                    background: selectedDept === d.id ? 'rgba(66, 133, 244, 0.15)' : 'rgba(255, 255, 255, 0.03)',
+                    color: selectedDept === d.id ? '#60A5FA' : '#94A3B8',
+                    cursor: 'pointer',
+                  }}
+                >
+                  {d.name} ({d.code})
+                </button>
+              ))}
           </div>
         )}
       </div>

@@ -415,7 +415,10 @@ export async function getCourseDetail(courseId: string): Promise<{
     }
 
     const teamProf = context.profile?.status === 'active' ? context.profile : null;
-    const isPresident = teamProf?.role === 'president' || teamProf?.role === 'co_president';
+    const isPresident =
+      teamProf?.role === 'president' ||
+      teamProf?.role === 'co_president' ||
+      teamProf?.role === 'branch_head';
     const isOwningHead =
       (teamProf?.role === 'committee_head' || teamProf?.role === 'committee_co_head') &&
       teamProf?.department_id === courseData.department_id;
@@ -423,6 +426,11 @@ export async function getCourseDetail(courseId: string): Promise<{
       (ins: any) => ins.profile_id === teamProf?.id
     );
     const isStaff = Boolean(isPresident || isOwningHead || isAssignedInstructor);
+
+    // If course is archived or not published, deny access to regular students
+    if (courseData.status !== 'published' && !isStaff) {
+      return { success: false, error: 'This course has been archived or is no longer accessible.' };
+    }
 
     // Query student attendance if table exists
     const attendedSet = new Set<string>();

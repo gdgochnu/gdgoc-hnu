@@ -128,9 +128,19 @@ export async function getQuizForTaking(courseId: string, quizId: string): Promis
     // 2. Fetch course header
     const { data: course } = await admin
       .from('courses')
-      .select('id, title, cover_image_url')
+      .select('id, title, cover_image_url, status')
       .eq('id', courseId)
       .single();
+
+    if (!course || course.status !== 'published') {
+      return {
+        success: false,
+        existingAttempts: [],
+        canAttempt: false,
+        nextAttemptNumber: 1,
+        error: 'This course has been archived or is no longer available.',
+      };
+    }
 
     // 3. Fetch Quiz
     const { data: quiz, error: quizError } = await admin
