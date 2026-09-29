@@ -44,6 +44,7 @@ import {
   enrollInCourse,
   submitStudentTask,
 } from '@/app/student/courses/actions';
+import { RichMarkdownView } from './RichMarkdownView';
 
 interface StudentCourseDetailClientProps {
   initialData: CourseDetailResult;
@@ -78,6 +79,7 @@ export function StudentCourseDetailClient({ initialData }: StudentCourseDetailCl
   const [canEnroll, setCanEnroll] = useState(initialCanEnroll);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [showEnrollConfirmModal, setShowEnrollConfirmModal] = useState(false);
 
   const isConfirmed = myEnrollment?.status === 'confirmed';
   const isPending = myEnrollment?.status === 'pending';
@@ -121,6 +123,25 @@ export function StudentCourseDetailClient({ initialData }: StudentCourseDetailCl
   // Attendance stats
   const attendedCount = sessions.filter((s) => s.is_attended).length;
   const attendanceRate = sessions.length > 0 ? Math.round((attendedCount / sessions.length) * 100) : 0;
+
+  const handleInitiateEnroll = () => {
+    if (!isAuthenticated) {
+      router.push(`/student?signin=true&returnUrl=/student/courses/${course.id}`);
+      return;
+    }
+
+    if (needsOnboarding) {
+      router.push('/student/onboarding');
+      return;
+    }
+
+    setShowEnrollConfirmModal(true);
+  };
+
+  const handleConfirmEnroll = async () => {
+    setShowEnrollConfirmModal(false);
+    await handleEnroll();
+  };
 
   const handleEnroll = async () => {
     if (!isAuthenticated) {
@@ -517,22 +538,17 @@ export function StudentCourseDetailClient({ initialData }: StudentCourseDetailCl
               </div>
             </div>
 
-            {course.capacity && (
-              <>
-                <div style={{ width: '1px', height: '28px', background: 'rgba(255, 255, 255, 0.1)' }} />
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  <Users size={18} style={{ color: '#FBBF24' }} />
-                  <div>
-                    <div style={{ fontSize: '0.98rem', fontWeight: 800, color: '#FFFFFF' }}>
-                      {course.enrollment_count} / {course.capacity} Enrolled
-                    </div>
-                    <div style={{ fontSize: '0.75rem', color: '#94A3B8' }}>
-                      {course.is_full ? 'Capacity reached' : 'Registration open'}
-                    </div>
-                  </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <Users size={18} style={{ color: '#FBBF24' }} />
+              <div>
+                <div style={{ fontSize: '0.98rem', fontWeight: 800, color: '#FFFFFF' }}>
+                  {isStaff && course.capacity ? `${course.enrollment_count} / ${course.capacity} Enrolled` : 'Cohort Admission'}
                 </div>
-              </>
-            )}
+                <div style={{ fontSize: '0.75rem', color: '#94A3B8' }}>
+                  {course.is_full ? 'Capacity reached' : 'Registration open'}
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -645,7 +661,9 @@ export function StudentCourseDetailClient({ initialData }: StudentCourseDetailCl
                 </div>
                 <div style={{ padding: '1rem', borderRadius: '12px', background: 'rgba(251, 188, 4, 0.08)', border: '1px solid rgba(251, 188, 4, 0.2)' }}>
                   <div style={{ fontSize: '0.8rem', color: '#FBBF24', fontWeight: 700 }}>Sessions & Workshops</div>
-                  <div style={{ fontSize: '0.95rem', fontWeight: 800, color: '#FFFFFF', marginTop: '0.2rem' }}>{sessions.length} Interactive Sessions</div>
+                  <div style={{ fontSize: '0.95rem', fontWeight: 800, color: '#FFFFFF', marginTop: '0.2rem' }}>
+                    {sessions.length > 0 ? `${sessions.length} Interactive Sessions` : 'Comprehensive Modules'}
+                  </div>
                 </div>
                 <div style={{ padding: '1rem', borderRadius: '12px', background: 'rgba(168, 85, 247, 0.08)', border: '1px solid rgba(168, 85, 247, 0.2)' }}>
                   <div style={{ fontSize: '0.8rem', color: '#C084FC', fontWeight: 700 }}>Credential</div>
@@ -654,7 +672,7 @@ export function StudentCourseDetailClient({ initialData }: StudentCourseDetailCl
               </div>
             </div>
 
-            {/* 2. Syllabus & Topics */}
+            {/* 2. Syllabus & Topics (Parsed Rich Markdown) */}
             {course.syllabus && (
               <div
                 className="glass-panel"
@@ -665,68 +683,67 @@ export function StudentCourseDetailClient({ initialData }: StudentCourseDetailCl
                   background: 'rgba(15, 23, 42, 0.65)',
                   display: 'flex',
                   flexDirection: 'column',
-                  gap: '1rem',
+                  gap: '1.25rem',
                 }}
               >
-                <h2 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#FFFFFF', margin: 0, display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-                  <FileText size={20} color="#34A853" />
-                  <span>Syllabus & Learning Path</span>
-                </h2>
-                <div style={{ color: '#CBD5E1', fontSize: '0.94rem', lineHeight: 1.7, whiteSpace: 'pre-line' }}>
-                  {course.syllabus}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid rgba(255, 255, 255, 0.08)', paddingBottom: '0.75rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+                  <h2 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#FFFFFF', margin: 0, display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                    <FileText size={20} color="#34A853" />
+                    <span>Syllabus & Learning Path</span>
+                  </h2>
+                  <span style={{ fontSize: '0.76rem', color: '#60A5FA', background: 'rgba(66, 133, 244, 0.12)', border: '1px solid rgba(66, 133, 244, 0.25)', padding: '0.25rem 0.65rem', borderRadius: '20px', fontWeight: 700 }}>
+                    Official Track Curriculum
+                  </span>
                 </div>
+                <RichMarkdownView content={course.syllabus} />
               </div>
             )}
 
-            {/* 3. Sessions & Topics Outline */}
-            <div
-              className="glass-panel"
-              style={{
-                padding: '2rem',
-                borderRadius: '20px',
-                border: '1px solid rgba(255, 255, 255, 0.08)',
-                background: 'rgba(15, 23, 42, 0.65)',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '1.25rem',
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem' }}>
-                <div>
-                  <h2 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#FFFFFF', margin: 0, display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-                    <Calendar size={20} color="#F59E0B" />
-                    <span>Curriculum & Scheduled Sessions ({sessions.length})</span>
-                  </h2>
-                  <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.84rem', color: '#94A3B8' }}>
-                    High-level curriculum schedule of interactive lectures and hands-on milestones
-                  </p>
+            {/* 3. Sessions & Topics Outline (Only shown if sessions exist) */}
+            {sessions.length > 0 && (
+              <div
+                className="glass-panel"
+                style={{
+                  padding: '2rem',
+                  borderRadius: '20px',
+                  border: '1px solid rgba(255, 255, 255, 0.08)',
+                  background: 'rgba(15, 23, 42, 0.65)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '1.25rem',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem' }}>
+                  <div>
+                    <h2 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#FFFFFF', margin: 0, display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                      <Calendar size={20} color="#F59E0B" />
+                      <span>Curriculum & Scheduled Sessions ({sessions.length})</span>
+                    </h2>
+                    <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.84rem', color: '#94A3B8' }}>
+                      High-level curriculum schedule of interactive lectures and hands-on milestones
+                    </p>
+                  </div>
+                  {!isEnrolled && (
+                    <span
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '0.4rem',
+                        padding: '0.3rem 0.75rem',
+                        borderRadius: '8px',
+                        background: 'rgba(255, 255, 255, 0.06)',
+                        border: '1px solid rgba(255, 255, 255, 0.12)',
+                        fontSize: '0.76rem',
+                        color: '#94A3B8',
+                        fontWeight: 600,
+                      }}
+                    >
+                      <Lock size={12} />
+                      Full materials unlocked upon enrollment
+                    </span>
+                  )}
                 </div>
-                {!isEnrolled && (
-                  <span
-                    style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '0.4rem',
-                      padding: '0.3rem 0.75rem',
-                      borderRadius: '8px',
-                      background: 'rgba(255, 255, 255, 0.06)',
-                      border: '1px solid rgba(255, 255, 255, 0.12)',
-                      fontSize: '0.76rem',
-                      color: '#94A3B8',
-                      fontWeight: 600,
-                    }}
-                  >
-                    <Lock size={12} />
-                    Full materials unlocked upon enrollment
-                  </span>
-                )}
-              </div>
 
-              {sessions.length === 0 ? (
-                <div style={{ padding: '2rem', textAlign: 'center', color: '#94A3B8', fontSize: '0.9rem' }}>
-                  Session schedule and curriculum dates will be announced shortly.
-                </div>
-              ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
                   {sessions.map((s) => {
                     const isOnline = s.type === 'online';
@@ -809,111 +826,96 @@ export function StudentCourseDetailClient({ initialData }: StudentCourseDetailCl
                     );
                   })}
                 </div>
-              )}
-            </div>
+              </div>
+            )}
 
-            {/* 4. Instructors & Mentors */}
-            <div
-              className="glass-panel"
-              style={{
-                padding: '2rem',
-                borderRadius: '20px',
-                border: '1px solid rgba(255, 255, 255, 0.08)',
-                background: 'rgba(15, 23, 42, 0.65)',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '1.25rem',
-              }}
-            >
-              <h2 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#FFFFFF', margin: 0, display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-                <GraduationCap size={22} color="#10B981" />
-                <span>Teaching Staff & Mentors ({instructors.length})</span>
-              </h2>
+            {/* 4. Instructors & Mentors (Only shown if instructors exist) */}
+            {instructors.length > 0 && (
+              <div
+                className="glass-panel"
+                style={{
+                  padding: '2rem',
+                  borderRadius: '20px',
+                  border: '1px solid rgba(255, 255, 255, 0.08)',
+                  background: 'rgba(15, 23, 42, 0.65)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '1.25rem',
+                }}
+              >
+                <h2 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#FFFFFF', margin: 0, display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                  <GraduationCap size={22} color="#10B981" />
+                  <span>Teaching Staff & Mentors ({instructors.length})</span>
+                </h2>
 
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1rem' }}>
-                {instructors.map((ins) => (
-                  <div
-                    key={ins.id}
-                    style={{
-                      padding: '1.25rem',
-                      borderRadius: '14px',
-                      background: 'rgba(255, 255, 255, 0.02)',
-                      border: '1px solid rgba(255, 255, 255, 0.06)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '0.85rem',
-                    }}
-                  >
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1rem' }}>
+                  {instructors.map((ins) => (
                     <div
+                      key={ins.id}
                       style={{
-                        width: '46px',
-                        height: '46px',
-                        borderRadius: '50%',
-                        background: ins.role === 'instructor' ? '#4285F4' : '#10B981',
-                        color: '#FFFFFF',
+                        padding: '1.25rem',
+                        borderRadius: '14px',
+                        background: 'rgba(255, 255, 255, 0.02)',
+                        border: '1px solid rgba(255, 255, 255, 0.06)',
                         display: 'flex',
                         alignItems: 'center',
-                        justifyContent: 'center',
-                        fontWeight: 800,
-                        fontSize: '1rem',
-                        overflow: 'hidden',
-                        flexShrink: 0,
+                        gap: '0.85rem',
                       }}
                     >
-                      {ins.avatar_url ? (
-                        <img src={ins.avatar_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                      ) : (
-                        ins.full_name.slice(0, 1).toUpperCase()
-                      )}
-                    </div>
-                    <div>
-                      <div style={{ fontSize: '0.95rem', fontWeight: 800, color: '#FFFFFF' }}>
-                        {ins.full_name}
-                      </div>
-                      <div style={{ fontSize: '0.78rem', color: '#94A3B8', marginTop: '0.15rem' }}>
-                        {ins.department_name || ins.committee_role}
-                      </div>
-                      <span
+                      <div
                         style={{
-                          display: 'inline-block',
-                          marginTop: '0.35rem',
-                          padding: '0.15rem 0.5rem',
-                          borderRadius: '4px',
-                          fontSize: '0.68rem',
+                          width: '46px',
+                          height: '46px',
+                          borderRadius: '50%',
+                          background: ins.role === 'instructor' ? '#4285F4' : '#10B981',
+                          color: '#FFFFFF',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
                           fontWeight: 800,
-                          textTransform: 'uppercase',
-                          background: ins.role === 'instructor' ? 'rgba(66, 133, 244, 0.15)' : 'rgba(52, 168, 83, 0.15)',
-                          color: ins.role === 'instructor' ? '#60A5FA' : '#34D399',
+                          fontSize: '1rem',
+                          overflow: 'hidden',
+                          flexShrink: 0,
                         }}
                       >
-                        {ins.role}
-                      </span>
+                        {ins.avatar_url ? (
+                          <img src={ins.avatar_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        ) : (
+                          ins.full_name.slice(0, 1).toUpperCase()
+                        )}
+                      </div>
+                      <div>
+                        <div style={{ fontSize: '0.95rem', fontWeight: 800, color: '#FFFFFF' }}>
+                          {ins.full_name}
+                        </div>
+                        <div style={{ fontSize: '0.78rem', color: '#94A3B8', marginTop: '0.15rem' }}>
+                          {ins.department_name || ins.committee_role}
+                        </div>
+                        <span
+                          style={{
+                            display: 'inline-block',
+                            marginTop: '0.35rem',
+                            padding: '0.15rem 0.5rem',
+                            borderRadius: '4px',
+                            fontSize: '0.68rem',
+                            fontWeight: 800,
+                            textTransform: 'uppercase',
+                            background: ins.role === 'instructor' ? 'rgba(66, 133, 244, 0.15)' : 'rgba(52, 168, 83, 0.15)',
+                            color: ins.role === 'instructor' ? '#60A5FA' : '#34D399',
+                          }}
+                        >
+                          {ins.role}
+                        </span>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
           </div>
 
           {/* Right Column: Sticky Admission & Enrollment Card */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', position: 'sticky', top: '5rem' }}>
-            {/* Cover Image Preview Card if available */}
-            {course.cover_image_url && (
-              <div
-                style={{
-                  width: '100%',
-                  aspectRatio: '16/9',
-                  borderRadius: '16px',
-                  overflow: 'hidden',
-                  border: '1px solid rgba(255, 255, 255, 0.15)',
-                  backgroundImage: `url(${course.cover_image_url})`,
-                  backgroundSize: 'cover',
-                  backgroundPosition: 'center',
-                  boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
-                }}
-              />
-            )}
-
             {/* Admission Action Card */}
             <div
               className="glass-panel"
@@ -1006,7 +1008,7 @@ export function StudentCourseDetailClient({ initialData }: StudentCourseDetailCl
                 <button
                   type="button"
                   disabled={isSubmitting}
-                  onClick={handleEnroll}
+                  onClick={handleInitiateEnroll}
                   style={{
                     width: '100%',
                     padding: '0.95rem',
@@ -1092,13 +1094,17 @@ export function StudentCourseDetailClient({ initialData }: StudentCourseDetailCl
                 <span style={{ color: '#FFFFFF', fontWeight: 600 }}>Hybrid (Campus + Online)</span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', color: '#94A3B8' }}>
-                <span>Confirmed Seats:</span>
-                <span style={{ color: '#FFFFFF', fontWeight: 600 }}>{course.enrollment_count} {course.capacity ? `/ ${course.capacity}` : ''}</span>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', color: '#94A3B8' }}>
                 <span>Track Status:</span>
-                <span style={{ color: '#34D399', fontWeight: 700 }}>Active & Open</span>
+                <span style={{ color: course.is_full ? '#F87171' : '#34D399', fontWeight: 700 }}>
+                  {course.is_full ? 'Closed (Full)' : 'Open for Applicants'}
+                </span>
               </div>
+              {isStaff && course.capacity && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', color: '#94A3B8', fontSize: '0.8rem', borderTop: '1px dashed rgba(255, 255, 255, 0.08)', paddingTop: '0.5rem' }}>
+                  <span>Seats (Staff Only):</span>
+                  <span style={{ color: '#FBBF24', fontWeight: 600 }}>{course.enrollment_count} / {course.capacity}</span>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -1215,7 +1221,7 @@ export function StudentCourseDetailClient({ initialData }: StudentCourseDetailCl
               <button
                 type="button"
                 disabled={isSubmitting}
-                onClick={handleEnroll}
+                onClick={handleInitiateEnroll}
                 style={{
                   width: '100%',
                   padding: '0.85rem',
@@ -3539,6 +3545,233 @@ export function StudentCourseDetailClient({ initialData }: StudentCourseDetailCl
                   Preview not available for this file.
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Course Application / Enrollment Confirmation Modal */}
+      {showEnrollConfirmModal && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 9999,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '1rem',
+            background: 'rgba(3, 7, 18, 0.82)',
+            backdropFilter: 'blur(10px)',
+          }}
+          onClick={() => !isSubmitting && setShowEnrollConfirmModal(false)}
+        >
+          <div
+            className="glass-panel"
+            style={{
+              width: '100%',
+              maxWidth: '520px',
+              borderRadius: '24px',
+              background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.98) 0%, rgba(10, 15, 29, 0.98) 100%)',
+              border: '1px solid rgba(66, 133, 244, 0.35)',
+              boxShadow: '0 25px 60px -15px rgba(0, 0, 0, 0.9), 0 0 35px rgba(66, 133, 244, 0.2)',
+              overflow: 'hidden',
+              display: 'flex',
+              flexDirection: 'column',
+              animation: 'fadeIn 0.2s ease-out',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div
+              style={{
+                padding: '1.5rem 1.75rem 1.25rem 1.75rem',
+                borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                <div
+                  style={{
+                    width: '42px',
+                    height: '42px',
+                    borderRadius: '12px',
+                    background:
+                      course.enrollment_type === 'open'
+                        ? 'rgba(52, 168, 83, 0.18)'
+                        : 'rgba(66, 133, 244, 0.18)',
+                    border: `1px solid ${
+                      course.enrollment_type === 'open'
+                        ? 'rgba(52, 168, 83, 0.35)'
+                        : 'rgba(66, 133, 244, 0.35)'
+                    }`,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: course.enrollment_type === 'open' ? '#34D399' : '#60A5FA',
+                  }}
+                >
+                  {course.enrollment_type === 'open' ? <Sparkles size={22} /> : <Send size={20} />}
+                </div>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 800, color: '#FFFFFF' }}>
+                    {course.is_full
+                      ? 'Join Course Waitlist'
+                      : course.enrollment_type === 'open'
+                      ? 'Confirm Instant Enrollment'
+                      : 'Confirm Course Application'}
+                  </h3>
+                  <p style={{ margin: '0.15rem 0 0 0', fontSize: '0.8rem', color: '#94A3B8' }}>
+                    Google Developer Groups on Campus HNU
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                disabled={isSubmitting}
+                onClick={() => setShowEnrollConfirmModal(false)}
+                style={{
+                  background: 'rgba(255, 255, 255, 0.06)',
+                  border: '1px solid rgba(255, 255, 255, 0.1)',
+                  borderRadius: '10px',
+                  padding: '0.45rem',
+                  color: '#94A3B8',
+                  cursor: isSubmitting ? 'not-allowed' : 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Modal Content */}
+            <div style={{ padding: '1.5rem 1.75rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+              {/* Course Brief Card */}
+              <div
+                style={{
+                  padding: '1rem 1.25rem',
+                  borderRadius: '14px',
+                  background: 'rgba(255, 255, 255, 0.03)',
+                  border: '1px solid rgba(255, 255, 255, 0.08)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '0.5rem',
+                }}
+              >
+                <div style={{ fontSize: '0.78rem', color: '#60A5FA', fontWeight: 700 }}>
+                  {course.category || 'Technical Track'}
+                </div>
+                <div style={{ fontSize: '1.05rem', fontWeight: 800, color: '#FFFFFF', lineHeight: 1.35 }}>
+                  {course.title}
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem', fontSize: '0.8rem', color: '#94A3B8', marginTop: '0.2rem' }}>
+                  <span>⏱ ~{totalHours} Total Hours</span>
+                  {sessions.length > 0 && <span>• 📅 {sessions.length} Scheduled Sessions</span>}
+                </div>
+              </div>
+
+              {/* Confirmation Notice */}
+              <div
+                style={{
+                  padding: '0.9rem 1.1rem',
+                  borderRadius: '12px',
+                  background:
+                    course.enrollment_type === 'open'
+                      ? 'rgba(52, 168, 83, 0.1)'
+                      : 'rgba(66, 133, 244, 0.1)',
+                  border: `1px solid ${
+                    course.enrollment_type === 'open'
+                      ? 'rgba(52, 168, 83, 0.25)'
+                      : 'rgba(66, 133, 244, 0.25)'
+                  }`,
+                  color: '#CBD5E1',
+                  fontSize: '0.88rem',
+                  lineHeight: 1.6,
+                }}
+              >
+                {course.is_full
+                  ? 'You are joining the waiting list for this track. You will be notified automatically if an enrollment seat opens up.'
+                  : course.enrollment_type === 'open'
+                  ? 'Clicking Confirm will immediately confirm your registration and unlock all learning materials and sessions.'
+                  : 'Are you sure you want to submit your application for this track? Your student profile details will be submitted to the course instructors for review.'}
+              </div>
+            </div>
+
+            {/* Modal Actions */}
+            <div
+              style={{
+                padding: '1.25rem 1.75rem',
+                borderTop: '1px solid rgba(255, 255, 255, 0.08)',
+                background: 'rgba(0, 0, 0, 0.25)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'flex-end',
+                gap: '0.75rem',
+              }}
+            >
+              <button
+                type="button"
+                disabled={isSubmitting}
+                onClick={() => setShowEnrollConfirmModal(false)}
+                style={{
+                  padding: '0.75rem 1.25rem',
+                  borderRadius: '12px',
+                  background: 'rgba(255, 255, 255, 0.06)',
+                  border: '1px solid rgba(255, 255, 255, 0.12)',
+                  color: '#CBD5E1',
+                  fontSize: '0.9rem',
+                  fontWeight: 700,
+                  cursor: isSubmitting ? 'not-allowed' : 'pointer',
+                }}
+              >
+                Cancel
+              </button>
+
+              <button
+                type="button"
+                disabled={isSubmitting}
+                onClick={handleConfirmEnroll}
+                style={{
+                  padding: '0.75rem 1.5rem',
+                  borderRadius: '12px',
+                  background:
+                    course.is_full
+                      ? '#A855F7'
+                      : course.enrollment_type === 'open'
+                      ? '#34A853'
+                      : '#4285F4',
+                  border: 'none',
+                  color: '#FFFFFF',
+                  fontSize: '0.9rem',
+                  fontWeight: 800,
+                  cursor: isSubmitting ? 'not-allowed' : 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.5rem',
+                  boxShadow: '0 4px 15px rgba(66, 133, 244, 0.4)',
+                }}
+              >
+                {isSubmitting ? (
+                  'Submitting...'
+                ) : course.is_full ? (
+                  'Confirm & Join Waitlist'
+                ) : course.enrollment_type === 'open' ? (
+                  <>
+                    <Sparkles size={16} />
+                    <span>Confirm Enrollment</span>
+                  </>
+                ) : (
+                  <>
+                    <Send size={16} />
+                    <span>Confirm & Submit Application</span>
+                  </>
+                )}
+              </button>
             </div>
           </div>
         </div>
