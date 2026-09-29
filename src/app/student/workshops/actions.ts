@@ -171,30 +171,26 @@ export async function getPublishedWorkshops(): Promise<{
       };
     }
 
-    // Fetch distinct Tech departments for filter bar
-    const { data: deptsData } = await admin
-      .from('departments')
-      .select('id, name, code, branch')
-      .eq('branch', 'tech')
-      .order('name', { ascending: true });
-
-    // Ensure only technical committees are presented
-    const nonTechCodes = new Set(['HR', 'MEDIA', 'OPS', 'PR', 'G', 'GEN', 'LOG']);
-    const departments = (deptsData || [])
-      .filter((d: any) => !nonTechCodes.has((d.code || '').toUpperCase()))
-      .map((d: any) => ({
-        id: d.id,
-        name: d.name,
-        code: d.code,
-        branch: d.branch || 'tech',
-      }));
-
     const categoriesSet = new Set<string>();
+    const deptMap = new Map<string, { id: string; name: string; code: string; branch: string }>();
+    const nonTechCodes = new Set(['HR', 'MEDIA', 'OPS', 'PR', 'G', 'GEN', 'LOG']);
 
     const workshops: StudentWorkshopCardItem[] = (workshopsData || []).map((w: any) => {
       const dept = Array.isArray(w.department) ? w.department[0] : w.department;
       if (w.category) {
         categoriesSet.add(w.category);
+      }
+      if (dept && dept.id && !deptMap.has(dept.id)) {
+        const code = dept.code || '';
+        const branch = dept.branch || 'tech';
+        if (!nonTechCodes.has(code.toUpperCase()) && branch === 'tech') {
+          deptMap.set(dept.id, {
+            id: dept.id,
+            name: dept.name,
+            code: code,
+            branch: branch,
+          });
+        }
       }
 
       // Map instructors
@@ -279,6 +275,8 @@ export async function getPublishedWorkshops(): Promise<{
         instructors: instList,
       };
     });
+
+    const departments = Array.from(deptMap.values()).sort((a, b) => a.name.localeCompare(b.name));
 
     return {
       success: true,

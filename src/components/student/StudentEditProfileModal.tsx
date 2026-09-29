@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   X,
   User,
@@ -34,10 +34,6 @@ export function StudentEditProfileModal({
   onClose,
   onProfileUpdated,
 }: StudentEditProfileModalProps) {
-  const [formData, setFormData] = useState({
-    full_name_ar: student.full_name_ar || '',
-    full_name_en: student.full_name_en || '',
-    faculty: student.faculty || (faculties[0]?.name_en || ''),
   const effectiveFaculties = useMemo(() => {
     if (faculties && faculties.length > 0) return faculties;
     return [
@@ -54,9 +50,11 @@ export function StudentEditProfileModal({
     ];
   }, [faculties]);
 
-  const isCurrentFacultyInList = effectiveFaculties.some(
-    (f) => f.name_en === formData.faculty || f.name_ar === formData.faculty
-  );
+  const [formData, setFormData] = useState({
+    full_name_ar: student.full_name_ar || '',
+    full_name_en: student.full_name_en || '',
+    faculty: student.faculty || (effectiveFaculties[0]?.name_en || ''),
+    department_major: student.department_major || '',
     academic_year: student.academic_year || 1,
     phone: student.phone || '',
     whatsapp_number: student.whatsapp_number || '',
@@ -65,6 +63,10 @@ export function StudentEditProfileModal({
     linkedin_url: student.linkedin_url || '',
     avatar_url: student.avatar_url || '',
   });
+
+  const isCurrentFacultyInList = effectiveFaculties.some(
+    (f) => f.name_en === formData.faculty || f.name_ar === formData.faculty
+  );
 
   const [activeTab, setActiveTab] = useState<'basic' | 'academic' | 'contact' | 'social'>('basic');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -425,8 +427,18 @@ export function StudentEditProfileModal({
                       fontSize: '0.92rem',
                     }}
                   >
-                    {faculties.map((f) => (
-                      <option key={f.id} value={f.name_en}>
+                    {!formData.faculty && (
+                      <option value="" disabled style={{ background: '#0F172A' }}>
+                        -- Select Faculty / اختر الكلية --
+                      </option>
+                    )}
+                    {formData.faculty && !isCurrentFacultyInList && (
+                      <option value={formData.faculty} style={{ background: '#0F172A' }}>
+                        {formData.faculty}
+                      </option>
+                    )}
+                    {effectiveFaculties.map((f) => (
+                      <option key={f.id} value={f.name_en} style={{ background: '#0F172A' }}>
                         {f.name_en} — {f.name_ar}
                       </option>
                     ))}

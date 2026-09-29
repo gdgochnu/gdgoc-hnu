@@ -683,13 +683,6 @@ export function StudentCoursesCatalogClient({
                       <Clock size={14} style={{ color: '#34D399' }} />
                       <span>~{hoursEst} hrs</span>
                     </div>
-
-                    {course.capacity && (
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', marginLeft: 'auto' }}>
-                        <Users size={14} style={{ color: '#FBBF24' }} />
-                        <span>{course.enrollment_count}/{course.capacity}</span>
-                      </div>
-                    )}
                   </div>
 
                   {/* Teaching Staff Avatars & Footer Action */}

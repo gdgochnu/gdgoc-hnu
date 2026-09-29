@@ -473,14 +473,16 @@ export function StudentWorkshopDetailClient({ initialData }: StudentWorkshopDeta
                   fontSize: '0.85rem',
                 }}
               >
-                <div style={{ display: 'flex', justifyContent: 'space-between', color: '#94A3B8' }}>
-                  <span>Confirmed Attendees:</span>
-                  <span style={{ color: '#F8FAFC', fontWeight: 600 }}>
-                    {workshop.capacity
-                      ? `${workshop.registration_count} / ${workshop.capacity}`
-                      : `${workshop.registration_count} Students`}
-                  </span>
-                </div>
+                {isStaff && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', color: '#94A3B8' }}>
+                    <span>Confirmed Attendees:</span>
+                    <span style={{ color: '#F8FAFC', fontWeight: 600 }}>
+                      {workshop.capacity
+                        ? `${workshop.registration_count} / ${workshop.capacity}`
+                        : `${workshop.registration_count} Students`}
+                    </span>
+                  </div>
+                )}
                 {workshop.registration_deadline && (
                   <div style={{ display: 'flex', justifyContent: 'space-between', color: '#94A3B8' }}>
                     <span>Deadline:</span>

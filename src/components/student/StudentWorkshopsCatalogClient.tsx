@@ -44,6 +44,29 @@ export function StudentWorkshopsCatalogClient({
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [filterMode, setFilterMode] = useState<'all' | 'open' | 'registered'>('all');
 
+  // Distinct tech departments that actually contain at least 1 published workshop
+  const activeWorkshopDepartments = useMemo(() => {
+    const map = new Map<string, { id: string; name: string; code: string }>();
+    const nonTechCodes = new Set(['HR', 'MEDIA', 'OPS', 'PR', 'G', 'GEN', 'LOG']);
+
+    for (const w of initialWorkshops) {
+      if (w.department_id && w.department_name) {
+        if (!map.has(w.department_id)) {
+          const matched = departments.find((d) => d.id === w.department_id);
+          const code = (matched?.code || w.department_code || '').toUpperCase();
+          if (!nonTechCodes.has(code)) {
+            map.set(w.department_id, {
+              id: w.department_id,
+              name: w.department_name,
+              code: matched?.code || w.department_code || '',
+            });
+          }
+        }
+      }
+    }
+    return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
+  }, [initialWorkshops, departments]);
+
   // Filtered workshops
   const filteredWorkshops = useMemo(() => {
     return initialWorkshops.filter((workshop) => {
@@ -547,8 +570,8 @@ export function StudentWorkshopsCatalogClient({
         </div>
 
         {/* Department Pills */}
-        {/* Department Pills (Tech Committees Only) */}
-        {departments.length > 0 && (
+        {/* Department Pills (Only Committees that actually have published workshops) */}
+        {activeWorkshopDepartments.length > 0 && (
           <div
             style={{
               display: 'flex',
@@ -578,30 +601,25 @@ export function StudentWorkshopsCatalogClient({
             >
               All Tech Committees
             </button>
-            {departments
-              .filter((d) => {
-                const nonTechCodes = ['HR', 'MEDIA', 'OPS', 'PR', 'G', 'GEN', 'LOG'];
-                return !nonTechCodes.includes((d.code || '').toUpperCase()) && (!('branch' in d) || (d as any).branch === 'tech');
-              })
-              .map((d) => (
-                <button
-                  key={d.id}
-                  type="button"
-                  onClick={() => setSelectedDept(d.id)}
-                  style={{
-                    padding: '0.35rem 0.8rem',
-                    borderRadius: '9999px',
-                    fontSize: '0.8rem',
-                    fontWeight: selectedDept === d.id ? 700 : 500,
-                    border: selectedDept === d.id ? '1px solid rgba(66, 133, 244, 0.4)' : '1px solid rgba(255, 255, 255, 0.08)',
-                    background: selectedDept === d.id ? 'rgba(66, 133, 244, 0.15)' : 'rgba(255, 255, 255, 0.03)',
-                    color: selectedDept === d.id ? '#60A5FA' : '#94A3B8',
-                    cursor: 'pointer',
-                  }}
-                >
-                  {d.name} ({d.code})
-                </button>
-              ))}
+            {activeWorkshopDepartments.map((d) => (
+              <button
+                key={d.id}
+                type="button"
+                onClick={() => setSelectedDept(d.id)}
+                style={{
+                  padding: '0.35rem 0.8rem',
+                  borderRadius: '9999px',
+                  fontSize: '0.8rem',
+                  fontWeight: selectedDept === d.id ? 700 : 500,
+                  border: selectedDept === d.id ? '1px solid rgba(66, 133, 244, 0.4)' : '1px solid rgba(255, 255, 255, 0.08)',
+                  background: selectedDept === d.id ? 'rgba(66, 133, 244, 0.15)' : 'rgba(255, 255, 255, 0.03)',
+                  color: selectedDept === d.id ? '#60A5FA' : '#94A3B8',
+                  cursor: 'pointer',
+                }}
+              >
+                {d.name} {d.code ? `(${d.code})` : ''}
+              </button>
+            ))}
           </div>
         )}
       </div>
@@ -893,12 +911,6 @@ export function StudentWorkshopsCatalogClient({
                       <Clock size={14} style={{ color: '#FBBF24' }} />
                       <span style={{ fontSize: '0.8rem', color: '#CBD5E1', fontWeight: 600 }}>
                         ~{totalHours} hrs Total
-                      </span>
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
-                      <Users size={14} style={{ color: '#34A853' }} />
-                      <span style={{ fontSize: '0.8rem', color: '#CBD5E1', fontWeight: 600 }}>
-                        {workshop.capacity ? `${workshop.registration_count}/${workshop.capacity} seats` : `${workshop.registration_count} registered`}
                       </span>
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
