@@ -1145,4 +1145,415 @@ export async function getStudentQrPassData(): Promise<{
   }
 }
 
+/**
+ * 15. Get comprehensive profile page data for student
+ */
+export async function getStudentProfilePageData(): Promise<{
+  authenticated: boolean;
+  needsOnboarding: boolean;
+  student: StudentProfile | null;
+  teamRole: string | null;
+  faculties: Array<{ id: string; name_ar: string; name_en: string; sort_order?: number }>;
+  stats: {
+    enrolledCoursesCount: number;
+    workshopsCount: number;
+    certificatesCount: number;
+    attendanceRate: number;
+    totalSessionsAttended: number;
+  };
+  courses: Array<{
+    id: string;
+    title: string;
+    category: string | null;
+    status: string;
+    enrollmentStatus: string;
+    enrolled_at: string;
+    sessions_total: number;
+    sessions_attended: number;
+  }>;
+  workshops: Array<{
+    id: string;
+    title: string;
+    category: string | null;
+    status: string;
+    registered_at: string;
+    sessions_count: number;
+    sessions_attended: number;
+  }>;
+  certificates: Array<{
+    id: string;
+    title: string;
+    certificate_number: string;
+    verification_code: string;
+    issue_date: string;
+    pdf_drive_url: string | null;
+  }>;
+  error?: string;
+}> {
+  try {
+    const context = await getUserContext();
+    if (!context.user) {
+      return {
+        authenticated: false,
+        needsOnboarding: false,
+        student: null,
+        teamRole: null,
+        faculties: [],
+        stats: { enrolledCoursesCount: 0, workshopsCount: 0, certificatesCount: 0, attendanceRate: 0, totalSessionsAttended: 0 },
+        courses: [],
+        workshops: [],
+        certificates: [],
+        error: 'Unauthorized',
+      };
+    }
+
+    const admin = createAdminClient();
+
+    // 1. Fetch Student Profile
+    const { data: student, error: stuErr } = await admin
+      .from('student_profiles')
+      .select('*')
+      .eq('id', context.user.id)
+      .maybeSingle();
+
+    if (stuErr || !student) {
+      return {
+        authenticated: true,
+        needsOnboarding: true,
+        student: null,
+        teamRole: null,
+        faculties: [],
+        stats: { enrolledCoursesCount: 0, workshopsCount: 0, certificatesCount: 0, attendanceRate: 0, totalSessionsAttended: 0 },
+        courses: [],
+        workshops: [],
+        certificates: [],
+      };
+    }
+
+    if (!isStudentProfileComplete(student as StudentProfile)) {
+      return {
+        authenticated: true,
+        needsOnboarding: true,
+        student: student as StudentProfile,
+        teamRole: null,
+        faculties: [],
+        stats: { enrolledCoursesCount: 0, workshopsCount: 0, certificatesCount: 0, attendanceRate: 0, totalSessionsAttended: 0 },
+        courses: [],
+        workshops: [],
+        certificates: [],
+      };
+    }
+
+    // Defensive safeguard for QR code
+    if (!student.qr_code) {
+      const generatedQr = 'STU-' + Math.random().toString(36).substring(2, 10).toUpperCase();
+      await admin.from('student_profiles').update({ qr_code: generatedQr }).eq('id', student.id);
+      student.qr_code = generatedQr;
+    }
+
+    // 2. Fetch Faculties
+    const { data: facultiesData } = await admin
+      .from('faculties')
+      .select('id, name_ar, name_en, sort_order')
+      .order('sort_order', { ascending: true });
+
+    const faculties = facultiesData || [];
+
+    // 3. Team Role Check
+    const isTeamActive = context.profile?.status === 'active';
+    let teamRole: string | null = isTeamActive ? (context.profile?.role || null) : null;
+    if (!teamRole && student.team_profile_id) {
+      const { data: tp } = await admin
+        .from('profiles')
+        .select('role, status')
+        .eq('id', student.team_profile_id)
+        .eq('status', 'active')
+        .maybeSingle();
+      if (tp) teamRole = tp.role;
+    }
+
+    // 4. Fetch Course Enrollments
+    const { data: enrollments } = await admin
+      .from('course_enrollments')
+      .select(`
+        id,
+        status,
+        enrolled_at,
+        course_id,
+        courses (
+          id,
+          title,
+          category,
+          status
+        )
+      `)
+      .eq('student_id', student.id)
+      .order('enrolled_at', { ascending: false });
+
+    // 5. Fetch Workshop Registrations
+    const { data: registrations } = await admin
+      .from('workshop_registrations')
+      .select(`
+        id,
+        status,
+        registered_at,
+        workshop_id,
+        workshops (
+          id,
+          title,
+          category,
+          status
+        )
+      `)
+      .eq('student_id', student.id)
+      .order('registered_at', { ascending: false });
+
+    // 6. Fetch Student Attendance records
+    const { data: attendanceRecords } = await admin
+      .from('student_attendance')
+      .select('id, session_id, workshop_session_id')
+      .eq('student_id', student.id);
+
+    const attendedCourseSessionIds = new Set(
+      (attendanceRecords || []).filter((a) => a.session_id).map((a) => a.session_id)
+    );
+    const attendedWorkshopSessionIds = new Set(
+      (attendanceRecords || []).filter((a) => a.workshop_session_id).map((a) => a.workshop_session_id)
+    );
+
+    // 7. Fetch all course sessions for enrolled courses to calculate exact session totals
+    const courseIds = (enrollments || []).map((e: any) => e.course_id).filter(Boolean);
+    let courseSessionsMap: Record<string, { total: number; attended: number }> = {};
+
+    if (courseIds.length > 0) {
+      const { data: allSessions } = await admin
+        .from('course_sessions')
+        .select('id, course_id')
+        .in('course_id', courseIds);
+
+      for (const s of allSessions || []) {
+        if (!courseSessionsMap[s.course_id]) {
+          courseSessionsMap[s.course_id] = { total: 0, attended: 0 };
+        }
+        courseSessionsMap[s.course_id].total++;
+        if (attendedCourseSessionIds.has(s.id)) {
+          courseSessionsMap[s.course_id].attended++;
+        }
+      }
+    }
+
+    // 8. Fetch all workshop sessions
+    const workshopIds = (registrations || []).map((r: any) => r.workshop_id).filter(Boolean);
+    let workshopSessionsMap: Record<string, { total: number; attended: number }> = {};
+
+    if (workshopIds.length > 0) {
+      const { data: allWSessions } = await admin
+        .from('workshop_sessions')
+        .select('id, workshop_id')
+        .in('workshop_id', workshopIds);
+
+      for (const ws of allWSessions || []) {
+        if (!workshopSessionsMap[ws.workshop_id]) {
+          workshopSessionsMap[ws.workshop_id] = { total: 0, attended: 0 };
+        }
+        workshopSessionsMap[ws.workshop_id].total++;
+        if (attendedWorkshopSessionIds.has(ws.id)) {
+          workshopSessionsMap[ws.workshop_id].attended++;
+        }
+      }
+    }
+
+    // 9. Fetch Certificates
+    const { data: certs } = await admin
+      .from('student_certificates')
+      .select('id, title, certificate_number, verification_code, issue_date, pdf_drive_url')
+      .eq('student_id', student.id)
+      .order('issue_date', { ascending: false });
+
+    // Format course list
+    const formattedCourses = (enrollments || [])
+      .filter((e: any) => e.courses)
+      .map((e: any) => {
+        const stats = courseSessionsMap[e.course_id] || { total: 0, attended: 0 };
+        return {
+          id: e.courses.id,
+          title: e.courses.title,
+          category: e.courses.category || 'Technical Track',
+          status: e.courses.status || 'published',
+          enrollmentStatus: e.status,
+          enrolled_at: e.enrolled_at,
+          sessions_total: stats.total,
+          sessions_attended: stats.attended,
+        };
+      });
+
+    // Format workshop list
+    const formattedWorkshops = (registrations || [])
+      .filter((r: any) => r.workshops)
+      .map((r: any) => {
+        const stats = workshopSessionsMap[r.workshop_id] || { total: 0, attended: 0 };
+        return {
+          id: r.workshops.id,
+          title: r.workshops.title,
+          category: r.workshops.category || 'Workshop',
+          status: r.status,
+          registered_at: r.registered_at,
+          sessions_count: stats.total,
+          sessions_attended: stats.attended,
+        };
+      });
+
+    const totalAttended = (attendanceRecords || []).length;
+    const totalExpectedSessions =
+      Object.values(courseSessionsMap).reduce((acc, curr) => acc + curr.total, 0) +
+      Object.values(workshopSessionsMap).reduce((acc, curr) => acc + curr.total, 0);
+
+    const attendanceRate = totalExpectedSessions > 0 ? Math.round((totalAttended / totalExpectedSessions) * 100) : 100;
+
+    return {
+      authenticated: true,
+      needsOnboarding: false,
+      student: student as StudentProfile,
+      teamRole,
+      faculties,
+      stats: {
+        enrolledCoursesCount: formattedCourses.length,
+        workshopsCount: formattedWorkshops.length,
+        certificatesCount: (certs || []).length,
+        attendanceRate,
+        totalSessionsAttended: totalAttended,
+      },
+      courses: formattedCourses,
+      workshops: formattedWorkshops,
+      certificates: (certs as any[]) || [],
+    };
+  } catch (err: any) {
+    console.error('getStudentProfilePageData exception:', err);
+    return {
+      authenticated: false,
+      needsOnboarding: false,
+      student: null,
+      teamRole: null,
+      faculties: [],
+      stats: { enrolledCoursesCount: 0, workshopsCount: 0, certificatesCount: 0, attendanceRate: 0, totalSessionsAttended: 0 },
+      courses: [],
+      workshops: [],
+      certificates: [],
+      error: err.message,
+    };
+  }
+}
+
+/**
+ * 16. Update student profile info (self-service from profile page)
+ */
+export async function updateStudentProfileInfo(input: {
+  full_name_ar: string;
+  full_name_en: string;
+  faculty: string;
+  department_major?: string;
+  academic_year: number;
+  phone: string;
+  whatsapp_number: string;
+  facebook_url?: string;
+  instagram_url?: string;
+  linkedin_url?: string;
+  avatar_url?: string;
+}): Promise<{
+  success: boolean;
+  error?: string;
+}> {
+  try {
+    const context = await getUserContext();
+    if (!context.user) {
+      return { success: false, error: 'Unauthorized. Please sign in.' };
+    }
+
+    // Server-side validation 1: Arabic Name
+    const cleanNameAr = (input.full_name_ar || '').trim();
+    const arParts = cleanNameAr.split(/\s+/).filter(Boolean);
+    if (arParts.length < 4) {
+      return { success: false, error: 'Please enter your official 4-part Arabic name for certificate accreditation.' };
+    }
+    if (!/^[\u0600-\u06FF\s]+$/.test(cleanNameAr)) {
+      return { success: false, error: 'Arabic name must contain only Arabic letters and spaces.' };
+    }
+
+    // Server-side validation 2: English Name
+    const cleanNameEn = (input.full_name_en || '').trim();
+    const enParts = cleanNameEn.split(/\s+/).filter(Boolean);
+    if (enParts.length < 4) {
+      return { success: false, error: 'Please enter your full 4-part English name as shown in official documents.' };
+    }
+    if (!/^[a-zA-Z\s\-']+$/.test(cleanNameEn)) {
+      return { success: false, error: 'English name must contain only English characters and spaces.' };
+    }
+
+    // Server-side validation 3: Faculty
+    const cleanFaculty = (input.faculty || '').trim();
+    if (!cleanFaculty) {
+      return { success: false, error: 'Faculty / College is required.' };
+    }
+
+    // Server-side validation 4: Academic Year
+    const yearNum = Number(input.academic_year);
+    if (!yearNum || isNaN(yearNum) || yearNum < 1 || yearNum > 5) {
+      return { success: false, error: 'Academic year must be between 1 and 5.' };
+    }
+
+    // Server-side validation 5: Phone & WhatsApp
+    const cleanPhone = (input.phone || '').replace(/[\s\-\(\)]/g, '');
+    const cleanWhatsapp = (input.whatsapp_number || '').replace(/[\s\-\(\)]/g, '');
+    const phoneRegex = /^(?:\+20|20|0)?1[0125]\d{8}$/;
+
+    if (!cleanPhone || !phoneRegex.test(cleanPhone)) {
+      return { success: false, error: 'Please enter a valid Egyptian mobile number (e.g. 010xxxxxxxx).' };
+    }
+    if (!cleanWhatsapp || !phoneRegex.test(cleanWhatsapp)) {
+      return { success: false, error: 'Please enter a valid Egyptian WhatsApp number (e.g. 010xxxxxxxx).' };
+    }
+
+    const admin = createAdminClient();
+
+    const updatePayload: Record<string, any> = {
+      full_name_ar: cleanNameAr,
+      full_name_en: cleanNameEn,
+      faculty: cleanFaculty,
+      department_major: input.department_major?.trim() || null,
+      academic_year: yearNum,
+      phone: cleanPhone,
+      whatsapp_number: cleanWhatsapp,
+      facebook_url: input.facebook_url?.trim() || null,
+      instagram_url: input.instagram_url?.trim() || null,
+      linkedin_url: input.linkedin_url?.trim() || null,
+      updated_at: new Date().toISOString(),
+    };
+
+    if (input.avatar_url !== undefined) {
+      updatePayload.avatar_url = input.avatar_url.trim() || null;
+    }
+
+    const { error: updateErr } = await admin
+      .from('student_profiles')
+      .update(updatePayload)
+      .eq('id', context.user.id);
+
+    if (updateErr) {
+      console.error('updateStudentProfileInfo error:', updateErr);
+      return { success: false, error: updateErr.message || 'Failed to update profile.' };
+    }
+
+    revalidatePath('/student');
+    revalidatePath('/student/profile');
+    revalidatePath('/student/dashboard');
+    revalidatePath('/student/onboarding');
+
+    return { success: true };
+  } catch (err: any) {
+    console.error('updateStudentProfileInfo exception:', err);
+    return { success: false, error: err.message || 'An unexpected error occurred.' };
+  }
+}
+
+
 

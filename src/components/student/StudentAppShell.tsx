@@ -10,7 +10,7 @@ import {
   Calendar,
   Globe,
   ShieldCheck,
-  UserCog,
+  User,
   LogOut,
   ChevronLeft,
   ChevronRight,
@@ -102,6 +102,11 @@ export function StudentAppShell({ student, teamRole, children }: StudentAppShell
           icon: LayoutGrid,
         },
         {
+          label: 'My Profile',
+          href: '/student/profile',
+          icon: User,
+        },
+        {
           label: 'My Attendance Pass',
           href: '/student/my-qr',
           icon: QrCode,
@@ -135,62 +140,17 @@ export function StudentAppShell({ student, teamRole, children }: StudentAppShell
         },
       ],
     },
-    {
-      groupTitle: 'Chapter & Account',
-      items: [
-        {
-          label: 'Portal Landing',
-          href: '/student',
-          icon: Globe,
-        },
-        ...(teamRole
-          ? [
-              {
-                label: 'Switch to Chapter OS',
-                href: '/dashboard',
-                icon: ShieldCheck,
-                badge: 'TEAM',
-                badgeColor: '#10B981',
-              },
-              {
-                label: 'Student QR Scanner',
-                href: '/student-portal/admin/attendance/scan',
-                icon: QrCode,
-                badge: 'STAFF',
-                badgeColor: '#10B981',
-              },
-              {
-                label: 'Course Management',
-                href: '/student-portal/admin/courses',
-                icon: BookOpen,
-              },
-              ...(['president', 'co_president'].includes(teamRole)
-                ? [
-                    {
-                      label: 'Issue Certificates',
-                      href: '/student-portal/admin/certificates',
-                      icon: Award,
-                      badge: 'LEADER',
-                      badgeColor: '#F59E0B',
-                    },
-                  ]
-                : []),
-            ]
-          : []),
-        {
-          label: 'Edit Profile Info',
-          href: '/student/onboarding',
-          icon: UserCog,
-        },
-      ],
-    },
   ];
 
   const currentPageTitle =
-    pathname === '/student/my-qr'
+    pathname === '/student/profile'
+      ? 'My Profile & Accreditation'
+      : pathname === '/student/my-qr'
       ? 'My Attendance Pass'
       : pathname === '/student/certificates'
       ? 'My Certificates'
+      : pathname === '/student/notifications'
+      ? 'Notification Center'
       : pathname.startsWith('/student/courses')
       ? 'Tracks & Courses'
       : pathname.startsWith('/student/workshops')
@@ -459,14 +419,19 @@ export function StudentAppShell({ student, teamRole, children }: StudentAppShell
             gap: '0.5rem',
           }}
         >
-          <div
+          <Link
+            href="/student/profile"
             style={{
               display: 'flex',
               alignItems: 'center',
               gap: '0.65rem',
               overflow: 'hidden',
               minWidth: 0,
+              textDecoration: 'none',
+              color: 'inherit',
+              flex: 1,
             }}
+            title="View Profile"
           >
             <div
               style={{
@@ -511,7 +476,7 @@ export function StudentAppShell({ student, teamRole, children }: StudentAppShell
                 </div>
               </div>
             )}
-          </div>
+          </Link>
 
           {!isCollapsed && (
             <button
@@ -640,19 +605,21 @@ export function StudentAppShell({ student, teamRole, children }: StudentAppShell
             )}
 
             {/* Profile Avatar Pill */}
-            <div
+            <Link
+              href="/student/profile"
               style={{
                 display: 'flex',
                 alignItems: 'center',
                 gap: '0.45rem',
-                padding: '0.2rem 0.45rem 0.2rem 0.2rem',
+                padding: '0.2rem 0.5rem 0.2rem 0.2rem',
                 borderRadius: '999px',
                 background: 'rgba(255, 255, 255, 0.05)',
                 border: '1px solid rgba(255, 255, 255, 0.1)',
+                textDecoration: 'none',
+                color: 'inherit',
                 cursor: 'pointer',
               }}
-              onClick={() => setIsMobileOpen(true)}
-              title="Open Navigation Menu"
+              title="View My Profile"
             >
               <div
                 style={{
@@ -691,7 +658,7 @@ export function StudentAppShell({ student, teamRole, children }: StudentAppShell
               >
                 {student.full_name_en?.split(' ')[0] || 'Student'}
               </span>
-            </div>
+            </Link>
           </div>
         </header>
 
@@ -840,16 +807,53 @@ export function StudentAppShell({ student, teamRole, children }: StudentAppShell
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'space-between',
+                gap: '0.75rem',
               }}
             >
-              <div>
-                <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#FFFFFF' }}>
-                  {student.full_name_en || 'Student'}
+              <Link
+                href="/student/profile"
+                onClick={() => setIsMobileOpen(false)}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.65rem',
+                  textDecoration: 'none',
+                  color: 'inherit',
+                  flex: 1,
+                  minWidth: 0,
+                }}
+              >
+                <div
+                  style={{
+                    width: '34px',
+                    height: '34px',
+                    borderRadius: '50%',
+                    background: 'linear-gradient(135deg, #4285F4, #34A853)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: '#FFFFFF',
+                    fontWeight: 800,
+                    fontSize: '0.8rem',
+                    overflow: 'hidden',
+                    flexShrink: 0,
+                  }}
+                >
+                  {student.avatar_url ? (
+                    <img src={student.avatar_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  ) : (
+                    (student.full_name_en || 'S').charAt(0).toUpperCase()
+                  )}
                 </div>
-                <div style={{ fontSize: '0.72rem', color: '#94A3B8' }}>
-                  QR-••••{student.qr_code ? student.qr_code.slice(-6) : '------'}
+                <div style={{ minWidth: 0, overflow: 'hidden' }}>
+                  <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#FFFFFF', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {student.full_name_en || 'Student'}
+                  </div>
+                  <div style={{ fontSize: '0.72rem', color: '#60A5FA' }}>
+                    View & Edit Profile →
+                  </div>
                 </div>
-              </div>
+              </Link>
               <button
                 type="button"
                 onClick={handleSignOut}
@@ -860,7 +864,11 @@ export function StudentAppShell({ student, teamRole, children }: StudentAppShell
                   borderRadius: '8px',
                   padding: '0.45rem',
                   cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
                 }}
+                title="Sign Out"
               >
                 <LogOut size={16} />
               </button>
