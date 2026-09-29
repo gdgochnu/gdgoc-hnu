@@ -9,6 +9,7 @@ import {
   markAllNotificationsAsRead,
   deleteNotification,
 } from './actions';
+import { NotificationDetailModal } from '@/components/notifications/NotificationDetailModal';
 import {
   Bell,
   Check,
@@ -24,6 +25,7 @@ import {
   Trash2,
   Inbox,
   Filter,
+  Maximize2,
 } from 'lucide-react';
 
 interface NotificationsClientProps {
@@ -35,6 +37,8 @@ export function NotificationsClient({ initialSummary }: NotificationsClientProps
   const [unreadCount, setUnreadCount] = useState(initialSummary.unreadCount);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState<'all' | 'unread' | 'task' | 'event' | 'system'>('all');
+  const [selectedNotification, setSelectedNotification] = useState<AppNotification | null>(null);
+  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
 
@@ -229,6 +233,11 @@ export function NotificationsClient({ initialSummary }: NotificationsClientProps
             <div
               key={item.id}
               className="glass-panel"
+              onClick={() => {
+                if (!item.isRead) handleMarkAsRead(item.id, item.isRead);
+                setSelectedNotification(item);
+                setIsDetailModalOpen(true);
+              }}
               style={{
                 padding: '1.1rem 1.25rem',
                 borderRadius: '14px',
@@ -239,6 +248,19 @@ export function NotificationsClient({ initialSummary }: NotificationsClientProps
                 justifyContent: 'space-between',
                 gap: '1rem',
                 transition: 'all 0.15s ease',
+                cursor: 'pointer',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.borderColor = item.isRead
+                  ? 'rgba(255, 255, 255, 0.18)'
+                  : 'rgba(66, 133, 244, 0.6)';
+                e.currentTarget.style.transform = 'translateY(-1px)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.borderColor = item.isRead
+                  ? 'rgba(255, 255, 255, 0.06)'
+                  : 'rgba(66, 133, 244, 0.3)';
+                e.currentTarget.style.transform = 'translateY(0)';
               }}
             >
               <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.85rem', flex: 1 }}>
@@ -282,37 +304,50 @@ export function NotificationsClient({ initialSummary }: NotificationsClientProps
                     </span>
                   </div>
 
-                  <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', margin: 0, lineHeight: 1.5 }}>
+                  <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', margin: '0 0 0.4rem', lineHeight: 1.5 }}>
                     {item.message}
                   </p>
+
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', fontSize: '0.74rem' }}>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (!item.isRead) handleMarkAsRead(item.id, item.isRead);
+                        setSelectedNotification(item);
+                        setIsDetailModalOpen(true);
+                      }}
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        padding: 0,
+                        color: 'var(--google-blue)',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                      }}
+                    >
+                      <Maximize2 size={12} />
+                      <span>View details</span>
+                    </button>
+
+                    {item.actionUrl && (
+                      <span style={{ color: '#93C5FD', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                        <ExternalLink size={12} />
+                        <span>Has action link</span>
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
 
               {/* Action Buttons */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexShrink: 0 }}>
-                {item.actionUrl && (
-                  <Link
-                    href={item.actionUrl}
-                    onClick={() => handleMarkAsRead(item.id, item.isRead)}
-                    style={{
-                      padding: '0.35rem 0.75rem',
-                      borderRadius: '8px',
-                      background: 'rgba(255, 255, 255, 0.05)',
-                      border: '1px solid rgba(255, 255, 255, 0.1)',
-                      color: 'var(--text-secondary)',
-                      fontSize: '0.75rem',
-                      fontWeight: 600,
-                      textDecoration: 'none',
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '0.3rem',
-                    }}
-                  >
-                    <span>View</span>
-                    <ExternalLink size={12} />
-                  </Link>
-                )}
-
+              <div
+                style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexShrink: 0 }}
+                onClick={(e) => e.stopPropagation()}
+              >
                 {!item.isRead && (
                   <button
                     type="button"
@@ -351,6 +386,18 @@ export function NotificationsClient({ initialSummary }: NotificationsClientProps
           ))
         )}
       </div>
+
+      {/* Detail Modal */}
+      <NotificationDetailModal
+        notification={selectedNotification}
+        isOpen={isDetailModalOpen}
+        onClose={() => {
+          setIsDetailModalOpen(false);
+          setSelectedNotification(null);
+        }}
+        onMarkAsRead={(id, isRead) => handleMarkAsRead(id, isRead)}
+        onDelete={(id, isRead) => handleDelete(id, isRead)}
+      />
     </div>
   );
 }

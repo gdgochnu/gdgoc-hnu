@@ -29,6 +29,8 @@ import {
   Layers,
 } from 'lucide-react';
 
+import { NotificationDetailModal } from './NotificationDetailModal';
+
 interface NotificationCenterProps {
   initialUnreadCount: number;
   profileId: string;
@@ -40,6 +42,8 @@ export function NotificationCenter({ initialUnreadCount, profileId }: Notificati
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [activeFilter, setActiveFilter] = useState<'all' | 'unread' | 'task' | 'event' | 'system'>('all');
+  const [selectedNotification, setSelectedNotification] = useState<AppNotification | null>(null);
+  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
   const dropdownRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
@@ -108,12 +112,16 @@ export function NotificationCenter({ initialUnreadCount, profileId }: Notificati
   };
 
   // Delete notification
-  const handleDelete = (id: string, isRead: boolean, e: React.MouseEvent) => {
-    e.stopPropagation();
+  const handleDelete = (id: string, isRead: boolean, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
 
     setNotifications((prev) => prev.filter((n) => n.id !== id));
     if (!isRead) {
       setUnreadCount((c) => Math.max(0, c - 1));
+    }
+    if (selectedNotification?.id === id) {
+      setIsDetailModalOpen(false);
+      setSelectedNotification(null);
     }
 
     startTransition(async () => {
@@ -121,13 +129,12 @@ export function NotificationCenter({ initialUnreadCount, profileId }: Notificati
     });
   };
 
-  // Navigate on click
+  // Click on notification to view full details
   const handleItemClick = (notification: AppNotification) => {
     handleMarkAsRead(notification);
+    setSelectedNotification(notification);
+    setIsDetailModalOpen(true);
     setIsOpen(false);
-    if (notification.actionUrl) {
-      router.push(notification.actionUrl);
-    }
   };
 
   // Filter notifications
@@ -563,6 +570,18 @@ export function NotificationCenter({ initialUnreadCount, profileId }: Notificati
           </div>
         </div>
       )}
+
+      {/* Full Detail Modal */}
+      <NotificationDetailModal
+        notification={selectedNotification}
+        isOpen={isDetailModalOpen}
+        onClose={() => {
+          setIsDetailModalOpen(false);
+          setSelectedNotification(null);
+        }}
+        onMarkAsRead={(id, isRead) => handleMarkAsRead({ ...selectedNotification!, id, isRead })}
+        onDelete={(id, isRead) => handleDelete(id, isRead)}
+      />
     </div>
   );
 }

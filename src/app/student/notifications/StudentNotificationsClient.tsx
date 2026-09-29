@@ -13,6 +13,7 @@ import {
   markAllStudentNotificationsAsRead,
   deleteStudentNotification,
 } from '@/app/student/notifications/actions';
+import { StudentNotificationDetailModal } from '@/components/student/notifications/StudentNotificationDetailModal';
 import {
   Bell,
   Check,
@@ -29,6 +30,7 @@ import {
   FileText,
   Clock,
   ArrowRight,
+  Maximize2,
 } from 'lucide-react';
 
 interface StudentNotificationsClientProps {
@@ -45,6 +47,8 @@ export function StudentNotificationsClient({
   const [unreadCount, setUnreadCount] = useState<number>(initialSummary.unreadCount);
   const [activeTab, setActiveTab] = useState<'all' | 'unread' | 'course' | 'workshop' | 'certificate'>('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedNotification, setSelectedNotification] = useState<StudentNotification | null>(null);
+  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
 
   // Helper for notification type icon & colors
@@ -406,6 +410,11 @@ export function StudentNotificationsClient({
               <div
                 key={notif.id}
                 className="glass-panel"
+                onClick={() => {
+                  if (!notif.is_read) handleMarkAsRead(notif.id);
+                  setSelectedNotification(notif);
+                  setIsDetailModalOpen(true);
+                }}
                 style={{
                   borderRadius: '14px',
                   padding: '1.15rem 1.35rem',
@@ -419,7 +428,20 @@ export function StudentNotificationsClient({
                   gap: '1.25rem',
                   transition: 'all 0.2s ease',
                   position: 'relative',
+                  cursor: 'pointer',
                   boxShadow: notif.is_read ? 'none' : '0 8px 24px -6px rgba(66, 133, 244, 0.15)',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.borderColor = notif.is_read
+                    ? 'rgba(255, 255, 255, 0.18)'
+                    : 'rgba(66, 133, 244, 0.7)';
+                  e.currentTarget.style.transform = 'translateY(-1px)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.borderColor = notif.is_read
+                    ? 'rgba(255, 255, 255, 0.06)'
+                    : 'rgba(66, 133, 244, 0.4)';
+                  e.currentTarget.style.transform = 'translateY(0)';
                 }}
               >
                 {/* Left Side Content */}
@@ -490,37 +512,61 @@ export function StudentNotificationsClient({
                       {notif.message}
                     </p>
 
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', fontSize: '0.75rem', color: '#64748B' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', fontSize: '0.75rem', color: '#64748B', flexWrap: 'wrap' }}>
                       <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                         <Clock size={13} />
                         {formatFullDate(notif.created_at)}
                       </span>
 
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (!notif.is_read) handleMarkAsRead(notif.id);
+                          setSelectedNotification(notif);
+                          setIsDetailModalOpen(true);
+                        }}
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          padding: 0,
+                          color: '#60A5FA',
+                          fontWeight: 700,
+                          cursor: 'pointer',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '4px',
+                          fontSize: '0.76rem',
+                        }}
+                      >
+                        <Maximize2 size={12} />
+                        <span>عرض التفاصيل الكاملة</span>
+                      </button>
+
                       {notif.link_url && (
-                        <Link
-                          href={notif.link_url}
-                          onClick={() => {
-                            if (!notif.is_read) handleMarkAsRead(notif.id);
-                          }}
+                        <span
                           style={{
-                            color: '#60A5FA',
-                            fontWeight: 700,
-                            textDecoration: 'none',
+                            color: '#93C5FD',
+                            fontWeight: 600,
                             display: 'inline-flex',
                             alignItems: 'center',
                             gap: '4px',
+                            opacity: 0.85,
                           }}
                         >
-                          <span>Open details</span>
-                          <ArrowRight size={13} />
-                        </Link>
+                          <ExternalLink size={12} />
+                          <span>يتضمن رابط موجه</span>
+                        </span>
                       )}
                     </div>
                   </div>
                 </div>
 
                 {/* Right Actions */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexShrink: 0 }}>
+                <div
+                  style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexShrink: 0 }}
+                  onClick={(e) => e.stopPropagation()}
+                >
                   {!notif.is_read && (
                     <button
                       type="button"
@@ -562,6 +608,18 @@ export function StudentNotificationsClient({
           })
         )}
       </div>
+
+      {/* Detail Modal */}
+      <StudentNotificationDetailModal
+        notification={selectedNotification}
+        isOpen={isDetailModalOpen}
+        onClose={() => {
+          setIsDetailModalOpen(false);
+          setSelectedNotification(null);
+        }}
+        onMarkAsRead={(n) => handleMarkAsRead(n.id)}
+        onDelete={(id) => handleDelete(id)}
+      />
     </div>
   );
 }

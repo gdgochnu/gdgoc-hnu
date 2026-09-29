@@ -31,6 +31,8 @@ import {
   X,
 } from 'lucide-react';
 
+import { StudentNotificationDetailModal } from './StudentNotificationDetailModal';
+
 interface StudentNotificationCenterProps {
   initialUnreadCount?: number;
   studentId: string;
@@ -45,6 +47,8 @@ export function StudentNotificationCenter({
   const [notifications, setNotifications] = useState<StudentNotification[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [activeFilter, setActiveFilter] = useState<'all' | 'unread' | 'course' | 'workshop' | 'certificate'>('all');
+  const [selectedNotification, setSelectedNotification] = useState<StudentNotification | null>(null);
+  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
   const dropdownRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
@@ -121,27 +125,30 @@ export function StudentNotificationCenter({
   };
 
   // Delete notification
-  const handleDelete = (id: string, e: React.MouseEvent) => {
-    e.stopPropagation();
+  const handleDelete = (id: string, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
 
     const target = notifications.find((n) => n.id === id);
     if (target && !target.is_read) {
       setUnreadCount((c) => Math.max(0, c - 1));
     }
     setNotifications((prev) => prev.filter((n) => n.id !== id));
+    if (selectedNotification?.id === id) {
+      setIsDetailModalOpen(false);
+      setSelectedNotification(null);
+    }
 
     startTransition(async () => {
       await deleteStudentNotification(id);
     });
   };
 
-  // Click on notification to navigate
+  // Click on notification to view full details
   const handleNotificationClick = (notification: StudentNotification) => {
     handleMarkAsRead(notification);
+    setSelectedNotification(notification);
+    setIsDetailModalOpen(true);
     setIsOpen(false);
-    if (notification.link_url) {
-      router.push(notification.link_url);
-    }
   };
 
   // Filter notifications
@@ -666,6 +673,18 @@ export function StudentNotificationCenter({
           </div>
         </div>
       )}
+
+      {/* Full Notification Details Preview Modal */}
+      <StudentNotificationDetailModal
+        notification={selectedNotification}
+        isOpen={isDetailModalOpen}
+        onClose={() => {
+          setIsDetailModalOpen(false);
+          setSelectedNotification(null);
+        }}
+        onMarkAsRead={handleMarkAsRead}
+        onDelete={(id) => handleDelete(id)}
+      />
     </div>
   );
 }

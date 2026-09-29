@@ -171,17 +171,23 @@ export async function getPublishedWorkshops(): Promise<{
       };
     }
 
-    // Fetch distinct departments for filter bar
+    // Fetch distinct Tech departments for filter bar
     const { data: deptsData } = await admin
       .from('departments')
-      .select('id, name, code')
+      .select('id, name, code, branch')
+      .eq('branch', 'tech')
       .order('name', { ascending: true });
 
-    const departments = (deptsData || []).map((d: any) => ({
-      id: d.id,
-      name: d.name,
-      code: d.code,
-    }));
+    // Ensure only technical committees are presented
+    const nonTechCodes = new Set(['HR', 'MEDIA', 'OPS', 'PR', 'G', 'GEN', 'LOG']);
+    const departments = (deptsData || [])
+      .filter((d: any) => !nonTechCodes.has((d.code || '').toUpperCase()))
+      .map((d: any) => ({
+        id: d.id,
+        name: d.name,
+        code: d.code,
+        branch: d.branch || 'tech',
+      }));
 
     const categoriesSet = new Set<string>();
 
