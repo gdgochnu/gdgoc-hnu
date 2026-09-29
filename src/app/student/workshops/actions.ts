@@ -103,28 +103,12 @@ export async function getPublishedWorkshops(): Promise<{
     const context = await getUserContext();
     const userId = context.user?.id || null;
 
-    let studentProfileId: string | null = null;
-    let needsOnboarding = false;
+    // === PARALLEL: student profile + workshops at once ===
+    const studentFetch = userId
+      ? admin.from('student_profiles').select('*').eq('id', userId).maybeSingle()
+      : Promise.resolve({ data: null, error: null });
 
-    if (userId) {
-      const { data: stu } = await admin
-        .from('student_profiles')
-        .select('*')
-        .eq('id', userId)
-        .maybeSingle();
-
-      if (stu) {
-        studentProfileId = stu.id;
-        if (!isStudentProfileComplete(stu)) {
-          needsOnboarding = true;
-        }
-      } else {
-        needsOnboarding = true;
-      }
-    }
-
-    // Query published workshops with relations
-    const { data: workshopsData, error: wsErr } = await admin
+    const workshopsFetch = admin
       .from('workshops')
       .select(`
         id,
@@ -157,6 +141,24 @@ export async function getPublishedWorkshops(): Promise<{
       `)
       .eq('status', 'published')
       .order('created_at', { ascending: false });
+
+    const [stuResult, workshopsResult] = await Promise.all([studentFetch, workshopsFetch]);
+
+    let studentProfileId: string | null = null;
+    let needsOnboarding = false;
+
+    if (userId) {
+      const stu = stuResult.data;
+      if (stu) {
+        studentProfileId = stu.id;
+        if (!isStudentProfileComplete(stu)) needsOnboarding = true;
+      } else {
+        needsOnboarding = true;
+      }
+    }
+
+    const wsErr = workshopsResult.error;
+    const workshopsData = workshopsResult.data;
 
     if (wsErr) {
       console.error('getPublishedWorkshops error:', wsErr);

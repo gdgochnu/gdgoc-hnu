@@ -143,28 +143,12 @@ export async function getPublishedCourses(): Promise<{
     const context = await getUserContext();
     const userId = context.user?.id || null;
 
-    let studentProfileId: string | null = null;
-    let needsOnboarding = false;
+    // === PARALLEL: student profile + courses + departments all at once ===
+    const studentFetch = userId
+      ? admin.from('student_profiles').select('*').eq('id', userId).maybeSingle()
+      : Promise.resolve({ data: null, error: null });
 
-    if (userId) {
-      const { data: stu } = await admin
-        .from('student_profiles')
-        .select('*')
-        .eq('id', userId)
-        .maybeSingle();
-
-      if (stu) {
-        studentProfileId = stu.id;
-        if (!isStudentProfileComplete(stu)) {
-          needsOnboarding = true;
-        }
-      } else {
-        needsOnboarding = true;
-      }
-    }
-
-    // 1. Query published courses with relations
-    const { data: coursesData, error: coursesErr } = await admin
+    const coursesFetch = admin
       .from('courses')
       .select(`
         id,
@@ -189,6 +173,33 @@ export async function getPublishedCourses(): Promise<{
       .eq('status', 'published')
       .order('created_at', { ascending: false });
 
+    const deptsFetch = admin
+      .from('departments')
+      .select('id, name, code')
+      .order('name', { ascending: true });
+
+    const [stuResult, coursesResult, deptsResult] = await Promise.all([
+      studentFetch,
+      coursesFetch,
+      deptsFetch,
+    ]);
+
+    let studentProfileId: string | null = null;
+    let needsOnboarding = false;
+
+    if (userId) {
+      const stu = stuResult.data;
+      if (stu) {
+        studentProfileId = stu.id;
+        if (!isStudentProfileComplete(stu)) needsOnboarding = true;
+      } else {
+        needsOnboarding = true;
+      }
+    }
+
+    const coursesErr = coursesResult.error;
+    const coursesData = coursesResult.data;
+
     if (coursesErr) {
       console.error('getPublishedCourses error:', coursesErr);
       return {
@@ -202,13 +213,7 @@ export async function getPublishedCourses(): Promise<{
       };
     }
 
-    // 2. Fetch distinct departments for filter bar
-    const { data: deptsData } = await admin
-      .from('departments')
-      .select('id, name, code')
-      .order('name', { ascending: true });
-
-    const departments = (deptsData || []).map((d: any) => ({
+    const departments = (deptsResult.data || []).map((d: any) => ({
       id: d.id,
       name: d.name,
       code: d.code,

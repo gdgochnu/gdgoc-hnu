@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import {
   Calendar,
   Search,
@@ -40,9 +41,16 @@ export function StudentWorkshopsCatalogClient({
   needsOnboarding,
 }: StudentWorkshopsCatalogClientProps) {
   const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [selectedDept, setSelectedDept] = useState<string>('all');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [filterMode, setFilterMode] = useState<'all' | 'open' | 'registered'>('all');
+
+  // Debounce search input by 300ms
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(searchQuery), 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
 
   // Distinct tech departments that actually contain at least 1 published workshop
   const activeWorkshopDepartments = useMemo(() => {
@@ -70,7 +78,7 @@ export function StudentWorkshopsCatalogClient({
   // Filtered workshops
   const filteredWorkshops = useMemo(() => {
     return initialWorkshops.filter((workshop) => {
-      const q = searchQuery.trim().toLowerCase();
+      const q = debouncedSearch.trim().toLowerCase();
       const matchesSearch =
         !q ||
         workshop.title.toLowerCase().includes(q) ||
@@ -91,7 +99,7 @@ export function StudentWorkshopsCatalogClient({
 
       return matchesSearch && matchesDept && matchesCat && matchesMode;
     });
-  }, [initialWorkshops, searchQuery, selectedDept, selectedCategory, filterMode]);
+  }, [initialWorkshops, debouncedSearch, selectedDept, selectedCategory, filterMode]);
 
   // Aggregate stats
   const totalSessions = initialWorkshops.reduce((acc, w) => acc + w.sessions_count, 0);
@@ -104,12 +112,13 @@ export function StudentWorkshopsCatalogClient({
     selectedCategory !== 'all' ||
     filterMode !== 'all';
 
-  const handleResetFilters = () => {
+  const handleResetFilters = useCallback(() => {
     setSearchQuery('');
+    setDebouncedSearch('');
     setSelectedDept('all');
     setSelectedCategory('all');
     setFilterMode('all');
-  };
+  }, []);
 
   return (
     <div
@@ -963,10 +972,12 @@ export function StudentWorkshopsCatalogClient({
                               title={ins.full_name}
                             >
                               {ins.avatar_url ? (
-                                <img
+                                <Image
                                   src={ins.avatar_url}
                                   alt={ins.full_name}
-                                  style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                  width={28}
+                                  height={28}
+                                  style={{ objectFit: 'cover', borderRadius: '50%' }}
                                 />
                               ) : (
                                 ins.full_name.charAt(0)

@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback, useEffect, memo } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import {
   BookOpen,
   Search,
@@ -37,13 +38,20 @@ export function StudentCoursesCatalogClient({
   needsOnboarding,
 }: StudentCoursesCatalogClientProps) {
   const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [filterMode, setFilterMode] = useState<'all' | 'open' | 'enrolled'>('all');
+
+  // Debounce search input by 300ms
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(searchQuery), 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
 
   // Filter courses
   const filteredCourses = useMemo(() => {
     return initialCourses.filter((course) => {
-      const q = searchQuery.trim().toLowerCase();
+      const q = debouncedSearch.trim().toLowerCase();
       const matchesSearch =
         !q ||
         course.title.toLowerCase().includes(q) ||
@@ -63,7 +71,7 @@ export function StudentCoursesCatalogClient({
 
       return matchesSearch && matchesCat && matchesMode;
     });
-  }, [initialCourses, searchQuery, selectedCategory, filterMode]);
+  }, [initialCourses, debouncedSearch, selectedCategory, filterMode]);
 
   // Aggregate stats
   const totalSessions = initialCourses.reduce((acc, c) => acc + c.sessions_count, 0);
@@ -75,11 +83,12 @@ export function StudentCoursesCatalogClient({
     selectedCategory !== 'all' ||
     filterMode !== 'all';
 
-  const handleResetFilters = () => {
+  const handleResetFilters = useCallback(() => {
     setSearchQuery('');
+    setDebouncedSearch('');
     setSelectedCategory('all');
     setFilterMode('all');
-  };
+  }, []);
 
   return (
     <div
@@ -711,10 +720,12 @@ export function StudentCoursesCatalogClient({
                               title={ins.full_name}
                             >
                               {ins.avatar_url ? (
-                                <img
+                                <Image
                                   src={ins.avatar_url}
                                   alt={ins.full_name}
-                                  style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                  width={28}
+                                  height={28}
+                                  style={{ objectFit: 'cover', borderRadius: '50%' }}
                                 />
                               ) : (
                                 ins.full_name.slice(0, 1).toUpperCase()

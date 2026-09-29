@@ -557,17 +557,108 @@ export async function getStudentDashboardData(): Promise<{
       }
     }
 
-    // 3. Certificates query — student_certificates table (Spec §4.S.8, §4.S.10)
+    // === PARALLEL: Run all independent queries concurrently ===
+    const certsFetch = admin
+      .from('student_certificates')
+      .select('id, title, certificate_number, verification_code, issue_date, pdf_drive_url')
+      .eq('student_id', student.id)
+      .order('created_at', { ascending: false });
+
+    const attendanceFetch = admin
+      .from('student_attendance')
+      .select(`
+        id,
+        session_id,
+        workshop_session_id,
+        check_in_time,
+        method,
+        notes,
+        checked_in_by,
+        officer:profiles!student_attendance_checked_in_by_fkey(full_name),
+        course_session:course_sessions!student_attendance_session_id_fkey(
+          id,
+          session_number,
+          title,
+          session_date,
+          start_time,
+          type,
+          venue,
+          course:courses!course_sessions_course_id_fkey(title)
+        ),
+        workshop_session:workshop_sessions!student_attendance_workshop_session_id_fkey(
+          id,
+          session_number,
+          title,
+          session_date,
+          start_time,
+          type,
+          venue,
+          workshop:workshops!workshop_sessions_workshop_id_fkey(title)
+        )
+      `)
+      .eq('student_id', student.id)
+      .order('check_in_time', { ascending: false });
+
+    const enrollmentsFetch = admin
+      .from('course_enrollments')
+      .select(`
+        id,
+        status,
+        enrolled_at,
+        course:courses(
+          id,
+          title,
+          description,
+          status,
+          department:departments(name),
+          sessions:course_sessions(id, title, session_date, start_time, end_time, type, venue, youtube_url, duration_minutes, deadline, status)
+        )
+      `)
+      .eq('student_id', student.id)
+      .eq('status', 'confirmed');
+
+    const workshopRegsFetch = admin
+      .from('workshop_registrations')
+      .select(`
+        id,
+        qr_code,
+        status,
+        registered_at,
+        workshop:workshops(
+          id,
+          title,
+          description,
+          category,
+          status,
+          department:departments(name),
+          sessions:workshop_sessions(
+            id,
+            session_number,
+            title,
+            session_date,
+            start_time,
+            end_time,
+            type,
+            venue,
+            status
+          )
+        )
+      `)
+      .eq('student_id', student.id)
+      .eq('status', 'registered');
+
+    const [certsResult, attendanceResult, enrollmentsResult, wsRegsResult] = await Promise.all([
+      certsFetch,
+      attendanceFetch,
+      enrollmentsFetch,
+      workshopRegsFetch,
+    ]);
+
+    // 3. Process certificates
     let certificates: StudentDashboardData['certificates'] = [];
     try {
-      const { data: certs } = await admin
-        .from('student_certificates')
-        .select('id, title, certificate_number, verification_code, issue_date, pdf_drive_url')
-        .eq('student_id', student.id)
-        .order('created_at', { ascending: false });
-
-      if (certs) {
-        certificates = certs.map((c: any) => ({
+      if (certsResult.data) {
+        certificates = certsResult.data.map((c: any) => ({
           id: c.id,
           title: c.title,
           certificate_number: c.certificate_number,
@@ -580,53 +671,18 @@ export async function getStudentDashboardData(): Promise<{
       certificates = [];
     }
 
-    // 4. Query real attendance records for this student with session details
+    // 4. Process attendance records
     let attendance: StudentDashboardData['attendance'] = [];
     const attendedCourseSessionIds = new Set<string>();
     const attendedWorkshopSessionIds = new Set<string>();
 
     try {
-      const { data: attData, error: attErr } = await admin
-        .from('student_attendance')
-        .select(`
-          id,
-          session_id,
-          workshop_session_id,
-          check_in_time,
-          method,
-          notes,
-          checked_in_by,
-          officer:profiles!student_attendance_checked_in_by_fkey(full_name),
-          course_session:course_sessions!student_attendance_session_id_fkey(
-            id,
-            session_number,
-            title,
-            session_date,
-            start_time,
-            type,
-            venue,
-            course:courses!course_sessions_course_id_fkey(title)
-          ),
-          workshop_session:workshop_sessions!student_attendance_workshop_session_id_fkey(
-            id,
-            session_number,
-            title,
-            session_date,
-            start_time,
-            type,
-            venue,
-            workshop:workshops!workshop_sessions_workshop_id_fkey(title)
-          )
-        `)
-        .eq('student_id', student.id)
-        .order('check_in_time', { ascending: false });
-
-      if (attErr) {
-        console.error('getStudentDashboardData attendance error:', attErr);
+      if (attendanceResult.error) {
+        console.error('getStudentDashboardData attendance error:', attendanceResult.error);
       }
 
-      if (attData) {
-        attendance = attData.map((a: any) => {
+      if (attendanceResult.data) {
+        attendance = attendanceResult.data.map((a: any) => {
           const isCourse = !!a.session_id;
           const officer = Array.isArray(a.officer) ? a.officer[0] : a.officer;
           const cs = Array.isArray(a.course_session) ? a.course_session[0] : a.course_session;
@@ -663,104 +719,57 @@ export async function getStudentDashboardData(): Promise<{
       console.error('getStudentDashboardData attendance exception:', attEx);
     }
 
-    // 5. Query enrolled courses for this student
+    // 5. Process enrolled courses
     let courses: StudentDashboardData['courses'] = [];
     try {
-      const { data: enrollmentRows } = await admin
-        .from('course_enrollments')
-        .select(`
-          id,
-          status,
-          enrolled_at,
-          course:courses(
-            id,
-            title,
-            description,
-            status,
-            department:departments(name),
-            sessions:course_sessions(id, title, session_date, start_time, end_time, type, venue, youtube_url, duration_minutes, deadline, status)
-          )
-        `)
-        .eq('student_id', student.id)
-        .eq('status', 'confirmed');
-
-      if (enrollmentRows) {
-        courses = enrollmentRows
+      if (enrollmentsResult.data) {
+        courses = enrollmentsResult.data
           .filter((e: any) => {
             const c = Array.isArray(e.course) ? e.course[0] : e.course;
             return c && c.status === 'published';
           })
           .map((e: any) => {
-          const c = Array.isArray(e.course) ? e.course[0] : e.course;
-          const dept = Array.isArray(c?.department) ? c?.department[0] : c?.department;
-          const sList = c?.sessions || [];
-          const nextSession = sList
-            .filter((s: any) => s.status === 'scheduled')
-            .sort((a: any, b: any) => new Date(a.session_date).getTime() - new Date(b.session_date).getTime())[0];
+            const c = Array.isArray(e.course) ? e.course[0] : e.course;
+            const dept = Array.isArray(c?.department) ? c?.department[0] : c?.department;
+            const sList = c?.sessions || [];
+            const nextSession = sList
+              .filter((s: any) => s.status === 'scheduled')
+              .sort((a: any, b: any) => new Date(a.session_date).getTime() - new Date(b.session_date).getTime())[0];
 
-          const courseAttendedCount = sList.filter((s: any) => attendedCourseSessionIds.has(s.id)).length;
+            const courseAttendedCount = sList.filter((s: any) => attendedCourseSessionIds.has(s.id)).length;
 
-          return {
-            id: c?.id || e.id,
-            title: c?.title || 'Enrolled Course',
-            description: c?.description || '',
-            committee_name: dept?.name,
-            sessions_total: sList.length,
-            sessions_attended: courseAttendedCount,
-            next_session: nextSession
-              ? {
-                  title: nextSession.title,
-                  date: nextSession.session_date,
-                  start_time: nextSession.start_time,
-                  end_time: nextSession.end_time,
-                  type: nextSession.type,
-                  venue: nextSession.venue,
-                  youtube_url: nextSession.youtube_url,
-                  duration_minutes: nextSession.duration_minutes,
-                  deadline: nextSession.deadline,
-                }
-              : null,
-          };
-        });
+            return {
+              id: c?.id || e.id,
+              title: c?.title || 'Enrolled Course',
+              description: c?.description || '',
+              committee_name: dept?.name,
+              sessions_total: sList.length,
+              sessions_attended: courseAttendedCount,
+              next_session: nextSession
+                ? {
+                    title: nextSession.title,
+                    date: nextSession.session_date,
+                    start_time: nextSession.start_time,
+                    end_time: nextSession.end_time,
+                    type: nextSession.type,
+                    venue: nextSession.venue,
+                    youtube_url: nextSession.youtube_url,
+                    duration_minutes: nextSession.duration_minutes,
+                    deadline: nextSession.deadline,
+                  }
+                : null,
+            };
+          });
       }
     } catch (e) {
       console.error('getStudentDashboardData courses query error:', e);
       courses = [];
     }
 
-    // 6. Query registered workshops for this student
+    // 6. Process registered workshops
     let workshops: StudentDashboardData['workshops'] = [];
     try {
-      const { data: wsRows } = await admin
-        .from('workshop_registrations')
-        .select(`
-          id,
-          qr_code,
-          status,
-          registered_at,
-          workshop:workshops(
-            id,
-            title,
-            description,
-            category,
-            status,
-            department:departments(name),
-            sessions:workshop_sessions(
-              id,
-              session_number,
-              title,
-              session_date,
-              start_time,
-              end_time,
-              type,
-              venue,
-              status
-            )
-          )
-        `)
-        .eq('student_id', student.id)
-        .eq('status', 'registered');
-
+      const wsRows = wsRegsResult.data;
       if (wsRows && wsRows.length > 0) {
         const today = new Date().toISOString().split('T')[0];
 
