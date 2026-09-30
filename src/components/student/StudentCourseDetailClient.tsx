@@ -501,9 +501,8 @@ export function StudentCourseDetailClient({ initialData }: StudentCourseDetailCl
             {course.title}
           </h1>
 
-          <p style={{ color: '#CBD5E1', fontSize: '1rem', lineHeight: 1.65, margin: 0 }}>
-            {course.description ||
-              'A structured learning journey developed by GDGoC technical teams to build industry-level technical competencies through interactive sessions and practical milestones.'}
+          <p style={{ color: '#94A3B8', fontSize: '1.02rem', lineHeight: 1.6, margin: 0 }}>
+            {course.department_name ? `Official ${course.department_name} Learning Track` : 'Official GDGoC Learning Track'} • Comprehensive curriculum with interactive sessions, hands-on assignments, and official certification.
           </p>
 
           {/* Quick Metrics Bar */}
@@ -3776,6 +3775,150 @@ export function StudentCourseDetailClient({ initialData }: StudentCourseDetailCl
           </div>
         </div>
       )}
+      {/* MOBILE FLOATING STICKY ACTION BAR */}
+      {/* ========================================================================= */}
+      <div
+        className="student-mobile-sticky-bar"
+        style={{
+          position: 'fixed',
+          bottom: 0,
+          left: 0,
+          right: 0,
+          zIndex: 90,
+          background: 'rgba(15, 23, 42, 0.96)',
+          backdropFilter: 'blur(20px)',
+          borderTop: '1px solid rgba(255, 255, 255, 0.12)',
+          padding: '0.85rem 1.25rem',
+          paddingBottom: 'calc(0.85rem + env(safe-area-inset-bottom, 0px))',
+          boxShadow: '0 -10px 30px rgba(0, 0, 0, 0.7)',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: '1rem',
+        }}
+      >
+        <div style={{ minWidth: 0, flex: 1 }}>
+          <div
+            style={{
+              fontSize: '0.9rem',
+              fontWeight: 800,
+              color: '#FFFFFF',
+              whiteSpace: 'nowrap',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+            }}
+          >
+            {course.title}
+          </div>
+          <div style={{ fontSize: '0.74rem', color: isConfirmed ? '#34D399' : '#94A3B8', marginTop: '0.15rem' }}>
+            {isConfirmed
+              ? '✓ Enrolled in Track'
+              : isPending
+              ? '⏳ Application Pending'
+              : isWaitlisted
+              ? '⏸ On Waitlist'
+              : `${sessions.length} Sessions • Free Admission`}
+          </div>
+        </div>
+
+        {isConfirmed ? (
+          <button
+            type="button"
+            onClick={() => {
+              setActiveTab('sessions');
+              window.scrollTo({ top: 400, behavior: 'smooth' });
+            }}
+            style={{
+              padding: '0.65rem 1.15rem',
+              borderRadius: '10px',
+              background: 'linear-gradient(135deg, rgba(52, 168, 83, 0.25) 0%, rgba(66, 133, 244, 0.2) 100%)',
+              border: '1px solid rgba(52, 168, 83, 0.5)',
+              color: '#FFFFFF',
+              fontSize: '0.85rem',
+              fontWeight: 800,
+              cursor: 'pointer',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.4rem',
+              flexShrink: 0,
+            }}
+          >
+            <CheckCircle2 size={15} color="#34D399" />
+            <span>Workspace</span>
+          </button>
+        ) : isPending ? (
+          <div
+            style={{
+              padding: '0.55rem 0.9rem',
+              borderRadius: '8px',
+              background: 'rgba(251, 188, 4, 0.15)',
+              border: '1px solid rgba(251, 188, 4, 0.35)',
+              color: '#FBBF24',
+              fontSize: '0.8rem',
+              fontWeight: 700,
+              flexShrink: 0,
+            }}
+          >
+            Pending Review
+          </div>
+        ) : isWaitlisted ? (
+          <div
+            style={{
+              padding: '0.55rem 0.9rem',
+              borderRadius: '8px',
+              background: 'rgba(168, 85, 247, 0.15)',
+              border: '1px solid rgba(168, 85, 247, 0.35)',
+              color: '#C084FC',
+              fontSize: '0.8rem',
+              fontWeight: 700,
+              flexShrink: 0,
+            }}
+          >
+            On Waitlist
+          </div>
+        ) : (
+          <button
+            type="button"
+            disabled={isSubmitting}
+            onClick={handleInitiateEnroll}
+            style={{
+              padding: '0.65rem 1.25rem',
+              borderRadius: '10px',
+              background:
+                course.is_full
+                  ? '#A855F7'
+                  : course.enrollment_type === 'open'
+                  ? '#34A853'
+                  : '#4285F4',
+              border: 'none',
+              color: '#FFFFFF',
+              fontSize: '0.85rem',
+              fontWeight: 800,
+              cursor: 'pointer',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.4rem',
+              flexShrink: 0,
+              boxShadow: '0 4px 12px rgba(66, 133, 244, 0.4)',
+            }}
+          >
+            {isSubmitting ? (
+              'Submitting...'
+            ) : course.is_full ? (
+              'Join Waitlist'
+            ) : course.enrollment_type === 'open' ? (
+              <>
+                <Sparkles size={14} />
+                <span>Join Track</span>
+              </>
+            ) : (
+              <>
+                <Send size={14} />
+                <span>Apply Now</span>
+              </>
+            )}
+          </button>
+        )}
+      </div>
     </div>
   );
 }

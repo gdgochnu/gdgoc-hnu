@@ -138,14 +138,17 @@ export function StudentWorkshopDetailClient({ initialData }: StudentWorkshopDeta
 
   return (
     <div
+      className="student-course-detail-container"
       style={{
-        padding: '2.5rem 2rem',
+        padding: 'clamp(1.25rem, 3vw, 2.5rem) clamp(0.75rem, 2.5vw, 1.5rem)',
         maxWidth: '1240px',
         margin: '0 auto',
         display: 'flex',
         flexDirection: 'column',
         gap: '2.5rem',
-        paddingBottom: '5rem',
+        paddingBottom: '6rem',
+        width: '100%',
+        boxSizing: 'border-box',
       }}
     >
       {/* Top Bar: Back link + Staff Action */}
@@ -1494,6 +1497,144 @@ export function StudentWorkshopDetailClient({ initialData }: StudentWorkshopDeta
           </div>
         </div>
       )}
+      {/* ========================================================================= */}
+      {/* MOBILE FLOATING STICKY ACTION BAR */}
+      {/* ========================================================================= */}
+      <div
+        className="student-mobile-sticky-bar"
+        style={{
+          position: 'fixed',
+          bottom: 0,
+          left: 0,
+          right: 0,
+          zIndex: 90,
+          background: 'rgba(15, 23, 42, 0.96)',
+          backdropFilter: 'blur(20px)',
+          borderTop: '1px solid rgba(255, 255, 255, 0.12)',
+          padding: '0.85rem 1.25rem',
+          paddingBottom: 'calc(0.85rem + env(safe-area-inset-bottom, 0px))',
+          boxShadow: '0 -10px 30px rgba(0, 0, 0, 0.7)',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: '1rem',
+        }}
+      >
+        <div style={{ minWidth: 0, flex: 1 }}>
+          <div
+            style={{
+              fontSize: '0.9rem',
+              fontWeight: 800,
+              color: '#FFFFFF',
+              whiteSpace: 'nowrap',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+            }}
+          >
+            {workshop.title}
+          </div>
+          <div style={{ fontSize: '0.74rem', color: isRegistered ? '#34D399' : '#94A3B8', marginTop: '0.15rem' }}>
+            {isRegistered
+              ? '✓ Registered Attendee'
+              : isWaitlisted
+              ? '⏸ On Waitlist'
+              : `${workshop.sessions_count ?? sessions.length} Sessions • Free Bootcamp`}
+          </div>
+        </div>
+
+        {isRegistered ? (
+          <div style={{ display: 'flex', gap: '0.5rem', flexShrink: 0 }}>
+            <button
+              type="button"
+              onClick={() => setShowQrModal(true)}
+              style={{
+                padding: '0.6rem 0.85rem',
+                borderRadius: '10px',
+                background: 'rgba(52, 168, 83, 0.2)',
+                border: '1px solid rgba(52, 168, 83, 0.45)',
+                color: '#4ADE80',
+                fontSize: '0.82rem',
+                fontWeight: 800,
+                cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.35rem',
+              }}
+            >
+              <QrCode size={14} /> QR
+            </button>
+            <Link
+              href={`/student/workshops/${workshop.id}/confirmation`}
+              style={{
+                padding: '0.6rem 1rem',
+                borderRadius: '10px',
+                background: 'linear-gradient(135deg, rgba(52, 168, 83, 0.3) 0%, rgba(66, 133, 244, 0.25) 100%)',
+                border: '1px solid rgba(52, 168, 83, 0.5)',
+                color: '#FFFFFF',
+                fontSize: '0.82rem',
+                fontWeight: 800,
+                textDecoration: 'none',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.35rem',
+              }}
+            >
+              <CheckCircle2 size={14} color="#34D399" /> Pass
+            </Link>
+          </div>
+        ) : isWaitlisted ? (
+          <div
+            style={{
+              padding: '0.55rem 0.9rem',
+              borderRadius: '8px',
+              background: 'rgba(251, 188, 4, 0.15)',
+              border: '1px solid rgba(251, 188, 4, 0.35)',
+              color: '#FBBF24',
+              fontSize: '0.8rem',
+              fontWeight: 700,
+              flexShrink: 0,
+            }}
+          >
+            On Waitlist
+          </div>
+        ) : (
+          <button
+            type="button"
+            disabled={!canRegister || isSubmitting || workshop.is_full}
+            onClick={handleRegister}
+            style={{
+              padding: '0.65rem 1.25rem',
+              borderRadius: '10px',
+              background:
+                workshop.is_full || !workshop.registration_open
+                  ? 'rgba(255, 255, 255, 0.08)'
+                  : 'linear-gradient(135deg, var(--google-blue, #4285F4) 0%, #2563EB 100%)',
+              border: 'none',
+              color: workshop.is_full || !workshop.registration_open ? '#64748B' : '#FFFFFF',
+              fontSize: '0.85rem',
+              fontWeight: 800,
+              cursor: workshop.is_full || !workshop.registration_open || isSubmitting ? 'not-allowed' : 'pointer',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.4rem',
+              flexShrink: 0,
+              boxShadow: canRegister && !workshop.is_full ? '0 4px 12px rgba(66, 133, 244, 0.4)' : 'none',
+            }}
+          >
+            {isSubmitting ? (
+              'Registering...'
+            ) : workshop.is_full ? (
+              'Full'
+            ) : !workshop.registration_open ? (
+              'Closed'
+            ) : (
+              <>
+                <Sparkles size={14} />
+                <span>Register Free</span>
+              </>
+            )}
+          </button>
+        )}
+      </div>
     </div>
   );
 }
