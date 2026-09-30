@@ -549,6 +549,142 @@ export function StudentCourseDetailClient({ initialData }: StudentCourseDetailCl
               </div>
             </div>
           </div>
+          {/* Hero Action Strip */}
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              flexWrap: 'wrap',
+              gap: '1rem',
+              paddingTop: '1.25rem',
+              marginTop: '0.5rem',
+              borderTop: '1px solid rgba(255, 255, 255, 0.08)',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+              {isConfirmed ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', color: '#34D399', fontSize: '0.92rem', fontWeight: 800 }}>
+                  <CheckCircle2 size={18} />
+                  <span>You are enrolled in this track</span>
+                </div>
+              ) : isPending ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', color: '#FBBF24', fontSize: '0.92rem', fontWeight: 800 }}>
+                  <Clock3 size={18} />
+                  <span>Application under review by chapter leads</span>
+                </div>
+              ) : isWaitlisted ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', color: '#C084FC', fontSize: '0.92rem', fontWeight: 800 }}>
+                  <Clock3 size={18} />
+                  <span>You are placed on the waitlist</span>
+                </div>
+              ) : (
+                <div style={{ fontSize: '0.86rem', color: '#94A3B8' }}>
+                  Free chapter admission • Complete curriculum & certificate included
+                </div>
+              )}
+            </div>
+
+            {/* Primary Action Button in Hero */}
+            {isConfirmed ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveTab('sessions');
+                  const el = document.getElementById('course-workspace-tabs');
+                  if (el) el.scrollIntoView({ behavior: 'smooth' });
+                }}
+                style={{
+                  padding: '0.75rem 1.4rem',
+                  borderRadius: '12px',
+                  background: 'linear-gradient(135deg, rgba(52, 168, 83, 0.25) 0%, rgba(66, 133, 244, 0.2) 100%)',
+                  border: '1px solid rgba(52, 168, 83, 0.5)',
+                  color: '#FFFFFF',
+                  fontSize: '0.9rem',
+                  fontWeight: 800,
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.5rem',
+                }}
+              >
+                <Play size={16} color="#34D399" />
+                <span>Go to Sessions & Lessons</span>
+              </button>
+            ) : isPending ? (
+              <div
+                style={{
+                  padding: '0.65rem 1.15rem',
+                  borderRadius: '10px',
+                  background: 'rgba(251, 188, 4, 0.15)',
+                  border: '1px solid rgba(251, 188, 4, 0.35)',
+                  color: '#FBBF24',
+                  fontSize: '0.85rem',
+                  fontWeight: 700,
+                }}
+              >
+                Pending Review
+              </div>
+            ) : isWaitlisted ? (
+              <div
+                style={{
+                  padding: '0.65rem 1.15rem',
+                  borderRadius: '10px',
+                  background: 'rgba(168, 85, 247, 0.15)',
+                  border: '1px solid rgba(168, 85, 247, 0.35)',
+                  color: '#C084FC',
+                  fontSize: '0.85rem',
+                  fontWeight: 700,
+                }}
+              >
+                On Waitlist
+              </div>
+            ) : (
+              <button
+                type="button"
+                disabled={isSubmitting}
+                onClick={handleInitiateEnroll}
+                style={{
+                  padding: '0.8rem 1.6rem',
+                  borderRadius: '12px',
+                  background: course.is_full
+                    ? '#A855F7'
+                    : course.enrollment_type === 'open'
+                    ? 'linear-gradient(135deg, #34A853 0%, #059669 100%)'
+                    : 'linear-gradient(135deg, #4285F4 0%, #2563EB 100%)',
+                  border: 'none',
+                  color: '#FFFFFF',
+                  fontSize: '0.95rem',
+                  fontWeight: 800,
+                  cursor: isSubmitting ? 'not-allowed' : 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.55rem',
+                  boxShadow: '0 4px 16px rgba(66, 133, 244, 0.45)',
+                  transition: 'transform 0.15s ease',
+                }}
+              >
+                {isSubmitting ? (
+                  'Submitting...'
+                ) : course.is_full ? (
+                  <>
+                    <Clock3 size={16} />
+                    <span>Join Track Waitlist</span>
+                  </>
+                ) : course.enrollment_type === 'open' ? (
+                  <>
+                    <Sparkles size={16} />
+                    <span>Join Course Track — Free</span>
+                  </>
+                ) : (
+                  <>
+                    <Send size={16} />
+                    <span>Apply for Admission</span>
+                  </>
+                )}
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
@@ -3781,16 +3917,15 @@ export function StudentCourseDetailClient({ initialData }: StudentCourseDetailCl
         className="student-mobile-sticky-bar"
         style={{
           position: 'fixed',
-          bottom: 0,
+          bottom: 'calc(62px + env(safe-area-inset-bottom, 0px))',
           left: 0,
           right: 0,
-          zIndex: 90,
+          zIndex: 45,
           background: 'rgba(15, 23, 42, 0.96)',
           backdropFilter: 'blur(20px)',
-          borderTop: '1px solid rgba(255, 255, 255, 0.12)',
-          padding: '0.85rem 1.25rem',
-          paddingBottom: 'calc(0.85rem + env(safe-area-inset-bottom, 0px))',
-          boxShadow: '0 -10px 30px rgba(0, 0, 0, 0.7)',
+          borderTop: '1px solid rgba(66, 133, 244, 0.35)',
+          padding: '0.75rem 1.25rem',
+          boxShadow: '0 -8px 24px rgba(0, 0, 0, 0.6)',
           alignItems: 'center',
           justifyContent: 'space-between',
           gap: '1rem',

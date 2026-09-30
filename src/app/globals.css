@@ -1140,6 +1140,21 @@ select {
   }
 }
 
+.student-back-to-top {
+  position: fixed;
+  bottom: 2rem;
+  right: 2rem;
+  z-index: 999990;
+}
+
+@media (max-width: 768px) {
+  .student-back-to-top {
+    bottom: calc(75px + env(safe-area-inset-bottom, 0px)) !important;
+    left: 1rem !important;
+    right: auto !important;
+  }
+}
+
 @keyframes fadeIn {
   from {
     opacity: 0;

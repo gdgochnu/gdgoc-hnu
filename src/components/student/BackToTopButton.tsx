@@ -35,44 +35,40 @@ export function BackToTopButton({ threshold = 400 }: BackToTopButtonProps) {
   return createPortal(
     <button
       type="button"
+      className="student-back-to-top"
       onClick={scrollToTop}
       aria-label="Back to top"
       style={{
-        position: 'fixed',
-        bottom: '1.5rem',
-        left: '50%',
-        transform: `translateX(-50%) translateY(${visible ? '0' : '80px'})`,
-        zIndex: 999990,
-        display: 'flex',
+        display: 'inline-flex',
         alignItems: 'center',
-        gap: '0.4rem',
-        padding: '0.5rem 1rem',
+        justifyContent: 'center',
+        gap: '0.35rem',
+        padding: '0.55rem 0.95rem',
         borderRadius: '999px',
-        background: 'rgba(15, 23, 42, 0.9)',
+        background: 'rgba(15, 23, 42, 0.92)',
         backdropFilter: 'blur(20px)',
-        border: '1px solid rgba(255, 255, 255, 0.15)',
-        boxShadow: '0 8px 24px rgba(0, 0, 0, 0.45)',
-        color: '#E2E8F0',
-        fontSize: '0.8rem',
+        border: '1px solid rgba(66, 133, 244, 0.35)',
+        boxShadow: '0 8px 24px rgba(0, 0, 0, 0.6), 0 0 12px rgba(66, 133, 244, 0.25)',
+        color: '#FFFFFF',
+        fontSize: '0.78rem',
         fontWeight: 700,
         cursor: 'pointer',
         opacity: visible ? 1 : 0,
-        transition: 'transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.25s ease',
+        transform: `translateY(${visible ? '0' : '40px'})`,
+        transition: 'transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.25s ease, background 0.15s ease',
         pointerEvents: visible ? 'all' : 'none',
       }}
       onMouseEnter={(e) => {
-        e.currentTarget.style.background = 'rgba(66, 133, 244, 0.25)';
-        e.currentTarget.style.borderColor = 'rgba(66, 133, 244, 0.45)';
-        e.currentTarget.style.color = '#FFFFFF';
+        e.currentTarget.style.background = 'rgba(66, 133, 244, 0.35)';
+        e.currentTarget.style.borderColor = 'rgba(66, 133, 244, 0.6)';
       }}
       onMouseLeave={(e) => {
-        e.currentTarget.style.background = 'rgba(15, 23, 42, 0.9)';
-        e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.15)';
-        e.currentTarget.style.color = '#E2E8F0';
+        e.currentTarget.style.background = 'rgba(15, 23, 42, 0.92)';
+        e.currentTarget.style.borderColor = 'rgba(66, 133, 244, 0.35)';
       }}
     >
-      <ChevronUp size={15} />
-      <span>Back to Top</span>
+      <ChevronUp size={16} color="#60A5FA" />
+      <span>Top</span>
     </button>,
     document.body
   );

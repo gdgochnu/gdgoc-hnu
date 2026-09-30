@@ -1,5 +1,5 @@
 // GDGoC HNU OS - Service Worker
-const CACHE_NAME = 'gdgoc-hnu-os-v1';
+const CACHE_NAME = 'gdgoc-hnu-os-v2';
 const ASSETS_TO_CACHE = [
   '/',
   '/manifest.webmanifest',
@@ -33,8 +33,13 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
-  // Only cache GET requests. Cache API does not support POST, PUT, DELETE, etc.
+  // Only cache GET requests.
   if (event.request.method !== 'GET') {
+    return;
+  }
+
+  // Ignore non-http/https schemes (e.g. chrome-extension://, moz-extension://)
+  if (!event.request.url.startsWith('http://') && !event.request.url.startsWith('https://')) {
     return;
   }
 
@@ -54,18 +59,27 @@ self.addEventListener('fetch', (event) => {
       if (cachedResponse) {
         return cachedResponse;
       }
-      return fetch(event.request).then((networkResponse) => {
-        if (!networkResponse || networkResponse.status !== 200 || networkResponse.type !== 'basic') {
+      return fetch(event.request)
+        .then((networkResponse) => {
+          if (
+            !networkResponse ||
+            networkResponse.status !== 200 ||
+            networkResponse.type !== 'basic' ||
+            (!event.request.url.startsWith('http://') && !event.request.url.startsWith('https://'))
+          ) {
+            return networkResponse;
+          }
+          const responseToCache = networkResponse.clone();
+          caches.open(CACHE_NAME).then((cache) => {
+            cache.put(event.request, responseToCache).catch(() => {
+              // Ignore cache put errors safely
+            });
+          });
           return networkResponse;
-        }
-        const responseToCache = networkResponse.clone();
-        caches.open(CACHE_NAME).then((cache) => {
-          cache.put(event.request, responseToCache);
+        })
+        .catch(() => {
+          return Response.error();
         });
-        return networkResponse;
-      }).catch(() => {
-        return Response.error();
-      });
     })
   );
 });
