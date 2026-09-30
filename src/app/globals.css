@@ -1149,7 +1149,7 @@ select {
 
 @media (max-width: 768px) {
   .student-back-to-top {
-    bottom: calc(75px + env(safe-area-inset-bottom, 0px)) !important;
+    bottom: calc(130px + env(safe-area-inset-bottom, 0px)) !important;
     left: 1rem !important;
     right: auto !important;
   }
