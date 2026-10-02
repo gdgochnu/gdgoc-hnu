@@ -1207,4 +1207,75 @@ select {
 }
 
 
+/* ==========================================================================
+   Homepage Footer — Responsive Layout
+   ========================================================================== */
 
+.home-footer-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 2.5rem;
+  margin-bottom: 3rem;
+}
+
+@media (max-width: 640px) {
+  .home-footer-grid {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+
+  /* Brand block: compact horizontal row on mobile */
+  .home-footer-brand {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.85rem;
+    padding-bottom: 1.25rem;
+    margin-bottom: 1.25rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  }
+
+  .home-footer-brand-text {
+    flex: 1;
+  }
+
+  /* Collapsible-style columns: use a top border as separator */
+  .home-footer-col {
+    padding: 1.1rem 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  }
+
+  .home-footer-col:last-child {
+    border-bottom: none;
+    padding-bottom: 0;
+  }
+
+  /* Leadership OS card flush on mobile */
+  .home-footer-os-card {
+    border-radius: 12px !important;
+  }
+
+  /* Links in footer columns: slightly larger tap targets */
+  .home-footer-col a,
+  .home-footer-col a span {
+    padding: 0.1rem 0;
+    display: inline-block;
+  }
+}
+
+@media (min-width: 641px) {
+  .home-footer-brand {
+    display: block;
+  }
+  .home-footer-col {
+    padding: 0;
+    border-bottom: none;
+  }
+}
+
+@media (max-width: 640px) {
+  .home-footer-bottom {
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+  }
+}
