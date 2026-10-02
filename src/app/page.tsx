@@ -127,9 +127,9 @@ export default async function HomePage(props: HomePageProps) {
         <div style={{ position: 'absolute', top: '8%', left: '3%', width: '280px', height: '280px', background: 'radial-gradient(circle, rgba(234,67,53,0.07) 0%, transparent 65%)', filter: 'blur(60px)', pointerEvents: 'none', zIndex: 0 }} />
         <div style={{ position: 'absolute', top: '8%', right: '3%', width: '260px', height: '260px', background: 'radial-gradient(circle, rgba(251,188,4,0.06) 0%, transparent 65%)', filter: 'blur(60px)', pointerEvents: 'none', zIndex: 0 }} />
         <div style={{ position: 'relative', zIndex: 1, maxWidth: '900px', margin: '0 auto' }}>
-          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', padding: '0.4rem 1.1rem', borderRadius: '999px', background: 'rgba(66,133,244,0.1)', border: '1px solid rgba(66,133,244,0.22)', color: '#93C5FD', fontSize: '0.82rem', fontWeight: 700, marginBottom: '2rem' }}>
-            <Sparkles size={13} color="#60A5FA" />
-            <span>Google Developer Groups on Campus · Helwan National University</span>
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', padding: '0.4rem 1.1rem', borderRadius: '999px', background: 'rgba(66,133,244,0.1)', border: '1px solid rgba(66,133,244,0.22)', color: '#93C5FD', fontSize: 'clamp(0.74rem, 2.8vw, 0.82rem)', fontWeight: 700, marginBottom: '2rem', maxWidth: '100%', boxSizing: 'border-box', justifyContent: 'center', textAlign: 'center' }}>
+            <Sparkles size={13} color="#60A5FA" style={{ flexShrink: 0 }} />
+            <span>GDGoC on Campus · Helwan National University</span>
           </div>
           <h1 style={{ fontSize: 'clamp(2.6rem,6vw,4.4rem)', fontWeight: 900, color: '#FFFFFF', letterSpacing: '-0.035em', lineHeight: 1.1, margin: '0 0 1.5rem' }}>
             Build Real Skills.{' '}

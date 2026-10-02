@@ -163,8 +163,8 @@ export function StudentDashboardClient({ initialData }: StudentDashboardClientPr
 
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap' }}>
-                <h1 style={{ fontSize: '1.8rem', fontWeight: 800, letterSpacing: '-0.02em', margin: 0, color: '#FFFFFF' }}>
-                  Welcome, {student.full_name_en || 'Student'}!
+                <h1 style={{ fontSize: 'clamp(1.3rem, 4.5vw, 1.8rem)', fontWeight: 800, letterSpacing: '-0.02em', margin: 0, color: '#FFFFFF', lineHeight: 1.2, wordBreak: 'break-word' }}>
+                  Welcome, {student.full_name_en?.split(' ')[0] || 'Student'}! 👋
                 </h1>
 
                 {/* Status Badges */}
@@ -266,7 +266,7 @@ export function StudentDashboardClient({ initialData }: StudentDashboardClientPr
       {/* ========================================================================= */}
       {/* 2. METRIC CARDS (MATCHES TEAM DASHBOARD KPI GRID) */}
       {/* ========================================================================= */}
-      <div className="student-dashboard-kpis" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1.25rem' }}>
+      <div className="student-dashboard-kpis student-kpi-grid" style={{ display: 'grid', gap: '1.25rem' }}>
         {/* Card 1: Enrolled Courses */}
         <div
           onClick={() => handleTabChange('courses')}

@@ -57,7 +57,7 @@ export function StudentCertificatesClient({ student, certificates }: StudentCert
       <div
         className="glass-panel"
         style={{
-          padding: '2.25rem',
+          padding: 'clamp(1.25rem, 4vw, 2.25rem)',
           position: 'relative',
           overflow: 'hidden',
           display: 'flex',
@@ -100,7 +100,7 @@ export function StudentCertificatesClient({ student, certificates }: StudentCert
 
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap' }}>
-                <h1 style={{ fontSize: '1.8rem', fontWeight: 800, letterSpacing: '-0.02em', margin: 0, color: '#FFFFFF' }}>
+                <h1 style={{ fontSize: 'clamp(1.3rem, 4.5vw, 1.8rem)', fontWeight: 800, letterSpacing: '-0.02em', margin: 0, color: '#FFFFFF', wordBreak: 'break-word' }}>
                   Verified Credentials & Certificates
                 </h1>
                 <span

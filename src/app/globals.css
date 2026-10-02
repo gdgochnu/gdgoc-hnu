@@ -974,6 +974,11 @@ body[dir="rtl"] select,
   .student-mobile-nav-item.active {
     color: #60A5FA !important;
     font-weight: 700 !important;
+    transform: translateY(-2px) !important;
+  }
+
+  .student-mobile-nav-item.active svg {
+    filter: drop-shadow(0 0 6px rgba(96, 165, 250, 0.6));
   }
 
   /* Center Raised "Pass" Action */
@@ -1279,3 +1284,72 @@ select {
     text-align: center;
   }
 }
+
+/* ==========================================================================
+   Student Portal — Responsive Layout Helpers
+   ========================================================================== */
+
+/* Student Dashboard KPI Grid: 4 cols on desktop, 2 cols on tablet/mobile */
+.student-kpi-grid {
+  display: grid !important;
+  grid-template-columns: repeat(4, 1fr) !important;
+  gap: 1.25rem !important;
+}
+
+@media (max-width: 1024px) {
+  .student-kpi-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 1rem !important;
+  }
+}
+
+@media (max-width: 540px) {
+  .student-kpi-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 0.75rem !important;
+  }
+  .student-kpi-grid .kpi-card {
+    padding: 1rem !important;
+  }
+  .student-kpi-grid .kpi-number {
+    font-size: 1.5rem !important;
+  }
+}
+
+/* Courses Catalog Stats Row */
+.courses-stats-row {
+  display: flex;
+  align-items: center;
+  gap: 1.75rem;
+  flex-wrap: wrap;
+}
+
+.courses-stat-item {
+  display: flex;
+  flex-direction: column;
+}
+
+.courses-stat-divider {
+  width: 1px;
+  height: 36px;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+@media (max-width: 640px) {
+  .courses-stats-row {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 14px;
+    padding: 1.1rem;
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  .courses-stat-divider {
+    display: none;
+  }
+}
+

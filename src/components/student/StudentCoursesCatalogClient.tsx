@@ -202,48 +202,27 @@ export function StudentCoursesCatalogClient({
           </p>
 
           {/* Quick Metrics */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '2rem', flexWrap: 'wrap' }}>
-            <div>
-              <div style={{ fontSize: '1.5rem', fontWeight: 800, color: '#4285F4' }}>
-                {initialCourses.length}
-              </div>
-              <div style={{ fontSize: '0.78rem', color: '#94A3B8', fontWeight: 600, textTransform: 'uppercase' }}>
-                Published Courses
-              </div>
+          <div className="courses-stats-row">
+            <div className="courses-stat-item">
+              <div style={{ fontSize: '1.5rem', fontWeight: 800, color: '#4285F4' }}>{initialCourses.length}</div>
+              <div style={{ fontSize: '0.75rem', color: '#94A3B8', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Courses</div>
             </div>
-
-            <div style={{ width: '1px', height: '32px', background: 'rgba(255, 255, 255, 0.1)' }} />
-
-            <div>
-              <div style={{ fontSize: '1.5rem', fontWeight: 800, color: '#34A853' }}>
-                {totalSessions}
-              </div>
-              <div style={{ fontSize: '0.78rem', color: '#94A3B8', fontWeight: 600, textTransform: 'uppercase' }}>
-                Curriculum Sessions
-              </div>
+            <div className="courses-stat-divider" />
+            <div className="courses-stat-item">
+              <div style={{ fontSize: '1.5rem', fontWeight: 800, color: '#34A853' }}>{totalSessions}</div>
+              <div style={{ fontSize: '0.75rem', color: '#94A3B8', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Sessions</div>
             </div>
-
-            <div style={{ width: '1px', height: '32px', background: 'rgba(255, 255, 255, 0.1)' }} />
-
-            <div>
-              <div style={{ fontSize: '1.5rem', fontWeight: 800, color: '#FBBC04' }}>
-                {totalTracks}
-              </div>
-              <div style={{ fontSize: '0.78rem', color: '#94A3B8', fontWeight: 600, textTransform: 'uppercase' }}>
-                Tech Tracks
-              </div>
+            <div className="courses-stat-divider" />
+            <div className="courses-stat-item">
+              <div style={{ fontSize: '1.5rem', fontWeight: 800, color: '#FBBC04' }}>{totalTracks}</div>
+              <div style={{ fontSize: '0.75rem', color: '#94A3B8', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Tracks</div>
             </div>
-
             {isAuthenticated && enrolledCount > 0 && (
               <>
-                <div style={{ width: '1px', height: '32px', background: 'rgba(255, 255, 255, 0.1)' }} />
-                <div>
-                  <div style={{ fontSize: '1.5rem', fontWeight: 800, color: '#A855F7' }}>
-                    {enrolledCount}
-                  </div>
-                  <div style={{ fontSize: '0.78rem', color: '#94A3B8', fontWeight: 600, textTransform: 'uppercase' }}>
-                    My Enrolled
-                  </div>
+                <div className="courses-stat-divider" />
+                <div className="courses-stat-item">
+                  <div style={{ fontSize: '1.5rem', fontWeight: 800, color: '#A855F7' }}>{enrolledCount}</div>
+                  <div style={{ fontSize: '0.75rem', color: '#94A3B8', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Enrolled</div>
                 </div>
               </>
             )}
