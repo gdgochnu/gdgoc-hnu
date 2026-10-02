@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
@@ -36,6 +36,10 @@ import {
   Radio,
   FileCode,
   Share2,
+  PanelLeftClose,
+  PanelLeftOpen,
+  Maximize2,
+  Minimize2,
 } from 'lucide-react';
 import {
   CourseDetailResult,
@@ -58,6 +62,147 @@ function getYouTubeEmbedUrl(url: string | null): string | null {
     /(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=|live\/))([\w-]{11})/i
   );
   return match ? `https://www.youtube-nocookie.com/embed/${match[1]}` : null;
+}
+
+function getTaskDeadlineInfo(dueDate: string | null | undefined, isCompleted: boolean) {
+  if (!dueDate) return null;
+  const due = new Date(dueDate).getTime();
+  const now = Date.now();
+  const diffMs = due - now;
+  const diffHours = diffMs / (1000 * 60 * 60);
+
+  if (isCompleted) {
+    return {
+      type: 'completed' as const,
+      label: `Due ${new Date(dueDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}`,
+      color: '#94A3B8',
+      background: 'rgba(255, 255, 255, 0.04)',
+      border: '1px solid rgba(255, 255, 255, 0.08)',
+      icon: 'calendar' as const,
+      pulse: false,
+    };
+  }
+
+  if (diffMs < 0) {
+    const passedDays = Math.max(1, Math.floor(Math.abs(diffMs) / (1000 * 60 * 60 * 24)));
+    return {
+      type: 'overdue' as const,
+      label: `Past Deadline (${passedDays === 1 ? '1 day ago' : `${passedDays}d ago`})`,
+      color: '#F87171',
+      background: 'rgba(234, 67, 53, 0.15)',
+      border: '1px solid rgba(234, 67, 53, 0.35)',
+      icon: 'alert' as const,
+      pulse: false,
+    };
+  }
+
+  if (diffHours <= 24) {
+    const hoursLeft = Math.max(1, Math.round(diffHours));
+    return {
+      type: 'urgent' as const,
+      label: `Due Today (${hoursLeft === 1 ? '1 hr left!' : `${hoursLeft}h left!`})`,
+      color: '#EF4444',
+      background: 'rgba(239, 68, 68, 0.18)',
+      border: '1px solid rgba(239, 68, 68, 0.45)',
+      icon: 'clock' as const,
+      pulse: true,
+    };
+  }
+
+  if (diffHours <= 48) {
+    return {
+      type: 'soon' as const,
+      label: `Due Tomorrow (${new Date(dueDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })})`,
+      color: '#FBBF24',
+      background: 'rgba(251, 188, 4, 0.15)',
+      border: '1px solid rgba(251, 188, 4, 0.35)',
+      icon: 'clock' as const,
+      pulse: true,
+    };
+  }
+
+  return {
+    type: 'future' as const,
+    label: `Due: ${new Date(dueDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}`,
+    color: '#CBD5E1',
+    background: 'rgba(255, 255, 255, 0.05)',
+    border: '1px solid rgba(255, 255, 255, 0.08)',
+    icon: 'calendar' as const,
+    pulse: false,
+  };
+}
+
+function detectLinkPlatform(url: string) {
+  const trimmed = url.trim().toLowerCase();
+  if (!trimmed) return null;
+
+  if (trimmed.includes('github.com')) {
+    return {
+      platform: 'GitHub Repository',
+      color: '#60A5FA',
+      bg: 'rgba(66, 133, 244, 0.15)',
+      border: 'rgba(66, 133, 244, 0.35)',
+      badge: 'GitHub Repository ✓',
+    };
+  }
+  if (trimmed.includes('colab.research.google.com') || trimmed.includes('colab.google')) {
+    return {
+      platform: 'Google Colab Notebook',
+      color: '#F59E0B',
+      bg: 'rgba(245, 158, 11, 0.15)',
+      border: 'rgba(245, 158, 11, 0.35)',
+      badge: 'Google Colab ✓',
+    };
+  }
+  if (trimmed.includes('drive.google.com')) {
+    return {
+      platform: 'Google Drive File',
+      color: '#34D399',
+      bg: 'rgba(52, 168, 83, 0.15)',
+      border: 'rgba(52, 168, 83, 0.35)',
+      badge: 'Google Drive Link ✓',
+    };
+  }
+  if (trimmed.includes('figma.com')) {
+    return {
+      platform: 'Figma Project',
+      color: '#A855F7',
+      bg: 'rgba(168, 85, 247, 0.15)',
+      border: 'rgba(168, 85, 247, 0.35)',
+      badge: 'Figma Design ✓',
+    };
+  }
+  if (trimmed.includes('codesandbox.io') || trimmed.includes('stackblitz.com') || trimmed.includes('replit.com')) {
+    return {
+      platform: 'Web Sandbox',
+      color: '#38BDF8',
+      bg: 'rgba(56, 189, 248, 0.15)',
+      border: 'rgba(56, 189, 248, 0.35)',
+      badge: 'Web Sandbox Demo ✓',
+    };
+  }
+  if (trimmed.includes('vercel.app') || trimmed.includes('netlify.app')) {
+    return {
+      platform: 'Live Demo',
+      color: '#34D399',
+      bg: 'rgba(52, 168, 83, 0.15)',
+      border: 'rgba(52, 168, 83, 0.35)',
+      badge: 'Live Web Demo ✓',
+    };
+  }
+
+  try {
+    const parsed = new URL(trimmed.startsWith('http') ? trimmed : `https://${trimmed}`);
+    return {
+      platform: parsed.hostname,
+      color: '#60A5FA',
+      bg: 'rgba(66, 133, 244, 0.1)',
+      border: 'rgba(66, 133, 244, 0.25)',
+      badge: `${parsed.hostname} ✓`,
+    };
+  } catch {
+    return null;
+  }
 }
 
 export function StudentCourseDetailClient({ initialData }: StudentCourseDetailClientProps) {
@@ -102,6 +247,10 @@ export function StudentCourseDetailClient({ initialData }: StudentCourseDetailCl
     lessons.length > 0 ? lessons[0].id : ''
   );
 
+  // Cinema / Focus Mode for expanded lecture view
+  const [isCinemaMode, setIsCinemaMode] = useState(false);
+  const [copiedLink, setCopiedLink] = useState(false);
+
   // Tasks local state for dynamic updates
   const [tasksList, setTasksList] = useState<StudentTaskDetail[]>(tasks);
   const [submittingTask, setSubmittingTask] = useState<StudentTaskDetail | null>(null);
@@ -125,6 +274,106 @@ export function StudentCourseDetailClient({ initialData }: StudentCourseDetailCl
   // Attendance stats
   const attendedCount = sessions.filter((s) => s.is_attended).length;
   const attendanceRate = sessions.length > 0 ? Math.round((attendedCount / sessions.length) * 100) : 0;
+
+  // Sync URL search params with active tab, session, and lesson (Deep Linking)
+  const updateUrlParams = useCallback(
+    (newTab: string, newSessionId?: string, newLessonId?: string) => {
+      if (typeof window === 'undefined') return;
+      const url = new URL(window.location.href);
+      url.searchParams.set('tab', newTab);
+
+      if (newTab === 'sessions') {
+        const sId = newSessionId || activeSessionId;
+        const s = sessions.find((x) => x.id === sId);
+        if (s) {
+          url.searchParams.set('session', String(s.session_number));
+        }
+        url.searchParams.delete('lesson');
+      } else if (newTab === 'lessons') {
+        const lId = newLessonId || activeLessonId;
+        const l = lessons.find((x) => x.id === lId);
+        if (l) {
+          url.searchParams.set('lesson', String(l.lesson_number));
+        }
+        url.searchParams.delete('session');
+      } else {
+        url.searchParams.delete('session');
+        url.searchParams.delete('lesson');
+      }
+
+      window.history.replaceState(null, '', url.pathname + url.search);
+    },
+    [activeSessionId, activeLessonId, sessions, lessons]
+  );
+
+  // Read initial query params from URL on mount
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    const tabParam = params.get('tab');
+    const sessionParam = params.get('session');
+    const lessonParam = params.get('lesson');
+
+    if (tabParam && ['overview', 'sessions', 'lessons', 'tasks', 'quizzes'].includes(tabParam)) {
+      if (tabParam === 'overview' || isEnrolled) {
+        setActiveTab(tabParam as any);
+      }
+    }
+
+    if (sessionParam && sessions.length > 0) {
+      const match = sessions.find(
+        (s) => s.id === sessionParam || String(s.session_number) === sessionParam
+      );
+      if (match) {
+        setActiveSessionId(match.id);
+      }
+    }
+
+    if (lessonParam && lessons.length > 0) {
+      const match = lessons.find(
+        (l) => l.id === lessonParam || String(l.lesson_number) === lessonParam
+      );
+      if (match) {
+        setActiveLessonId(match.id);
+      }
+    }
+  }, [isEnrolled, sessions, lessons]);
+
+  // Listen to browser Back/Forward (popstate)
+  useEffect(() => {
+    const handlePopState = () => {
+      const params = new URLSearchParams(window.location.search);
+      const tabParam = params.get('tab');
+      const sessionParam = params.get('session');
+      const lessonParam = params.get('lesson');
+
+      if (tabParam && ['overview', 'sessions', 'lessons', 'tasks', 'quizzes'].includes(tabParam)) {
+        if (tabParam === 'overview' || isEnrolled) {
+          setActiveTab(tabParam as any);
+        }
+      }
+      if (sessionParam && sessions.length > 0) {
+        const match = sessions.find(
+          (s) => s.id === sessionParam || String(s.session_number) === sessionParam
+        );
+        if (match) setActiveSessionId(match.id);
+      }
+      if (lessonParam && lessons.length > 0) {
+        const match = lessons.find(
+          (l) => l.id === lessonParam || String(l.lesson_number) === lessonParam
+        );
+        if (match) setActiveLessonId(match.id);
+      }
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, [isEnrolled, sessions, lessons]);
+
+  const handleTabChange = (tab: 'overview' | 'sessions' | 'lessons' | 'tasks' | 'quizzes') => {
+    setActiveTab(tab);
+    updateUrlParams(tab);
+  };
 
   const handleInitiateEnroll = () => {
     if (!isAuthenticated) {
@@ -173,7 +422,7 @@ export function StudentCourseDetailClient({ initialData }: StudentCourseDetailCl
       });
       setCanEnroll(false);
       if (res.status === 'confirmed') {
-        setActiveTab('sessions');
+        handleTabChange('sessions');
       }
       setActionMessage({ type: 'success', text: res.message || 'Enrollment processed successfully!' });
     } catch (err: any) {
@@ -183,16 +432,53 @@ export function StudentCourseDetailClient({ initialData }: StudentCourseDetailCl
     }
   };
 
+  const handleSelectSession = (sessionId: string) => {
+    setActiveSessionId(sessionId);
+    updateUrlParams('sessions', sessionId);
+  };
+
+  const handleSelectLesson = (lessonId: string) => {
+    setActiveLessonId(lessonId);
+    updateUrlParams('lessons', undefined, lessonId);
+  };
+
   const handlePrevSession = () => {
     if (activeSessionIndex > 0) {
-      setActiveSessionId(sessions[activeSessionIndex - 1].id);
+      const prevId = sessions[activeSessionIndex - 1].id;
+      setActiveSessionId(prevId);
+      updateUrlParams('sessions', prevId);
     }
   };
 
   const handleNextSession = () => {
     if (activeSessionIndex < sessions.length - 1) {
-      setActiveSessionId(sessions[activeSessionIndex + 1].id);
+      const nextId = sessions[activeSessionIndex + 1].id;
+      setActiveSessionId(nextId);
+      updateUrlParams('sessions', nextId);
     }
+  };
+
+  const handlePrevLesson = () => {
+    if (activeLessonIndex > 0) {
+      const prevId = lessons[activeLessonIndex - 1].id;
+      setActiveLessonId(prevId);
+      updateUrlParams('lessons', undefined, prevId);
+    }
+  };
+
+  const handleNextLesson = () => {
+    if (activeLessonIndex < lessons.length - 1) {
+      const nextId = lessons[activeLessonIndex + 1].id;
+      setActiveLessonId(nextId);
+      updateUrlParams('lessons', undefined, nextId);
+    }
+  };
+
+  const handleCopyShareLink = () => {
+    if (typeof window === 'undefined') return;
+    navigator.clipboard.writeText(window.location.href);
+    setCopiedLink(true);
+    setTimeout(() => setCopiedLink(false), 2000);
   };
 
   const handleOpenSubmitModal = (t: StudentTaskDetail) => {
@@ -627,7 +913,7 @@ export function StudentCourseDetailClient({ initialData }: StudentCourseDetailCl
               <button
                 type="button"
                 onClick={() => {
-                  setActiveTab('sessions');
+                  handleTabChange('sessions');
                   const el = document.getElementById('course-workspace-tabs');
                   if (el) el.scrollIntoView({ behavior: 'smooth' });
                 }}
@@ -728,6 +1014,7 @@ export function StudentCourseDetailClient({ initialData }: StudentCourseDetailCl
       {/* Course Workspace Navigation Tabs (Only shown when enrolled or staff) */}
       {isEnrolled && (
         <div
+          id="course-workspace-tabs"
           className="student-scroll-tabs"
           style={{
             display: 'flex',
@@ -751,7 +1038,7 @@ export function StudentCourseDetailClient({ initialData }: StudentCourseDetailCl
               <button
                 key={tab.key}
                 type="button"
-                onClick={() => setActiveTab(tab.key as any)}
+                onClick={() => handleTabChange(tab.key as any)}
                 style={{
                   display: 'inline-flex',
                   alignItems: 'center',
@@ -977,8 +1264,8 @@ export function StudentCourseDetailClient({ initialData }: StudentCourseDetailCl
                           <button
                             type="button"
                             onClick={() => {
-                              setActiveTab('sessions');
-                              setActiveSessionId(s.id);
+                              handleTabChange('sessions');
+                              handleSelectSession(s.id);
                             }}
                             style={{
                               padding: '0.45rem 0.9rem',
@@ -1136,7 +1423,7 @@ export function StudentCourseDetailClient({ initialData }: StudentCourseDetailCl
               {isConfirmed ? (
                 <button
                   type="button"
-                  onClick={() => setActiveTab('sessions')}
+                  onClick={() => handleTabChange('sessions')}
                   style={{
                     width: '100%',
                     padding: '0.9rem',
@@ -1284,11 +1571,15 @@ export function StudentCourseDetailClient({ initialData }: StudentCourseDetailCl
 
       {/* Main Content Layout: Modular LMS Workspace (Sessions Tab) */}
       {isEnrolled && activeTab === 'sessions' && (
-        <div className="student-course-sidebar-layout">
+        <div
+          className={`student-course-sidebar-layout ${isCinemaMode ? 'cinema-mode' : ''}`}
+          style={{ gridTemplateColumns: isCinemaMode ? '1fr' : undefined }}
+        >
         {/* ========================================================================= */}
         {/* LEFT COLUMN: Modular Session Navigator & Learning Progress */}
         {/* ========================================================================= */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+        {!isCinemaMode && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
           {/* Student Learning Progress Card (Only shown when enrolled) */}
           {isConfirmed ? (
             <div
@@ -1485,7 +1776,7 @@ export function StudentCourseDetailClient({ initialData }: StudentCourseDetailCl
                     <button
                       key={s.id}
                       type="button"
-                      onClick={() => setActiveSessionId(s.id)}
+                      onClick={() => handleSelectSession(s.id)}
                       style={{
                         padding: '0.85rem 1rem',
                         borderRadius: '12px',
@@ -1660,6 +1951,7 @@ export function StudentCourseDetailClient({ initialData }: StudentCourseDetailCl
             </div>
           </div>
         </div>
+      )}
 
         {/* ========================================================================= */}
         {/* RIGHT COLUMN: Focused Active Session Workspace */}
@@ -1773,8 +2065,58 @@ export function StudentCourseDetailClient({ initialData }: StudentCourseDetailCl
                   </div>
                 </div>
 
-                {/* Session Stepper Navigation Controls */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                {/* Session Stepper & Action Controls */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', flexWrap: 'wrap' }}>
+                  {/* Focus / Cinema Mode Toggle Button */}
+                  <button
+                    type="button"
+                    onClick={() => setIsCinemaMode(!isCinemaMode)}
+                    style={{
+                      padding: '0.45rem 0.8rem',
+                      borderRadius: '8px',
+                      background: isCinemaMode ? 'rgba(66, 133, 244, 0.25)' : 'rgba(255, 255, 255, 0.05)',
+                      border: isCinemaMode ? '1px solid rgba(66, 133, 244, 0.5)' : '1px solid rgba(255, 255, 255, 0.1)',
+                      color: isCinemaMode ? '#60A5FA' : '#CBD5E1',
+                      cursor: 'pointer',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '0.35rem',
+                      fontSize: '0.78rem',
+                      fontWeight: 700,
+                      transition: 'all 0.15s ease',
+                    }}
+                    title={isCinemaMode ? 'Exit Focus Mode (Show Playlist)' : 'Focus / Cinema Mode (Hide Playlist)'}
+                  >
+                    {isCinemaMode ? <PanelLeftOpen size={14} /> : <PanelLeftClose size={14} />}
+                    <span>{isCinemaMode ? 'Show Playlist' : 'Focus Mode'}</span>
+                  </button>
+
+                  {/* Share / Copy Direct Session Link */}
+                  <button
+                    type="button"
+                    onClick={handleCopyShareLink}
+                    style={{
+                      padding: '0.45rem 0.75rem',
+                      borderRadius: '8px',
+                      background: copiedLink ? 'rgba(52, 168, 83, 0.2)' : 'rgba(255, 255, 255, 0.05)',
+                      border: copiedLink ? '1px solid rgba(52, 168, 83, 0.4)' : '1px solid rgba(255, 255, 255, 0.1)',
+                      color: copiedLink ? '#34D399' : '#CBD5E1',
+                      cursor: 'pointer',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '0.35rem',
+                      fontSize: '0.78rem',
+                      fontWeight: 700,
+                      transition: 'all 0.15s ease',
+                    }}
+                    title="Copy direct link to this session"
+                  >
+                    {copiedLink ? <Check size={14} /> : <Share2 size={14} />}
+                    <span>{copiedLink ? 'Copied!' : 'Share'}</span>
+                  </button>
+
+                  <div style={{ width: '1px', height: '18px', background: 'rgba(255, 255, 255, 0.12)', margin: '0 0.1rem' }} />
+
                   <button
                     type="button"
                     disabled={activeSessionIndex === 0}
@@ -2271,9 +2613,13 @@ export function StudentCourseDetailClient({ initialData }: StudentCourseDetailCl
       {/* TAB 2: LESSONS & CURRICULUM */}
       {/* ========================================================================= */}
       {isEnrolled && activeTab === 'lessons' && (
-        <div className="student-course-sidebar-layout">
+        <div
+          className={`student-course-sidebar-layout ${isCinemaMode ? 'cinema-mode' : ''}`}
+          style={{ gridTemplateColumns: isCinemaMode ? '1fr' : undefined }}
+        >
           {/* Left Column: Lessons Navigation */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+          {!isCinemaMode && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
             <div
               className="glass-panel"
               style={{
@@ -2304,7 +2650,7 @@ export function StudentCourseDetailClient({ initialData }: StudentCourseDetailCl
                       <button
                         key={l.id}
                         type="button"
-                        onClick={() => setActiveLessonId(l.id)}
+                        onClick={() => handleSelectLesson(l.id)}
                         style={{
                           padding: '0.85rem 1rem',
                           borderRadius: '12px',
@@ -2454,6 +2800,7 @@ export function StudentCourseDetailClient({ initialData }: StudentCourseDetailCl
               </div>
             </div>
           </div>
+        )}
 
           {/* Right Column: Active Lesson Workspace */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', minWidth: 0 }}>
@@ -2518,12 +2865,62 @@ export function StudentCourseDetailClient({ initialData }: StudentCourseDetailCl
                     </h2>
                   </div>
 
-                  {/* Stepper Buttons */}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                  {/* Stepper & Action Controls */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', flexWrap: 'wrap' }}>
+                    {/* Focus / Cinema Mode Toggle Button */}
+                    <button
+                      type="button"
+                      onClick={() => setIsCinemaMode(!isCinemaMode)}
+                      style={{
+                        padding: '0.45rem 0.8rem',
+                        borderRadius: '8px',
+                        background: isCinemaMode ? 'rgba(66, 133, 244, 0.25)' : 'rgba(255, 255, 255, 0.05)',
+                        border: isCinemaMode ? '1px solid rgba(66, 133, 244, 0.5)' : '1px solid rgba(255, 255, 255, 0.1)',
+                        color: isCinemaMode ? '#60A5FA' : '#CBD5E1',
+                        cursor: 'pointer',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '0.35rem',
+                        fontSize: '0.78rem',
+                        fontWeight: 700,
+                        transition: 'all 0.15s ease',
+                      }}
+                      title={isCinemaMode ? 'Exit Focus Mode (Show Curriculum)' : 'Focus / Cinema Mode (Hide Curriculum)'}
+                    >
+                      {isCinemaMode ? <PanelLeftOpen size={14} /> : <PanelLeftClose size={14} />}
+                      <span>{isCinemaMode ? 'Show Curriculum' : 'Focus Mode'}</span>
+                    </button>
+
+                    {/* Share / Copy Direct Lesson Link */}
+                    <button
+                      type="button"
+                      onClick={handleCopyShareLink}
+                      style={{
+                        padding: '0.45rem 0.75rem',
+                        borderRadius: '8px',
+                        background: copiedLink ? 'rgba(52, 168, 83, 0.2)' : 'rgba(255, 255, 255, 0.05)',
+                        border: copiedLink ? '1px solid rgba(52, 168, 83, 0.4)' : '1px solid rgba(255, 255, 255, 0.1)',
+                        color: copiedLink ? '#34D399' : '#CBD5E1',
+                        cursor: 'pointer',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '0.35rem',
+                        fontSize: '0.78rem',
+                        fontWeight: 700,
+                        transition: 'all 0.15s ease',
+                      }}
+                      title="Copy direct link to this lesson"
+                    >
+                      {copiedLink ? <Check size={14} /> : <Share2 size={14} />}
+                      <span>{copiedLink ? 'Copied!' : 'Share'}</span>
+                    </button>
+
+                    <div style={{ width: '1px', height: '18px', background: 'rgba(255, 255, 255, 0.12)', margin: '0 0.1rem' }} />
+
                     <button
                       type="button"
                       disabled={activeLessonIndex <= 0}
-                      onClick={() => setActiveLessonId(lessons[activeLessonIndex - 1].id)}
+                      onClick={handlePrevLesson}
                       style={{
                         padding: '0.45rem 0.75rem',
                         borderRadius: '8px',
@@ -2544,7 +2941,7 @@ export function StudentCourseDetailClient({ initialData }: StudentCourseDetailCl
                     <button
                       type="button"
                       disabled={activeLessonIndex >= lessons.length - 1}
-                      onClick={() => setActiveLessonId(lessons[activeLessonIndex + 1].id)}
+                      onClick={handleNextLesson}
                       style={{
                         padding: '0.45rem 0.75rem',
                         borderRadius: '8px',
@@ -2677,7 +3074,7 @@ export function StudentCourseDetailClient({ initialData }: StudentCourseDetailCl
                       </div>
                       <button
                         type="button"
-                        onClick={() => setActiveTab('tasks')}
+                        onClick={() => handleTabChange('tasks')}
                         style={{
                           padding: '0.4rem 0.85rem',
                           borderRadius: '8px',
@@ -2716,7 +3113,7 @@ export function StudentCourseDetailClient({ initialData }: StudentCourseDetailCl
                       </div>
                       <button
                         type="button"
-                        onClick={() => setActiveTab('quizzes')}
+                        onClick={() => handleTabChange('quizzes')}
                         style={{
                           padding: '0.4rem 0.85rem',
                           borderRadius: '8px',
@@ -2839,8 +3236,8 @@ export function StudentCourseDetailClient({ initialData }: StudentCourseDetailCl
                 <h3 style={{ fontSize: '1.2rem', fontWeight: 850, color: '#FFFFFF', margin: '0 0 0.35rem 0' }}>
                   No Tasks or Assignments Yet
                 </h3>
-                <p style={{ fontSize: '0.94rem', color: '#CBD5E1', maxWidth: '520px', margin: '0 auto 0.5rem auto', lineHeight: 1.6 }} dir="rtl">
-                  لم يتم إسناد مهام في هذا المسار بعد. ستظهر التكليفات العملية والمشاريع هنا فور نشرها من قبل مدربي المسار التقني مع مواعيد التسليم المحددة.
+                <p style={{ fontSize: '0.94rem', color: '#CBD5E1', maxWidth: '540px', margin: '0 auto 0.5rem auto', lineHeight: 1.6 }}>
+                  No assignments have been assigned to this track yet. Hands-on projects and milestones will appear here once published by track leads with submission deadlines.
                 </p>
                 <div style={{ fontSize: '0.8rem', color: '#64748B' }}>
                   Practical milestones and assignment prompts will appear here automatically when released.
@@ -2936,25 +3333,49 @@ export function StudentCourseDetailClient({ initialData }: StudentCourseDetailCl
                         </h3>
                       </div>
 
-                      {/* Due Date Indicator */}
-                      {t.due_date && (
-                        <div
-                          style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '0.4rem',
-                            padding: '0.35rem 0.75rem',
-                            borderRadius: '8px',
-                            background: 'rgba(255, 255, 255, 0.05)',
-                            border: '1px solid rgba(255, 255, 255, 0.08)',
-                            fontSize: '0.78rem',
-                            color: '#94A3B8',
-                          }}
-                        >
-                          <Clock3 size={14} style={{ color: '#FBBF24' }} />
-                          Due: {new Date(t.due_date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
-                        </div>
-                      )}
+                      {/* Due Date Urgency Indicator */}
+                      {(() => {
+                        const deadline = getTaskDeadlineInfo(t.due_date, isSubmitted || isGraded);
+                        if (!deadline) return null;
+
+                        return (
+                          <div
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '0.45rem',
+                              padding: '0.35rem 0.75rem',
+                              borderRadius: '8px',
+                              background: deadline.background,
+                              border: deadline.border,
+                              fontSize: '0.78rem',
+                              fontWeight: 700,
+                              color: deadline.color,
+                            }}
+                          >
+                            {deadline.icon === 'alert' ? (
+                              <AlertCircle size={14} style={{ color: deadline.color }} />
+                            ) : deadline.icon === 'clock' ? (
+                              <Clock3 size={14} style={{ color: deadline.color }} />
+                            ) : (
+                              <Calendar size={14} style={{ color: deadline.color }} />
+                            )}
+                            <span>{deadline.label}</span>
+                            {deadline.pulse && (
+                              <span
+                                style={{
+                                  width: '6px',
+                                  height: '6px',
+                                  borderRadius: '50%',
+                                  background: deadline.color,
+                                  boxShadow: `0 0 8px ${deadline.color}`,
+                                  animation: 'pulse 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                                }}
+                              />
+                            )}
+                          </div>
+                        );
+                      })()}
                     </div>
 
                     {/* Task Description */}
@@ -3494,8 +3915,30 @@ export function StudentCourseDetailClient({ initialData }: StudentCourseDetailCl
                   {submittingTask.title}
                 </div>
                 {submittingTask.due_date && (
-                  <div style={{ fontSize: '0.78rem', color: '#94A3B8', marginTop: '0.2rem' }}>
-                    Deadline: {new Date(submittingTask.due_date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+                  <div style={{ marginTop: '0.35rem' }}>
+                    {(() => {
+                      const dl = getTaskDeadlineInfo(submittingTask.due_date, false);
+                      if (!dl) return null;
+                      return (
+                        <div
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '0.4rem',
+                            padding: '0.25rem 0.65rem',
+                            borderRadius: '6px',
+                            background: dl.background,
+                            border: dl.border,
+                            fontSize: '0.74rem',
+                            color: dl.color,
+                            fontWeight: 700,
+                          }}
+                        >
+                          {dl.icon === 'alert' ? <AlertCircle size={13} /> : <Clock3 size={13} />}
+                          <span>{dl.label}</span>
+                        </div>
+                      );
+                    })()}
                   </div>
                 )}
               </div>
@@ -3532,54 +3975,108 @@ export function StudentCourseDetailClient({ initialData }: StudentCourseDetailCl
                 </div>
               )}
 
-              {(submittingTask.submission_type === 'link' || submittingTask.submission_type === 'both') && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
-                  <label style={{ fontSize: '0.82rem', fontWeight: 700, color: '#CBD5E1' }}>
-                    Solution URL {submittingTask.submission_type === 'link' ? '*' : '(Optional if file provided)'}
-                  </label>
-                  <input
-                    type="url"
-                    value={taskSubmissionLink}
-                    onChange={(e) => setTaskSubmissionLink(e.target.value)}
-                    placeholder="https://github.com/... or https://colab.research.google.com/..."
-                    style={{
-                      padding: '0.75rem 1rem',
-                      borderRadius: '10px',
-                      background: 'rgba(255, 255, 255, 0.05)',
-                      border: '1px solid rgba(255, 255, 255, 0.12)',
-                      color: '#FFFFFF',
-                      fontSize: '0.88rem',
-                      outline: 'none',
-                    }}
-                  />
-                  <span style={{ fontSize: '0.72rem', color: '#94A3B8' }}>
-                    Paste a link to your public repository, Google Colab notebook, Figma board, or Drive file.
-                  </span>
-                </div>
-              )}
+              {(submittingTask.submission_type === 'link' || submittingTask.submission_type === 'both') && (() => {
+                const detectedPlatform = detectLinkPlatform(taskSubmissionLink);
+                return (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem' }}>
+                      <label style={{ fontSize: '0.82rem', fontWeight: 700, color: '#CBD5E1' }}>
+                        Solution URL {submittingTask.submission_type === 'link' ? '*' : '(Optional if file provided)'}
+                      </label>
+                      {detectedPlatform && (
+                        <span
+                          style={{
+                            fontSize: '0.72rem',
+                            padding: '0.15rem 0.55rem',
+                            borderRadius: '6px',
+                            background: detectedPlatform.bg,
+                            color: detectedPlatform.color,
+                            border: `1px solid ${detectedPlatform.border}`,
+                            fontWeight: 700,
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '0.3rem',
+                          }}
+                        >
+                          <Check size={11} />
+                          {detectedPlatform.badge}
+                        </span>
+                      )}
+                    </div>
+                    <input
+                      type="url"
+                      value={taskSubmissionLink}
+                      onChange={(e) => setTaskSubmissionLink(e.target.value)}
+                      placeholder="https://github.com/... or https://colab.research.google.com/..."
+                      style={{
+                        padding: '0.75rem 1rem',
+                        borderRadius: '10px',
+                        background: 'rgba(255, 255, 255, 0.05)',
+                        border: detectedPlatform
+                          ? `1px solid ${detectedPlatform.border}`
+                          : '1px solid rgba(255, 255, 255, 0.12)',
+                        color: '#FFFFFF',
+                        fontSize: '0.88rem',
+                        outline: 'none',
+                        transition: 'border 0.2s ease',
+                      }}
+                    />
+                    <span style={{ fontSize: '0.72rem', color: '#94A3B8' }}>
+                      Paste a link to your public repository, Google Colab notebook, Figma board, or Drive file.
+                    </span>
+                  </div>
+                );
+              })()}
 
-              {(submittingTask.submission_type === 'file' || submittingTask.submission_type === 'both') && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
-                  <label style={{ fontSize: '0.82rem', fontWeight: 700, color: '#CBD5E1' }}>
-                    File Drive Link or ID {submittingTask.submission_type === 'file' ? '*' : '(Optional)'}
-                  </label>
-                  <input
-                    type="text"
-                    value={taskSubmissionDriveId}
-                    onChange={(e) => setTaskSubmissionDriveId(e.target.value)}
-                    placeholder="Google Drive link or file ID"
-                    style={{
-                      padding: '0.75rem 1rem',
-                      borderRadius: '10px',
-                      background: 'rgba(255, 255, 255, 0.05)',
-                      border: '1px solid rgba(255, 255, 255, 0.12)',
-                      color: '#FFFFFF',
-                      fontSize: '0.88rem',
-                      outline: 'none',
-                    }}
-                  />
-                </div>
-              )}
+              {(submittingTask.submission_type === 'file' || submittingTask.submission_type === 'both') && (() => {
+                const isDriveLink = taskSubmissionDriveId.toLowerCase().includes('drive.google.com');
+                return (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem' }}>
+                      <label style={{ fontSize: '0.82rem', fontWeight: 700, color: '#CBD5E1' }}>
+                        File Drive Link or ID {submittingTask.submission_type === 'file' ? '*' : '(Optional)'}
+                      </label>
+                      {isDriveLink && (
+                        <span
+                          style={{
+                            fontSize: '0.72rem',
+                            padding: '0.15rem 0.55rem',
+                            borderRadius: '6px',
+                            background: 'rgba(52, 168, 83, 0.15)',
+                            color: '#34D399',
+                            border: '1px solid rgba(52, 168, 83, 0.35)',
+                            fontWeight: 700,
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '0.3rem',
+                          }}
+                        >
+                          <Check size={11} />
+                          Google Drive Link ✓
+                        </span>
+                      )}
+                    </div>
+                    <input
+                      type="text"
+                      value={taskSubmissionDriveId}
+                      onChange={(e) => setTaskSubmissionDriveId(e.target.value)}
+                      placeholder="https://drive.google.com/file/d/... or file ID"
+                      style={{
+                        padding: '0.75rem 1rem',
+                        borderRadius: '10px',
+                        background: 'rgba(255, 255, 255, 0.05)',
+                        border: isDriveLink
+                          ? '1px solid rgba(52, 168, 83, 0.45)'
+                          : '1px solid rgba(255, 255, 255, 0.12)',
+                        color: '#FFFFFF',
+                        fontSize: '0.88rem',
+                        outline: 'none',
+                        transition: 'border 0.2s ease',
+                      }}
+                    />
+                  </div>
+                );
+              })()}
 
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '0.5rem' }}>
                 <button
@@ -4047,8 +4544,10 @@ export function StudentCourseDetailClient({ initialData }: StudentCourseDetailCl
           <button
             type="button"
             onClick={() => {
-              setActiveTab('sessions');
-              window.scrollTo({ top: 400, behavior: 'smooth' });
+              handleTabChange('sessions');
+              const el = document.getElementById('course-workspace-tabs');
+              if (el) el.scrollIntoView({ behavior: 'smooth' });
+              else window.scrollTo({ top: 400, behavior: 'smooth' });
             }}
             style={{
               padding: '0.65rem 1.15rem',
