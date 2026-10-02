@@ -151,69 +151,230 @@ export function StudentCertificatesClient({ student, certificates }: StudentCert
         <div
           className="glass-panel"
           style={{
-            padding: '4rem 2rem',
+            padding: 'clamp(2.5rem, 5vw, 4rem) clamp(1.25rem, 4vw, 2.5rem)',
             textAlign: 'center',
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
-            gap: '1.25rem',
+            gap: '1.75rem',
+            borderRadius: '24px',
+            background:
+              'radial-gradient(ellipse at top, rgba(251, 188, 4, 0.12) 0%, rgba(66, 133, 244, 0.05) 50%, rgba(15, 23, 42, 0.75) 100%)',
+            border: '1px solid rgba(251, 188, 4, 0.25)',
+            position: 'relative',
+            overflow: 'hidden',
           }}
         >
+          {/* Subtle Google Colors Top Line */}
           <div
             style={{
-              width: '64px',
-              height: '64px',
-              borderRadius: '16px',
-              background: 'rgba(251, 188, 4, 0.12)',
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              height: '3px',
+              background: 'linear-gradient(90deg, #4285F4 25%, #EA4335 25% 50%, #FBBC04 50% 75%, #34A853 75%)',
+            }}
+          />
+
+          {/* Animated Glowing Icon */}
+          <div
+            style={{
+              position: 'relative',
+              width: '80px',
+              height: '80px',
+              borderRadius: '24px',
+              background: 'linear-gradient(135deg, rgba(251, 188, 4, 0.25) 0%, rgba(234, 67, 53, 0.15) 100%)',
+              border: '1.5px solid rgba(251, 188, 4, 0.5)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               color: '#FBBF24',
+              boxShadow: '0 0 35px -5px rgba(251, 188, 4, 0.35)',
             }}
           >
-            <Award size={32} />
+            <Award size={40} />
+            <Sparkles
+              size={18}
+              style={{
+                position: 'absolute',
+                top: '-4px',
+                right: '-4px',
+                color: '#FBBF24',
+                filter: 'drop-shadow(0 0 6px rgba(251, 188, 4, 0.8))',
+              }}
+            />
           </div>
-          <div>
-            <h2 style={{ fontSize: '1.3rem', fontWeight: 800, color: '#FFFFFF', margin: '0 0 0.4rem 0' }}>
-              No Certificates Conferred Yet
+
+          <div style={{ maxWidth: '680px' }}>
+            <div
+              style={{
+                fontSize: '0.78rem',
+                fontWeight: 800,
+                color: '#FBBF24',
+                textTransform: 'uppercase',
+                letterSpacing: '0.08em',
+                marginBottom: '0.4rem',
+              }}
+            >
+              Academic Accreditation Portal
+            </div>
+            <h2
+              style={{
+                fontSize: 'clamp(1.4rem, 3.5vw, 1.85rem)',
+                fontWeight: 900,
+                color: '#FFFFFF',
+                margin: '0 0 0.85rem 0',
+                letterSpacing: '-0.02em',
+              }}
+            >
+              Certificates Awaiting Your Achievement
             </h2>
-            <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary, #94A3B8)', margin: 0, maxWidth: '520px', lineHeight: 1.5 }}>
-              Complete enrolled technical courses or hands-on bootcamps by attending sessions, completing assignments, and passing quizzes to earn your verified credentials.
+
+            {/* Accreditation Guidance Note */}
+            <div
+              style={{
+                padding: '1.15rem 1.5rem',
+                borderRadius: '16px',
+                background: 'rgba(251, 188, 4, 0.08)',
+                border: '1px solid rgba(251, 188, 4, 0.22)',
+                margin: '0.75rem 0 1.25rem 0',
+                boxShadow: '0 4px 20px -5px rgba(0, 0, 0, 0.3)',
+              }}
+            >
+              <p
+                style={{
+                  fontSize: 'clamp(0.95rem, 2.5vw, 1.05rem)',
+                  color: '#FEF3C7',
+                  lineHeight: 1.7,
+                  fontWeight: 600,
+                  margin: 0,
+                }}
+              >
+                &ldquo;Official accredited certificates are awarded upon successfully completing all track sessions and checkpoint quizzes. Explore available tracks now and begin your journey!&rdquo;
+              </p>
+            </div>
+
+            <p style={{ fontSize: '0.88rem', color: '#94A3B8', margin: 0, lineHeight: 1.6 }}>
+              Every completed curriculum delivers a verifiable digital accreditation stamped by Google Developer Groups on Campus Helwan National University, with QR code validation and one-click LinkedIn sharing.
             </p>
           </div>
-          <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.5rem', flexWrap: 'wrap' }}>
+
+          {/* 3-Step Milestone Roadmap */}
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))',
+              gap: '1rem',
+              width: '100%',
+              maxWidth: '780px',
+              textAlign: 'left',
+              marginTop: '0.5rem',
+            }}
+          >
+            <div
+              className="widget-interactive-item"
+              style={{
+                padding: '1rem 1.15rem',
+                borderRadius: '14px',
+                background: 'rgba(255, 255, 255, 0.03)',
+                border: '1px solid rgba(255, 255, 255, 0.08)',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.35rem' }}>
+                <div style={{ width: '24px', height: '24px', borderRadius: '50%', background: 'rgba(66, 133, 244, 0.2)', color: '#60A5FA', fontSize: '0.75rem', fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  1
+                </div>
+                <span style={{ fontWeight: 800, fontSize: '0.86rem', color: '#FFFFFF' }}>Join a Track</span>
+              </div>
+              <div style={{ fontSize: '0.76rem', color: '#94A3B8', lineHeight: 1.4 }}>
+                Enroll in specialized tracks across AI, Web, Mobile, Cyber, or Cloud.
+              </div>
+            </div>
+
+            <div
+              className="widget-interactive-item"
+              style={{
+                padding: '1rem 1.15rem',
+                borderRadius: '14px',
+                background: 'rgba(255, 255, 255, 0.03)',
+                border: '1px solid rgba(255, 255, 255, 0.08)',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.35rem' }}>
+                <div style={{ width: '24px', height: '24px', borderRadius: '50%', background: 'rgba(52, 168, 83, 0.2)', color: '#34D399', fontSize: '0.75rem', fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  2
+                </div>
+                <span style={{ fontWeight: 800, fontSize: '0.86rem', color: '#FFFFFF' }}>Attend & Learn</span>
+              </div>
+              <div style={{ fontSize: '0.76rem', color: '#94A3B8', lineHeight: 1.4 }}>
+                Attend practical workshops, complete assignments, and pass quizzes.
+              </div>
+            </div>
+
+            <div
+              className="widget-interactive-item"
+              style={{
+                padding: '1rem 1.15rem',
+                borderRadius: '14px',
+                background: 'rgba(255, 255, 255, 0.03)',
+                border: '1px solid rgba(255, 255, 255, 0.08)',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.35rem' }}>
+                <div style={{ width: '24px', height: '24px', borderRadius: '50%', background: 'rgba(251, 188, 4, 0.2)', color: '#FBBF24', fontSize: '0.75rem', fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  3
+                </div>
+                <span style={{ fontWeight: 800, fontSize: '0.86rem', color: '#FFFFFF' }}>Get Certified</span>
+              </div>
+              <div style={{ fontSize: '0.76rem', color: '#94A3B8', lineHeight: 1.4 }}>
+                Receive official accreditation with verifiable QR serial and badge.
+              </div>
+            </div>
+          </div>
+
+          {/* Primary & Secondary Call to Actions */}
+          <div style={{ display: 'flex', gap: '1rem', marginTop: '0.5rem', flexWrap: 'wrap', justifyContent: 'center' }}>
             <Link
               href="/student/courses"
-              className="btn-primary"
               style={{
                 display: 'inline-flex',
                 alignItems: 'center',
-                gap: '0.5rem',
-                padding: '0.75rem 1.4rem',
-                fontSize: '0.88rem',
+                gap: '0.65rem',
+                padding: '0.9rem 2.2rem',
+                fontSize: '0.98rem',
+                fontWeight: 800,
+                borderRadius: '12px',
+                background: 'linear-gradient(135deg, #4285F4 0%, #2563EB 100%)',
+                color: '#FFFFFF',
                 textDecoration: 'none',
+                boxShadow: '0 8px 25px -4px rgba(66, 133, 244, 0.5)',
+                transition: 'all 0.2s ease',
               }}
             >
+              <BookOpen size={18} />
               <span>Explore Courses</span>
-              <ArrowRight size={15} />
+              <ArrowRight size={16} />
             </Link>
             <Link
               href="/student/workshops"
               style={{
                 display: 'inline-flex',
                 alignItems: 'center',
-                gap: '0.5rem',
-                padding: '0.75rem 1.4rem',
-                fontSize: '0.88rem',
-                borderRadius: '8px',
-                background: 'rgba(255, 255, 255, 0.06)',
-                border: '1px solid rgba(255, 255, 255, 0.12)',
+                gap: '0.6rem',
+                padding: '0.9rem 1.75rem',
+                fontSize: '0.92rem',
+                borderRadius: '12px',
+                background: 'rgba(255, 255, 255, 0.05)',
+                border: '1px solid rgba(255, 255, 255, 0.15)',
                 color: '#FFFFFF',
                 fontWeight: 700,
                 textDecoration: 'none',
+                transition: 'all 0.2s ease',
               }}
             >
-              <span>View Bootcamps</span>
+              <Calendar size={16} color="#FBBF24" />
+              <span>View Workshops</span>
             </Link>
           </div>
         </div>
@@ -226,7 +387,7 @@ export function StudentCertificatesClient({ student, certificates }: StudentCert
             return (
               <div
                 key={cert.id}
-                className="glass-panel"
+                className="glass-panel student-cert-card"
                 style={{
                   padding: '1.75rem',
                   display: 'flex',

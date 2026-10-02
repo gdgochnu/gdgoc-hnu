@@ -40,7 +40,7 @@ interface StudentDashboardClientProps {
 export function StudentDashboardClient({ initialData }: StudentDashboardClientProps) {
   const { student, teamProfile, stats, courses, workshops, tasks, quizzes, attendance, certificates } = initialData;
 
-  type TabType = 'courses' | 'workshops' | 'tasks' | 'quizzes' | 'attendance' | 'certificates';
+  type TabType = 'courses' | 'workshops' | 'tasks' | 'quizzes' | 'attendance' | 'certificates' | 'pathway';
   const [activeTab, setActiveTab] = useState<TabType>('courses');
   const [workshopFilter, setWorkshopFilter] = useState<'all' | 'upcoming' | 'past'>('all');
   const [taskFilter, setTaskFilter] = useState<'all' | 'pending' | 'submitted' | 'graded'>('all');
@@ -50,7 +50,7 @@ export function StudentDashboardClient({ initialData }: StudentDashboardClientPr
     try {
       const params = new URLSearchParams(window.location.search);
       const tabParam = params.get('tab');
-      const validTabs: TabType[] = ['courses', 'workshops', 'tasks', 'quizzes', 'attendance', 'certificates'];
+      const validTabs: TabType[] = ['courses', 'workshops', 'tasks', 'quizzes', 'attendance', 'certificates', 'pathway'];
       if (tabParam && validTabs.includes(tabParam as TabType)) {
         setActiveTab(tabParam as TabType);
       }
@@ -69,6 +69,8 @@ export function StudentDashboardClient({ initialData }: StudentDashboardClientPr
   const pendingTasks = tasks.filter((t) => t.status === 'pending' || t.status === 'needs_revision');
   const availableQuizzes = quizzes.filter((q) => q.status === 'available');
   const recentFeedbackList = initialData.recent_feedback || [];
+  const isNewStudent = courses.length === 0 && workshops.length === 0;
+  const hasAnySignals = pendingTasks.length > 0 || availableQuizzes.length > 0 || recentFeedbackList.length > 0;
 
   const getYearLabel = (year: number | null) => {
     if (!year) return 'Student Member';
@@ -215,48 +217,92 @@ export function StudentDashboardClient({ initialData }: StudentDashboardClientPr
             </div>
           </div>
 
-          {/* Quick Action Buttons */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap', width: '100%' }}>
+          {/* Quick Action Toolbar (Compact integration of student workspaces) */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', flexWrap: 'wrap', width: '100%', marginTop: '0.35rem' }}>
             <Link
               href="/student/my-qr"
-              className="btn-primary student-mobile-full-btn"
+              className="dashboard-toolbar-btn"
               style={{
-                display: 'flex',
+                display: 'inline-flex',
                 alignItems: 'center',
-                justifyContent: 'center',
-                gap: '0.5rem',
-                padding: '0.65rem 1.25rem',
-                fontSize: '0.9rem',
+                gap: '0.45rem',
+                padding: '0.55rem 1.05rem',
+                borderRadius: '10px',
+                background: 'linear-gradient(135deg, #4285F4 0%, #2563EB 100%)',
+                color: '#FFFFFF',
+                fontSize: '0.84rem',
+                fontWeight: 800,
+                textDecoration: 'none',
+                boxShadow: '0 4px 14px rgba(66, 133, 244, 0.35)',
+              }}
+            >
+              <QrCode size={15} />
+              <span>Attendance Pass</span>
+            </Link>
+
+            <Link
+              href="/student/courses"
+              className="dashboard-toolbar-btn"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.45rem',
+                padding: '0.55rem 1.05rem',
+                borderRadius: '10px',
+                background: 'rgba(255, 255, 255, 0.05)',
+                border: '1px solid rgba(255, 255, 255, 0.12)',
+                color: '#FFFFFF',
+                fontSize: '0.84rem',
+                fontWeight: 700,
                 textDecoration: 'none',
               }}
             >
-              <QrCode size={16} />
-              <span>View Attendance Pass</span>
-              <ChevronRight size={16} />
+              <BookOpen size={15} color="#34D399" />
+              <span>Curriculum & Tracks</span>
+            </Link>
+
+            <Link
+              href="/student/certificates"
+              className="dashboard-toolbar-btn"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.45rem',
+                padding: '0.55rem 1.05rem',
+                borderRadius: '10px',
+                background: 'rgba(255, 255, 255, 0.05)',
+                border: '1px solid rgba(255, 255, 255, 0.12)',
+                color: '#FFFFFF',
+                fontSize: '0.84rem',
+                fontWeight: 700,
+                textDecoration: 'none',
+              }}
+            >
+              <Award size={15} color="#FBBF24" />
+              <span>Certificates</span>
             </Link>
 
             {teamProfile && (
               <Link
                 href="/dashboard"
-                className="student-mobile-full-btn"
+                className="dashboard-toolbar-btn"
                 style={{
-                  display: 'flex',
+                  display: 'inline-flex',
                   alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '0.5rem',
-                  padding: '0.65rem 1.15rem',
-                  borderRadius: '8px',
+                  gap: '0.45rem',
+                  padding: '0.55rem 1.05rem',
+                  borderRadius: '10px',
                   background: 'rgba(16, 185, 129, 0.15)',
                   border: '1px solid rgba(16, 185, 129, 0.35)',
                   color: '#34D399',
-                  fontSize: '0.88rem',
+                  fontSize: '0.84rem',
                   fontWeight: 700,
                   textDecoration: 'none',
                 }}
               >
-                <ShieldCheck size={16} />
-                <span>Switch to Chapter OS</span>
-                <ExternalLink size={14} />
+                <ShieldCheck size={15} />
+                <span>Chapter OS</span>
+                <ExternalLink size={12} />
               </Link>
             )}
           </div>
@@ -270,7 +316,7 @@ export function StudentDashboardClient({ initialData }: StudentDashboardClientPr
         {/* Card 1: Enrolled Courses */}
         <div
           onClick={() => handleTabChange('courses')}
-          className="glass-panel kpi-card"
+          className="glass-panel kpi-card kpi-card-blue"
           style={{
             padding: '1.5rem',
             display: 'flex',
@@ -278,7 +324,6 @@ export function StudentDashboardClient({ initialData }: StudentDashboardClientPr
             gap: '0.75rem',
             height: '100%',
             cursor: 'pointer',
-            transition: 'all 0.2s',
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -311,7 +356,7 @@ export function StudentDashboardClient({ initialData }: StudentDashboardClientPr
         {/* Card 2: Workshops */}
         <div
           onClick={() => handleTabChange('workshops')}
-          className="glass-panel kpi-card"
+          className="glass-panel kpi-card kpi-card-green"
           style={{
             padding: '1.5rem',
             display: 'flex',
@@ -319,7 +364,6 @@ export function StudentDashboardClient({ initialData }: StudentDashboardClientPr
             gap: '0.75rem',
             height: '100%',
             cursor: 'pointer',
-            transition: 'all 0.2s',
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -352,7 +396,7 @@ export function StudentDashboardClient({ initialData }: StudentDashboardClientPr
         {/* Card 3: Attendance Summary */}
         <div
           onClick={() => handleTabChange('attendance')}
-          className="glass-panel kpi-card"
+          className="glass-panel kpi-card kpi-card-yellow"
           style={{
             padding: '1.5rem',
             display: 'flex',
@@ -360,7 +404,6 @@ export function StudentDashboardClient({ initialData }: StudentDashboardClientPr
             gap: '0.75rem',
             height: '100%',
             cursor: 'pointer',
-            transition: 'all 0.2s',
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -416,7 +459,7 @@ export function StudentDashboardClient({ initialData }: StudentDashboardClientPr
         {/* Card 4: Deliverables & Tasks */}
         <div
           onClick={() => handleTabChange('tasks')}
-          className="glass-panel kpi-card"
+          className="glass-panel kpi-card kpi-card-red"
           style={{
             padding: '1.5rem',
             display: 'flex',
@@ -424,7 +467,6 @@ export function StudentDashboardClient({ initialData }: StudentDashboardClientPr
             gap: '0.75rem',
             height: '100%',
             cursor: 'pointer',
-            transition: 'all 0.2s',
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -456,185 +498,104 @@ export function StudentDashboardClient({ initialData }: StudentDashboardClientPr
       </div>
 
       {/* ========================================================================= */}
-      {/* 3. STUDENT WORKSPACES & TOOLS (MATCHES LAUNCHPAD ON TEAM DASHBOARD) */}
+      {/* 3. ACTIVE SIGNALS OR ONBOARDING ROADMAP FOR NEW STUDENTS */}
       {/* ========================================================================= */}
-      <div>
-        <h2 style={{ fontSize: '1.25rem', fontWeight: 800, marginBottom: '1.25rem', letterSpacing: '-0.02em', color: '#FFFFFF' }}>
-          Learning Workspaces & Tools
-        </h2>
-
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '1rem' }}>
-          {/* Tool 1: Permanent Attendance Pass */}
-          <Link
-            href="/student/my-qr"
-            className="glass-panel"
-            style={{
-              padding: '1.25rem',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '1rem',
-              textDecoration: 'none',
-              color: 'inherit',
-            }}
-          >
-            <div
-              style={{
-                width: '44px',
-                height: '44px',
-                borderRadius: '12px',
-                background: 'rgba(66, 133, 244, 0.15)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                flexShrink: 0,
-              }}
-            >
-              <QrCode size={22} color="var(--google-blue, #4285F4)" />
-            </div>
-            <div>
-              <div style={{ fontWeight: 700, fontSize: '0.94rem', color: '#FFFFFF' }}>
-                My Attendance Pass
-              </div>
-              <div style={{ fontSize: '0.78rem', color: 'var(--text-muted, #94A3B8)', marginTop: '0.15rem' }}>
-                Digital pass for HR event scanning
-              </div>
-            </div>
-          </Link>
-
-          {/* Tool 2: Tracks & Syllabus */}
-          <Link
-            href="/student/courses"
-            className="glass-panel"
-            style={{
-              padding: '1.25rem',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '1rem',
-              textDecoration: 'none',
-              color: 'inherit',
-            }}
-          >
-            <div
-              style={{
-                width: '44px',
-                height: '44px',
-                borderRadius: '12px',
-                background: 'rgba(52, 168, 83, 0.15)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                flexShrink: 0,
-              }}
-            >
-              <BookOpen size={22} color="var(--google-green, #34A853)" />
-            </div>
-            <div>
-              <div style={{ fontWeight: 700, fontSize: '0.94rem', color: '#FFFFFF' }}>
-                Curriculum & Tracks
-              </div>
-              <div style={{ fontSize: '0.78rem', color: 'var(--text-muted, #94A3B8)', marginTop: '0.15rem' }}>
-                Browse Web, Mobile, AI/ML, Cloud
-              </div>
-            </div>
-          </Link>
-
-          {/* Tool 3: Certificates */}
+      {isNewStudent && !hasAnySignals ? (
+        <div
+          className="glass-panel"
+          style={{
+            padding: 'clamp(1.5rem, 3vw, 2.25rem)',
+            borderRadius: '20px',
+            background:
+              'radial-gradient(ellipse at top left, rgba(66, 133, 244, 0.12) 0%, rgba(52, 168, 83, 0.08) 50%, rgba(15, 23, 42, 0.75) 100%)',
+            border: '1px solid rgba(66, 133, 244, 0.25)',
+            position: 'relative',
+            overflow: 'hidden',
+          }}
+        >
           <div
-            onClick={() => handleTabChange('certificates')}
-            className="glass-panel"
             style={{
-              padding: '1.25rem',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '1rem',
-              cursor: 'pointer',
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              height: '3px',
+              background: 'linear-gradient(90deg, #4285F4 25%, #EA4335 25% 50%, #FBBC04 50% 75%, #34A853 75%)',
             }}
-          >
-            <div
-              style={{
-                width: '44px',
-                height: '44px',
-                borderRadius: '12px',
-                background: 'rgba(251, 188, 4, 0.15)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                flexShrink: 0,
-              }}
-            >
-              <Award size={22} color="var(--google-yellow, #FBBC04)" />
-            </div>
-            <div>
-              <div style={{ fontWeight: 700, fontSize: '0.94rem', color: '#FFFFFF' }}>
-                Verified Certificates
-              </div>
-              <div style={{ fontSize: '0.78rem', color: 'var(--text-muted, #94A3B8)', marginTop: '0.15rem' }}>
-                President-approved completion credentials
-              </div>
-            </div>
-          </div>
+          />
 
-          {/* Tool 4: Dual-Role OS Link (if team member) */}
-          {teamProfile && (
-            <Link
-              href="/dashboard"
-              className="glass-panel"
-              style={{
-                padding: '1.25rem',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '1rem',
-                textDecoration: 'none',
-                color: 'inherit',
-                border: '1px solid rgba(16, 185, 129, 0.3)',
-              }}
-            >
-              <div
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1.5rem', flexWrap: 'wrap' }}>
+            <div style={{ maxWidth: '640px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.4rem' }}>
+                <span style={{ fontSize: '0.74rem', fontWeight: 800, color: '#60A5FA', background: 'rgba(66, 133, 244, 0.15)', padding: '0.2rem 0.65rem', borderRadius: '999px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                  ★ Your Learning Journey
+                </span>
+                <span style={{ fontSize: '0.8rem', color: '#94A3B8' }}>Start with GDGoC HNU</span>
+              </div>
+              <h3 style={{ fontSize: 'clamp(1.2rem, 2.5vw, 1.45rem)', fontWeight: 850, color: '#FFFFFF', margin: '0 0 0.45rem 0' }}>
+                Ready to Level Up Your Skills? 🚀
+              </h3>
+              <p style={{ fontSize: '0.92rem', color: '#CBD5E1', margin: 0, lineHeight: 1.7 }}>
+                Welcome to your academic platform! Select your specialized tech track (Web, Mobile, AI, Cloud, Cybersecurity) or register for an upcoming workshop to unlock assignments, live sessions, and accredited certifications.
+              </p>
+            </div>
+
+            <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+              <Link
+                href="/student/courses"
+                className="btn-primary"
                 style={{
-                  width: '44px',
-                  height: '44px',
-                  borderRadius: '12px',
-                  background: 'rgba(16, 185, 129, 0.15)',
-                  display: 'flex',
+                  display: 'inline-flex',
                   alignItems: 'center',
-                  justifyContent: 'center',
-                  flexShrink: 0,
+                  gap: '0.5rem',
+                  padding: '0.75rem 1.4rem',
+                  fontSize: '0.88rem',
+                  textDecoration: 'none',
                 }}
               >
-                <ShieldCheck size={22} color="#34D399" />
-              </div>
-              <div>
-                <div style={{ fontWeight: 700, fontSize: '0.94rem', color: '#FFFFFF' }}>
-                  Chapter Operations OS
-                </div>
-                <div style={{ fontSize: '0.78rem', color: 'var(--text-muted, #94A3B8)', marginTop: '0.15rem' }}>
-                  Committee tasks, meetings & reviews
-                </div>
-              </div>
-            </Link>
-          )}
-        </div>
-      </div>
-
-      {/* ========================================================================= */}
-      {/* 3.5 ACTIVE ACADEMIC SIGNALS: PENDING TASKS, QUIZZES & RECENT FEEDBACK */}
-      {/* ========================================================================= */}
-      <div>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.25rem' }}>
-          <div>
-            <h2 style={{ fontSize: '1.25rem', fontWeight: 800, margin: 0, letterSpacing: '-0.02em', color: '#FFFFFF' }}>
-              Academic Signals & Active Deliverables
-            </h2>
-            <p style={{ fontSize: '0.84rem', color: 'var(--text-secondary, #94A3B8)', margin: '0.2rem 0 0 0' }}>
-              Deadlines, interactive knowledge checks, and instructor evaluations
-            </p>
+                <BookOpen size={16} />
+                <span>Explore Tracks</span>
+                <ArrowRight size={15} />
+              </Link>
+              <Link
+                href="/student/workshops"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.5rem',
+                  padding: '0.75rem 1.3rem',
+                  fontSize: '0.88rem',
+                  borderRadius: '8px',
+                  background: 'rgba(255, 255, 255, 0.06)',
+                  border: '1px solid rgba(255, 255, 255, 0.15)',
+                  color: '#FFFFFF',
+                  fontWeight: 700,
+                  textDecoration: 'none',
+                }}
+              >
+                <Calendar size={16} color="#FBBF24" />
+                <span>Upcoming Workshops</span>
+              </Link>
+            </div>
           </div>
         </div>
+      ) : (
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.25rem' }}>
+            <div>
+              <h2 style={{ fontSize: '1.25rem', fontWeight: 800, margin: 0, letterSpacing: '-0.02em', color: '#FFFFFF' }}>
+                Academic Signals & Active Deliverables
+              </h2>
+              <p style={{ fontSize: '0.84rem', color: 'var(--text-secondary, #94A3B8)', margin: '0.2rem 0 0 0' }}>
+                Deadlines, interactive knowledge checks, and instructor evaluations
+              </p>
+            </div>
+          </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 300px), 1fr))', gap: '1.25rem' }}>
           {/* Widget 1: Pending Deliverables */}
           <div
-            className="glass-panel"
+            className="glass-panel interactive-widget-card widget-pending-tasks"
             style={{
               padding: '1.4rem',
               display: 'flex',
@@ -701,6 +662,7 @@ export function StudentDashboardClient({ initialData }: StudentDashboardClientPr
                   {pendingTasks.slice(0, 3).map((task) => (
                     <div
                       key={task.id}
+                      className="widget-interactive-item"
                       style={{
                         padding: '0.75rem 0.85rem',
                         borderRadius: '10px',
@@ -790,7 +752,7 @@ export function StudentDashboardClient({ initialData }: StudentDashboardClientPr
 
           {/* Widget 2: Quizzes Available */}
           <div
-            className="glass-panel"
+            className="glass-panel interactive-widget-card widget-quizzes"
             style={{
               padding: '1.4rem',
               display: 'flex',
@@ -855,6 +817,7 @@ export function StudentDashboardClient({ initialData }: StudentDashboardClientPr
                   {availableQuizzes.slice(0, 3).map((quiz) => (
                     <div
                       key={quiz.id}
+                      className="widget-interactive-item"
                       style={{
                         padding: '0.75rem 0.85rem',
                         borderRadius: '10px',
@@ -930,7 +893,7 @@ export function StudentDashboardClient({ initialData }: StudentDashboardClientPr
 
           {/* Widget 3: Recent Mentor Feedback Feed */}
           <div
-            className="glass-panel"
+            className="glass-panel interactive-widget-card widget-feedback"
             style={{
               padding: '1.4rem',
               display: 'flex',
@@ -997,6 +960,7 @@ export function StudentDashboardClient({ initialData }: StudentDashboardClientPr
                   {recentFeedbackList.slice(0, 3).map((fb) => (
                     <div
                       key={fb.id}
+                      className="widget-interactive-item"
                       style={{
                         padding: '0.75rem 0.85rem',
                         borderRadius: '10px',
@@ -1077,6 +1041,7 @@ export function StudentDashboardClient({ initialData }: StudentDashboardClientPr
           </div>
         </div>
       </div>
+    )}
 
       {/* ========================================================================= */}
       {/* 4. ACADEMIC HUB & ACTIVITY TABS */}
@@ -1094,14 +1059,21 @@ export function StudentDashboardClient({ initialData }: StudentDashboardClientPr
             overflowX: 'auto',
           }}
         >
-          {[
-            { id: 'courses', label: 'My Courses', count: courses.length },
-            { id: 'workshops', label: 'My Workshops', count: workshops.length },
-            { id: 'tasks', label: 'Tasks & Deliverables', count: tasks.length },
-            { id: 'quizzes', label: 'Quizzes', count: quizzes.length },
-            { id: 'attendance', label: 'Attendance History', count: attendance.length },
-            { id: 'certificates', label: 'Certificates', count: certificates.length },
-          ].map((tab) => {
+          {(isNewStudent
+            ? [
+                { id: 'courses' as TabType, label: 'Courses & Tracks', count: courses.length, badge: 'Start Here' },
+                { id: 'workshops' as TabType, label: 'Workshops & Bootcamps', count: workshops.length },
+                { id: 'pathway' as TabType, label: 'Learning Milestones', count: 0, isPathway: true },
+              ]
+            : [
+                { id: 'courses' as TabType, label: 'My Courses', count: courses.length },
+                { id: 'workshops' as TabType, label: 'My Workshops', count: workshops.length },
+                { id: 'tasks' as TabType, label: 'Tasks & Deliverables', count: tasks.length },
+                { id: 'quizzes' as TabType, label: 'Quizzes', count: quizzes.length },
+                { id: 'attendance' as TabType, label: 'Attendance History', count: attendance.length },
+                { id: 'certificates' as TabType, label: 'Certificates', count: certificates.length },
+              ]
+          ).map((tab) => {
             const isActive = activeTab === tab.id;
             return (
               <button
@@ -1125,6 +1097,25 @@ export function StudentDashboardClient({ initialData }: StudentDashboardClientPr
                 }}
               >
                 <span>{tab.label}</span>
+                {'badge' in tab && tab.badge && (
+                  <span
+                    style={{
+                      background: 'rgba(52, 168, 83, 0.25)',
+                      color: '#86EFAC',
+                      border: '1px solid rgba(52, 168, 83, 0.4)',
+                      fontSize: '0.68rem',
+                      fontWeight: 800,
+                      padding: '0.1rem 0.45rem',
+                      borderRadius: '999px',
+                      textTransform: 'uppercase',
+                    }}
+                  >
+                    {tab.badge}
+                  </span>
+                )}
+                {'isPathway' in tab && tab.isPathway && (
+                  <Sparkles size={14} color="#FBBF24" />
+                )}
                 {tab.count > 0 && (
                   <span
                     style={{
@@ -1200,7 +1191,7 @@ export function StudentDashboardClient({ initialData }: StudentDashboardClientPr
                     return (
                       <div
                         key={course.id}
-                        className="glass-panel"
+                        className="glass-panel student-course-card"
                         style={{
                           padding: '1.5rem',
                           display: 'flex',
@@ -1211,7 +1202,6 @@ export function StudentDashboardClient({ initialData }: StudentDashboardClientPr
                           borderRadius: '16px',
                           position: 'relative',
                           overflow: 'hidden',
-                          transition: 'transform 0.2s ease, border-color 0.2s ease',
                         }}
                       >
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.9rem' }}>
@@ -1560,7 +1550,7 @@ export function StudentDashboardClient({ initialData }: StudentDashboardClientPr
                       return (
                         <div
                           key={ws.id}
-                          className="glass-panel"
+                          className="glass-panel student-workshop-card"
                           style={{
                             padding: '1.5rem',
                             display: 'flex',
@@ -1932,7 +1922,7 @@ export function StudentDashboardClient({ initialData }: StudentDashboardClientPr
                     {filteredTasks.map((task) => (
                       <div
                         key={task.id}
-                        className="glass-panel"
+                        className="glass-panel student-task-card"
                         style={{
                           padding: '1.35rem',
                           display: 'flex',
@@ -2084,7 +2074,7 @@ export function StudentDashboardClient({ initialData }: StudentDashboardClientPr
                   {quizzes.map((quiz) => (
                     <div
                       key={quiz.id}
-                      className="glass-panel"
+                      className="glass-panel student-quiz-card"
                       style={{
                         padding: '1.35rem',
                         display: 'flex',
@@ -2301,7 +2291,7 @@ export function StudentDashboardClient({ initialData }: StudentDashboardClientPr
                   {attendance.map((att) => (
                     <div
                       key={att.id}
-                      className="glass-panel"
+                      className="glass-panel student-attendance-card"
                       style={{
                         padding: '1rem 1.35rem',
                         display: 'flex',
@@ -2429,7 +2419,7 @@ export function StudentDashboardClient({ initialData }: StudentDashboardClientPr
                   {certificates.map((cert) => (
                     <div
                       key={cert.id}
-                      className="glass-panel"
+                      className="glass-panel student-cert-card"
                       style={{ padding: '1.25rem', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: '1rem' }}
                     >
                       <div>
@@ -2468,6 +2458,175 @@ export function StudentDashboardClient({ initialData }: StudentDashboardClientPr
                   ))}
                 </div>
               )}
+            </div>
+          )}
+
+          {/* TAB 7: LEARNING PATHWAY (FOR NEW STUDENTS) */}
+          {activeTab === 'pathway' && (
+            <div
+              style={{
+                padding: 'clamp(1.5rem, 3vw, 2.5rem) 1rem',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                textAlign: 'center',
+                gap: '1.75rem',
+              }}
+            >
+              <div
+                style={{
+                  width: '64px',
+                  height: '64px',
+                  borderRadius: '20px',
+                  background: 'linear-gradient(135deg, rgba(66, 133, 244, 0.2) 0%, rgba(52, 168, 83, 0.15) 100%)',
+                  border: '1px solid rgba(66, 133, 244, 0.35)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: '#60A5FA',
+                }}
+              >
+                <Sparkles size={32} />
+              </div>
+
+              <div style={{ maxWidth: '640px' }}>
+                <div style={{ fontSize: '0.78rem', fontWeight: 800, color: '#60A5FA', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.35rem' }}>
+                  Curriculum Roadmap
+                </div>
+                <h3 style={{ fontSize: 'clamp(1.25rem, 2.5vw, 1.45rem)', fontWeight: 850, color: '#FFFFFF', margin: '0 0 0.5rem 0' }}>
+                  Your GDGoC Learning Pathway
+                </h3>
+                <p style={{ fontSize: '0.92rem', color: '#94A3B8', margin: 0, lineHeight: 1.6 }}>
+                  This roadmap outlines your upcoming academic milestones. Your journey begins upon enrolling in a track, unlocking interactive tasks, checkpoint quizzes, and verified credentials step-by-step.
+                </p>
+              </div>
+
+              {/* 4-Step Interactive Timeline */}
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))',
+                  gap: '1rem',
+                  width: '100%',
+                  maxWidth: '920px',
+                  textAlign: 'left',
+                }}
+              >
+                {/* Step 1 */}
+                <div
+                  style={{
+                    padding: '1.25rem',
+                    borderRadius: '14px',
+                    background: 'rgba(66, 133, 244, 0.08)',
+                    border: '1.5px solid rgba(66, 133, 244, 0.4)',
+                    position: 'relative',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.6rem' }}>
+                    <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: '#4285F4', color: '#FFFFFF', fontSize: '0.82rem', fontWeight: 900, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      1
+                    </div>
+                    <span style={{ fontSize: '0.7rem', fontWeight: 800, color: '#60A5FA', background: 'rgba(66, 133, 244, 0.2)', padding: '0.15rem 0.5rem', borderRadius: '999px' }}>
+                      CURRENT STEP
+                    </span>
+                  </div>
+                  <h4 style={{ fontSize: '0.94rem', fontWeight: 800, color: '#FFFFFF', margin: '0 0 0.25rem 0' }}>
+                    Enroll in a Track
+                  </h4>
+                  <p style={{ fontSize: '0.78rem', color: '#CBD5E1', margin: 0, lineHeight: 1.45 }}>
+                    Select your focus area (Web, Mobile, AI, Cloud, or Cyber) and secure your spot.
+                  </p>
+                </div>
+
+                {/* Step 2 */}
+                <div
+                  style={{
+                    padding: '1.25rem',
+                    borderRadius: '14px',
+                    background: 'rgba(255, 255, 255, 0.03)',
+                    border: '1px solid rgba(255, 255, 255, 0.08)',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.6rem' }}>
+                    <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: 'rgba(255, 255, 255, 0.1)', color: '#94A3B8', fontSize: '0.82rem', fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      2
+                    </div>
+                    <span style={{ fontSize: '0.7rem', fontWeight: 700, color: '#94A3B8' }}>Upcoming</span>
+                  </div>
+                  <h4 style={{ fontSize: '0.94rem', fontWeight: 800, color: '#FFFFFF', margin: '0 0 0.25rem 0' }}>
+                    Attend Live Sessions
+                  </h4>
+                  <p style={{ fontSize: '0.78rem', color: '#94A3B8', margin: 0, lineHeight: 1.45 }}>
+                    Attend interactive hands-on workshops with campus mentors and track your attendance.
+                  </p>
+                </div>
+
+                {/* Step 3 */}
+                <div
+                  style={{
+                    padding: '1.25rem',
+                    borderRadius: '14px',
+                    background: 'rgba(255, 255, 255, 0.03)',
+                    border: '1px solid rgba(255, 255, 255, 0.08)',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.6rem' }}>
+                    <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: 'rgba(255, 255, 255, 0.1)', color: '#94A3B8', fontSize: '0.82rem', fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      3
+                    </div>
+                    <span style={{ fontSize: '0.7rem', fontWeight: 700, color: '#94A3B8' }}>Upcoming</span>
+                  </div>
+                  <h4 style={{ fontSize: '0.94rem', fontWeight: 800, color: '#FFFFFF', margin: '0 0 0.25rem 0' }}>
+                    Submit Tasks & Quizzes
+                  </h4>
+                  <p style={{ fontSize: '0.78rem', color: '#94A3B8', margin: 0, lineHeight: 1.45 }}>
+                    Solve milestone deliverables and get feedback and scores directly from mentors.
+                  </p>
+                </div>
+
+                {/* Step 4 */}
+                <div
+                  style={{
+                    padding: '1.25rem',
+                    borderRadius: '14px',
+                    background: 'rgba(255, 255, 255, 0.03)',
+                    border: '1px solid rgba(255, 255, 255, 0.08)',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.6rem' }}>
+                    <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: 'rgba(251, 188, 4, 0.15)', color: '#FBBF24', fontSize: '0.82rem', fontWeight: 900, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      4
+                    </div>
+                    <span style={{ fontSize: '0.7rem', fontWeight: 800, color: '#FBBF24' }}>Accreditation</span>
+                  </div>
+                  <h4 style={{ fontSize: '0.94rem', fontWeight: 800, color: '#FFFFFF', margin: '0 0 0.25rem 0' }}>
+                    Verified Certificate
+                  </h4>
+                  <p style={{ fontSize: '0.78rem', color: '#94A3B8', margin: 0, lineHeight: 1.45 }}>
+                    Receive official Google-stamped certificate with QR verification and LinkedIn sharing.
+                  </p>
+                </div>
+              </div>
+
+              {/* Call to action */}
+              <div style={{ marginTop: '0.5rem' }}>
+                <Link
+                  href="/student/courses"
+                  className="btn-primary"
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '0.5rem',
+                    padding: '0.85rem 1.8rem',
+                    fontSize: '0.95rem',
+                    textDecoration: 'none',
+                  }}
+                >
+                  <BookOpen size={17} />
+                  <span>Explore Courses & Start Now</span>
+                  <ArrowRight size={16} />
+                </Link>
+              </div>
             </div>
           )}
         </div>

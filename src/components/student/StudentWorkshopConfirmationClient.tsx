@@ -341,9 +341,25 @@ END:VCALENDAR`.trim();
                 textAlign: 'left',
               }}
             >
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem' }}>
-                <span style={{ color: '#94A3B8' }}>Attendee:</span>
-                <span style={{ color: '#F8FAFC', fontWeight: 700 }}>{student.full_name_en}</span>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem' }}>
+                <span style={{ color: '#94A3B8', flexShrink: 0 }}>Attendee:</span>
+                <span
+                  style={{
+                    color: '#F8FAFC',
+                    fontWeight: 700,
+                    textAlign: 'right',
+                    maxWidth: '70%',
+                    wordBreak: 'break-word',
+                    overflow: 'hidden',
+                    display: '-webkit-box',
+                    WebkitLineClamp: 2,
+                    WebkitBoxOrient: 'vertical',
+                    lineHeight: 1.3,
+                  }}
+                  title={student.full_name_en}
+                >
+                  {student.full_name_en}
+                </span>
               </div>
               {student.university && (
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem' }}>

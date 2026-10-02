@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import {
   Calendar,
@@ -241,20 +242,31 @@ export function StudentWorkshopDetailClient({ initialData }: StudentWorkshopDeta
             minHeight: '180px',
             height: 'clamp(180px, 25vw, 240px)',
             position: 'relative',
-            background: workshop.cover_image_url
-              ? `url(${workshop.cover_image_url}) center/cover no-repeat`
-              : 'linear-gradient(135deg, #0F172A 0%, #1E293B 50%, #0F172A 100%)',
+            overflow: 'hidden',
+            background: 'linear-gradient(135deg, #0F172A 0%, #1E293B 50%, #0F172A 100%)',
             display: 'flex',
             alignItems: 'flex-end',
             padding: 'clamp(1rem, 2.5vw, 2rem)',
           }}
         >
+          {workshop.cover_image_url && (
+            <Image
+              src={workshop.cover_image_url}
+              alt={workshop.title}
+              fill
+              sizes="100vw"
+              loading="lazy"
+              unoptimized
+              style={{ objectFit: 'cover', objectPosition: 'center' }}
+            />
+          )}
           <div
             style={{
               position: 'absolute',
               inset: 0,
               background:
                 'linear-gradient(to bottom, rgba(15, 23, 42, 0.2) 0%, rgba(15, 23, 42, 0.95) 100%)',
+              zIndex: 1,
             }}
           />
 

@@ -639,7 +639,7 @@ export function WorkshopRegistrationsClient({
                         {s.full_name_en}
                       </h4>
                       {s.full_name_ar && (
-                        <div style={{ fontSize: '0.78rem', color: '#94A3B8' }}>{s.full_name_ar}</div>
+                        <div style={{ fontSize: '0.78rem', color: '#94A3B8' }} dir="rtl">{s.full_name_ar}</div>
                       )}
                     </div>
                   </div>
@@ -967,7 +967,7 @@ export function WorkshopRegistrationsClient({
                   {selectedStudent.student.full_name_en}
                 </h3>
                 {selectedStudent.student.full_name_ar && (
-                  <div style={{ color: '#94A3B8', fontSize: '0.9rem', marginTop: '0.15rem' }}>
+                  <div style={{ color: '#94A3B8', fontSize: '0.9rem', marginTop: '0.15rem' }} dir="rtl">
                     {selectedStudent.student.full_name_ar}
                   </div>
                 )}

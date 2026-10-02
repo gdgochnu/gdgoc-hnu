@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import {
   BookOpen,
@@ -391,14 +392,22 @@ export function StudentCourseDetailClient({ initialData }: StudentCourseDetailCl
             style={{
               position: 'absolute',
               inset: 0,
-              backgroundImage: `url(${course.cover_image_url})`,
-              backgroundSize: 'cover',
-              backgroundPosition: 'center',
               opacity: 0.18,
               filter: 'blur(2px)',
               pointerEvents: 'none',
+              overflow: 'hidden',
             }}
-          />
+          >
+            <Image
+              src={course.cover_image_url}
+              alt=""
+              fill
+              sizes="100vw"
+              loading="lazy"
+              unoptimized
+              style={{ objectFit: 'cover', objectPosition: 'center' }}
+            />
+          </div>
         )}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', maxWidth: '880px', position: 'relative', zIndex: 1 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
@@ -469,7 +478,7 @@ export function StudentCourseDetailClient({ initialData }: StudentCourseDetailCl
                 }}
               >
                 <Clock3 size={13} />
-                Application Pending Review
+                Under Review by Track Leads
               </span>
             ) : (
               <span
@@ -484,7 +493,7 @@ export function StudentCourseDetailClient({ initialData }: StudentCourseDetailCl
                   border: `1px solid ${course.enrollment_type === 'open' ? 'rgba(52, 168, 83, 0.35)' : 'rgba(251, 188, 4, 0.35)'}`,
                 }}
               >
-                {course.enrollment_type === 'open' ? 'Open Admission' : 'Application Required'}
+                {course.enrollment_type === 'open' ? 'Open Admission' : 'Admission by Review'}
               </span>
             )}
           </div>
@@ -577,7 +586,7 @@ export function StudentCourseDetailClient({ initialData }: StudentCourseDetailCl
               ) : isPending ? (
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', color: '#FBBF24', fontSize: '0.92rem', fontWeight: 800 }}>
                   <Clock3 size={18} />
-                  <span>Application under review by chapter leads</span>
+                  <span>Under Review by Track Leads</span>
                 </div>
               ) : isWaitlisted ? (
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', color: '#C084FC', fontSize: '0.92rem', fontWeight: 800 }}>
@@ -651,7 +660,7 @@ export function StudentCourseDetailClient({ initialData }: StudentCourseDetailCl
                   fontWeight: 700,
                 }}
               >
-                Pending Review
+                Under Review by Track Leads
               </div>
             ) : isWaitlisted ? (
               <div
@@ -1101,7 +1110,7 @@ export function StudentCourseDetailClient({ initialData }: StudentCourseDetailCl
                   {isConfirmed
                     ? 'You are enrolled in this track ✓'
                     : isPending
-                    ? 'Application Pending Review'
+                    ? 'Under Review by Track Leads'
                     : isWaitlisted
                     ? 'You are on the Waitlist'
                     : course.enrollment_type === 'open'
@@ -1115,12 +1124,12 @@ export function StudentCourseDetailClient({ initialData }: StudentCourseDetailCl
                 {isConfirmed
                   ? 'Your enrollment is confirmed! You have full access to interactive sessions, lecture notes, assignments, and quizzes.'
                   : isPending
-                  ? 'Your application has been received and is currently being reviewed by course instructors and chapter leadership.'
+                  ? 'Your application has been received and is currently under review by track leads. You will receive a notification once evaluated.'
                   : isWaitlisted
                   ? 'You are registered on the waitlist. You will be notified automatically if an enrollment spot becomes available.'
                   : course.enrollment_type === 'open'
                   ? 'Open admission program: click below to confirm your spot immediately.'
-                  : 'Gated program: requires instructor approval before enrollment is confirmed.'}
+                  : 'Admission by review: applications are evaluated by track leads before enrollment is confirmed.'}
               </p>
 
               {/* Action Button */}
@@ -1378,7 +1387,7 @@ export function StudentCourseDetailClient({ initialData }: StudentCourseDetailCl
               <p style={{ color: '#94A3B8', fontSize: '0.84rem', lineHeight: 1.5, margin: 0 }}>
                 {course.enrollment_type === 'open'
                   ? 'Open admission program: click below to confirm your spot immediately.'
-                  : 'Gated program: requires instructor approval before enrollment is confirmed.'}
+                  : 'Admission by review: applications are evaluated by track leads before enrollment is confirmed.'}
               </p>
 
               <button
@@ -2800,18 +2809,42 @@ export function StudentCourseDetailClient({ initialData }: StudentCourseDetailCl
             <div
               className="glass-panel"
               style={{
-                padding: '4rem 2rem',
+                padding: '3.5rem 2rem',
                 textAlign: 'center',
                 borderRadius: '20px',
                 color: '#94A3B8',
+                background: 'rgba(15, 23, 42, 0.55)',
+                border: '1px solid rgba(255, 255, 255, 0.08)',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                gap: '0.75rem',
               }}
             >
-              <FileText size={40} style={{ color: '#475569', marginBottom: '0.75rem' }} />
-              <div style={{ fontSize: '1.1rem', fontWeight: 700, color: '#FFFFFF', marginBottom: '0.25rem' }}>
-                No Tasks Assigned Yet
+              <div
+                style={{
+                  width: '56px',
+                  height: '56px',
+                  borderRadius: '16px',
+                  background: 'rgba(66, 133, 244, 0.12)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: '#60A5FA',
+                }}
+              >
+                <FileText size={28} />
               </div>
-              <div style={{ fontSize: '0.86rem' }}>
-                Assignments created by instructors will appear here with deadlines and submission options.
+              <div>
+                <h3 style={{ fontSize: '1.2rem', fontWeight: 850, color: '#FFFFFF', margin: '0 0 0.35rem 0' }}>
+                  No Tasks or Assignments Yet
+                </h3>
+                <p style={{ fontSize: '0.94rem', color: '#CBD5E1', maxWidth: '520px', margin: '0 auto 0.5rem auto', lineHeight: 1.6 }} dir="rtl">
+                  لم يتم إسناد مهام في هذا المسار بعد. ستظهر التكليفات العملية والمشاريع هنا فور نشرها من قبل مدربي المسار التقني مع مواعيد التسليم المحددة.
+                </p>
+                <div style={{ fontSize: '0.8rem', color: '#64748B' }}>
+                  Practical milestones and assignment prompts will appear here automatically when released.
+                </div>
               </div>
             </div>
           ) : (
@@ -3982,7 +4015,7 @@ export function StudentCourseDetailClient({ initialData }: StudentCourseDetailCl
               : isConfirmed
               ? '✓ Enrolled in Track'
               : isPending
-              ? '⏳ Application Pending'
+              ? '⏳ Under Review by Track Leads'
               : isWaitlisted
               ? '⏸ On Waitlist'
               : `${sessions.length} Sessions • Free Admission`}
@@ -4048,7 +4081,7 @@ export function StudentCourseDetailClient({ initialData }: StudentCourseDetailCl
               flexShrink: 0,
             }}
           >
-            Pending Review
+            Under Review by Track Leads
           </div>
         ) : isWaitlisted ? (
           <div

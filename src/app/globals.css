@@ -98,12 +98,13 @@ html, body {
   -webkit-backdrop-filter: blur(16px);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-lg);
+  box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.5), 0 0 20px -2px rgba(66, 133, 244, 0.08);
   transition: var(--transition-smooth);
 }
 
 .glass-panel:hover {
   border-color: var(--border-glow);
-  box-shadow: 0 12px 32px -8px rgba(0, 0, 0, 0.5), 0 0 20px -2px var(--blue-glow);
+  box-shadow: 0 16px 36px -8px rgba(0, 0, 0, 0.6), 0 0 24px 0px var(--blue-glow);
 }
 
 /* Header & Nav */
@@ -1353,4 +1354,166 @@ select {
     display: none;
   }
 }
+
+/* ========================================================================= */
+/* Google Ambient Depth & Card Micro-Interactions */
+/* ========================================================================= */
+
+.interactive-card,
+.kpi-card,
+.interactive-widget-card,
+.widget-interactive-item,
+.student-course-card,
+.student-workshop-card,
+.student-task-card,
+.student-quiz-card,
+.student-attendance-card,
+.student-cert-card,
+.dashboard-toolbar-btn {
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1),
+              box-shadow 0.25s cubic-bezier(0.16, 1, 0.3, 1),
+              border-color 0.25s ease,
+              background-color 0.25s ease !important;
+}
+
+/* KPI Cards: Micro-interactions & Themed Brand Glows */
+.kpi-card {
+  box-shadow: 0 10px 28px -8px rgba(0, 0, 0, 0.5), 0 0 18px -2px rgba(66, 133, 244, 0.08) !important;
+}
+
+.kpi-card:hover {
+  transform: translateY(-4px) !important;
+}
+
+.kpi-card.kpi-card-blue:hover {
+  border-color: rgba(66, 133, 244, 0.55) !important;
+  box-shadow: 0 16px 36px -6px rgba(0, 0, 0, 0.6), 0 0 25px rgba(66, 133, 244, 0.28) !important;
+}
+
+.kpi-card.kpi-card-green:hover {
+  border-color: rgba(52, 168, 83, 0.55) !important;
+  box-shadow: 0 16px 36px -6px rgba(0, 0, 0, 0.6), 0 0 25px rgba(52, 168, 83, 0.28) !important;
+}
+
+.kpi-card.kpi-card-yellow:hover {
+  border-color: rgba(251, 188, 4, 0.55) !important;
+  box-shadow: 0 16px 36px -6px rgba(0, 0, 0, 0.6), 0 0 25px rgba(251, 188, 4, 0.28) !important;
+}
+
+.kpi-card.kpi-card-red:hover {
+  border-color: rgba(234, 67, 53, 0.55) !important;
+  box-shadow: 0 16px 36px -6px rgba(0, 0, 0, 0.6), 0 0 25px rgba(234, 67, 53, 0.28) !important;
+}
+
+/* Header Quick-Action Toolbar Buttons */
+.dashboard-toolbar-btn:hover {
+  transform: translateY(-2px) !important;
+  box-shadow: 0 8px 20px -4px rgba(0, 0, 0, 0.5), 0 0 16px rgba(66, 133, 244, 0.25) !important;
+  border-color: rgba(66, 133, 244, 0.4) !important;
+}
+
+/* Active Deliverables / Signals Widgets */
+.interactive-widget-card {
+  box-shadow: 0 10px 28px -8px rgba(0, 0, 0, 0.5), 0 0 18px -2px rgba(66, 133, 244, 0.08);
+}
+
+.interactive-widget-card:hover {
+  transform: translateY(-3px);
+  border-color: rgba(66, 133, 244, 0.4) !important;
+  box-shadow: 0 16px 36px -6px rgba(0, 0, 0, 0.6), 0 0 24px rgba(66, 133, 244, 0.22) !important;
+}
+
+.interactive-widget-card.widget-pending-tasks:hover {
+  border-color: rgba(234, 67, 53, 0.5) !important;
+  box-shadow: 0 16px 36px -6px rgba(0, 0, 0, 0.6), 0 0 24px rgba(234, 67, 53, 0.22) !important;
+}
+
+.interactive-widget-card.widget-quizzes:hover {
+  border-color: rgba(251, 188, 4, 0.5) !important;
+  box-shadow: 0 16px 36px -6px rgba(0, 0, 0, 0.6), 0 0 24px rgba(251, 188, 4, 0.22) !important;
+}
+
+.interactive-widget-card.widget-feedback:hover {
+  border-color: rgba(168, 85, 247, 0.5) !important;
+  box-shadow: 0 16px 36px -6px rgba(0, 0, 0, 0.6), 0 0 24px rgba(168, 85, 247, 0.22) !important;
+}
+
+/* Widget Child Items (Deliverable items, Quizzes items, Feedback items) */
+.widget-interactive-item {
+  cursor: pointer;
+}
+
+.widget-interactive-item:hover {
+  transform: translateY(-2px);
+  background: rgba(255, 255, 255, 0.065) !important;
+  border-color: rgba(255, 255, 255, 0.22) !important;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.4), 0 0 14px rgba(66, 133, 244, 0.16) !important;
+}
+
+/* Student Course Cards (Dashboard Courses Tab) */
+.student-course-card {
+  box-shadow: 0 10px 28px -8px rgba(0, 0, 0, 0.5), 0 0 18px -2px rgba(66, 133, 244, 0.08) !important;
+}
+
+.student-course-card:hover {
+  transform: translateY(-4px) !important;
+  border-color: rgba(66, 133, 244, 0.55) !important;
+  box-shadow: 0 18px 40px -8px rgba(0, 0, 0, 0.65), 0 0 25px rgba(66, 133, 244, 0.25) !important;
+}
+
+/* Student Workshop Cards (Dashboard Workshops Tab) */
+.student-workshop-card {
+  box-shadow: 0 10px 28px -8px rgba(0, 0, 0, 0.5), 0 0 18px -2px rgba(52, 168, 83, 0.08) !important;
+}
+
+.student-workshop-card:hover {
+  transform: translateY(-4px) !important;
+  border-color: rgba(52, 168, 83, 0.55) !important;
+  box-shadow: 0 18px 40px -8px rgba(0, 0, 0, 0.65), 0 0 25px rgba(52, 168, 83, 0.25) !important;
+}
+
+/* Student Task Cards (Dashboard Tasks Tab) */
+.student-task-card {
+  box-shadow: 0 10px 28px -8px rgba(0, 0, 0, 0.5), 0 0 18px -2px rgba(66, 133, 244, 0.08) !important;
+}
+
+.student-task-card:hover {
+  transform: translateY(-3px) !important;
+  border-color: rgba(66, 133, 244, 0.5) !important;
+  box-shadow: 0 16px 36px -6px rgba(0, 0, 0, 0.6), 0 0 22px rgba(66, 133, 244, 0.22) !important;
+}
+
+/* Student Quiz Cards (Dashboard Quizzes Tab) */
+.student-quiz-card {
+  box-shadow: 0 10px 28px -8px rgba(0, 0, 0, 0.5), 0 0 18px -2px rgba(251, 188, 4, 0.08) !important;
+}
+
+.student-quiz-card:hover {
+  transform: translateY(-3px) !important;
+  border-color: rgba(251, 188, 4, 0.55) !important;
+  box-shadow: 0 16px 36px -6px rgba(0, 0, 0, 0.6), 0 0 24px rgba(251, 188, 4, 0.24) !important;
+}
+
+/* Student Attendance Cards (Dashboard Attendance Tab) */
+.student-attendance-card {
+  box-shadow: 0 8px 24px -6px rgba(0, 0, 0, 0.45), 0 0 14px -2px rgba(66, 133, 244, 0.06) !important;
+}
+
+.student-attendance-card:hover {
+  transform: translateY(-2px) !important;
+  border-color: rgba(66, 133, 244, 0.4) !important;
+  box-shadow: 0 12px 28px -6px rgba(0, 0, 0, 0.55), 0 0 18px rgba(66, 133, 244, 0.18) !important;
+}
+
+/* Student Certificate Cards (Dashboard Certificates Tab & Certificates Page) */
+.student-cert-card {
+  box-shadow: 0 10px 28px -8px rgba(0, 0, 0, 0.5), 0 0 20px -2px rgba(251, 188, 4, 0.1) !important;
+}
+
+.student-cert-card:hover {
+  transform: translateY(-4px) !important;
+  border-color: rgba(251, 188, 4, 0.55) !important;
+  box-shadow: 0 18px 40px -8px rgba(0, 0, 0, 0.65), 0 0 26px rgba(251, 188, 4, 0.26) !important;
+}
+
 

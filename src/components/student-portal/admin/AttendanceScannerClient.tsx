@@ -953,7 +953,14 @@ export function AttendanceScannerClient({
                   >
                     <div>
                       <div style={{ fontWeight: 800, color: '#FFFFFF', fontSize: '0.9rem' }}>
-                        {s.full_name_en} {s.full_name_ar ? `(${s.full_name_ar})` : ''}
+                        {s.full_name_en}{' '}
+                        {s.full_name_ar ? (
+                          <bdi dir="rtl" style={{ color: '#93C5FD', fontWeight: 600 }}>
+                            ({s.full_name_ar})
+                          </bdi>
+                        ) : (
+                          ''
+                        )}
                       </div>
                       <div style={{ fontSize: '0.76rem', color: '#94A3B8', marginTop: '0.15rem' }}>
                         {s.faculty || 'Helwan National University'} • {s.email}

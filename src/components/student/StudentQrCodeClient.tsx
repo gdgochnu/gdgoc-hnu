@@ -121,6 +121,18 @@ export function StudentQrCodeClient({ student, teamRole }: StudentQrCodeClientPr
     }
   };
 
+  const nameEn = student.full_name_en || 'Student Member';
+  const nameAr = student.full_name_ar || '';
+
+  // Adaptive font sizing for long / compound names to prevent card distortion
+  const isEnLong = nameEn.length > 22;
+  const isEnVeryLong = nameEn.length > 32;
+  const enFontSize = isEnVeryLong ? '1.05rem' : isEnLong ? '1.14rem' : '1.25rem';
+
+  const isArLong = nameAr.length > 24;
+  const isArVeryLong = nameAr.length > 34;
+  const arFontSize = isArVeryLong ? '0.82rem' : isArLong ? '0.88rem' : '0.92rem';
+
   return (
     <div
       className="student-form-page"
@@ -352,12 +364,47 @@ export function StudentQrCodeClient({ student, teamRole }: StudentQrCodeClientPr
                 </div>
               )}
 
-              <h2 style={{ fontSize: '1.25rem', fontWeight: 900, color: '#FFFFFF', margin: 0 }}>
-                {student.full_name_en || 'Student Member'}
+              <h2
+                style={{
+                  fontSize: enFontSize,
+                  fontWeight: 900,
+                  color: '#FFFFFF',
+                  margin: 0,
+                  lineHeight: 1.25,
+                  wordBreak: 'break-word',
+                  overflow: 'hidden',
+                  display: '-webkit-box',
+                  WebkitLineClamp: 2,
+                  WebkitBoxOrient: 'vertical',
+                  maxWidth: '380px',
+                  marginLeft: 'auto',
+                  marginRight: 'auto',
+                }}
+                title={nameEn}
+              >
+                {nameEn}
               </h2>
               {student.full_name_ar && (
-                <div style={{ fontSize: '0.9rem', color: '#94A3B8', marginTop: '0.2rem' }}>
-                  {student.full_name_ar}
+                <div
+                  dir="rtl"
+                  style={{
+                    fontSize: arFontSize,
+                    color: '#94A3B8',
+                    marginTop: '0.25rem',
+                    lineHeight: 1.35,
+                    fontWeight: 600,
+                    wordBreak: 'break-word',
+                    overflow: 'hidden',
+                    display: '-webkit-box',
+                    WebkitLineClamp: 2,
+                    WebkitBoxOrient: 'vertical',
+                    maxWidth: '380px',
+                    marginLeft: 'auto',
+                    marginRight: 'auto',
+                  }}
+                  title={nameAr}
+                >
+                  {nameAr}
                 </div>
               )}
             </div>
@@ -440,9 +487,23 @@ export function StudentQrCodeClient({ student, teamRole }: StudentQrCodeClientPr
                 textAlign: 'left',
               }}
             >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ color: '#64748B', fontWeight: 600 }}>Faculty / Institution:</span>
-                <span style={{ color: '#E2E8F0', fontWeight: 700, textAlign: 'right', maxWidth: '65%' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.5rem' }}>
+                <span style={{ color: '#64748B', fontWeight: 600, flexShrink: 0 }}>Faculty / Institution:</span>
+                <span
+                  style={{
+                    color: '#E2E8F0',
+                    fontWeight: 700,
+                    textAlign: 'right',
+                    maxWidth: '65%',
+                    wordBreak: 'break-word',
+                    overflow: 'hidden',
+                    display: '-webkit-box',
+                    WebkitLineClamp: 2,
+                    WebkitBoxOrient: 'vertical',
+                    fontSize: (student.faculty || '').length > 28 ? '0.74rem' : '0.8rem',
+                  }}
+                  title={student.faculty || 'Helwan National University'}
+                >
                   {student.faculty || 'Helwan National University'}
                 </span>
               </div>
@@ -619,9 +680,18 @@ export function StudentQrCodeClient({ student, teamRole }: StudentQrCodeClientPr
           header, nav, .no-print {
             display: none !important;
           }
-          div[style*="passCardRef"] {
-            border: 1px solid #000000 !important;
+          .student-form-page {
+            background: #ffffff !important;
+            padding: 0 !important;
+            min-height: auto !important;
+          }
+          .student-form-card {
+            border: 1.5px solid #0F172A !important;
             box-shadow: none !important;
+            page-break-inside: avoid !important;
+            break-inside: avoid !important;
+            margin: 1cm auto !important;
+            max-width: 420px !important;
           }
         }
       `}</style>

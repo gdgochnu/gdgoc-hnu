@@ -283,7 +283,7 @@ export function StudentProfileViewClient({ initialData }: StudentProfileViewClie
                     }}
                   >
                     <CheckCircle2 size={13} />
-                    Verified Student
+                    Active Student
                   </span>
 
                   {teamRole && (
@@ -937,7 +937,7 @@ export function StudentProfileViewClient({ initialData }: StudentProfileViewClie
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <span style={{ color: '#94A3B8' }}>Account Status:</span>
                 <span style={{ color: '#34D399', fontWeight: 800, textTransform: 'uppercase', fontSize: '0.78rem' }}>
-                  ● Active Scholar
+                  ● Active Student
                 </span>
               </div>
             </div>
@@ -1170,7 +1170,7 @@ export function StudentProfileViewClient({ initialData }: StudentProfileViewClie
                             textTransform: 'uppercase',
                           }}
                         >
-                          {c.enrollmentStatus === 'confirmed' ? '✓ Enrolled' : 'Pending Review'}
+                          {c.enrollmentStatus === 'confirmed' ? '✓ Enrolled' : 'Under Review'}
                         </span>
                       </div>
 

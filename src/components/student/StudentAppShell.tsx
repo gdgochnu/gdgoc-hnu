@@ -168,7 +168,7 @@ export function StudentAppShell({ student, teamRole, children }: StudentAppShell
       {/* ========================================================================= */}
       <aside
         style={{
-          width: isCollapsed ? '78px' : '260px',
+          width: isCollapsed ? '78px' : '270px',
           transition: 'width 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
           background: 'rgba(11, 15, 25, 0.95)',
           backdropFilter: 'blur(20px)',
@@ -194,11 +194,12 @@ export function StudentAppShell({ student, teamRole, children }: StudentAppShell
         {/* Sidebar Brand Header */}
         <div
           style={{
-            padding: isCollapsed ? '1rem 0' : '1.15rem 1rem',
+            padding: isCollapsed ? '1rem 0' : '1.15rem 0.85rem',
             display: 'flex',
             alignItems: 'center',
             justifyContent: isCollapsed ? 'center' : 'space-between',
             borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
+            gap: isCollapsed ? 0 : '0.5rem',
           }}
         >
           <Link
@@ -206,14 +207,14 @@ export function StudentAppShell({ student, teamRole, children }: StudentAppShell
             style={{
               display: 'flex',
               alignItems: 'center',
-              gap: '0.75rem',
+              gap: '0.65rem',
               textDecoration: 'none',
-              overflow: 'hidden',
+              minWidth: 0,
             }}
           >
             <div
               style={{
-                width: '38px',
+                width: '36px',
                 height: '34px',
                 borderRadius: '9px',
                 background: 'radial-gradient(circle at 30% 30%, rgba(66, 133, 244, 0.25), rgba(15, 20, 32, 0.9))',
@@ -228,13 +229,13 @@ export function StudentAppShell({ student, teamRole, children }: StudentAppShell
               <img
                 src="/icons/icon.svg"
                 alt="GDGoC Logo"
-                style={{ width: '100%', height: 'auto', maxHeight: '20px', objectFit: 'contain' }}
+                style={{ width: '100%', height: 'auto', maxHeight: '19px', objectFit: 'contain' }}
               />
             </div>
 
             {!isCollapsed && (
-              <div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', fontWeight: 800, fontSize: '0.94rem', color: '#FFFFFF' }}>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontWeight: 800, fontSize: '0.92rem', color: '#FFFFFF', whiteSpace: 'nowrap' }}>
                   <span>GDGoC</span>
                   <span
                     style={{
@@ -247,21 +248,24 @@ export function StudentAppShell({ student, teamRole, children }: StudentAppShell
                   </span>
                   <span
                     style={{
-                      fontSize: '0.6rem',
+                      fontSize: '0.58rem',
                       fontWeight: 800,
-                      padding: '0.08rem 0.35rem',
+                      padding: '0.1rem 0.35rem',
                       borderRadius: '4px',
                       background: 'rgba(66, 133, 244, 0.18)',
                       color: '#93C5FD',
                       border: '1px solid rgba(66, 133, 244, 0.35)',
                       letterSpacing: '0.04em',
+                      lineHeight: 1,
+                      display: 'inline-block',
+                      flexShrink: 0,
                     }}
                   >
                     STUDENT
                   </span>
                 </div>
-                <div style={{ fontSize: '0.68rem', color: 'var(--text-muted, #94A3B8)', fontWeight: 500, display: 'flex', alignItems: 'center', gap: '0.35rem', marginTop: '2px' }}>
-                  <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#34A853', boxShadow: '0 0 6px #34A853' }} />
+                <div style={{ fontSize: '0.68rem', color: 'var(--text-muted, #94A3B8)', fontWeight: 500, display: 'flex', alignItems: 'center', gap: '0.35rem', marginTop: '2px', whiteSpace: 'nowrap' }}>
+                  <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#34A853', boxShadow: '0 0 6px #34A853', flexShrink: 0 }} />
                   <span>Learning Portal</span>
                 </div>
               </div>
@@ -273,19 +277,22 @@ export function StudentAppShell({ student, teamRole, children }: StudentAppShell
               type="button"
               onClick={() => toggleCollapse(true)}
               style={{
+                width: '28px',
+                height: '28px',
                 background: 'rgba(255, 255, 255, 0.04)',
                 border: '1px solid rgba(255, 255, 255, 0.08)',
                 borderRadius: '8px',
                 color: 'var(--text-muted, #94A3B8)',
-                padding: '0.4rem',
                 cursor: 'pointer',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
+                flexShrink: 0,
+                transition: 'all 0.15s ease',
               }}
               title="Collapse sidebar"
             >
-              <ChevronLeft size={16} />
+              <ChevronLeft size={15} />
             </button>
           )}
         </div>
@@ -516,7 +523,7 @@ export function StudentAppShell({ student, teamRole, children }: StudentAppShell
           display: 'flex',
           flexDirection: 'column',
           minWidth: 0,
-          marginLeft: isCollapsed ? '78px' : '260px',
+          marginLeft: isCollapsed ? '78px' : '270px',
           transition: 'margin-left 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
           minHeight: '100vh',
         }}
@@ -535,7 +542,7 @@ export function StudentAppShell({ student, teamRole, children }: StudentAppShell
             padding: '0 1.5rem',
             position: 'fixed',
             top: 0,
-            left: isCollapsed ? '78px' : '260px',
+            left: isCollapsed ? '78px' : '270px',
             right: 0,
             zIndex: 40,
             transition: 'left 0.25s cubic-bezier(0.4, 0, 0.2, 1)',

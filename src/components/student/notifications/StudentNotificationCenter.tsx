@@ -86,12 +86,13 @@ export function StudentNotificationCenter({
     window.addEventListener('focus', onFocus);
     document.addEventListener('visibilitychange', onVisibilityChange);
 
-    // Periodic poll every 20 seconds in background
+    // Periodic poll every 60 seconds (optimized to protect DB from concurrent query spikes)
+    // Tab Focus, visibilitychange, and Realtime Supabase handle instant updates
     const interval = setInterval(() => {
       if (document.visibilityState === 'visible') {
         loadNotifications(false);
       }
-    }, 20000);
+    }, 60000);
 
     return () => {
       window.removeEventListener('focus', onFocus);

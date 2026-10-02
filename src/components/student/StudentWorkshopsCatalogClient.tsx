@@ -886,9 +886,8 @@ export function StudentWorkshopsCatalogClient({
                   style={{
                     height: '160px',
                     position: 'relative',
-                    background: workshop.cover_image_url
-                      ? `url(${workshop.cover_image_url}) center/cover no-repeat`
-                      : 'linear-gradient(135deg, rgba(66, 133, 244, 0.35) 0%, rgba(251, 188, 4, 0.2) 50%, rgba(15, 23, 42, 0.9) 100%)',
+                    overflow: 'hidden',
+                    background: 'linear-gradient(135deg, rgba(66, 133, 244, 0.35) 0%, rgba(251, 188, 4, 0.2) 50%, rgba(15, 23, 42, 0.9) 100%)',
                     display: 'flex',
                     flexDirection: 'column',
                     justifyContent: 'space-between',
@@ -896,11 +895,27 @@ export function StudentWorkshopsCatalogClient({
                     borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
                   }}
                 >
+                  {workshop.cover_image_url && (
+                    <Image
+                      src={workshop.cover_image_url}
+                      alt={workshop.title}
+                      fill
+                      sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 380px"
+                      loading="lazy"
+                      unoptimized
+                      style={{
+                        objectFit: 'cover',
+                        objectPosition: 'center',
+                        transition: 'transform 0.4s ease',
+                      }}
+                    />
+                  )}
                   <div
                     style={{
                       position: 'absolute',
                       inset: 0,
                       background: 'linear-gradient(to bottom, rgba(15, 23, 42, 0.15) 0%, rgba(15, 23, 42, 0.6) 60%, rgba(15, 23, 42, 0.95) 100%)',
+                      zIndex: 1,
                     }}
                   />
 

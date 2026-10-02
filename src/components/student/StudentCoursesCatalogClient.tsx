@@ -611,18 +611,33 @@ export function StudentCoursesCatalogClient({
                   style={{
                     height: '160px',
                     position: 'relative',
-                    background: course.cover_image_url
-                      ? `url(${course.cover_image_url}) center/cover no-repeat`
-                      : 'linear-gradient(135deg, rgba(66, 133, 244, 0.35) 0%, rgba(52, 168, 83, 0.25) 50%, rgba(15, 23, 42, 0.9) 100%)',
+                    overflow: 'hidden',
+                    background: 'linear-gradient(135deg, rgba(66, 133, 244, 0.35) 0%, rgba(52, 168, 83, 0.25) 50%, rgba(15, 23, 42, 0.9) 100%)',
                     borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
                   }}
                 >
+                  {course.cover_image_url && (
+                    <Image
+                      src={course.cover_image_url}
+                      alt={course.title}
+                      fill
+                      sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 380px"
+                      loading="lazy"
+                      unoptimized
+                      style={{
+                        objectFit: 'cover',
+                        objectPosition: 'center',
+                        transition: 'transform 0.4s ease',
+                      }}
+                    />
+                  )}
                   <div
                     style={{
                       position: 'absolute',
                       inset: 0,
                       background:
                         'linear-gradient(to bottom, rgba(15, 23, 42, 0.15) 0%, rgba(15, 23, 42, 0.6) 60%, rgba(15, 23, 42, 0.95) 100%)',
+                      zIndex: 1,
                     }}
                   />
 
@@ -693,7 +708,7 @@ export function StudentCoursesCatalogClient({
                         }}
                       >
                         <Clock3 size={13} />
-                        Pending Approval
+                        Under Review
                       </span>
                     ) : isWaitlisted ? (
                       <span
@@ -732,12 +747,12 @@ export function StudentCoursesCatalogClient({
                           fontSize: '0.74rem',
                           fontWeight: 700,
                           background: 'rgba(15, 23, 42, 0.85)',
-                          color: '#34D399',
-                          border: '1px solid rgba(52, 168, 83, 0.4)',
+                          color: course.enrollment_type === 'open' ? '#34D399' : '#FBBF24',
+                          border: `1px solid ${course.enrollment_type === 'open' ? 'rgba(52, 168, 83, 0.4)' : 'rgba(251, 188, 4, 0.4)'}`,
                           backdropFilter: 'blur(10px)',
                         }}
                       >
-                        {course.enrollment_type === 'open' ? 'Open Enrollment' : 'Gated Entry'}
+                        {course.enrollment_type === 'open' ? 'Open Enrollment' : 'Admission by Review'}
                       </span>
                     )}
                   </div>
