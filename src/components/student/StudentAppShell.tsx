@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 import { StudentProfile } from '@/types/student';
 import { createClient } from '@/lib/supabase/client';
+import { signOutAction } from '@/app/auth/actions';
 import { StudentNotificationCenter } from './notifications/StudentNotificationCenter';
 import { ToastProvider } from './StudentToast';
 import { BackToTopButton } from './BackToTopButton';
@@ -83,13 +84,13 @@ export function StudentAppShell({ student, teamRole, children }: StudentAppShell
   const handleSignOut = async () => {
     try {
       setIsSigningOut(true);
+      const supabase = createClient();
       await supabase.auth.signOut();
-      router.push('/student');
-      router.refresh();
+      await signOutAction().catch(() => null);
     } catch (err) {
       console.error('Sign out error:', err);
     } finally {
-      setIsSigningOut(false);
+      window.location.href = '/';
     }
   };
 
@@ -884,7 +885,7 @@ export function StudentAppShell({ student, teamRole, children }: StudentAppShell
       {/* MOBILE BOTTOM NAVIGATION BAR */}
       {/* ========================================================================= */}
       <nav
-        className="student-mobile-bottom-nav"
+        className="student-mobile-bottom-nav student-mobile-nav"
         aria-label="Student Mobile Navigation"
         style={{
           position: 'fixed',

@@ -91,8 +91,8 @@ export function StudentDashboardClient({ initialData }: StudentDashboardClientPr
   return (
     <div
       style={{
-        padding: 'clamp(1.25rem, 3vw, 2.5rem) clamp(0.75rem, 2.5vw, 1.5rem)',
-        maxWidth: '1200px',
+        padding: 'clamp(1.25rem, 2.5vw, 2rem) clamp(1rem, 3vw, 2rem) 4rem',
+        maxWidth: '1240px',
         margin: '0 auto',
         display: 'flex',
         flexDirection: 'column',

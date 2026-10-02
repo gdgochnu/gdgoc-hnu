@@ -422,7 +422,7 @@ export default async function HomePage(props: HomePageProps) {
             ) : (
               <SignInWithGoogleButton
                 label="Sign In"
-                redirectTo="/student/onboarding"
+                redirectTo="/student"
               />
             )}
           </div>
@@ -601,7 +601,7 @@ export default async function HomePage(props: HomePageProps) {
               <>
                 <SignInWithGoogleButton
                   label="Join as a Student — It's Free"
-                  redirectTo="/student/onboarding"
+                  redirectTo="/student"
                 />
 
                 <a
@@ -632,7 +632,7 @@ export default async function HomePage(props: HomePageProps) {
         <div
           style={{
             display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 200px), 1fr))',
             gap: '1.25rem',
             maxWidth: '1100px',
             margin: '0 auto',
@@ -755,7 +755,7 @@ export default async function HomePage(props: HomePageProps) {
           <div
             style={{
               display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 280px), 1fr))',
               gap: '1.5rem',
             }}
           >
@@ -791,7 +791,7 @@ export default async function HomePage(props: HomePageProps) {
                   />
 
                   <div>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.25rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.25rem', flexWrap: 'wrap', gap: '0.5rem' }}>
                       <div
                         style={{
                           width: '46px',
@@ -842,6 +842,8 @@ export default async function HomePage(props: HomePageProps) {
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'space-between',
+                      flexWrap: 'wrap',
+                      gap: '0.65rem',
                     }}
                   >
                     <span style={{ fontSize: '0.76rem', color: track.color, fontWeight: 700 }}>
@@ -894,7 +896,7 @@ export default async function HomePage(props: HomePageProps) {
           <div
             style={{
               display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 280px), 1fr))',
               gap: '1.5rem',
             }}
           >
@@ -930,7 +932,7 @@ export default async function HomePage(props: HomePageProps) {
                   />
 
                   <div>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.25rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.25rem', flexWrap: 'wrap', gap: '0.5rem' }}>
                       <div
                         style={{
                           width: '46px',
@@ -981,6 +983,8 @@ export default async function HomePage(props: HomePageProps) {
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'space-between',
+                      flexWrap: 'wrap',
+                      gap: '0.65rem',
                     }}
                   >
                     <span
@@ -1057,7 +1061,7 @@ export default async function HomePage(props: HomePageProps) {
         <div
           style={{
             display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 250px), 1fr))',
             gap: '1.5rem',
           }}
         >
@@ -1145,9 +1149,11 @@ export default async function HomePage(props: HomePageProps) {
       {/* ========================================================================= */}
       <section
         style={{
-          padding: '4rem 1.5rem',
+          padding: 'clamp(2.5rem, 5vw, 4rem) clamp(1rem, 3.5vw, 1.5rem)',
           maxWidth: '1240px',
           margin: '0 auto',
+          width: '100%',
+          boxSizing: 'border-box',
         }}
       >
         <div
@@ -1156,15 +1162,18 @@ export default async function HomePage(props: HomePageProps) {
             borderRadius: '24px',
             background: 'linear-gradient(135deg, rgba(19, 27, 46, 0.85) 0%, rgba(15, 23, 42, 0.95) 100%)',
             border: '1px solid rgba(66, 133, 244, 0.3)',
-            padding: '3rem 2.5rem',
+            padding: 'clamp(1.5rem, 4vw, 3rem) clamp(1rem, 3.5vw, 2.5rem)',
             display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 280px), 1fr))',
             gap: '2.5rem',
             alignItems: 'center',
             boxShadow: '0 20px 50px -15px rgba(0, 0, 0, 0.7)',
+            overflow: 'hidden',
+            width: '100%',
+            boxSizing: 'border-box',
           }}
         >
-          <div>
+          <div style={{ minWidth: 0, wordBreak: 'break-word' }}>
             <div
               style={{
                 display: 'inline-flex',
@@ -1183,7 +1192,7 @@ export default async function HomePage(props: HomePageProps) {
               <span>Smart Contactless Pass</span>
             </div>
 
-            <h2 style={{ fontSize: 'clamp(1.75rem, 3vw, 2.25rem)', fontWeight: 900, color: '#FFFFFF', margin: '0 0 1rem', lineHeight: 1.2 }}>
+            <h2 style={{ fontSize: 'clamp(1.5rem, 4vw, 2.25rem)', fontWeight: 900, color: '#FFFFFF', margin: '0 0 1rem', lineHeight: 1.25, overflowWrap: 'break-word' }}>
               Your Official Attendance Pass — Ready in Under 5 Seconds
             </h2>
 
@@ -1197,15 +1206,15 @@ export default async function HomePage(props: HomePageProps) {
                 'Real-time attendance rate updates on your personal student dashboard',
                 'Eligibility safeguard: attendance directly contributes to your completion certificates',
               ].map((point, idx) => (
-                <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', fontSize: '0.88rem', color: '#CBD5E1' }}>
-                  <CheckCircle2 size={16} color="#34A853" style={{ flexShrink: 0 }} />
-                  <span>{point}</span>
+                <div key={idx} style={{ display: 'flex', alignItems: 'flex-start', gap: '0.6rem', fontSize: '0.88rem', color: '#CBD5E1' }}>
+                  <CheckCircle2 size={16} color="#34A853" style={{ flexShrink: 0, marginTop: '3px' }} />
+                  <span style={{ lineHeight: 1.45 }}>{point}</span>
                 </div>
               ))}
             </div>
 
             <Link
-              href={currentUser ? '/student/my-qr' : '/student/onboarding'}
+              href={currentUser ? (isProfileComplete ? '/student/my-qr' : '/student/onboarding') : '/student'}
               style={{
                 display: 'inline-flex',
                 alignItems: 'center',
@@ -1218,6 +1227,7 @@ export default async function HomePage(props: HomePageProps) {
                 fontWeight: 700,
                 textDecoration: 'none',
                 boxShadow: '0 4px 15px rgba(66, 133, 244, 0.4)',
+                maxWidth: '100%',
               }}
             >
               <span>{currentUser ? 'View My QR Pass' : 'Get Your Attendance Pass'}</span>
@@ -1226,19 +1236,20 @@ export default async function HomePage(props: HomePageProps) {
           </div>
 
           {/* Pass Preview Mockup */}
-          <div style={{ display: 'flex', justifyContent: 'center' }}>
+          <div style={{ display: 'flex', justifyContent: 'center', width: '100%', minWidth: 0 }}>
             <div
               className="glass-panel"
               style={{
                 maxWidth: '340px',
                 width: '100%',
                 borderRadius: '20px',
-                padding: '2rem 1.5rem',
+                padding: 'clamp(1.25rem, 3vw, 2rem) 1.25rem',
                 background: 'rgba(10, 15, 28, 0.9)',
                 border: '1px solid rgba(66, 133, 244, 0.4)',
                 textAlign: 'center',
                 boxShadow: '0 15px 40px rgba(0, 0, 0, 0.6)',
                 position: 'relative',
+                boxSizing: 'border-box',
               }}
             >
               <div
@@ -1272,6 +1283,7 @@ export default async function HomePage(props: HomePageProps) {
                   borderRadius: '12px',
                   width: '160px',
                   height: '160px',
+                  maxWidth: '100%',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
@@ -1419,7 +1431,7 @@ export default async function HomePage(props: HomePageProps) {
             ) : (
               <SignInWithGoogleButton
                 label="Sign In with Google — It's Free"
-                redirectTo="/student/onboarding"
+                redirectTo="/student"
               />
             )}
           </div>

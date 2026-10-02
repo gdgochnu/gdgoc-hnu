@@ -821,6 +821,7 @@ export async function enrollInCourse(courseId: string): Promise<{
     revalidatePath(`/student/courses`);
     revalidatePath(`/student/courses/${courseId}`);
     revalidatePath(`/student/dashboard`);
+    revalidatePath(`/student/notifications`);
 
     return {
       success: true,

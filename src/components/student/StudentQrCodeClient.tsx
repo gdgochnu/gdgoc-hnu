@@ -134,12 +134,14 @@ export function StudentQrCodeClient({ student, teamRole }: StudentQrCodeClientPr
     >
       <div
         style={{
-          maxWidth: '900px',
+          maxWidth: '960px',
           margin: '0 auto',
-          padding: '2rem 1.5rem',
+          padding: 'clamp(1.25rem, 2.5vw, 2rem) clamp(1rem, 3vw, 2rem) 4rem',
           display: 'flex',
           flexDirection: 'column',
           gap: '2rem',
+          width: '100%',
+          boxSizing: 'border-box',
         }}
       >
         {/* Back Link & Page Title */}

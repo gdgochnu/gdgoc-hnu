@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { RefreshCw, LogOut, Loader2 } from 'lucide-react';
 
+import { signOutAction } from '@/app/auth/actions';
+
 interface OnboardingStatusClientProps {
   userId?: string;
   initialStatus?: string;
@@ -21,8 +23,13 @@ export function OnboardingStatusClient({ userId, initialStatus }: OnboardingStat
 
   const handleSignOut = async () => {
     setIsSigningOut(true);
-    const supabase = createClient();
-    await supabase.auth.signOut();
+    try {
+      const supabase = createClient();
+      await supabase.auth.signOut();
+      await signOutAction();
+    } catch {
+      // ignore
+    }
     window.location.href = '/';
   };
 

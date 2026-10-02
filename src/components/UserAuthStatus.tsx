@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
+import { signOutAction } from '@/app/auth/actions';
 import { LogOut, User as UserIcon, LayoutGrid, Loader2 } from 'lucide-react';
 
 interface UserAuthStatusProps {
@@ -29,11 +30,11 @@ export function UserAuthStatus({
     try {
       const supabase = createClient();
       await supabase.auth.signOut();
-      router.refresh();
-      window.location.href = '/';
+      await signOutAction().catch(() => null);
     } catch (err) {
       console.error('Sign out error:', err);
-      setIsSigningOut(false);
+    } finally {
+      window.location.href = '/';
     }
   };
 

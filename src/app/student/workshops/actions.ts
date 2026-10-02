@@ -681,10 +681,24 @@ export async function registerForWorkshop(workshopId: string): Promise<{
         }
       })();
 
+      // Dispatch in-app notification
+      dispatchStudentNotification({
+        studentId: stu.id,
+        type: 'workshop',
+        title: initialStatus === 'waitlisted' ? 'Added to Workshop Waitlist' : 'Workshop Registration Confirmed!',
+        message: initialStatus === 'waitlisted'
+          ? `You have been added to the waitlist for "${ws.title}". We will notify you if an enrollment spot becomes available.`
+          : `Your registration for "${ws.title}" is confirmed! Check your attendance QR pass and upcoming session schedule.`,
+        linkUrl: `/student/workshops/${workshopId}`,
+        relatedEntityType: 'workshop',
+        relatedEntityId: workshopId,
+      }).catch((notifErr) => console.warn('dispatchStudentNotification workshop warning:', notifErr));
+
       revalidatePath('/student/workshops');
       revalidatePath(`/student/workshops/${workshopId}`);
       revalidatePath(`/student/workshops/${workshopId}/confirmation`);
       revalidatePath('/student/dashboard');
+      revalidatePath('/student/notifications');
 
       return {
         success: true,
@@ -752,6 +766,7 @@ export async function registerForWorkshop(workshopId: string): Promise<{
     revalidatePath(`/student/workshops/${workshopId}`);
     revalidatePath(`/student/workshops/${workshopId}/confirmation`);
     revalidatePath('/student/dashboard');
+    revalidatePath('/student/notifications');
 
     return {
       success: true,

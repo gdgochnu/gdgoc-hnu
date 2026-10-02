@@ -79,7 +79,7 @@ export default async function StudentOnboardingPage() {
 
           <SignInWithGoogleButton
             label="Sign in with Google"
-            redirectTo="/student/onboarding"
+            redirectTo="/student"
           />
 
           <div style={{ marginTop: '2rem', paddingTop: '1.5rem', borderTop: '1px solid rgba(255, 255, 255, 0.08)' }}>

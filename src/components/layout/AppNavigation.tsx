@@ -4,6 +4,7 @@ import { useState, useMemo, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
+import { signOutAction } from '@/app/auth/actions';
 import { UserContextProfile } from '@/lib/auth/get-user-context';
 import { 
   LayoutGrid, 
@@ -103,13 +104,13 @@ export function AppNavigation({
   const handleSignOut = async () => {
     try {
       setIsSigningOut(true);
+      const supabase = createClient();
       await supabase.auth.signOut();
-      router.push('/');
-      router.refresh();
+      await signOutAction().catch(() => null);
     } catch (err) {
       console.error('Sign out error:', err);
     } finally {
-      setIsSigningOut(false);
+      window.location.href = '/';
     }
   };
 

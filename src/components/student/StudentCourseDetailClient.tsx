@@ -24,6 +24,7 @@ import {
   AlertTriangle,
   Send,
   Lock,
+  LogIn,
   QrCode,
   Check,
   ChevronRight,
@@ -563,7 +564,11 @@ export function StudentCourseDetailClient({ initialData }: StudentCourseDetailCl
             }}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-              {isConfirmed ? (
+              {!isAuthenticated ? (
+                <div style={{ fontSize: '0.86rem', color: '#94A3B8' }}>
+                  Sign in with your student account to enroll • Free curriculum & certification
+                </div>
+              ) : isConfirmed ? (
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', color: '#34D399', fontSize: '0.92rem', fontWeight: 800 }}>
                   <CheckCircle2 size={18} />
                   <span>You are enrolled in this track</span>
@@ -586,7 +591,29 @@ export function StudentCourseDetailClient({ initialData }: StudentCourseDetailCl
             </div>
 
             {/* Primary Action Button in Hero */}
-            {isConfirmed ? (
+            {!isAuthenticated ? (
+              <Link
+                href={`/student?signin=true&returnUrl=/student/courses/${course.id}`}
+                style={{
+                  padding: '0.8rem 1.6rem',
+                  borderRadius: '12px',
+                  background: 'linear-gradient(135deg, #4285F4 0%, #2563EB 100%)',
+                  border: 'none',
+                  color: '#FFFFFF',
+                  fontSize: '0.95rem',
+                  fontWeight: 800,
+                  textDecoration: 'none',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.55rem',
+                  boxShadow: '0 4px 16px rgba(66, 133, 244, 0.45)',
+                  transition: 'transform 0.15s ease',
+                }}
+              >
+                <LogIn size={17} />
+                <span>Sign In to Enroll</span>
+              </Link>
+            ) : isConfirmed ? (
               <button
                 type="button"
                 onClick={() => {
@@ -3917,14 +3944,18 @@ export function StudentCourseDetailClient({ initialData }: StudentCourseDetailCl
         className="student-mobile-sticky-bar"
         style={{
           position: 'fixed',
-          bottom: 'calc(62px + env(safe-area-inset-bottom, 0px))',
+          bottom: isAuthenticated
+            ? 'calc(62px + env(safe-area-inset-bottom, 0px))'
+            : '0px',
           left: 0,
           right: 0,
           zIndex: 45,
           background: 'rgba(15, 23, 42, 0.96)',
           backdropFilter: 'blur(20px)',
           borderTop: '1px solid rgba(66, 133, 244, 0.35)',
-          padding: '0.75rem 1.25rem',
+          padding: isAuthenticated
+            ? '0.75rem 1.25rem'
+            : '0.75rem 1.25rem calc(0.75rem + env(safe-area-inset-bottom, 0px)) 1.25rem',
           boxShadow: '0 -8px 24px rgba(0, 0, 0, 0.6)',
           alignItems: 'center',
           justifyContent: 'space-between',
@@ -3945,7 +3976,9 @@ export function StudentCourseDetailClient({ initialData }: StudentCourseDetailCl
             {course.title}
           </div>
           <div style={{ fontSize: '0.74rem', color: isConfirmed ? '#34D399' : '#94A3B8', marginTop: '0.15rem' }}>
-            {isConfirmed
+            {!isAuthenticated
+              ? 'Sign in to enroll • Free admission'
+              : isConfirmed
               ? '✓ Enrolled in Track'
               : isPending
               ? '⏳ Application Pending'
@@ -3955,7 +3988,28 @@ export function StudentCourseDetailClient({ initialData }: StudentCourseDetailCl
           </div>
         </div>
 
-        {isConfirmed ? (
+        {!isAuthenticated ? (
+          <Link
+            href={`/student?signin=true&returnUrl=/student/courses/${course.id}`}
+            style={{
+              padding: '0.65rem 1.25rem',
+              borderRadius: '10px',
+              background: 'linear-gradient(135deg, #4285F4 0%, #2563EB 100%)',
+              color: '#FFFFFF',
+              fontSize: '0.85rem',
+              fontWeight: 800,
+              textDecoration: 'none',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.4rem',
+              flexShrink: 0,
+              boxShadow: '0 4px 12px rgba(66, 133, 244, 0.4)',
+            }}
+          >
+            <LogIn size={15} />
+            <span>Sign In to Enroll</span>
+          </Link>
+        ) : isConfirmed ? (
           <button
             type="button"
             onClick={() => {

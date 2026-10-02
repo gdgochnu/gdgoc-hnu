@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useTransition } from 'react';
+import React, { useState, useEffect, useTransition, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
@@ -9,10 +9,12 @@ import {
   StudentNotificationType,
 } from '@/types/student';
 import {
+  getStudentNotifications,
   markStudentNotificationAsRead,
   markAllStudentNotificationsAsRead,
   deleteStudentNotification,
 } from '@/app/student/notifications/actions';
+import { createClient } from '@/lib/supabase/client';
 import { StudentNotificationDetailModal } from '@/components/student/notifications/StudentNotificationDetailModal';
 import {
   Bell,
@@ -31,14 +33,18 @@ import {
   Clock,
   ArrowRight,
   Maximize2,
+  RefreshCw,
+  Loader2,
 } from 'lucide-react';
 
 interface StudentNotificationsClientProps {
   initialSummary: StudentNotificationCenterSummary;
+  studentId?: string;
 }
 
 export function StudentNotificationsClient({
   initialSummary,
+  studentId,
 }: StudentNotificationsClientProps) {
   const router = useRouter();
   const [notifications, setNotifications] = useState<StudentNotification[]>(
@@ -49,7 +55,78 @@ export function StudentNotificationsClient({
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedNotification, setSelectedNotification] = useState<StudentNotification | null>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [isPending, startTransition] = useTransition();
+
+  // Fresh notifications fetcher
+  const fetchFreshNotifications = useCallback(async (showLoading = false) => {
+    try {
+      if (showLoading) setIsRefreshing(true);
+      const res = await getStudentNotifications({ limit: 50 });
+      if (res.success) {
+        setNotifications(res.summary.notifications);
+        setUnreadCount(res.summary.unreadCount);
+      }
+    } catch (err) {
+      console.warn('fetchFreshNotifications error:', err);
+    } finally {
+      if (showLoading) setIsRefreshing(false);
+    }
+  }, []);
+
+  // Sync fresh notifications on mount, window focus, visibility change, and interval
+  useEffect(() => {
+    fetchFreshNotifications(false);
+
+    const onFocus = () => fetchFreshNotifications(false);
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        fetchFreshNotifications(false);
+      }
+    };
+
+    window.addEventListener('focus', onFocus);
+    document.addEventListener('visibilitychange', onVisibilityChange);
+
+    // Periodic poll every 15 seconds
+    const interval = setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        fetchFreshNotifications(false);
+      }
+    }, 15000);
+
+    return () => {
+      window.removeEventListener('focus', onFocus);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+      clearInterval(interval);
+    };
+  }, [fetchFreshNotifications]);
+
+  // Real-time Supabase postgres_changes subscription
+  useEffect(() => {
+    if (!studentId) return;
+
+    const supabase = createClient();
+    const channel = supabase
+      .channel(`student_notifications_page_${studentId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'student_notifications',
+          filter: `student_id=eq.${studentId}`,
+        },
+        () => {
+          fetchFreshNotifications(false);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [studentId, fetchFreshNotifications]);
 
   // Helper for notification type icon & colors
   const getTypeMeta = (type: StudentNotificationType) => {
@@ -167,7 +244,18 @@ export function StudentNotificationsClient({
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.75rem', width: '100%', maxWidth: '1050px', margin: '0 auto' }}>
+    <div
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '2rem',
+        width: '100%',
+        maxWidth: '1240px',
+        margin: '0 auto',
+        padding: 'clamp(1.25rem, 2.5vw, 2rem) clamp(1rem, 3vw, 2rem) 4rem',
+        boxSizing: 'border-box',
+      }}
+    >
       {/* Top Banner */}
       <div
         className="glass-panel"
@@ -233,23 +321,23 @@ export function StudentNotificationsClient({
             </p>
           </div>
 
-          {unreadCount > 0 && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
             <button
               type="button"
-              onClick={handleMarkAllAsRead}
-              disabled={isPending}
+              onClick={() => fetchFreshNotifications(true)}
+              disabled={isRefreshing}
               style={{
                 display: 'inline-flex',
                 alignItems: 'center',
-                gap: '0.5rem',
-                padding: '0.65rem 1.15rem',
+                gap: '0.45rem',
+                padding: '0.65rem 1.05rem',
                 borderRadius: '10px',
                 background: 'rgba(255, 255, 255, 0.06)',
                 border: '1px solid rgba(255, 255, 255, 0.12)',
-                color: '#E2E8F0',
+                color: '#CBD5E1',
                 fontSize: '0.84rem',
                 fontWeight: 700,
-                cursor: 'pointer',
+                cursor: isRefreshing ? 'not-allowed' : 'pointer',
                 transition: 'all 0.15s ease',
               }}
               onMouseEnter={(e) => {
@@ -260,11 +348,45 @@ export function StudentNotificationsClient({
                 e.currentTarget.style.background = 'rgba(255, 255, 255, 0.06)';
                 e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.12)';
               }}
+              title="Refresh Notifications"
             >
-              <CheckCheck size={16} color="#60A5FA" />
-              <span>Mark all as read</span>
+              <RefreshCw size={15} color="#60A5FA" className={isRefreshing ? 'animate-spin' : ''} />
+              <span>{isRefreshing ? 'Refreshing...' : 'Refresh'}</span>
             </button>
-          )}
+
+            {unreadCount > 0 && (
+              <button
+                type="button"
+                onClick={handleMarkAllAsRead}
+                disabled={isPending}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.5rem',
+                  padding: '0.65rem 1.15rem',
+                  borderRadius: '10px',
+                  background: 'rgba(255, 255, 255, 0.06)',
+                  border: '1px solid rgba(255, 255, 255, 0.12)',
+                  color: '#E2E8F0',
+                  fontSize: '0.84rem',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = 'rgba(66, 133, 244, 0.15)';
+                  e.currentTarget.style.borderColor = 'rgba(66, 133, 244, 0.4)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = 'rgba(255, 255, 255, 0.06)';
+                  e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.12)';
+                }}
+              >
+                <CheckCheck size={16} color="#60A5FA" />
+                <span>Mark all as read</span>
+              </button>
+            )}
+          </div>
         </div>
       </div>
 

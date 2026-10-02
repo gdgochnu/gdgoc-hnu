@@ -22,6 +22,7 @@ import {
   Download,
   AlertTriangle,
   QrCode,
+  LogIn,
   Check,
   ChevronRight,
   ChevronLeft,
@@ -140,13 +141,12 @@ export function StudentWorkshopDetailClient({ initialData }: StudentWorkshopDeta
     <div
       className="student-course-detail-container"
       style={{
-        padding: 'clamp(1.25rem, 3vw, 2.5rem) clamp(0.75rem, 2.5vw, 1.5rem)',
+        padding: 'clamp(1rem, 2.5vw, 2rem) clamp(0.75rem, 3vw, 2rem) 5rem',
         maxWidth: '1240px',
         margin: '0 auto',
         display: 'flex',
         flexDirection: 'column',
-        gap: '2.5rem',
-        paddingBottom: '6rem',
+        gap: '2rem',
         width: '100%',
         boxSizing: 'border-box',
       }}
@@ -200,6 +200,28 @@ export function StudentWorkshopDetailClient({ initialData }: StudentWorkshopDeta
         )}
       </div>
 
+      {/* Action Notification Message */}
+      {actionMessage && (
+        <div
+          style={{
+            padding: '1rem 1.4rem',
+            borderRadius: '12px',
+            background:
+              actionMessage.type === 'success' ? 'rgba(52, 168, 83, 0.15)' : 'rgba(234, 67, 53, 0.15)',
+            border: `1px solid ${actionMessage.type === 'success' ? 'rgba(52, 168, 83, 0.35)' : 'rgba(234, 67, 53, 0.35)'}`,
+            color: actionMessage.type === 'success' ? '#34D399' : '#F87171',
+            fontSize: '0.92rem',
+            fontWeight: 600,
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.6rem',
+          }}
+        >
+          {actionMessage.type === 'success' ? <CheckCircle2 size={18} /> : <AlertCircle size={18} />}
+          {actionMessage.text}
+        </div>
+      )}
+
       {/* Hero Banner Card */}
       <div
         style={{
@@ -216,14 +238,15 @@ export function StudentWorkshopDetailClient({ initialData }: StudentWorkshopDeta
         {/* Cover Graphic Header */}
         <div
           style={{
-            height: '240px',
+            minHeight: '180px',
+            height: 'clamp(180px, 25vw, 240px)',
             position: 'relative',
             background: workshop.cover_image_url
               ? `url(${workshop.cover_image_url}) center/cover no-repeat`
               : 'linear-gradient(135deg, #0F172A 0%, #1E293B 50%, #0F172A 100%)',
             display: 'flex',
             alignItems: 'flex-end',
-            padding: '2rem',
+            padding: 'clamp(1rem, 2.5vw, 2rem)',
           }}
         >
           <div
@@ -252,7 +275,7 @@ export function StudentWorkshopDetailClient({ initialData }: StudentWorkshopDeta
                   background: 'rgba(15, 23, 42, 0.9)',
                   border: '1px solid rgba(66, 133, 244, 0.4)',
                   color: '#60A5FA',
-                  fontSize: '0.85rem',
+                  fontSize: '0.82rem',
                   fontWeight: 700,
                 }}
               >
@@ -267,36 +290,72 @@ export function StudentWorkshopDetailClient({ initialData }: StudentWorkshopDeta
                   background: 'rgba(15, 23, 42, 0.9)',
                   border: '1px solid rgba(255, 255, 255, 0.15)',
                   color: '#E2E8F0',
-                  fontSize: '0.85rem',
+                  fontSize: '0.82rem',
                   fontWeight: 600,
                 }}
               >
                 {workshop.category}
               </span>
             )}
-            <span
-              style={{
-                padding: '0.35rem 0.85rem',
-                borderRadius: '8px',
-                background: 'rgba(52, 168, 83, 0.15)',
-                border: '1px solid rgba(52, 168, 83, 0.35)',
-                color: '#4ADE80',
-                fontSize: '0.85rem',
-                fontWeight: 600,
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '0.35rem',
-              }}
-            >
-              <Sparkles size={14} /> Interactive Bootcamp
-            </span>
+            {isRegistered ? (
+              <span
+                style={{
+                  padding: '0.35rem 0.85rem',
+                  borderRadius: '8px',
+                  background: 'rgba(52, 168, 83, 0.25)',
+                  border: '1px solid rgba(52, 168, 83, 0.5)',
+                  color: '#4ADE80',
+                  fontSize: '0.82rem',
+                  fontWeight: 700,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.35rem',
+                }}
+              >
+                <CheckCircle2 size={13} /> Registered Attendee
+              </span>
+            ) : isWaitlisted ? (
+              <span
+                style={{
+                  padding: '0.35rem 0.85rem',
+                  borderRadius: '8px',
+                  background: 'rgba(251, 188, 4, 0.2)',
+                  border: '1px solid rgba(251, 188, 4, 0.4)',
+                  color: '#FBBF24',
+                  fontSize: '0.82rem',
+                  fontWeight: 700,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.35rem',
+                }}
+              >
+                <Clock3 size={13} /> On Waitlist
+              </span>
+            ) : (
+              <span
+                style={{
+                  padding: '0.35rem 0.85rem',
+                  borderRadius: '8px',
+                  background: 'rgba(52, 168, 83, 0.15)',
+                  border: '1px solid rgba(52, 168, 83, 0.35)',
+                  color: '#4ADE80',
+                  fontSize: '0.82rem',
+                  fontWeight: 600,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.35rem',
+                }}
+              >
+                <Sparkles size={14} /> Interactive Bootcamp
+              </span>
+            )}
           </div>
         </div>
 
         {/* Hero Details Body */}
         <div
           style={{
-            padding: '2rem',
+            padding: 'clamp(1.25rem, 2.5vw, 2rem)',
             display: 'flex',
             flexDirection: 'column',
             gap: '1.5rem',
@@ -308,18 +367,19 @@ export function StudentWorkshopDetailClient({ initialData }: StudentWorkshopDeta
               justifyContent: 'space-between',
               alignItems: 'flex-start',
               flexWrap: 'wrap',
-              gap: '2rem',
+              gap: '1.5rem',
             }}
           >
-            <div style={{ flex: '1 1 500px' }}>
+            <div style={{ flex: '1 1 320px', minWidth: 0, width: '100%' }}>
               <h1
                 style={{
-                  fontSize: '2.25rem',
+                  fontSize: 'clamp(1.5rem, 3.5vw, 2.25rem)',
                   fontWeight: 800,
                   color: '#F8FAFC',
-                  lineHeight: 1.2,
+                  lineHeight: 1.25,
                   letterSpacing: '-0.02em',
                   margin: 0,
+                  wordBreak: 'break-word',
                 }}
               >
                 {workshop.title}
@@ -327,10 +387,11 @@ export function StudentWorkshopDetailClient({ initialData }: StudentWorkshopDeta
               <p
                 style={{
                   color: '#CBD5E1',
-                  fontSize: '1rem',
-                  lineHeight: 1.7,
+                  fontSize: '0.98rem',
+                  lineHeight: 1.65,
                   marginTop: '0.85rem',
                   whiteSpace: 'pre-line',
+                  wordBreak: 'break-word',
                 }}
               >
                 {workshop.description ||
@@ -338,10 +399,14 @@ export function StudentWorkshopDetailClient({ initialData }: StudentWorkshopDeta
               </p>
             </div>
 
-            {/* Quick Registration / Status Card */}
+            {/* Quick Registration / Status Card (Desktop Only, Mobile uses Sticky Bar) */}
             <div
+              className="student-workshop-hero-card"
               style={{
                 flex: '0 0 340px',
+                maxWidth: '380px',
+                width: '100%',
+                boxSizing: 'border-box',
                 padding: '1.5rem',
                 borderRadius: '18px',
                 background: isRegistered
@@ -546,6 +611,30 @@ export function StudentWorkshopDetailClient({ initialData }: StudentWorkshopDeta
                     <QrCode size={16} /> Quick QR Pop-up
                   </button>
                 </div>
+              ) : !isAuthenticated ? (
+                <Link
+                  href={`/student?signin=true&returnUrl=/student/workshops/${workshop.id}`}
+                  style={{
+                    width: '100%',
+                    padding: '0.85rem',
+                    borderRadius: '12px',
+                    background: 'linear-gradient(135deg, var(--google-blue, #4285F4) 0%, #2563EB 100%)',
+                    border: 'none',
+                    color: '#FFFFFF',
+                    fontWeight: 700,
+                    fontSize: '0.9rem',
+                    textDecoration: 'none',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '0.5rem',
+                    boxShadow: '0 4px 14px rgba(66, 133, 244, 0.3)',
+                    boxSizing: 'border-box',
+                  }}
+                >
+                  <LogIn size={17} />
+                  <span>Sign In to Register</span>
+                </Link>
               ) : (
                 <button
                   type="button"
@@ -578,8 +667,6 @@ export function StudentWorkshopDetailClient({ initialData }: StudentWorkshopDeta
                     'Workshop is Full'
                   ) : !workshop.registration_open ? (
                     'Registration Closed'
-                  ) : !isAuthenticated ? (
-                    'Sign In to Register'
                   ) : needsOnboarding ? (
                     'Complete Profile to Register'
                   ) : (
@@ -594,8 +681,8 @@ export function StudentWorkshopDetailClient({ initialData }: StudentWorkshopDeta
           <div
             style={{
               display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))',
-              gap: '1rem',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))',
+              gap: '0.85rem',
               paddingTop: '1rem',
               borderTop: '1px solid rgba(255, 255, 255, 0.08)',
             }}
@@ -606,7 +693,7 @@ export function StudentWorkshopDetailClient({ initialData }: StudentWorkshopDeta
                 <div style={{ fontSize: '0.75rem', color: '#64748B', fontWeight: 600, textTransform: 'uppercase' }}>
                   Total Sessions
                 </div>
-                <div style={{ fontSize: '1rem', fontWeight: 700, color: '#F8FAFC' }}>
+                <div style={{ fontSize: '0.95rem', fontWeight: 700, color: '#F8FAFC' }}>
                   {workshop.sessions_count ?? sessions.length} Sessions
                 </div>
               </div>
@@ -618,7 +705,7 @@ export function StudentWorkshopDetailClient({ initialData }: StudentWorkshopDeta
                 <div style={{ fontSize: '0.75rem', color: '#64748B', fontWeight: 600, textTransform: 'uppercase' }}>
                   Duration
                 </div>
-                <div style={{ fontSize: '1rem', fontWeight: 700, color: '#F8FAFC' }}>
+                <div style={{ fontSize: '0.95rem', fontWeight: 700, color: '#F8FAFC' }}>
                   ~{totalHours} Hours Total
                 </div>
               </div>
@@ -630,7 +717,7 @@ export function StudentWorkshopDetailClient({ initialData }: StudentWorkshopDeta
                 <div style={{ fontSize: '0.75rem', color: '#64748B', fontWeight: 600, textTransform: 'uppercase' }}>
                   Format Breakdown
                 </div>
-                <div style={{ fontSize: '1rem', fontWeight: 700, color: '#F8FAFC' }}>
+                <div style={{ fontSize: '0.95rem', fontWeight: 700, color: '#F8FAFC' }}>
                   {workshop.offline_sessions_count} Offline • {workshop.online_sessions_count} Online
                 </div>
               </div>
@@ -643,7 +730,7 @@ export function StudentWorkshopDetailClient({ initialData }: StudentWorkshopDeta
                   <div style={{ fontSize: '0.75rem', color: '#64748B', fontWeight: 600, textTransform: 'uppercase' }}>
                     My Attendance
                   </div>
-                  <div style={{ fontSize: '1rem', fontWeight: 700, color: '#34A853' }}>
+                  <div style={{ fontSize: '0.95rem', fontWeight: 700, color: '#34A853' }}>
                     {attendedCount} / {sessions.length} attended ({attendanceRate}%)
                   </div>
                 </div>
@@ -766,20 +853,15 @@ export function StudentWorkshopDetailClient({ initialData }: StudentWorkshopDeta
             </p>
           </div>
         ) : (
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'minmax(280px, 360px) 1fr',
-              gap: '1.5rem',
-              alignItems: 'start',
-            }}
-          >
+          <div className="student-workshop-sessions-grid">
             {/* Left Column: Session Selector List */}
             <div
+              className="student-workshop-session-selector"
               style={{
                 display: 'flex',
                 flexDirection: 'column',
                 gap: '0.75rem',
+                minWidth: 0,
               }}
             >
               {sessions.map((s, index) => {
@@ -790,6 +872,7 @@ export function StudentWorkshopDetailClient({ initialData }: StudentWorkshopDeta
                   <button
                     key={s.id}
                     type="button"
+                    className="student-workshop-session-btn"
                     onClick={() => setActiveSessionId(s.id)}
                     style={{
                       display: 'flex',
@@ -900,10 +983,12 @@ export function StudentWorkshopDetailClient({ initialData }: StudentWorkshopDeta
                   background: 'rgba(15, 23, 42, 0.65)',
                   border: '1px solid rgba(255, 255, 255, 0.08)',
                   backdropFilter: 'blur(12px)',
-                  padding: '1.75rem',
+                  padding: 'clamp(1rem, 2.5vw, 1.75rem)',
                   display: 'flex',
                   flexDirection: 'column',
                   gap: '1.5rem',
+                  minWidth: 0,
+                  overflow: 'hidden',
                 }}
               >
                 {/* Active Session Header */}
@@ -1001,8 +1086,8 @@ export function StudentWorkshopDetailClient({ initialData }: StudentWorkshopDeta
                 <div
                   style={{
                     display: 'grid',
-                    gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
-                    gap: '1rem',
+                    gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))',
+                    gap: '0.75rem',
                     padding: '1rem',
                     borderRadius: '12px',
                     background: 'rgba(255, 255, 255, 0.03)',
@@ -1208,17 +1293,18 @@ export function StudentWorkshopDetailClient({ initialData }: StudentWorkshopDeta
                               borderRadius: '10px',
                               background: 'rgba(255, 255, 255, 0.03)',
                               border: '1px solid rgba(255, 255, 255, 0.06)',
-                              gap: '1rem',
+                              gap: '0.75rem',
+                              flexWrap: 'wrap',
                             }}
                           >
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
-                              <FileText size={16} style={{ color: '#60A5FA' }} />
-                              <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#E2E8F0' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', minWidth: 0, flex: '1 1 200px' }}>
+                              <FileText size={16} style={{ color: '#60A5FA', flexShrink: 0 }} />
+                              <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#E2E8F0', wordBreak: 'break-word' }}>
                                 {matTitle}
                               </span>
                             </div>
 
-                            <div style={{ display: 'flex', gap: '0.5rem' }}>
+                            <div style={{ display: 'flex', gap: '0.5rem', flexShrink: 0 }}>
                               {isPdf && (
                                 <button
                                   type="button"
@@ -1504,14 +1590,18 @@ export function StudentWorkshopDetailClient({ initialData }: StudentWorkshopDeta
         className="student-mobile-sticky-bar"
         style={{
           position: 'fixed',
-          bottom: 'calc(62px + env(safe-area-inset-bottom, 0px))',
+          bottom: isAuthenticated
+            ? 'calc(62px + env(safe-area-inset-bottom, 0px))'
+            : '0px',
           left: 0,
           right: 0,
           zIndex: 45,
           background: 'rgba(15, 23, 42, 0.96)',
           backdropFilter: 'blur(20px)',
           borderTop: '1px solid rgba(66, 133, 244, 0.35)',
-          padding: '0.75rem 1.25rem',
+          padding: isAuthenticated
+            ? '0.75rem 1.25rem'
+            : '0.75rem 1.25rem calc(0.75rem + env(safe-area-inset-bottom, 0px)) 1.25rem',
           boxShadow: '0 -8px 24px rgba(0, 0, 0, 0.6)',
           alignItems: 'center',
           justifyContent: 'space-between',
@@ -1532,7 +1622,9 @@ export function StudentWorkshopDetailClient({ initialData }: StudentWorkshopDeta
             {workshop.title}
           </div>
           <div style={{ fontSize: '0.74rem', color: isRegistered ? '#34D399' : '#94A3B8', marginTop: '0.15rem' }}>
-            {isRegistered
+            {!isAuthenticated
+              ? 'Sign in to register • Free bootcamp'
+              : isRegistered
               ? '✓ Registered Attendee'
               : isWaitlisted
               ? '⏸ On Waitlist'
@@ -1540,7 +1632,28 @@ export function StudentWorkshopDetailClient({ initialData }: StudentWorkshopDeta
           </div>
         </div>
 
-        {isRegistered ? (
+        {!isAuthenticated ? (
+          <Link
+            href={`/student?signin=true&returnUrl=/student/workshops/${workshop.id}`}
+            style={{
+              padding: '0.65rem 1.25rem',
+              borderRadius: '10px',
+              background: 'linear-gradient(135deg, var(--google-blue, #4285F4) 0%, #2563EB 100%)',
+              color: '#FFFFFF',
+              fontSize: '0.85rem',
+              fontWeight: 800,
+              textDecoration: 'none',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.4rem',
+              flexShrink: 0,
+              boxShadow: '0 4px 12px rgba(66, 133, 244, 0.4)',
+            }}
+          >
+            <LogIn size={15} />
+            <span>Sign In to Register</span>
+          </Link>
+        ) : isRegistered ? (
           <div style={{ display: 'flex', gap: '0.5rem', flexShrink: 0 }}>
             <button
               type="button"

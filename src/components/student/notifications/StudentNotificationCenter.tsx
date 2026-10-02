@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef, useTransition } from 'react';
+import React, { useState, useEffect, useRef, useTransition, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
@@ -13,6 +13,7 @@ import {
   markAllStudentNotificationsAsRead,
   deleteStudentNotification,
 } from '@/app/student/notifications/actions';
+import { createClient } from '@/lib/supabase/client';
 import {
   Bell,
   Check,
@@ -53,11 +54,11 @@ export function StudentNotificationCenter({
   const dropdownRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
 
-  // Fetch notifications on initial load to get accurate count, and whenever opened
-  // NOTE: We intentionally do NOT sync initialUnreadCount via useEffect, as that
-  // would re-trigger state updates on every parent re-render, contributing to render loops.
-  const loadNotifications = () => {
-    setIsLoading(true);
+  // Fetch notifications in background without destroying current view
+  const loadNotifications = useCallback((showSpinner = false) => {
+    if (showSpinner) {
+      setIsLoading(true);
+    }
     getStudentNotifications({ limit: 30 })
       .then((res) => {
         if (res.success) {
@@ -65,18 +66,72 @@ export function StudentNotificationCenter({
           setUnreadCount(res.summary.unreadCount);
         }
       })
-      .finally(() => setIsLoading(false));
-  };
-
-  useEffect(() => {
-    loadNotifications();
+      .catch((err) => console.warn('StudentNotificationCenter fetch error:', err))
+      .finally(() => {
+        if (showSpinner) setIsLoading(false);
+      });
   }, []);
 
+  // Initial load on mount
+  useEffect(() => {
+    loadNotifications(notifications.length === 0);
+
+    const onFocus = () => loadNotifications(false);
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        loadNotifications(false);
+      }
+    };
+
+    window.addEventListener('focus', onFocus);
+    document.addEventListener('visibilitychange', onVisibilityChange);
+
+    // Periodic poll every 20 seconds in background
+    const interval = setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        loadNotifications(false);
+      }
+    }, 20000);
+
+    return () => {
+      window.removeEventListener('focus', onFocus);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+      clearInterval(interval);
+    };
+  }, [loadNotifications, notifications.length]);
+
+  // Real-time Supabase subscription for instant live updates
+  useEffect(() => {
+    if (!studentId) return;
+
+    const supabase = createClient();
+    const channel = supabase
+      .channel(`student_notifications_bell_${studentId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'student_notifications',
+          filter: `student_id=eq.${studentId}`,
+        },
+        () => {
+          loadNotifications(false);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [studentId, loadNotifications]);
+
+  // Reload smoothly when user opens dropdown
   useEffect(() => {
     if (isOpen) {
-      loadNotifications();
+      loadNotifications(false);
     }
-  }, [isOpen]);
+  }, [isOpen, loadNotifications]);
 
   // Close when clicking outside (mouse or touch)
   useEffect(() => {

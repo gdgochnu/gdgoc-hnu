@@ -101,7 +101,18 @@ export function StudentProfileViewClient({ initialData }: StudentProfileViewClie
     : 'Not Registered';
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem', maxWidth: '1240px', margin: '0 auto', padding: '1rem 0 4rem 0' }}>
+    <div
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '2rem',
+        maxWidth: '1240px',
+        margin: '0 auto',
+        padding: 'clamp(1.25rem, 2.5vw, 2rem) clamp(1rem, 3vw, 2rem) 4rem',
+        width: '100%',
+        boxSizing: 'border-box',
+      }}
+    >
       {/* ========================================================================= */}
       {/* 1. HERO COVER & PROFILE IDENTITY HEADER */}
       {/* ========================================================================= */}

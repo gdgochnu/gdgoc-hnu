@@ -43,12 +43,14 @@ export function StudentCertificatesClient({ student, certificates }: StudentCert
   return (
     <div
       style={{
-        padding: '2.5rem 2rem',
-        maxWidth: '1200px',
+        padding: 'clamp(1.25rem, 2.5vw, 2rem) clamp(1rem, 3vw, 2rem) 4rem',
+        maxWidth: '1240px',
         margin: '0 auto',
         display: 'flex',
         flexDirection: 'column',
         gap: '2.5rem',
+        width: '100%',
+        boxSizing: 'border-box',
       }}
     >
       {/* 1. Header Banner */}

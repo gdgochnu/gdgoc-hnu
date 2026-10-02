@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
+import { signOutAction } from '@/app/auth/actions';
 import {
   ArrowLeft,
   LogOut,
@@ -34,11 +35,11 @@ export function StudentOnboardingHeader({
     try {
       const supabase = createClient();
       await supabase.auth.signOut();
-      router.refresh();
-      window.location.href = '/';
+      await signOutAction().catch(() => null);
     } catch (err) {
       console.error('Sign out error:', err);
-      setIsSigningOut(false);
+    } finally {
+      window.location.href = '/';
     }
   };
 

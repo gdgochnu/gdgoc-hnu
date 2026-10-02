@@ -6,6 +6,7 @@ import { getWorkshopDetail } from '../actions';
 import { getCurrentStudentProfile } from '@/app/student/actions';
 import { StudentAppShell } from '@/components/student/StudentAppShell';
 import { StudentWorkshopDetailClient } from '@/components/student/StudentWorkshopDetailClient';
+import { BackToTopButton } from '@/components/student/BackToTopButton';
 import { ArrowLeft, LogIn } from 'lucide-react';
 
 export const dynamic = 'force-dynamic';
@@ -188,6 +189,8 @@ export default async function StudentWorkshopDetailPage({ params }: PageProps) {
           Google Developer Groups on Campus — Helwan National University • All rights reserved
         </p>
       </footer>
+
+      <BackToTopButton />
     </div>
   );
 }

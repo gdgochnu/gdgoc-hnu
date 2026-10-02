@@ -30,7 +30,10 @@ export default async function StudentNotificationsPage() {
 
   return (
     <StudentAppShell student={profileRes.student} teamRole={profileRes.teamRole || null}>
-      <StudentNotificationsClient initialSummary={notifsRes.summary} />
+      <StudentNotificationsClient
+        studentId={profileRes.student.id}
+        initialSummary={notifsRes.summary}
+      />
     </StudentAppShell>
   );
 }

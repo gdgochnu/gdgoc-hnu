@@ -143,13 +143,14 @@ END:VCALENDAR`.trim();
   return (
     <div
       style={{
-        padding: '2.5rem 2rem',
+        padding: 'clamp(1.25rem, 2.5vw, 2rem) clamp(1rem, 3vw, 2rem) 4rem',
         maxWidth: '1080px',
         margin: '0 auto',
         display: 'flex',
         flexDirection: 'column',
         gap: '2.5rem',
-        paddingBottom: '5rem',
+        width: '100%',
+        boxSizing: 'border-box',
       }}
     >
       {/* Celebration Header */}

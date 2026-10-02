@@ -6,6 +6,7 @@ import { getCourseDetail } from '../actions';
 import { getCurrentStudentProfile } from '@/app/student/actions';
 import { StudentAppShell } from '@/components/student/StudentAppShell';
 import { StudentCourseDetailClient } from '@/components/student/StudentCourseDetailClient';
+import { BackToTopButton } from '@/components/student/BackToTopButton';
 import { ArrowLeft, LogIn, AlertCircle } from 'lucide-react';
 
 export const dynamic = 'force-dynamic';
@@ -173,6 +174,8 @@ export default async function StudentCourseDetailPage({ params }: PageProps) {
       <main style={{ minHeight: 'calc(100vh - 64px)' }}>
         <StudentCourseDetailClient initialData={courseRes.data} />
       </main>
+
+      <BackToTopButton />
     </div>
   );
 }
