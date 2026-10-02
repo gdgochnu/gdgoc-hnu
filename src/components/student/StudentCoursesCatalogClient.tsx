@@ -260,6 +260,9 @@ export function StudentCoursesCatalogClient({
               placeholder="Search courses by title, track, or instructor..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Escape') setSearchQuery('');
+              }}
               style={{
                 width: '100%',
                 padding: '0.65rem 2.4rem 0.65rem 2.6rem',
@@ -280,16 +283,30 @@ export function StudentCoursesCatalogClient({
                   right: '0.85rem',
                   top: '50%',
                   transform: 'translateY(-50%)',
-                  background: 'transparent',
+                  background: 'rgba(255, 255, 255, 0.08)',
                   border: 'none',
-                  color: '#94A3B8',
-                  cursor: 'pointer',
-                  padding: 0,
+                  borderRadius: '50%',
+                  width: '24px',
+                  height: '24px',
                   display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: '#CBD5E1',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease',
                 }}
-                title="Clear search"
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = 'rgba(239, 68, 68, 0.2)';
+                  e.currentTarget.style.color = '#EF4444';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = 'rgba(255, 255, 255, 0.08)';
+                  e.currentTarget.style.color = '#CBD5E1';
+                }}
+                title="Clear search (Esc)"
+                aria-label="Clear search"
               >
-                <X size={16} />
+                <X size={14} />
               </button>
             )}
           </div>
@@ -389,6 +406,63 @@ export function StudentCoursesCatalogClient({
             </button>
           )}
         </div>
+      </div>
+
+      {/* Results Counter Bar */}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          flexWrap: 'wrap',
+          gap: '0.75rem',
+          padding: '0.2rem 0.4rem',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.86rem', color: '#94A3B8' }}>
+          <Sparkles size={15} color="#4285F4" />
+          <span>
+            Showing <strong style={{ color: '#FFFFFF', fontWeight: 800 }}>{filteredCourses.length}</strong> of{' '}
+            <strong style={{ color: '#FFFFFF', fontWeight: 800 }}>{initialCourses.length}</strong> Courses
+          </span>
+          {hasActiveFilters && (
+            <span
+              style={{
+                fontSize: '0.72rem',
+                padding: '0.15rem 0.55rem',
+                borderRadius: '999px',
+                background: 'rgba(66, 133, 244, 0.15)',
+                color: '#60A5FA',
+                border: '1px solid rgba(66, 133, 244, 0.3)',
+                fontWeight: 700,
+              }}
+            >
+              Filtered
+            </span>
+          )}
+        </div>
+
+        {hasActiveFilters && (
+          <button
+            type="button"
+            onClick={handleResetFilters}
+            style={{
+              background: 'transparent',
+              border: 'none',
+              color: '#EA4335',
+              fontSize: '0.8rem',
+              fontWeight: 700,
+              cursor: 'pointer',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.3rem',
+              padding: '0.2rem 0.5rem',
+            }}
+          >
+            <X size={13} />
+            <span>Reset All</span>
+          </button>
+        )}
       </div>
 
       {/* Courses Cards Grid */}

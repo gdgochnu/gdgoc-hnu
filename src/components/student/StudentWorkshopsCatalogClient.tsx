@@ -432,6 +432,9 @@ export function StudentWorkshopsCatalogClient({
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Escape') setSearchQuery('');
+              }}
               placeholder="Search by title, topic, committee, or instructor..."
               style={{
                 width: '100%',
@@ -453,13 +456,30 @@ export function StudentWorkshopsCatalogClient({
                   right: '0.85rem',
                   top: '50%',
                   transform: 'translateY(-50%)',
-                  background: 'transparent',
+                  background: 'rgba(255, 255, 255, 0.08)',
                   border: 'none',
-                  color: '#64748B',
+                  borderRadius: '50%',
+                  width: '24px',
+                  height: '24px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: '#CBD5E1',
                   cursor: 'pointer',
+                  transition: 'all 0.15s ease',
                 }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = 'rgba(239, 68, 68, 0.2)';
+                  e.currentTarget.style.color = '#EF4444';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = 'rgba(255, 255, 255, 0.08)';
+                  e.currentTarget.style.color = '#CBD5E1';
+                }}
+                title="Clear search (Esc)"
+                aria-label="Clear search"
               >
-                <X size={16} />
+                <X size={14} />
               </button>
             )}
           </div>
@@ -631,6 +651,63 @@ export function StudentWorkshopsCatalogClient({
               </button>
             ))}
           </div>
+        )}
+      </div>
+
+      {/* Results Counter Bar */}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          flexWrap: 'wrap',
+          gap: '0.75rem',
+          padding: '0.2rem 0.4rem',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.86rem', color: '#94A3B8' }}>
+          <Sparkles size={15} color="#A855F7" />
+          <span>
+            Showing <strong style={{ color: '#FFFFFF', fontWeight: 800 }}>{filteredWorkshops.length}</strong> of{' '}
+            <strong style={{ color: '#FFFFFF', fontWeight: 800 }}>{initialWorkshops.length}</strong> Workshops
+          </span>
+          {hasActiveFilters && (
+            <span
+              style={{
+                fontSize: '0.72rem',
+                padding: '0.15rem 0.55rem',
+                borderRadius: '999px',
+                background: 'rgba(168, 85, 247, 0.15)',
+                color: '#C084FC',
+                border: '1px solid rgba(168, 85, 247, 0.3)',
+                fontWeight: 700,
+              }}
+            >
+              Filtered
+            </span>
+          )}
+        </div>
+
+        {hasActiveFilters && (
+          <button
+            type="button"
+            onClick={handleResetFilters}
+            style={{
+              background: 'transparent',
+              border: 'none',
+              color: '#EF4444',
+              fontSize: '0.8rem',
+              fontWeight: 700,
+              cursor: 'pointer',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.3rem',
+              padding: '0.2rem 0.5rem',
+            }}
+          >
+            <X size={13} />
+            <span>Reset All</span>
+          </button>
         )}
       </div>
 

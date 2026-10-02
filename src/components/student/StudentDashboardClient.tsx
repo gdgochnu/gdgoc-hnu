@@ -503,7 +503,7 @@ export function StudentDashboardClient({ initialData }: StudentDashboardClientPr
 
           {/* Tool 2: Tracks & Syllabus */}
           <Link
-            href="/student#tracks"
+            href="/student/courses"
             className="glass-panel"
             style={{
               padding: '1.25rem',

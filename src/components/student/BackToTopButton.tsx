@@ -98,8 +98,6 @@ export function BackToTopButton({ threshold = 400 }: BackToTopButtonProps) {
         fontWeight: 700,
         cursor: 'pointer',
         position: 'fixed',
-        left: 'var(--back-to-top-left, 1.25rem)',
-        right: 'auto',
         bottom: bottomOffset,
         zIndex: 999990,
         opacity: visible ? 1 : 0,

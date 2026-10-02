@@ -1154,18 +1154,18 @@ select {
   }
 }
 
+/* Student Back-to-Top Button: Right on desktop, Left on mobile */
 .student-back-to-top {
   position: fixed;
-  bottom: 2rem;
-  left: 2rem;
-  right: auto;
+  right: 2rem !important;
+  left: auto !important;
   z-index: 999990;
 }
 
 @media (max-width: 768px) {
   .student-back-to-top {
-    left: 1.25rem;
-    right: auto;
+    left: 1.25rem !important;
+    right: auto !important;
   }
 }
 

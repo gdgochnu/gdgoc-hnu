@@ -572,11 +572,11 @@ export function CompleteStudentProfileForm({
                 required
                 style={inputStyle}
               >
-                <option value={1} style={{ background: '#0F172A' }}>1st Year (Freshman)</option>
-                <option value={2} style={{ background: '#0F172A' }}>2nd Year (Sophomore)</option>
-                <option value={3} style={{ background: '#0F172A' }}>3rd Year (Junior)</option>
-                <option value={4} style={{ background: '#0F172A' }}>4th Year (Senior 1)</option>
-                <option value={5} style={{ background: '#0F172A' }}>5th Year (Senior 2 / Engineering)</option>
+                <option value={1} style={{ background: '#0F172A' }}>1st Year</option>
+                <option value={2} style={{ background: '#0F172A' }}>2nd Year</option>
+                <option value={3} style={{ background: '#0F172A' }}>3rd Year</option>
+                <option value={4} style={{ background: '#0F172A' }}>4th Year</option>
+                <option value={5} style={{ background: '#0F172A' }}>5th Year</option>
               </select>
             </div>
           </div>

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import Link from 'next/link';
 import {
   User,
@@ -99,6 +99,60 @@ export function StudentProfileViewClient({ initialData }: StudentProfileViewClie
   const maskedNationalId = student.national_id
     ? `${student.national_id.slice(0, 3)}•••••••${student.national_id.slice(-4)}`
     : 'Not Registered';
+
+  // Profile Completion Meter Calculation
+  const completion = useMemo(() => {
+    let score = 0;
+    const missing: { key: string; label: string; action: string }[] = [];
+
+    // Core Identity (50%)
+    if (student.full_name_en?.trim()) score += 10;
+    if (student.full_name_ar?.trim()) score += 10;
+    if (student.faculty?.trim()) score += 10;
+    if (student.academic_year) score += 10;
+    if (student.phone?.trim()) score += 10;
+
+    // Contact & Verification (20%)
+    if (student.whatsapp_number?.trim()) {
+      score += 10;
+    } else {
+      missing.push({ key: 'whatsapp', label: 'WhatsApp', action: 'Add your WhatsApp number for workshop passes' });
+    }
+
+    if (student.national_id?.trim()) {
+      score += 10;
+    } else {
+      missing.push({ key: 'national_id', label: 'National ID', action: 'Add your National ID for verified certificate issuance' });
+    }
+
+    // Professional & Social (30%)
+    if (student.linkedin_url?.trim()) {
+      score += 15;
+    } else {
+      missing.push({ key: 'linkedin', label: 'LinkedIn', action: 'Add your LinkedIn to stand out to mentors' });
+    }
+
+    if (student.avatar_url?.trim()) {
+      score += 10;
+    } else {
+      missing.push({ key: 'avatar', label: 'Profile Photo', action: 'Upload a profile photo for your ID pass' });
+    }
+
+    if (student.department_major?.trim() || student.facebook_url?.trim() || student.instagram_url?.trim()) {
+      score += 5;
+    } else {
+      missing.push({ key: 'social', label: 'Major or Social Profiles', action: 'Add your major or social accounts' });
+    }
+
+    const percentage = Math.min(100, Math.max(0, score));
+    const nextAction = missing[0]?.action || 'Your profile is fully completed!';
+
+    return {
+      percentage,
+      nextAction,
+      isAllStar: percentage === 100,
+    };
+  }, [student]);
 
   return (
     <div
@@ -368,6 +422,144 @@ export function StudentProfileViewClient({ initialData }: StudentProfileViewClie
           </div>
         </div>
       </div>
+
+      {/* ========================================================================= */}
+      {/* 1.5 PROFILE COMPLETION METER BANNER */}
+      {/* ========================================================================= */}
+      <div
+        className="glass-panel"
+        style={{
+          borderRadius: '18px',
+          padding: '1.25rem 1.6rem',
+          background: completion.isAllStar
+            ? 'linear-gradient(135deg, rgba(52, 168, 83, 0.12) 0%, rgba(15, 23, 42, 0.8) 100%)'
+            : 'linear-gradient(135deg, rgba(66, 133, 244, 0.12) 0%, rgba(251, 188, 4, 0.08) 50%, rgba(15, 23, 42, 0.85) 100%)',
+          border: completion.isAllStar
+            ? '1px solid rgba(52, 168, 83, 0.35)'
+            : '1px solid rgba(66, 133, 244, 0.3)',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '0.85rem',
+          boxShadow: '0 8px 24px rgba(0, 0, 0, 0.35)',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem', flex: 1, minWidth: '260px' }}>
+            <div
+              style={{
+                width: '42px',
+                height: '42px',
+                borderRadius: '12px',
+                background: completion.isAllStar ? 'rgba(52, 168, 83, 0.2)' : 'rgba(66, 133, 244, 0.2)',
+                border: completion.isAllStar ? '1px solid rgba(52, 168, 83, 0.4)' : '1px solid rgba(66, 133, 244, 0.4)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: completion.isAllStar ? '#34D399' : '#60A5FA',
+                flexShrink: 0,
+              }}
+            >
+              {completion.isAllStar ? <Sparkles size={22} /> : <CheckCircle2 size={22} />}
+            </div>
+
+            <div style={{ flex: 1 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap' }}>
+                <span style={{ fontSize: '0.98rem', fontWeight: 800, color: '#FFFFFF' }}>
+                  Profile {completion.percentage}% Complete
+                </span>
+                {completion.isAllStar ? (
+                  <span
+                    style={{
+                      fontSize: '0.72rem',
+                      fontWeight: 800,
+                      padding: '0.15rem 0.6rem',
+                      borderRadius: '999px',
+                      background: 'rgba(52, 168, 83, 0.25)',
+                      color: '#86EFAC',
+                      border: '1px solid rgba(52, 168, 83, 0.5)',
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.04em',
+                    }}
+                  >
+                    ★ All-Star Profile
+                  </span>
+                ) : (
+                  <span
+                    style={{
+                      fontSize: '0.74rem',
+                      fontWeight: 700,
+                      padding: '0.15rem 0.55rem',
+                      borderRadius: '999px',
+                      background: 'rgba(251, 188, 4, 0.15)',
+                      color: '#FDE047',
+                      border: '1px solid rgba(251, 188, 4, 0.35)',
+                    }}
+                  >
+                    In Progress
+                  </span>
+                )}
+              </div>
+
+              <p style={{ margin: '0.2rem 0 0 0', fontSize: '0.84rem', color: '#CBD5E1', lineHeight: 1.4 }}>
+                {completion.isAllStar
+                  ? 'All essential and professional details are filled. Your profile stands out to instructors and chapter leads!'
+                  : `${completion.nextAction}.`}
+              </p>
+            </div>
+          </div>
+
+          {!completion.isAllStar && (
+            <button
+              type="button"
+              onClick={() => setIsEditModalOpen(true)}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.45rem',
+                padding: '0.55rem 1.1rem',
+                borderRadius: '10px',
+                background: 'linear-gradient(135deg, #4285F4 0%, #2563EB 100%)',
+                border: 'none',
+                color: '#FFFFFF',
+                fontSize: '0.84rem',
+                fontWeight: 700,
+                cursor: 'pointer',
+                boxShadow: '0 4px 12px rgba(66, 133, 244, 0.35)',
+                transition: 'all 0.15s ease',
+                flexShrink: 0,
+              }}
+            >
+              <Pencil size={14} />
+              <span>Complete Now</span>
+              <ArrowRight size={14} />
+            </button>
+          )}
+        </div>
+
+        {/* Progress Track */}
+        <div
+          style={{
+            height: '7px',
+            borderRadius: '999px',
+            background: 'rgba(255, 255, 255, 0.08)',
+            overflow: 'hidden',
+            position: 'relative',
+          }}
+        >
+          <div
+            style={{
+              height: '100%',
+              width: `${completion.percentage}%`,
+              background: completion.isAllStar
+                ? 'linear-gradient(90deg, #34A853 0%, #10B981 100%)'
+                : 'linear-gradient(90deg, #4285F4 0%, #FBBC04 50%, #34A853 100%)',
+              borderRadius: '999px',
+              transition: 'width 0.6s cubic-bezier(0.34, 1.56, 0.64, 1)',
+            }}
+          />
+        </div>
+      </div>
+
 
       {/* ========================================================================= */}
       {/* 2. STATS OVERVIEW CARDS */}
