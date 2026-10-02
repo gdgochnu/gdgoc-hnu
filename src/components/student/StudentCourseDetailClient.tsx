@@ -381,7 +381,7 @@ export function StudentCourseDetailClient({ initialData }: StudentCourseDetailCl
           borderRadius: '20px',
           border: '1px solid rgba(255, 255, 255, 0.08)',
           background: 'linear-gradient(135deg, rgba(66, 133, 244, 0.12) 0%, rgba(15, 23, 42, 0.85) 100%)',
-          padding: '2.5rem',
+          padding: 'clamp(1.25rem, 4vw, 2.5rem)',
           position: 'relative',
           overflow: 'hidden',
         }}
@@ -491,12 +491,13 @@ export function StudentCourseDetailClient({ initialData }: StudentCourseDetailCl
 
           <h1
             style={{
-              fontSize: 'clamp(1.9rem, 3.5vw, 2.7rem)',
+              fontSize: 'clamp(1.4rem, 4vw, 2.7rem)',
               fontWeight: 800,
               color: '#FFFFFF',
               margin: 0,
               lineHeight: 1.25,
               letterSpacing: '-0.5px',
+              wordBreak: 'break-word',
             }}
           >
             {course.title}
@@ -1080,7 +1081,7 @@ export function StudentCourseDetailClient({ initialData }: StudentCourseDetailCl
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', position: 'sticky', top: '5rem' }}>
             {/* Admission Action Card */}
             <div
-              className="glass-panel"
+              className="glass-panel student-course-admission-card"
               style={{
                 padding: '1.75rem',
                 borderRadius: '20px',

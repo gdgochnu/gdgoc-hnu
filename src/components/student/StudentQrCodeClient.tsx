@@ -163,7 +163,7 @@ export function StudentQrCodeClient({ student, teamRole }: StudentQrCodeClientPr
               <ArrowLeft size={16} />
               <span>Back to Student Dashboard</span>
             </Link>
-            <h1 style={{ fontSize: '1.75rem', fontWeight: 900, color: '#FFFFFF', margin: 0, letterSpacing: '-0.02em' }}>
+            <h1 style={{ fontSize: 'clamp(1.3rem, 4.5vw, 1.75rem)', fontWeight: 900, color: '#FFFFFF', margin: 0, letterSpacing: '-0.02em', wordBreak: 'break-word' }}>
               Permanent Attendance Pass
             </h1>
             <p style={{ fontSize: '0.9rem', color: '#94A3B8', margin: '0.3rem 0 0 0' }}>
@@ -172,7 +172,7 @@ export function StudentQrCodeClient({ student, teamRole }: StudentQrCodeClientPr
           </div>
 
           {/* Quick Action Buttons */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap', width: '100%' }} className="no-print">
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }} className="no-print student-qr-actions">
             <button
               type="button"
               onClick={handlePrint}

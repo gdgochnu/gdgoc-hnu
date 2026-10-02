@@ -1148,7 +1148,8 @@ select {
     display: flex !important;
   }
 
-  .student-workshop-hero-card {
+  .student-workshop-hero-card,
+  .student-course-admission-card {
     display: none !important;
   }
 }

@@ -263,7 +263,7 @@ export function StudentNotificationsClient({
           borderRadius: '20px',
           background: 'linear-gradient(180deg, #131B2E 0%, #0F172A 100%)',
           border: '1px solid rgba(66, 133, 244, 0.25)',
-          padding: '2rem 2.25rem',
+          padding: 'clamp(1.25rem, 4vw, 2.25rem)',
           position: 'relative',
           overflow: 'hidden',
           boxShadow: '0 20px 40px -15px rgba(0, 0, 0, 0.6)',
@@ -282,7 +282,7 @@ export function StudentNotificationsClient({
 
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem' }}>
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '0.45rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '0.45rem', flexWrap: 'wrap' }}>
               <div
                 style={{
                   width: '36px',
@@ -294,11 +294,12 @@ export function StudentNotificationsClient({
                   alignItems: 'center',
                   justifyContent: 'center',
                   color: '#60A5FA',
+                  flexShrink: 0,
                 }}
               >
                 <Bell size={20} />
               </div>
-              <h1 style={{ fontSize: '1.75rem', fontWeight: 900, color: '#FFFFFF', margin: 0 }}>
+              <h1 style={{ fontSize: 'clamp(1.3rem, 4.5vw, 1.75rem)', fontWeight: 900, color: '#FFFFFF', margin: 0, wordBreak: 'break-word' }}>
                 Notifications Center
               </h1>
               {unreadCount > 0 && (
