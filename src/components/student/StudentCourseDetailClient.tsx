@@ -764,7 +764,7 @@ export function StudentCourseDetailClient({ initialData }: StudentCourseDetailCl
                 }}
               >
                 <Clock3 size={13} />
-                Under Review by Track Leads
+                Admission Pending
               </span>
             ) : (
               <span
@@ -870,9 +870,9 @@ export function StudentCourseDetailClient({ initialData }: StudentCourseDetailCl
                   <span>You are enrolled in this track</span>
                 </div>
               ) : isPending ? (
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', color: '#FBBF24', fontSize: '0.92rem', fontWeight: 800 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', color: '#FBBF24', fontSize: '0.9rem', fontWeight: 700 }}>
                   <Clock3 size={18} />
-                  <span>Under Review by Track Leads</span>
+                  <span>Application received • Under review by track leads</span>
                 </div>
               ) : isWaitlisted ? (
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', color: '#C084FC', fontSize: '0.92rem', fontWeight: 800 }}>
@@ -937,16 +937,21 @@ export function StudentCourseDetailClient({ initialData }: StudentCourseDetailCl
             ) : isPending ? (
               <div
                 style={{
-                  padding: '0.65rem 1.15rem',
+                  padding: '0.65rem 1.2rem',
                   borderRadius: '10px',
-                  background: 'rgba(251, 188, 4, 0.15)',
+                  background: 'rgba(251, 188, 4, 0.12)',
                   border: '1px solid rgba(251, 188, 4, 0.35)',
                   color: '#FBBF24',
                   fontSize: '0.85rem',
                   fontWeight: 700,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.45rem',
+                  boxShadow: '0 2px 8px rgba(251, 188, 4, 0.15)',
                 }}
               >
-                Under Review by Track Leads
+                <CheckCircle2 size={15} />
+                <span>Submitted for Review</span>
               </div>
             ) : isWaitlisted ? (
               <div
@@ -1397,7 +1402,7 @@ export function StudentCourseDetailClient({ initialData }: StudentCourseDetailCl
                   {isConfirmed
                     ? 'You are enrolled in this track ✓'
                     : isPending
-                    ? 'Under Review by Track Leads'
+                    ? 'Application Under Review'
                     : isWaitlisted
                     ? 'You are on the Waitlist'
                     : course.enrollment_type === 'open'
@@ -1461,7 +1466,7 @@ export function StudentCourseDetailClient({ initialData }: StudentCourseDetailCl
                   }}
                 >
                   <Clock3 size={18} />
-                  <span>Awaiting Instructor Review...</span>
+                  <span>Awaiting Evaluation...</span>
                 </div>
               ) : (
                 <button
@@ -4512,7 +4517,7 @@ export function StudentCourseDetailClient({ initialData }: StudentCourseDetailCl
               : isConfirmed
               ? '✓ Enrolled in Track'
               : isPending
-              ? '⏳ Under Review by Track Leads'
+              ? '⏳ Application Submitted'
               : isWaitlisted
               ? '⏸ On Waitlist'
               : `${sessions.length} Sessions • Free Admission`}
@@ -4570,7 +4575,7 @@ export function StudentCourseDetailClient({ initialData }: StudentCourseDetailCl
         ) : isPending ? (
           <div
             style={{
-              padding: '0.55rem 0.9rem',
+              padding: '0.55rem 0.95rem',
               borderRadius: '8px',
               background: 'rgba(251, 188, 4, 0.15)',
               border: '1px solid rgba(251, 188, 4, 0.35)',
@@ -4578,9 +4583,13 @@ export function StudentCourseDetailClient({ initialData }: StudentCourseDetailCl
               fontSize: '0.8rem',
               fontWeight: 700,
               flexShrink: 0,
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.35rem',
             }}
           >
-            Under Review by Track Leads
+            <Clock3 size={13} />
+            <span>In Review</span>
           </div>
         ) : isWaitlisted ? (
           <div
