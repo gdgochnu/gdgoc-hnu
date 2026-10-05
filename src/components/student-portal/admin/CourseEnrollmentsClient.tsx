@@ -65,6 +65,13 @@ export function CourseEnrollmentsClient({
   const [selectedStudent, setSelectedStudent] = useState<EnrollmentStudentItem | null>(null);
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
+  // Export Modal state
+  const [showExportModal, setShowExportModal] = useState(false);
+  const [exportFilterStatus, setExportFilterStatus] = useState<'confirmed' | 'all' | 'pending' | 'waitlisted'>('confirmed');
+  const [exportFilterYear, setExportFilterYear] = useState<string>('all');
+  const [exportFilterFaculty, setExportFilterFaculty] = useState<string>('all');
+  const [exportTicketTitle, setExportTicketTitle] = useState<string>(header.title || 'General Admission');
+
   // Grouped counts
   const pendingCount = enrollments.filter((e) => e.status === 'pending').length;
   const confirmedCount = enrollments.filter((e) => e.status === 'confirmed').length;
@@ -76,6 +83,23 @@ export function CourseEnrollmentsClient({
   const capacity = header.capacity;
   const capacityPercent = capacity ? Math.min(Math.round((confirmedCount / capacity) * 100), 100) : 0;
   const isFull = Boolean(capacity && confirmedCount >= capacity);
+
+  // Distinct faculties and academic years in this course roster
+  const uniqueFaculties = useMemo(() => {
+    const set = new Set<string>();
+    enrollments.forEach((e) => {
+      if (e.student.faculty?.trim()) set.add(e.student.faculty.trim());
+    });
+    return Array.from(set).sort((a, b) => a.localeCompare(b, 'ar'));
+  }, [enrollments]);
+
+  const uniqueYears = useMemo(() => {
+    const set = new Set<number>();
+    enrollments.forEach((e) => {
+      if (e.student.academic_year) set.add(Number(e.student.academic_year));
+    });
+    return Array.from(set).sort((a, b) => a - b);
+  }, [enrollments]);
 
   // Filtered by tab and search query
   const filteredEnrollments = useMemo(() => {
@@ -106,6 +130,29 @@ export function CourseEnrollmentsClient({
     });
   }, [enrollments, activeTab, searchQuery]);
 
+  // Filtered for Export Dialog
+  const exportMatchingStudents = useMemo(() => {
+    return enrollments.filter((item) => {
+      // Status filter
+      if (exportFilterStatus === 'confirmed' && item.status !== 'confirmed') return false;
+      if (exportFilterStatus === 'pending' && item.status !== 'pending') return false;
+      if (exportFilterStatus === 'waitlisted' && item.status !== 'waitlisted') return false;
+
+      // Year filter
+      if (exportFilterYear !== 'all') {
+        const yearNum = Number(exportFilterYear);
+        if (Number(item.student.academic_year) !== yearNum) return false;
+      }
+
+      // Faculty filter
+      if (exportFilterFaculty !== 'all') {
+        if (item.student.faculty?.trim() !== exportFilterFaculty.trim()) return false;
+      }
+
+      return true;
+    });
+  }, [enrollments, exportFilterStatus, exportFilterYear, exportFilterFaculty]);
+
   const parseStudentName = (fullName: string | null | undefined): { firstName: string; lastName: string } => {
     if (!fullName) return { firstName: '', lastName: '' };
     const trimmed = fullName.trim();
@@ -125,16 +172,9 @@ export function CourseEnrollmentsClient({
     return str;
   };
 
-  const exportAttendeesCSV = (scope: 'confirmed' | 'all' | 'current' = 'confirmed') => {
-    let targetList = enrollments;
-    if (scope === 'confirmed') {
-      targetList = enrollments.filter((e) => e.status === 'confirmed');
-    } else if (scope === 'current') {
-      targetList = filteredEnrollments;
-    }
-
-    if (targetList.length === 0) {
-      alert(`No student records found to export for "${scope}" filter.`);
+  const handleExecuteExportCSV = () => {
+    if (exportMatchingStudents.length === 0) {
+      alert('No matching students found for the selected criteria.');
       return;
     }
 
@@ -151,13 +191,13 @@ export function CourseEnrollmentsClient({
       'ticket_venue',
     ];
 
-    const rows = targetList.map((item) => {
+    const rows = exportMatchingStudents.map((item) => {
       const s = item.student;
       const { firstName, lastName } = parseStudentName(s.full_name_en || s.full_name_ar);
       const isCheckedIn = 'TRUE';
       const jobTitle = s.academic_year ? `Year ${s.academic_year} Student` : 'Student';
       const company = s.faculty || s.university || 'Helwan National University';
-      const ticketTitle = header.title || 'General Admission';
+      const ticketTitle = exportTicketTitle.trim() || header.title || 'General Admission';
       const ticketVenue = 'In-Person';
 
       return [
@@ -180,12 +220,16 @@ export function CourseEnrollmentsClient({
       .toLowerCase()
       .replace(/[^a-z0-9]/g, '_')
       .replace(/_+/g, '_');
+
+    const yearSuffix = exportFilterYear !== 'all' ? `_year${exportFilterYear}` : '';
+    const facultySuffix = exportFilterFaculty !== 'all' ? `_filtered` : '';
     link.href = url;
-    link.download = `${safeTitle}_attendees_${scope}_${new Date().toISOString().slice(0, 10)}.csv`;
+    link.download = `${safeTitle}_attendees_${exportFilterStatus}${yearSuffix}${facultySuffix}_${new Date().toISOString().slice(0, 10)}.csv`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
+    setShowExportModal(false);
   };
 
   const handleApprove = async (item: EnrollmentStudentItem) => {
@@ -679,58 +723,32 @@ export function CourseEnrollmentsClient({
               )}
             </div>
 
-            {/* Export CSV Buttons */}
+            {/* Export CSV Button */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
               <button
                 type="button"
-                onClick={() => exportAttendeesCSV('confirmed')}
+                onClick={() => setShowExportModal(true)}
                 style={{
                   display: 'inline-flex',
                   alignItems: 'center',
                   gap: '0.45rem',
-                  padding: '0.55rem 0.95rem',
+                  padding: '0.55rem 1.1rem',
                   borderRadius: '10px',
                   background: 'linear-gradient(135deg, rgba(66, 133, 244, 0.22) 0%, rgba(52, 168, 83, 0.22) 100%)',
                   border: '1px solid rgba(66, 133, 244, 0.45)',
                   color: '#60A5FA',
-                  fontSize: '0.82rem',
+                  fontSize: '0.84rem',
                   fontWeight: 800,
                   cursor: 'pointer',
                   transition: 'all 0.15s ease',
                   boxShadow: '0 2px 10px rgba(0, 0, 0, 0.2)',
                   whiteSpace: 'nowrap',
                 }}
-                title="Export Confirmed Attendees CSV (Without Survey Columns)"
+                title="تخصيص وتصدير ملف CSV"
               >
-                <Download size={14} color="#60A5FA" />
-                <span>Export Attendees ({confirmedCount})</span>
+                <Download size={15} color="#60A5FA" />
+                <span>استخراج بيانات المشتركين (CSV)</span>
               </button>
-
-              {enrollments.length > confirmedCount && (
-                <button
-                  type="button"
-                  onClick={() => exportAttendeesCSV('all')}
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '0.4rem',
-                    padding: '0.55rem 0.85rem',
-                    borderRadius: '10px',
-                    background: 'rgba(255, 255, 255, 0.04)',
-                    border: '1px solid rgba(255, 255, 255, 0.1)',
-                    color: '#94A3B8',
-                    fontSize: '0.8rem',
-                    fontWeight: 700,
-                    cursor: 'pointer',
-                    transition: 'all 0.15s ease',
-                    whiteSpace: 'nowrap',
-                  }}
-                  title="Export All Registered/Applicant Students as CSV"
-                >
-                  <FileSpreadsheet size={14} />
-                  <span>All ({enrollments.length})</span>
-                </button>
-              )}
             </div>
           </div>
         </div>
@@ -1613,6 +1631,287 @@ export function CourseEnrollmentsClient({
                   )}
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Custom Export CSV Modal */}
+      {showExportModal && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 9999,
+            backgroundColor: 'rgba(0, 0, 0, 0.75)',
+            backdropFilter: 'blur(8px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '1.5rem',
+          }}
+          onClick={() => setShowExportModal(false)}
+        >
+          <div
+            className="glass-panel"
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: '100%',
+              maxWidth: '540px',
+              borderRadius: '20px',
+              background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.96) 0%, rgba(30, 41, 59, 0.94) 100%)',
+              border: '1px solid rgba(255, 255, 255, 0.12)',
+              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
+              padding: '1.75rem',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '1.4rem',
+              position: 'relative',
+              animation: 'fadeIn 0.2s ease-out',
+            }}
+          >
+            {/* Modal Header */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                <div
+                  style={{
+                    width: '42px',
+                    height: '42px',
+                    borderRadius: '12px',
+                    background: 'linear-gradient(135deg, rgba(66, 133, 244, 0.25) 0%, rgba(52, 168, 83, 0.25) 100%)',
+                    border: '1px solid rgba(66, 133, 244, 0.4)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: '#60A5FA',
+                  }}
+                >
+                  <Download size={20} />
+                </div>
+                <div>
+                  <h3 style={{ fontSize: '1.15rem', fontWeight: 800, color: '#FFFFFF', margin: 0 }}>
+                    تصدير بيانات المشتركين (CSV)
+                  </h3>
+                  <p style={{ fontSize: '0.78rem', color: '#94A3B8', margin: '0.2rem 0 0 0' }}>
+                    تصفية الحضور حسب الكلية والمرحلة الدراسية قبل التصدير
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowExportModal(false)}
+                style={{
+                  background: 'rgba(255, 255, 255, 0.05)',
+                  border: '1px solid rgba(255, 255, 255, 0.1)',
+                  borderRadius: '10px',
+                  width: '32px',
+                  height: '32px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: '#94A3B8',
+                  cursor: 'pointer',
+                }}
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            {/* Filter Controls */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.1rem' }}>
+              {/* Status Filter */}
+              <div>
+                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#CBD5E1', marginBottom: '0.4rem' }}>
+                  حالة التسجيل (Status)
+                </label>
+                <select
+                  value={exportFilterStatus}
+                  onChange={(e) => setExportFilterStatus(e.target.value as any)}
+                  style={{
+                    width: '100%',
+                    padding: '0.65rem 0.9rem',
+                    borderRadius: '10px',
+                    background: 'rgba(15, 23, 42, 0.8)',
+                    border: '1px solid rgba(255, 255, 255, 0.15)',
+                    color: '#FFFFFF',
+                    fontSize: '0.88rem',
+                    outline: 'none',
+                    cursor: 'pointer',
+                  }}
+                >
+                  <option value="confirmed">المقبولين فقط (Confirmed) — {confirmedCount}</option>
+                  <option value="all">جميع المسجلين (All Applicants) — {enrollments.length}</option>
+                  <option value="pending">قيد المراجعة (Pending Review) — {pendingCount}</option>
+                  <option value="waitlisted">قائمة الانتظار (Waitlisted) — {waitlistedCount}</option>
+                </select>
+              </div>
+
+              {/* Faculty Filter */}
+              <div>
+                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#CBD5E1', marginBottom: '0.4rem' }}>
+                  الكلية (Faculty)
+                </label>
+                <select
+                  value={exportFilterFaculty}
+                  onChange={(e) => setExportFilterFaculty(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '0.65rem 0.9rem',
+                    borderRadius: '10px',
+                    background: 'rgba(15, 23, 42, 0.8)',
+                    border: '1px solid rgba(255, 255, 255, 0.15)',
+                    color: '#FFFFFF',
+                    fontSize: '0.88rem',
+                    outline: 'none',
+                    cursor: 'pointer',
+                  }}
+                >
+                  <option value="all">جميع الكليات (All Faculties)</option>
+                  {uniqueFaculties.map((fac) => (
+                    <option key={fac} value={fac}>
+                      {fac}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Academic Year Filter */}
+              <div>
+                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#CBD5E1', marginBottom: '0.4rem' }}>
+                  المرحلة / الفرقة الدراسية (Academic Year)
+                </label>
+                <select
+                  value={exportFilterYear}
+                  onChange={(e) => setExportFilterYear(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '0.65rem 0.9rem',
+                    borderRadius: '10px',
+                    background: 'rgba(15, 23, 42, 0.8)',
+                    border: '1px solid rgba(255, 255, 255, 0.15)',
+                    color: '#FFFFFF',
+                    fontSize: '0.88rem',
+                    outline: 'none',
+                    cursor: 'pointer',
+                  }}
+                >
+                  <option value="all">جميع الفرق الدراسية (All Academic Years)</option>
+                  <option value="1">الفرقة الأولى (Year 1)</option>
+                  <option value="2">الفرقة الثانية (Year 2)</option>
+                  <option value="3">الفرقة الثالثة (Year 3)</option>
+                  <option value="4">الفرقة الرابعة (Year 4)</option>
+                  <option value="5">الفرقة الخامسة (Year 5)</option>
+                </select>
+              </div>
+
+              {/* Ticket Title Custom Input */}
+              <div>
+                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#CBD5E1', marginBottom: '0.4rem' }}>
+                  عنوان التذكرة (Ticket Title)
+                </label>
+                <input
+                  type="text"
+                  value={exportTicketTitle}
+                  onChange={(e) => setExportTicketTitle(e.target.value)}
+                  placeholder="مثال: General Admission أو Flutter Bootcamp Pass"
+                  style={{
+                    width: '100%',
+                    padding: '0.65rem 0.9rem',
+                    borderRadius: '10px',
+                    background: 'rgba(15, 23, 42, 0.8)',
+                    border: '1px solid rgba(255, 255, 255, 0.15)',
+                    color: '#FFFFFF',
+                    fontSize: '0.88rem',
+                    outline: 'none',
+                  }}
+                />
+              </div>
+            </div>
+
+            {/* Live Count Preview Banner */}
+            <div
+              style={{
+                padding: '0.85rem 1.1rem',
+                borderRadius: '12px',
+                background:
+                  exportMatchingStudents.length > 0
+                    ? 'rgba(66, 133, 244, 0.12)'
+                    : 'rgba(234, 67, 53, 0.12)',
+                border: `1px solid ${
+                  exportMatchingStudents.length > 0
+                    ? 'rgba(66, 133, 244, 0.25)'
+                    : 'rgba(234, 67, 53, 0.25)'
+                }`,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <Users size={16} color={exportMatchingStudents.length > 0 ? '#60A5FA' : '#F87171'} />
+                <span style={{ fontSize: '0.85rem', color: '#E2E8F0', fontWeight: 600 }}>
+                  عدد الطلاب المطابقين:
+                </span>
+              </div>
+              <span
+                style={{
+                  fontSize: '0.95rem',
+                  fontWeight: 800,
+                  color: exportMatchingStudents.length > 0 ? '#60A5FA' : '#F87171',
+                }}
+              >
+                {exportMatchingStudents.length} طالب
+              </span>
+            </div>
+
+            {/* Modal Actions */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', justifyContent: 'flex-end', marginTop: '0.5rem' }}>
+              <button
+                type="button"
+                onClick={() => setShowExportModal(false)}
+                style={{
+                  padding: '0.65rem 1.2rem',
+                  borderRadius: '10px',
+                  background: 'rgba(255, 255, 255, 0.05)',
+                  border: '1px solid rgba(255, 255, 255, 0.12)',
+                  color: '#94A3B8',
+                  fontSize: '0.85rem',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                }}
+              >
+                إلغاء
+              </button>
+
+              <button
+                type="button"
+                disabled={exportMatchingStudents.length === 0}
+                onClick={handleExecuteExportCSV}
+                style={{
+                  padding: '0.65rem 1.3rem',
+                  borderRadius: '10px',
+                  background:
+                    exportMatchingStudents.length > 0
+                      ? 'linear-gradient(135deg, #4285F4 0%, #34A853 100%)'
+                      : 'rgba(255, 255, 255, 0.08)',
+                  border: 'none',
+                  color: exportMatchingStudents.length > 0 ? '#FFFFFF' : '#64748B',
+                  fontSize: '0.88rem',
+                  fontWeight: 800,
+                  cursor: exportMatchingStudents.length > 0 ? 'pointer' : 'not-allowed',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.5rem',
+                  boxShadow:
+                    exportMatchingStudents.length > 0
+                      ? '0 4px 15px rgba(66, 133, 244, 0.35)'
+                      : 'none',
+                  transition: 'all 0.15s ease',
+                }}
+              >
+                <Download size={16} />
+                <span>تحميل ملف CSV ({exportMatchingStudents.length})</span>
+              </button>
             </div>
           </div>
         </div>
