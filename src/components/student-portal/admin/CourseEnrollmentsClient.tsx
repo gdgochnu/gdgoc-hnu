@@ -28,6 +28,8 @@ import {
   Filter,
   RotateCcw,
   Trash2,
+  Download,
+  FileSpreadsheet,
 } from 'lucide-react';
 import {
   CourseEnrollmentsHeader,
@@ -103,6 +105,88 @@ export function CourseEnrollmentsClient({
       );
     });
   }, [enrollments, activeTab, searchQuery]);
+
+  const parseStudentName = (fullName: string | null | undefined): { firstName: string; lastName: string } => {
+    if (!fullName) return { firstName: '', lastName: '' };
+    const trimmed = fullName.trim();
+    const parts = trimmed.split(/\s+/);
+    if (parts.length === 1) return { firstName: parts[0], lastName: '' };
+    const firstName = parts[0];
+    const lastName = parts.slice(1).join(' ');
+    return { firstName, lastName };
+  };
+
+  const escapeCsvCell = (value: string | number | boolean | null | undefined): string => {
+    if (value === null || value === undefined) return '';
+    const str = String(value);
+    if (str.includes(',') || str.includes('"') || str.includes('\n') || str.includes('\r')) {
+      return `"${str.replace(/"/g, '""')}"`;
+    }
+    return str;
+  };
+
+  const exportAttendeesCSV = (scope: 'confirmed' | 'all' | 'current' = 'confirmed') => {
+    let targetList = enrollments;
+    if (scope === 'confirmed') {
+      targetList = enrollments.filter((e) => e.status === 'confirmed');
+    } else if (scope === 'current') {
+      targetList = filteredEnrollments;
+    }
+
+    if (targetList.length === 0) {
+      alert(`No student records found to export for "${scope}" filter.`);
+      return;
+    }
+
+    // Exact requested columns:
+    // first_name,last_name,email,checked_in,job_title,company,ticket_title,ticket_venue
+    const headers = [
+      'first_name',
+      'last_name',
+      'email',
+      'checked_in',
+      'job_title',
+      'company',
+      'ticket_title',
+      'ticket_venue',
+    ];
+
+    const rows = targetList.map((item) => {
+      const s = item.student;
+      const { firstName, lastName } = parseStudentName(s.full_name_en || s.full_name_ar);
+      const isCheckedIn = 'TRUE';
+      const jobTitle = s.academic_year ? `Year ${s.academic_year} Student` : 'Student';
+      const company = s.faculty || s.university || 'Helwan National University';
+      const ticketTitle = header.title || 'General Admission';
+      const ticketVenue = 'In-Person';
+
+      return [
+        escapeCsvCell(firstName),
+        escapeCsvCell(lastName),
+        escapeCsvCell(s.email),
+        isCheckedIn,
+        escapeCsvCell(jobTitle),
+        escapeCsvCell(company),
+        escapeCsvCell(ticketTitle),
+        escapeCsvCell(ticketVenue),
+      ].join(',');
+    });
+
+    const csvContent = '\uFEFF' + [headers.join(','), ...rows].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    const safeTitle = (header.title || 'course')
+      .toLowerCase()
+      .replace(/[^a-z0-9]/g, '_')
+      .replace(/_+/g, '_');
+    link.href = url;
+    link.download = `${safeTitle}_attendees_${scope}_${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
 
   const handleApprove = async (item: EnrollmentStudentItem) => {
     try {
@@ -543,54 +627,111 @@ export function CourseEnrollmentsClient({
             })}
           </div>
 
-          {/* Search Input */}
-          <div style={{ position: 'relative', minWidth: '280px', flex: 1, maxWidth: '400px' }}>
-            <Search
-              size={15}
-              style={{
-                position: 'absolute',
-                left: '0.9rem',
-                top: '50%',
-                transform: 'translateY(-50%)',
-                color: '#94A3B8',
-              }}
-            />
-            <input
-              type="text"
-              placeholder="Search student by name, faculty, phone, QR..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              style={{
-                width: '100%',
-                padding: '0.55rem 2.2rem 0.55rem 2.4rem',
-                borderRadius: '8px',
-                background: 'rgba(255, 255, 255, 0.04)',
-                border: '1px solid rgba(255, 255, 255, 0.1)',
-                color: '#FFFFFF',
-                fontSize: '0.86rem',
-                outline: 'none',
-              }}
-            />
-            {searchQuery && (
-              <button
-                type="button"
-                onClick={() => setSearchQuery('')}
+          {/* Right Controls: Search & Export CSV */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', flexWrap: 'wrap', flex: 1, justifyContent: 'flex-end' }}>
+            {/* Search Input */}
+            <div style={{ position: 'relative', minWidth: '240px', flex: 1, maxWidth: '360px' }}>
+              <Search
+                size={15}
                 style={{
                   position: 'absolute',
-                  right: '0.8rem',
+                  left: '0.9rem',
                   top: '50%',
                   transform: 'translateY(-50%)',
-                  background: 'transparent',
-                  border: 'none',
                   color: '#94A3B8',
-                  cursor: 'pointer',
-                  padding: 0,
-                  display: 'flex',
                 }}
+              />
+              <input
+                type="text"
+                placeholder="Search student by name, faculty, phone, QR..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '0.55rem 2.2rem 0.55rem 2.4rem',
+                  borderRadius: '10px',
+                  background: 'rgba(255, 255, 255, 0.04)',
+                  border: '1px solid rgba(255, 255, 255, 0.1)',
+                  color: '#FFFFFF',
+                  fontSize: '0.86rem',
+                  outline: 'none',
+                }}
+              />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery('')}
+                  style={{
+                    position: 'absolute',
+                    right: '0.8rem',
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    background: 'transparent',
+                    border: 'none',
+                    color: '#94A3B8',
+                    cursor: 'pointer',
+                    padding: 0,
+                    display: 'flex',
+                  }}
+                >
+                  <X size={14} />
+                </button>
+              )}
+            </div>
+
+            {/* Export CSV Buttons */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+              <button
+                type="button"
+                onClick={() => exportAttendeesCSV('confirmed')}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.45rem',
+                  padding: '0.55rem 0.95rem',
+                  borderRadius: '10px',
+                  background: 'linear-gradient(135deg, rgba(66, 133, 244, 0.22) 0%, rgba(52, 168, 83, 0.22) 100%)',
+                  border: '1px solid rgba(66, 133, 244, 0.45)',
+                  color: '#60A5FA',
+                  fontSize: '0.82rem',
+                  fontWeight: 800,
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease',
+                  boxShadow: '0 2px 10px rgba(0, 0, 0, 0.2)',
+                  whiteSpace: 'nowrap',
+                }}
+                title="Export Confirmed Attendees CSV (Without Survey Columns)"
               >
-                <X size={14} />
+                <Download size={14} color="#60A5FA" />
+                <span>Export Attendees ({confirmedCount})</span>
               </button>
-            )}
+
+              {enrollments.length > confirmedCount && (
+                <button
+                  type="button"
+                  onClick={() => exportAttendeesCSV('all')}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '0.4rem',
+                    padding: '0.55rem 0.85rem',
+                    borderRadius: '10px',
+                    background: 'rgba(255, 255, 255, 0.04)',
+                    border: '1px solid rgba(255, 255, 255, 0.1)',
+                    color: '#94A3B8',
+                    fontSize: '0.8rem',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease',
+                    whiteSpace: 'nowrap',
+                  }}
+                  title="Export All Registered/Applicant Students as CSV"
+                >
+                  <FileSpreadsheet size={14} />
+                  <span>All ({enrollments.length})</span>
+                </button>
+              )}
+            </div>
           </div>
         </div>
       </div>
