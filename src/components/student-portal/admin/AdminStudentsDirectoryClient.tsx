@@ -288,7 +288,7 @@ export function AdminStudentsDirectoryClient({ initialData, userRole }: Props) {
   };
 
   return (
-    <div style={{ maxWidth: 1400, margin: '0 auto', paddingBottom: '3.5rem' }}>
+    <div style={{ maxWidth: 1400, margin: '0 auto', padding: '2rem 1.75rem 5rem' }}>
       {/* 1. Header Banner */}
       <div
         className="glass-panel"
