@@ -250,6 +250,16 @@ export function AppNavigation({
         });
       }
 
+      if (isPresident || isCoPresident) {
+        studentLmsItems.push({
+          label: 'Enrolled Scholars Directory',
+          href: '/student-portal/admin/students',
+          icon: Users,
+          badge: 'PRESIDENT',
+          badgeColor: 'var(--google-blue)',
+        });
+      }
+
       // Quick launcher to live student portal
       studentLmsItems.push({
         label: 'Student Portal (Live)',
@@ -379,6 +389,7 @@ export function AppNavigation({
     if (pathname.startsWith('/student-portal/admin/courses')) return 'Course Management';
     if (pathname.startsWith('/student-portal/admin/workshops')) return 'Workshops & Bootcamps';
     if (pathname.startsWith('/student-portal/admin/mentorship')) return 'Mentorship Dashboard';
+    if (pathname.startsWith('/student-portal/admin/students')) return 'Enrolled Scholars Directory';
     if (pathname.startsWith('/student/certificates')) return 'My Student Certificates';
     if (pathname.startsWith('/student/my-qr')) return 'My Attendance Pass';
     if (pathname.startsWith('/student')) return 'Student Portal';

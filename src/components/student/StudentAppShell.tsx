@@ -21,6 +21,7 @@ import {
   ArrowRight,
   Award,
   Bell,
+  Users,
 } from 'lucide-react';
 import { StudentProfile } from '@/types/student';
 import { createClient } from '@/lib/supabase/client';

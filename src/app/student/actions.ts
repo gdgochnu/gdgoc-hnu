@@ -1593,5 +1593,258 @@ export async function updateStudentProfileInfo(input: {
   }
 }
 
+/**
+ * getCommunityData — Public community/leaderboard page
+ * Returns aggregate platform stats + paginated student member cards
+ */
+export async function getCommunityData(page = 1, pageSize = 24): Promise<{
+  authenticated: boolean;
+  currentStudentId: string | null;
+  stats: {
+    totalStudents: number;
+    activeCourses: number;
+    totalEnrollments: number;
+    totalCertificates: number;
+    totalAttendanceLogs: number;
+    totalWorkshopRegistrations: number;
+    avgAttendanceRate: number;
+  };
+  byFaculty: Array<{ faculty: string; count: number }>;
+  byYear: Array<{ year: number; label: string; count: number }>;
+  byTrack: Array<{ track: string; count: number; color: string }>;
+  students: Array<{
+    id: string;
+    full_name_en: string | null;
+    full_name_ar: string | null;
+    avatar_url: string | null;
+    faculty: string | null;
+    academic_year: number | null;
+    university: string;
+    enrolledCourses: number;
+    certificatesCount: number;
+    attendanceRate: number;
+    linkedin_url: string | null;
+  }>;
+  totalCount: number;
+  error?: string;
+}> {
+  try {
+    const context = await getUserContext().catch(() => null);
+    const isAuthenticated = Boolean(context?.user);
+    const admin = createAdminClient();
 
+    // Run all queries in parallel
+    const [
+      studentsCountResult,
+      coursesResult,
+      enrollmentsResult,
+      certificatesResult,
+      attendanceResult,
+      workshopRegsResult,
+      facultyDistResult,
+      yearDistResult,
+      trackDistResult,
+      studentsPageResult,
+    ] = await Promise.allSettled([
+      // 1. Total active students
+      admin
+        .from('student_profiles')
+        .select('id', { count: 'exact', head: true })
+        .eq('status', 'active'),
 
+      // 2. Active published courses
+      admin
+        .from('courses')
+        .select('id', { count: 'exact', head: true })
+        .eq('status', 'published'),
+
+      // 3. Total confirmed enrollments
+      admin
+        .from('course_enrollments')
+        .select('id', { count: 'exact', head: true })
+        .eq('status', 'confirmed'),
+
+      // 4. Total certificates issued
+      admin
+        .from('student_certificates')
+        .select('id', { count: 'exact', head: true }),
+
+      // 5. Total attendance logs
+      admin
+        .from('student_attendance')
+        .select('id', { count: 'exact', head: true }),
+
+      // 6. Total workshop registrations
+      admin
+        .from('workshop_registrations')
+        .select('id', { count: 'exact', head: true })
+        .eq('status', 'registered'),
+
+      // 7. Faculty distribution
+      admin
+        .from('student_profiles')
+        .select('faculty')
+        .eq('status', 'active')
+        .not('faculty', 'is', null),
+
+      // 8. Academic year distribution
+      admin
+        .from('student_profiles')
+        .select('academic_year')
+        .eq('status', 'active')
+        .not('academic_year', 'is', null),
+
+      // 9. Track distribution via enrollments + courses
+      admin
+        .from('course_enrollments')
+        .select('course:courses!course_enrollments_course_id_fkey(title, category)')
+        .eq('status', 'confirmed'),
+
+      // 10. Paginated student list with aggregated stats
+      admin
+        .from('student_profiles')
+        .select(`
+          id,
+          full_name_en,
+          full_name_ar,
+          avatar_url,
+          faculty,
+          academic_year,
+          university,
+          linkedin_url,
+          enrollments:course_enrollments(id),
+          certificates:student_certificates(id),
+          attendance:student_attendance(id)
+        `)
+        .eq('status', 'active')
+        .order('created_at', { ascending: false })
+        .range((page - 1) * pageSize, page * pageSize - 1),
+    ]);
+
+    // Parse results safely
+    const totalStudents = studentsCountResult.status === 'fulfilled' ? (studentsCountResult.value.count ?? 0) : 0;
+    const activeCourses = coursesResult.status === 'fulfilled' ? (coursesResult.value.count ?? 0) : 0;
+    const totalEnrollments = enrollmentsResult.status === 'fulfilled' ? (enrollmentsResult.value.count ?? 0) : 0;
+    const totalCertificates = certificatesResult.status === 'fulfilled' ? (certificatesResult.value.count ?? 0) : 0;
+    const totalAttendanceLogs = attendanceResult.status === 'fulfilled' ? (attendanceResult.value.count ?? 0) : 0;
+    const totalWorkshopRegistrations = workshopRegsResult.status === 'fulfilled' ? (workshopRegsResult.value.count ?? 0) : 0;
+
+    // Faculty distribution
+    const facultyRaw = facultyDistResult.status === 'fulfilled' ? (facultyDistResult.value.data ?? []) : [];
+    const facultyMap: Record<string, number> = {};
+    for (const row of facultyRaw) {
+      if (row.faculty) facultyMap[row.faculty] = (facultyMap[row.faculty] || 0) + 1;
+    }
+    const byFaculty = Object.entries(facultyMap)
+      .map(([faculty, count]) => ({ faculty, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 8);
+
+    // Academic year distribution
+    const yearRaw = yearDistResult.status === 'fulfilled' ? (yearDistResult.value.data ?? []) : [];
+    const yearMap: Record<number, number> = {};
+    for (const row of yearRaw) {
+      if (row.academic_year) yearMap[row.academic_year] = (yearMap[row.academic_year] || 0) + 1;
+    }
+    const yearLabels: Record<number, string> = {
+      1: '1st Year',
+      2: '2nd Year',
+      3: '3rd Year',
+      4: '4th Year',
+      5: '5th Year',
+    };
+    const byYear = [1, 2, 3, 4, 5]
+      .filter(y => yearMap[y] !== undefined)
+      .map(year => ({ year, label: yearLabels[year] || `Year ${year}`, count: yearMap[year] || 0 }));
+
+    // Track distribution
+    const trackRaw = trackDistResult.status === 'fulfilled' ? (trackDistResult.value.data ?? []) : [];
+    const trackColors: Record<string, string> = {
+      'Web Development': '#4285F4',
+      'AI & Machine Learning': '#EA4335',
+      'Data Science': '#34A853',
+      'Intro to CS': '#FBBC04',
+    };
+    const trackMap: Record<string, number> = {};
+    for (const row of trackRaw) {
+      const course = (row as any).course;
+      const cat = course?.category || course?.title || 'Other';
+      trackMap[cat] = (trackMap[cat] || 0) + 1;
+    }
+    const byTrack = Object.entries(trackMap)
+      .map(([track, count]) => ({ track, count, color: trackColors[track] || '#94A3B8' }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 6);
+
+    // Students page
+    const studentsRaw = studentsPageResult.status === 'fulfilled' ? (studentsPageResult.value.data ?? []) : [];
+    const students = (studentsRaw as any[]).map(s => {
+      const enrolledCourses = Array.isArray(s.enrollments) ? s.enrollments.length : 0;
+      const certificatesCount = Array.isArray(s.certificates) ? s.certificates.length : 0;
+      const totalAttended = Array.isArray(s.attendance) ? s.attendance.length : 0;
+      // Rough avg: 3 sessions/course expected
+      const expectedSessions = Math.max(enrolledCourses * 3, 1);
+      const attendanceRate = Math.min(100, Math.round((totalAttended / expectedSessions) * 100));
+
+      return {
+        id: s.id,
+        full_name_en: s.full_name_en,
+        full_name_ar: s.full_name_ar,
+        avatar_url: s.avatar_url,
+        faculty: s.faculty,
+        academic_year: s.academic_year,
+        university: s.university || 'Helwan National University',
+        enrolledCourses,
+        certificatesCount,
+        attendanceRate,
+        linkedin_url: s.linkedin_url,
+      };
+    });
+
+    // Avg attendance rate across students
+    const avgAttendanceRate =
+      students.length > 0
+        ? Math.round(students.reduce((sum, s) => sum + s.attendanceRate, 0) / students.length)
+        : 0;
+
+    return {
+      authenticated: isAuthenticated,
+      currentStudentId: context?.user?.id ?? null,
+      stats: {
+        totalStudents,
+        activeCourses,
+        totalEnrollments,
+        totalCertificates,
+        totalAttendanceLogs,
+        totalWorkshopRegistrations,
+        avgAttendanceRate,
+      },
+      byFaculty,
+      byYear,
+      byTrack,
+      students,
+      totalCount: totalStudents,
+    };
+  } catch (err: any) {
+    console.error('getCommunityData exception:', err);
+    return {
+      authenticated: false,
+      currentStudentId: null,
+      stats: {
+        totalStudents: 0,
+        activeCourses: 0,
+        totalEnrollments: 0,
+        totalCertificates: 0,
+        totalAttendanceLogs: 0,
+        totalWorkshopRegistrations: 0,
+        avgAttendanceRate: 0,
+      },
+      byFaculty: [],
+      byYear: [],
+      byTrack: [],
+      students: [],
+      totalCount: 0,
+      error: err.message,
+    };
+  }
+}
