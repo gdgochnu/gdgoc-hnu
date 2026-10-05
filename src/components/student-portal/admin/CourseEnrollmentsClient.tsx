@@ -71,6 +71,7 @@ export function CourseEnrollmentsClient({
   const [exportFilterYear, setExportFilterYear] = useState<string>('all');
   const [exportFilterFaculty, setExportFilterFaculty] = useState<string>('all');
   const [exportTicketTitle, setExportTicketTitle] = useState<string>(header.title || 'General Admission');
+  const [exportTicketVenue, setExportTicketVenue] = useState<string>('In-Person');
 
   // Grouped counts
   const pendingCount = enrollments.filter((e) => e.status === 'pending').length;
@@ -198,7 +199,7 @@ export function CourseEnrollmentsClient({
       const jobTitle = s.academic_year ? `Year ${s.academic_year} Student` : 'Student';
       const company = s.faculty || s.university || 'Helwan National University';
       const ticketTitle = exportTicketTitle.trim() || header.title || 'General Admission';
-      const ticketVenue = 'In-Person';
+      const ticketVenue = exportTicketVenue.trim() || 'In-Person';
 
       return [
         escapeCsvCell(firstName),
@@ -1814,6 +1815,29 @@ export function CourseEnrollmentsClient({
                   value={exportTicketTitle}
                   onChange={(e) => setExportTicketTitle(e.target.value)}
                   placeholder="مثال: General Admission أو Flutter Bootcamp Pass"
+                  style={{
+                    width: '100%',
+                    padding: '0.65rem 0.9rem',
+                    borderRadius: '10px',
+                    background: 'rgba(15, 23, 42, 0.8)',
+                    border: '1px solid rgba(255, 255, 255, 0.15)',
+                    color: '#FFFFFF',
+                    fontSize: '0.88rem',
+                    outline: 'none',
+                  }}
+                />
+              </div>
+
+              {/* Ticket Venue Custom Input */}
+              <div>
+                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#CBD5E1', marginBottom: '0.4rem' }}>
+                  مقر / مكان الفعالية (Ticket Venue)
+                </label>
+                <input
+                  type="text"
+                  value={exportTicketVenue}
+                  onChange={(e) => setExportTicketVenue(e.target.value)}
+                  placeholder="مثال: In-Person أو Main Hall أو Online - Google Meet"
                   style={{
                     width: '100%',
                     padding: '0.65rem 0.9rem',
