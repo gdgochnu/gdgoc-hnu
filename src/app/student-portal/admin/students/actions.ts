@@ -7,8 +7,8 @@ export interface AdminStudentItem {
   full_name_ar: string | null;
   email: string | null;
   phone: string | null;
+  whatsapp_number: string | null;
   national_id: string | null;
-  student_id: string | null;
   avatar_url: string | null;
   faculty: string | null;
   academic_year: number | null;
@@ -16,7 +16,8 @@ export interface AdminStudentItem {
   university: string;
   status: string;
   linkedin_url: string | null;
-  github_url: string | null;
+  facebook_url: string | null;
+  instagram_url: string | null;
   created_at: string;
   enrolledCourses: number;
   courseTitles: string[];
@@ -64,176 +65,113 @@ export async function getAdminStudentsDirectoryData(): Promise<{
 
     const admin = createAdminClient();
 
-    // Fetch all needed metrics and raw lists in parallel
+    // 1. Fetch raw student_profiles with select('*') so no column mismatches can occur
+    const { data: rawStudents, error: studentsErr } = await admin
+      .from('student_profiles')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (studentsErr) {
+      console.error('getAdminStudentsDirectoryData student_profiles error:', studentsErr);
+    }
+
+    const studentList = rawStudents || [];
+
+    // 2. Fetch auxiliary data in parallel for stats and student enrichment
     const [
-      studentsCountResult,
-      coursesResult,
-      enrollmentsCountResult,
-      certificatesCountResult,
-      attendanceCountResult,
-      workshopsCountResult,
-      studentsListResult,
-      allEnrollmentsResult,
-      allCertificatesResult,
-      allAttendanceResult,
-      allWorkshopsResult,
+      coursesRes,
+      enrollmentsRes,
+      certificatesRes,
+      attendanceRes,
+      workshopsRes,
     ] = await Promise.allSettled([
-      // 1. Total students
-      admin.from('student_profiles').select('id', { count: 'exact', head: true }),
-
-      // 2. Published courses
-      admin.from('courses').select('id, title, category').eq('status', 'published'),
-
-      // 3. Confirmed enrollments count
-      admin.from('course_enrollments').select('id', { count: 'exact', head: true }).eq('status', 'confirmed'),
-
-      // 4. Certificates count
-      admin.from('student_certificates').select('id', { count: 'exact', head: true }),
-
-      // 5. Attendance count
-      admin.from('student_attendance').select('id', { count: 'exact', head: true }),
-
-      // 6. Workshop registrations count
-      admin.from('workshop_registrations').select('id', { count: 'exact', head: true }).eq('status', 'registered'),
-
-      // 7. Full student profiles list (clean direct query without fragile reverse joins)
-      admin
-        .from('student_profiles')
-        .select(`
-          id,
-          full_name_en,
-          full_name_ar,
-          email,
-          phone,
-          national_id,
-          student_id,
-          avatar_url,
-          faculty,
-          academic_year,
-          department_major,
-          university,
-          status,
-          linkedin_url,
-          github_url,
-          created_at
-        `)
-        .order('created_at', { ascending: false })
-        .limit(1000),
-
-      // 8. All course enrollments with course details for mapping
-      admin
-        .from('course_enrollments')
-        .select('student_id, course_id, status, course:courses!course_enrollments_course_id_fkey(title, category)'),
-
-      // 9. All certificates for counting per student
-      admin.from('student_certificates').select('student_id'),
-
-      // 10. All attendance logs for counting per student
-      admin.from('student_attendance').select('student_id'),
-
-      // 11. All workshop registrations for counting per student
-      admin.from('workshop_registrations').select('student_id'),
+      admin.from('courses').select('id, title, category'),
+      admin.from('course_enrollments').select('id, student_id, course_id, status'),
+      admin.from('student_certificates').select('id, student_id'),
+      admin.from('student_attendance').select('id, student_id'),
+      admin.from('workshop_registrations').select('id, student_id, status'),
     ]);
 
-    // Parse counts
-    const totalStudents = studentsCountResult.status === 'fulfilled' ? (studentsCountResult.value.count ?? 0) : 0;
-    const coursesRaw = coursesResult.status === 'fulfilled' ? (coursesResult.value.data ?? []) : [];
-    const activeCourses = coursesRaw.length;
-    const totalEnrollments = enrollmentsCountResult.status === 'fulfilled' ? (enrollmentsCountResult.value.count ?? 0) : 0;
-    const totalCertificates = certificatesCountResult.status === 'fulfilled' ? (certificatesCountResult.value.count ?? 0) : 0;
-    const totalAttendanceLogs = attendanceCountResult.status === 'fulfilled' ? (attendanceCountResult.value.count ?? 0) : 0;
-    const totalWorkshopRegistrations = workshopsCountResult.status === 'fulfilled' ? (workshopsCountResult.value.count ?? 0) : 0;
+    const courses = coursesRes.status === 'fulfilled' && coursesRes.value.data ? coursesRes.value.data : [];
+    const courseMap = new Map<string, { title: string; category: string }>();
+    courses.forEach((c: any) => courseMap.set(c.id, { title: c.title, category: c.category || c.title || 'General' }));
 
-    // Build fast lookup maps per student ID
-    const enrollmentsByStudent: Record<string, Array<{ courseTitle: string; status: string }>> = {};
-    const trackMap: Record<string, number> = {};
+    const enrollments = enrollmentsRes.status === 'fulfilled' && enrollmentsRes.value.data ? enrollmentsRes.value.data : [];
+    const certificates = certificatesRes.status === 'fulfilled' && certificatesRes.value.data ? certificatesRes.value.data : [];
+    const attendance = attendanceRes.status === 'fulfilled' && attendanceRes.value.data ? attendanceRes.value.data : [];
+    const workshops = workshopsRes.status === 'fulfilled' && workshopsRes.value.data ? workshopsRes.value.data : [];
+
+    // Lookup maps
+    const enrollmentsByStudent = new Map<string, string[]>();
+    const trackCountMap: Record<string, number> = {};
     const TRACK_COLORS = ['#4285F4', '#34A853', '#FBBC04', '#EA4335', '#8B5CF6', '#06B6D4', '#EC4899'];
 
-    if (allEnrollmentsResult.status === 'fulfilled' && allEnrollmentsResult.value.data) {
-      for (const row of allEnrollmentsResult.value.data as any[]) {
-        const sId = row.student_id;
-        const course = Array.isArray(row.course) ? row.course[0] : row.course;
-        const title = course?.title || 'Course';
-        const category = course?.category || title || 'General';
+    for (const e of enrollments as any[]) {
+      if (e.status === 'confirmed' || !e.status) {
+        const c = courseMap.get(e.course_id);
+        const title = c?.title || 'Course';
+        const category = c?.category || 'General';
 
-        if (sId) {
-          if (!enrollmentsByStudent[sId]) enrollmentsByStudent[sId] = [];
-          enrollmentsByStudent[sId].push({ courseTitle: title, status: row.status });
-        }
+        trackCountMap[category] = (trackCountMap[category] || 0) + 1;
 
-        if (row.status === 'confirmed' || !row.status) {
-          trackMap[category] = (trackMap[category] || 0) + 1;
+        if (e.student_id) {
+          const list = enrollmentsByStudent.get(e.student_id) || [];
+          list.push(title);
+          enrollmentsByStudent.set(e.student_id, list);
         }
       }
     }
 
-    const byTrack = Object.entries(trackMap)
+    const byTrack = Object.entries(trackCountMap)
       .map(([track, count], idx) => ({ track, count, color: TRACK_COLORS[idx % TRACK_COLORS.length] }))
       .sort((a, b) => b.count - a.count)
       .slice(0, 6);
 
-    // Certs count map
-    const certsCountMap: Record<string, number> = {};
-    if (allCertificatesResult.status === 'fulfilled' && allCertificatesResult.value.data) {
-      for (const row of allCertificatesResult.value.data as any[]) {
-        if (row.student_id) {
-          certsCountMap[row.student_id] = (certsCountMap[row.student_id] || 0) + 1;
-        }
+    const certsCountMap = new Map<string, number>();
+    for (const cert of certificates as any[]) {
+      if (cert.student_id) {
+        certsCountMap.set(cert.student_id, (certsCountMap.get(cert.student_id) || 0) + 1);
       }
     }
 
-    // Attendance count map
-    const attCountMap: Record<string, number> = {};
-    if (allAttendanceResult.status === 'fulfilled' && allAttendanceResult.value.data) {
-      for (const row of allAttendanceResult.value.data as any[]) {
-        if (row.student_id) {
-          attCountMap[row.student_id] = (attCountMap[row.student_id] || 0) + 1;
-        }
+    const attCountMap = new Map<string, number>();
+    for (const att of attendance as any[]) {
+      if (att.student_id) {
+        attCountMap.set(att.student_id, (attCountMap.get(att.student_id) || 0) + 1);
       }
     }
 
-    // Workshops count map
-    const workshopsCountMap: Record<string, number> = {};
-    if (allWorkshopsResult.status === 'fulfilled' && allWorkshopsResult.value.data) {
-      for (const row of allWorkshopsResult.value.data as any[]) {
-        if (row.student_id) {
-          workshopsCountMap[row.student_id] = (workshopsCountMap[row.student_id] || 0) + 1;
-        }
+    const workshopsCountMap = new Map<string, number>();
+    for (const ws of workshops as any[]) {
+      if (ws.student_id) {
+        workshopsCountMap.set(ws.student_id, (workshopsCountMap.get(ws.student_id) || 0) + 1);
       }
     }
 
-    // Raw students list
-    const rawStudents = studentsListResult.status === 'fulfilled' ? (studentsListResult.value.data ?? []) : [];
-    if (studentsListResult.status === 'rejected') {
-      console.error('studentsListResult query error:', studentsListResult.reason);
-    }
-
-    // Distribution aggregators
+    // Faculty & Year aggregators
     const facultyMap: Record<string, number> = {};
     const yearMap: Record<number, number> = {};
 
-    const students: AdminStudentItem[] = rawStudents.map((s: any) => {
-      // Faculty & Year aggregation
+    const students: AdminStudentItem[] = studentList.map((s: any) => {
       if (s.faculty) {
         facultyMap[s.faculty] = (facultyMap[s.faculty] || 0) + 1;
       }
       if (s.academic_year) {
-        yearMap[s.academic_year] = (yearMap[s.academic_year] || 0) + 1;
+        const yr = Number(s.academic_year);
+        if (!isNaN(yr) && yr > 0) {
+          yearMap[yr] = (yearMap[yr] || 0) + 1;
+        }
       }
 
-      const studentEnrollments = enrollmentsByStudent[s.id] || [];
-      const confirmedEnrollments = studentEnrollments.filter((e) => e.status === 'confirmed' || !e.status);
-      const courseTitles = confirmedEnrollments.map((e) => e.courseTitle);
+      const courseTitles = enrollmentsByStudent.get(s.id) || [];
+      const enrolledCoursesCount = courseTitles.length;
+      const certsCount = certsCountMap.get(s.id) || 0;
+      const attLogsCount = attCountMap.get(s.id) || 0;
+      const wsCount = workshopsCountMap.get(s.id) || 0;
 
-      const enrolledCoursesCount = confirmedEnrollments.length;
-      const certsCount = certsCountMap[s.id] || 0;
-      const attLogsCount = attCountMap[s.id] || 0;
-      const workshopsCount = workshopsCountMap[s.id] || 0;
-
-      // Approximate attendance rate
-      const expectedSessions = enrolledCoursesCount * 6 || (workshopsCount > 0 ? workshopsCount * 3 : 1);
+      const expectedSessions = enrolledCoursesCount * 6 || (wsCount > 0 ? wsCount * 3 : 1);
       const rawRate = Math.round((attLogsCount / expectedSessions) * 100);
-      const attendanceRate = enrolledCoursesCount === 0 && workshopsCount === 0 && attLogsCount === 0 ? 0 : Math.min(100, Math.max(0, rawRate || 0));
+      const attendanceRate = enrolledCoursesCount === 0 && wsCount === 0 && attLogsCount === 0 ? 0 : Math.min(100, Math.max(0, rawRate || 0));
 
       return {
         id: s.id,
@@ -241,23 +179,24 @@ export async function getAdminStudentsDirectoryData(): Promise<{
         full_name_ar: s.full_name_ar,
         email: s.email,
         phone: s.phone,
+        whatsapp_number: s.whatsapp_number,
         national_id: s.national_id,
-        student_id: s.student_id,
         avatar_url: s.avatar_url,
         faculty: s.faculty,
-        academic_year: s.academic_year,
+        academic_year: s.academic_year ? Number(s.academic_year) : null,
         department_major: s.department_major,
         university: s.university || 'Helwan National University (HNU)',
         status: s.status || 'active',
         linkedin_url: s.linkedin_url,
-        github_url: s.github_url,
-        created_at: s.created_at,
+        facebook_url: s.facebook_url,
+        instagram_url: s.instagram_url,
+        created_at: s.created_at || new Date().toISOString(),
         enrolledCourses: enrolledCoursesCount,
         courseTitles,
         certificatesCount: certsCount,
         attendanceCount: attLogsCount,
         attendanceRate,
-        workshopsCount,
+        workshopsCount: wsCount,
       };
     });
 
@@ -287,19 +226,19 @@ export async function getAdminStudentsDirectoryData(): Promise<{
       success: true,
       data: {
         stats: {
-          totalStudents: totalStudents || students.length,
-          activeCourses,
-          totalEnrollments,
-          totalCertificates,
-          totalAttendanceLogs,
-          totalWorkshopRegistrations,
+          totalStudents: students.length,
+          activeCourses: courses.length,
+          totalEnrollments: enrollments.length,
+          totalCertificates: certificates.length,
+          totalAttendanceLogs: attendance.length,
+          totalWorkshopRegistrations: workshops.length,
           avgAttendanceRate,
           byFaculty,
           byYear,
           byTrack,
         },
         students,
-        totalCount: totalStudents || students.length,
+        totalCount: students.length,
         facultiesList,
       },
     };

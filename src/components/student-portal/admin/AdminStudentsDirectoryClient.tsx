@@ -191,15 +191,15 @@ export function AdminStudentsDirectoryClient({ initialData, userRole }: Props) {
           const matchEn = s.full_name_en?.toLowerCase().includes(q);
           const matchAr = s.full_name_ar?.toLowerCase().includes(q);
           const matchEmail = s.email?.toLowerCase().includes(q);
-          const matchPhone = s.phone?.includes(q);
+          const matchPhone = s.phone?.includes(q) || s.whatsapp_number?.includes(q);
           const matchFac = s.faculty?.toLowerCase().includes(q);
+          const matchDept = s.department_major?.toLowerCase().includes(q);
           const matchNatId = s.national_id?.includes(q);
-          const matchStuId = s.student_id?.includes(q);
-          if (!matchEn && !matchAr && !matchEmail && !matchPhone && !matchFac && !matchNatId && !matchStuId) {
+          if (!matchEn && !matchAr && !matchEmail && !matchPhone && !matchFac && !matchDept && !matchNatId) {
             return false;
           }
         }
-        if (filterYear !== null && s.academic_year !== filterYear) {
+        if (filterYear !== null && Number(s.academic_year) !== Number(filterYear)) {
           return false;
         }
         if (filterFaculty && s.faculty !== filterFaculty) {
@@ -215,7 +215,7 @@ export function AdminStudentsDirectoryClient({ initialData, userRole }: Props) {
       })
       .sort((a, b) => {
         if (sortBy === 'recent') {
-          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+          return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime();
         }
         if (sortBy === 'attendance') {
           return b.attendanceRate - a.attendanceRate;
@@ -246,8 +246,8 @@ export function AdminStudentsDirectoryClient({ initialData, userRole }: Props) {
       'Full Name (AR)',
       'Email',
       'Phone',
+      'WhatsApp Number',
       'National ID',
-      'Student ID',
       'Faculty',
       'Academic Year',
       'Department / Major',
@@ -264,8 +264,8 @@ export function AdminStudentsDirectoryClient({ initialData, userRole }: Props) {
       `"${s.full_name_ar || ''}"`,
       `"${s.email || ''}"`,
       `"${s.phone || ''}"`,
+      `"${s.whatsapp_number || ''}"`,
       `"${s.national_id || ''}"`,
-      `"${s.student_id || ''}"`,
       `"${s.faculty || ''}"`,
       `"${s.academic_year ? YEAR_LABELS[s.academic_year] || s.academic_year : ''}"`,
       `"${s.department_major || ''}"`,
@@ -274,7 +274,7 @@ export function AdminStudentsDirectoryClient({ initialData, userRole }: Props) {
       s.certificatesCount,
       `${s.attendanceRate}%`,
       s.workshopsCount,
-      `"${new Date(s.created_at).toLocaleDateString()}"`,
+      `"${s.created_at ? new Date(s.created_at).toLocaleDateString() : ''}"`,
     ]);
 
     const csvContent = 'data:text/csv;charset=utf-8,\uFEFF' + [headers.join(','), ...rows.map((r) => r.join(','))].join('\n');
@@ -816,6 +816,18 @@ export function AdminStudentsDirectoryClient({ initialData, userRole }: Props) {
                 </span>
 
                 <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                  {student.whatsapp_number && (
+                    <a
+                      href={`https://wa.me/${student.whatsapp_number.replace(/\D/g, '')}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={(e) => e.stopPropagation()}
+                      style={{ color: '#25D366', padding: 4, borderRadius: 6, background: 'rgba(37, 211, 102, 0.1)' }}
+                      title="WhatsApp Chat"
+                    >
+                      <Phone size={14} />
+                    </a>
+                  )}
                   {student.linkedin_url && (
                     <a
                       href={student.linkedin_url}
@@ -826,18 +838,6 @@ export function AdminStudentsDirectoryClient({ initialData, userRole }: Props) {
                       title="LinkedIn Profile"
                     >
                       <Linkedin size={14} />
-                    </a>
-                  )}
-                  {student.github_url && (
-                    <a
-                      href={student.github_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      onClick={(e) => e.stopPropagation()}
-                      style={{ color: '#FFFFFF', padding: 4, borderRadius: 6, background: 'rgba(255, 255, 255, 0.1)' }}
-                      title="GitHub Profile"
-                    >
-                      <Github size={14} />
                     </a>
                   )}
                   <button
@@ -1145,20 +1145,20 @@ export function AdminStudentsDirectoryClient({ initialData, userRole }: Props) {
               )}
               {selectedStudent.phone && (
                 <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '0.5rem', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-                  <span style={{ color: '#94A3B8' }}>Phone / WhatsApp:</span>
+                  <span style={{ color: '#94A3B8' }}>Phone:</span>
                   <span style={{ color: '#FFFFFF', fontWeight: 600 }}>{selectedStudent.phone}</span>
+                </div>
+              )}
+              {selectedStudent.whatsapp_number && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '0.5rem', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                  <span style={{ color: '#94A3B8' }}>WhatsApp:</span>
+                  <span style={{ color: '#34A853', fontWeight: 600 }}>{selectedStudent.whatsapp_number}</span>
                 </div>
               )}
               {selectedStudent.national_id && (
                 <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '0.5rem', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
                   <span style={{ color: '#94A3B8' }}>National ID:</span>
                   <span style={{ color: '#E2E8F0', fontFamily: 'monospace' }}>{selectedStudent.national_id}</span>
-                </div>
-              )}
-              {selectedStudent.student_id && (
-                <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '0.5rem', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-                  <span style={{ color: '#94A3B8' }}>Academic ID:</span>
-                  <span style={{ color: '#E2E8F0', fontFamily: 'monospace' }}>{selectedStudent.student_id}</span>
                 </div>
               )}
             </div>
@@ -1191,7 +1191,29 @@ export function AdminStudentsDirectoryClient({ initialData, userRole }: Props) {
             )}
 
             {/* Links & Close */}
-            <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end', paddingTop: '1rem', borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+            <div style={{ display: 'flex', gap: '0.6rem', justifyContent: 'flex-end', flexWrap: 'wrap', paddingTop: '1rem', borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+              {selectedStudent.whatsapp_number && (
+                <a
+                  href={`https://wa.me/${selectedStudent.whatsapp_number.replace(/\D/g, '')}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.4rem',
+                    padding: '0.5rem 0.9rem',
+                    borderRadius: 10,
+                    background: '#25D366',
+                    color: '#000000',
+                    fontSize: '0.8rem',
+                    fontWeight: 700,
+                    textDecoration: 'none',
+                  }}
+                >
+                  <Phone size={14} />
+                  WhatsApp
+                </a>
+              )}
               {selectedStudent.linkedin_url && (
                 <a
                   href={selectedStudent.linkedin_url}
