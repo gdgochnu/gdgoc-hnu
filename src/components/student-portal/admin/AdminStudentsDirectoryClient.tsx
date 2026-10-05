@@ -177,7 +177,8 @@ export function AdminStudentsDirectoryClient({ initialData, userRole }: Props) {
   const [filterYear, setFilterYear] = useState<number | null>(null);
   const [filterFaculty, setFilterFaculty] = useState<string | null>(null);
   const [filterCerts, setFilterCerts] = useState<'all' | 'with_certs' | 'no_certs'>('all');
-  const [sortBy, setSortBy] = useState<'recent' | 'attendance' | 'enrollments' | 'certs' | 'name'>('recent');
+  const [filterSocial, setFilterSocial] = useState<'all' | 'completed' | 'pending'>('all');
+  const [sortBy, setSortBy] = useState<'recent' | 'attendance' | 'enrollments' | 'certs' | 'social' | 'name'>('recent');
   const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid');
   const [selectedStudent, setSelectedStudent] = useState<AdminStudentItem | null>(null);
 
@@ -211,6 +212,12 @@ export function AdminStudentsDirectoryClient({ initialData, userRole }: Props) {
         if (filterCerts === 'no_certs' && s.certificatesCount > 0) {
           return false;
         }
+        if (filterSocial === 'completed' && !s.socialFollowCompleted) {
+          return false;
+        }
+        if (filterSocial === 'pending' && s.socialFollowCompleted) {
+          return false;
+        }
         return true;
       })
       .sort((a, b) => {
@@ -226,6 +233,9 @@ export function AdminStudentsDirectoryClient({ initialData, userRole }: Props) {
         if (sortBy === 'certs') {
           return b.certificatesCount - a.certificatesCount;
         }
+        if (sortBy === 'social') {
+          return b.socialFollowsCount - a.socialFollowsCount;
+        }
         if (sortBy === 'name') {
           const nameA = a.full_name_en || a.full_name_ar || '';
           const nameB = b.full_name_en || b.full_name_ar || '';
@@ -233,7 +243,7 @@ export function AdminStudentsDirectoryClient({ initialData, userRole }: Props) {
         }
         return 0;
       });
-  }, [students, search, filterYear, filterFaculty, filterCerts, sortBy]);
+  }, [students, search, filterYear, filterFaculty, filterCerts, filterSocial, sortBy]);
 
   const maxFaculty = useMemo(() => Math.max(...stats.byFaculty.map((f) => f.count), 1), [stats.byFaculty]);
   const maxYear = useMemo(() => Math.max(...stats.byYear.map((y) => y.count), 1), [stats.byYear]);
@@ -256,6 +266,8 @@ export function AdminStudentsDirectoryClient({ initialData, userRole }: Props) {
       'Certificates Count',
       'Attendance Rate %',
       'Workshops Count',
+      'Social Follows (out of 6)',
+      'Social Follow Completed',
       'Registered At',
     ];
 
@@ -274,6 +286,8 @@ export function AdminStudentsDirectoryClient({ initialData, userRole }: Props) {
       s.certificatesCount,
       `${s.attendanceRate}%`,
       s.workshopsCount,
+      `${s.socialFollowsCount}/6`,
+      s.socialFollowCompleted ? 'Yes' : 'No',
       `"${s.created_at ? new Date(s.created_at).toLocaleDateString() : ''}"`,
     ]);
 
@@ -398,6 +412,14 @@ export function AdminStudentsDirectoryClient({ initialData, userRole }: Props) {
           label="Avg Attendance"
           sub="Overall participation"
           glow="rgba(6, 182, 212, 0.4)"
+        />
+        <StatCard
+          icon={<Shield size={20} color="#10B981" />}
+          iconColor="#10B981"
+          value={`${stats.socialFollowRate}%`}
+          label="Social Gate Rate"
+          sub={`${stats.totalSocialFollowCompleted} completed all 6`}
+          glow="rgba(16, 185, 129, 0.4)"
         />
       </div>
 
@@ -556,6 +578,26 @@ export function AdminStudentsDirectoryClient({ initialData, userRole }: Props) {
             <option value="no_certs" style={{ background: '#1E293B', color: '#FFFFFF' }}>No Certificates Yet</option>
           </select>
 
+          {/* Social Follow Gate Filter */}
+          <select
+            value={filterSocial}
+            onChange={(e) => setFilterSocial(e.target.value as any)}
+            style={{
+              padding: '0.55rem 1rem',
+              borderRadius: 12,
+              background: 'rgba(255,255,255,0.05)',
+              border: '1px solid rgba(255,255,255,0.12)',
+              color: filterSocial !== 'all' ? '#34A853' : '#CBD5E1',
+              fontSize: '0.85rem',
+              outline: 'none',
+              cursor: 'pointer',
+            }}
+          >
+            <option value="all" style={{ background: '#1E293B', color: '#CBD5E1' }}>All Social Status</option>
+            <option value="completed" style={{ background: '#1E293B', color: '#FFFFFF' }}>Social Followed (6/6 ✅)</option>
+            <option value="pending" style={{ background: '#1E293B', color: '#FFFFFF' }}>Pending Follow (&lt; 6)</option>
+          </select>
+
           {/* Sort By */}
           <select
             value={sortBy}
@@ -572,19 +614,21 @@ export function AdminStudentsDirectoryClient({ initialData, userRole }: Props) {
             }}
           >
             <option value="recent" style={{ background: '#1E293B', color: '#FFFFFF' }}>Sort: Most Recent</option>
+            <option value="social" style={{ background: '#1E293B', color: '#FFFFFF' }}>Sort: Social Follows</option>
             <option value="attendance" style={{ background: '#1E293B', color: '#FFFFFF' }}>Sort: Attendance %</option>
             <option value="enrollments" style={{ background: '#1E293B', color: '#FFFFFF' }}>Sort: Most Enrollments</option>
             <option value="certs" style={{ background: '#1E293B', color: '#FFFFFF' }}>Sort: Most Certificates</option>
             <option value="name" style={{ background: '#1E293B', color: '#FFFFFF' }}>Sort: Name A-Z</option>
           </select>
 
-          {(search || filterYear !== null || filterFaculty || filterCerts !== 'all') && (
+          {(search || filterYear !== null || filterFaculty || filterCerts !== 'all' || filterSocial !== 'all') && (
             <button
               onClick={() => {
                 setSearch('');
                 setFilterYear(null);
                 setFilterFaculty(null);
                 setFilterCerts('all');
+                setFilterSocial('all');
               }}
               style={{
                 padding: '0.45rem 0.85rem',
@@ -784,27 +828,33 @@ export function AdminStudentsDirectoryClient({ initialData, userRole }: Props) {
                 <div
                   style={{
                     display: 'grid',
-                    gridTemplateColumns: 'repeat(3, 1fr)',
-                    gap: '0.5rem',
+                    gridTemplateColumns: 'repeat(4, 1fr)',
+                    gap: '0.4rem',
                     background: 'rgba(0,0,0,0.25)',
-                    padding: '0.65rem 0.5rem',
+                    padding: '0.65rem 0.4rem',
                     borderRadius: 12,
                     textAlign: 'center',
                   }}
                 >
                   <div>
-                    <div style={{ fontSize: '1rem', fontWeight: 800, color: '#60A5FA' }}>{student.enrolledCourses}</div>
-                    <div style={{ fontSize: '0.65rem', color: '#64748B', fontWeight: 600, textTransform: 'uppercase' }}>Tracks</div>
+                    <div style={{ fontSize: '0.95rem', fontWeight: 800, color: '#60A5FA' }}>{student.enrolledCourses}</div>
+                    <div style={{ fontSize: '0.62rem', color: '#64748B', fontWeight: 600, textTransform: 'uppercase' }}>Tracks</div>
                   </div>
                   <div>
-                    <div style={{ fontSize: '1rem', fontWeight: 800, color: '#FBBC04' }}>{student.certificatesCount}</div>
-                    <div style={{ fontSize: '0.65rem', color: '#64748B', fontWeight: 600, textTransform: 'uppercase' }}>Certs</div>
+                    <div style={{ fontSize: '0.95rem', fontWeight: 800, color: '#FBBC04' }}>{student.certificatesCount}</div>
+                    <div style={{ fontSize: '0.62rem', color: '#64748B', fontWeight: 600, textTransform: 'uppercase' }}>Certs</div>
                   </div>
                   <div>
-                    <div style={{ fontSize: '1rem', fontWeight: 800, color: student.attendanceRate >= 70 ? '#34A853' : student.attendanceRate >= 40 ? '#FBBC04' : '#EA4335' }}>
+                    <div style={{ fontSize: '0.95rem', fontWeight: 800, color: student.attendanceRate >= 70 ? '#34A853' : student.attendanceRate >= 40 ? '#FBBC04' : '#EA4335' }}>
                       {student.attendanceRate}%
                     </div>
-                    <div style={{ fontSize: '0.65rem', color: '#64748B', fontWeight: 600, textTransform: 'uppercase' }}>Att.</div>
+                    <div style={{ fontSize: '0.62rem', color: '#64748B', fontWeight: 600, textTransform: 'uppercase' }}>Att.</div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '0.95rem', fontWeight: 800, color: student.socialFollowCompleted ? '#10B981' : '#F59E0B' }}>
+                      {student.socialFollowsCount}/6
+                    </div>
+                    <div style={{ fontSize: '0.62rem', color: '#64748B', fontWeight: 600, textTransform: 'uppercase' }}>Social</div>
                   </div>
                 </div>
               </div>
@@ -876,6 +926,7 @@ export function AdminStudentsDirectoryClient({ initialData, userRole }: Props) {
                   <th style={{ padding: '0.85rem 1rem', textAlign: 'center' }}>Tracks</th>
                   <th style={{ padding: '0.85rem 1rem', textAlign: 'center' }}>Certs</th>
                   <th style={{ padding: '0.85rem 1rem', textAlign: 'center' }}>Attendance</th>
+                  <th style={{ padding: '0.85rem 1rem', textAlign: 'center' }}>Social Gate</th>
                   <th style={{ padding: '0.85rem 1.2rem', textAlign: 'right' }}>Actions</th>
                 </tr>
               </thead>
@@ -948,6 +999,21 @@ export function AdminStudentsDirectoryClient({ initialData, userRole }: Props) {
                         }}
                       >
                         {student.attendanceRate}%
+                      </span>
+                    </td>
+                    <td style={{ padding: '0.85rem 1rem', textAlign: 'center' }}>
+                      <span
+                        style={{
+                          padding: '0.2rem 0.55rem',
+                          borderRadius: 6,
+                          background: student.socialFollowCompleted ? 'rgba(52, 168, 83, 0.15)' : 'rgba(245, 158, 11, 0.15)',
+                          border: student.socialFollowCompleted ? '1px solid rgba(52, 168, 83, 0.3)' : '1px solid rgba(245, 158, 11, 0.3)',
+                          color: student.socialFollowCompleted ? '#86EFAC' : '#FCD34D',
+                          fontSize: '0.74rem',
+                          fontWeight: 700,
+                        }}
+                      >
+                        {student.socialFollowsCount}/6 {student.socialFollowCompleted ? '✅' : '⏳'}
                       </span>
                     </td>
                     <td style={{ padding: '0.85rem 1.2rem', textAlign: 'right' }}>
@@ -1087,31 +1153,37 @@ export function AdminStudentsDirectoryClient({ initialData, userRole }: Props) {
             <div
               style={{
                 display: 'grid',
-                gridTemplateColumns: 'repeat(4, 1fr)',
-                gap: '0.75rem',
+                gridTemplateColumns: 'repeat(5, 1fr)',
+                gap: '0.5rem',
                 background: 'rgba(255,255,255,0.03)',
                 border: '1px solid rgba(255,255,255,0.07)',
-                padding: '1rem',
+                padding: '0.85rem 0.5rem',
                 borderRadius: 16,
                 marginBottom: '1.5rem',
                 textAlign: 'center',
               }}
             >
               <div>
-                <div style={{ fontSize: '1.2rem', fontWeight: 800, color: '#60A5FA' }}>{selectedStudent.enrolledCourses}</div>
-                <div style={{ fontSize: '0.68rem', color: '#64748B', fontWeight: 600 }}>COURSES</div>
+                <div style={{ fontSize: '1.1rem', fontWeight: 800, color: '#60A5FA' }}>{selectedStudent.enrolledCourses}</div>
+                <div style={{ fontSize: '0.62rem', color: '#64748B', fontWeight: 600 }}>COURSES</div>
               </div>
               <div>
-                <div style={{ fontSize: '1.2rem', fontWeight: 800, color: '#FBBC04' }}>{selectedStudent.certificatesCount}</div>
-                <div style={{ fontSize: '0.68rem', color: '#64748B', fontWeight: 600 }}>CERTS</div>
+                <div style={{ fontSize: '1.1rem', fontWeight: 800, color: '#FBBC04' }}>{selectedStudent.certificatesCount}</div>
+                <div style={{ fontSize: '0.62rem', color: '#64748B', fontWeight: 600 }}>CERTS</div>
               </div>
               <div>
-                <div style={{ fontSize: '1.2rem', fontWeight: 800, color: '#34A853' }}>{selectedStudent.attendanceRate}%</div>
-                <div style={{ fontSize: '0.68rem', color: '#64748B', fontWeight: 600 }}>ATTENDANCE</div>
+                <div style={{ fontSize: '1.1rem', fontWeight: 800, color: '#34A853' }}>{selectedStudent.attendanceRate}%</div>
+                <div style={{ fontSize: '0.62rem', color: '#64748B', fontWeight: 600 }}>ATTEND.</div>
               </div>
               <div>
-                <div style={{ fontSize: '1.2rem', fontWeight: 800, color: '#8B5CF6' }}>{selectedStudent.workshopsCount}</div>
-                <div style={{ fontSize: '0.68rem', color: '#64748B', fontWeight: 600 }}>BOOTCAMPS</div>
+                <div style={{ fontSize: '1.1rem', fontWeight: 800, color: '#8B5CF6' }}>{selectedStudent.workshopsCount}</div>
+                <div style={{ fontSize: '0.62rem', color: '#64748B', fontWeight: 600 }}>BOOTCAMP</div>
+              </div>
+              <div>
+                <div style={{ fontSize: '1.1rem', fontWeight: 800, color: selectedStudent.socialFollowCompleted ? '#10B981' : '#F59E0B' }}>
+                  {selectedStudent.socialFollowsCount}/6
+                </div>
+                <div style={{ fontSize: '0.62rem', color: '#64748B', fontWeight: 600 }}>SOCIAL</div>
               </div>
             </div>
 

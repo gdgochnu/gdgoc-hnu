@@ -1,5 +1,6 @@
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getUserContext } from '@/lib/auth/get-user-context';
+import { MANDATORY_SOCIAL_CHANNELS } from '@/config/social-gate';
 
 export interface AdminStudentItem {
   id: string;
@@ -25,6 +26,8 @@ export interface AdminStudentItem {
   attendanceCount: number;
   attendanceRate: number;
   workshopsCount: number;
+  socialFollowsCount: number;
+  socialFollowCompleted: boolean;
 }
 
 export interface AdminStudentsAnalytics {
@@ -35,6 +38,8 @@ export interface AdminStudentsAnalytics {
   totalAttendanceLogs: number;
   totalWorkshopRegistrations: number;
   avgAttendanceRate: number;
+  totalSocialFollowCompleted: number;
+  socialFollowRate: number;
   byFaculty: Array<{ faculty: string; count: number }>;
   byYear: Array<{ year: number; label: string; count: number }>;
   byTrack: Array<{ track: string; count: number; color: string }>;
@@ -84,12 +89,14 @@ export async function getAdminStudentsDirectoryData(): Promise<{
       certificatesRes,
       attendanceRes,
       workshopsRes,
+      socialFollowsRes,
     ] = await Promise.allSettled([
       admin.from('courses').select('id, title, category'),
       admin.from('course_enrollments').select('id, student_id, course_id, status'),
       admin.from('student_certificates').select('id, student_id'),
       admin.from('student_attendance').select('id, student_id'),
       admin.from('workshop_registrations').select('id, student_id, status'),
+      admin.from('student_social_follows').select('*'),
     ]);
 
     const courses = coursesRes.status === 'fulfilled' && coursesRes.value.data ? coursesRes.value.data : [];
@@ -100,6 +107,7 @@ export async function getAdminStudentsDirectoryData(): Promise<{
     const certificates = certificatesRes.status === 'fulfilled' && certificatesRes.value.data ? certificatesRes.value.data : [];
     const attendance = attendanceRes.status === 'fulfilled' && attendanceRes.value.data ? attendanceRes.value.data : [];
     const workshops = workshopsRes.status === 'fulfilled' && workshopsRes.value.data ? workshopsRes.value.data : [];
+    const socialFollows = socialFollowsRes.status === 'fulfilled' && socialFollowsRes.value.data ? socialFollowsRes.value.data : [];
 
     // Lookup maps
     const enrollmentsByStudent = new Map<string, string[]>();
@@ -148,6 +156,24 @@ export async function getAdminStudentsDirectoryData(): Promise<{
       }
     }
 
+    // Social follows map (Consolidated single record per student)
+    const socialFollowsMap = new Map<string, Set<string>>();
+    for (const sf of socialFollows as any[]) {
+      if (sf.student_id) {
+        const set = new Set<string>();
+        if (sf.youtube) set.add('youtube');
+        if (sf.facebook) set.add('facebook');
+        if (sf.instagram) set.add('instagram');
+        if (sf.tiktok) set.add('tiktok');
+        if (sf.linkedin) set.add('linkedin');
+        if (sf.whatsapp) set.add('whatsapp');
+        socialFollowsMap.set(sf.student_id, set);
+      }
+    }
+
+    const totalRequiredSocial = MANDATORY_SOCIAL_CHANNELS.length;
+    let totalSocialFollowCompleted = 0;
+
     // Faculty & Year aggregators
     const facultyMap: Record<string, number> = {};
     const yearMap: Record<number, number> = {};
@@ -168,6 +194,14 @@ export async function getAdminStudentsDirectoryData(): Promise<{
       const certsCount = certsCountMap.get(s.id) || 0;
       const attLogsCount = attCountMap.get(s.id) || 0;
       const wsCount = workshopsCountMap.get(s.id) || 0;
+
+      const followedPlatforms = socialFollowsMap.get(s.id) || new Set();
+      const socialFollowsCount = followedPlatforms.size;
+      const socialFollowCompleted = socialFollowsCount >= totalRequiredSocial;
+
+      if (socialFollowCompleted) {
+        totalSocialFollowCompleted++;
+      }
 
       const expectedSessions = enrolledCoursesCount * 6 || (wsCount > 0 ? wsCount * 3 : 1);
       const rawRate = Math.round((attLogsCount / expectedSessions) * 100);
@@ -197,6 +231,8 @@ export async function getAdminStudentsDirectoryData(): Promise<{
         attendanceCount: attLogsCount,
         attendanceRate,
         workshopsCount: wsCount,
+        socialFollowsCount,
+        socialFollowCompleted,
       };
     });
 
@@ -222,6 +258,9 @@ export async function getAdminStudentsDirectoryData(): Promise<{
         ? Math.round(students.reduce((acc, s) => acc + s.attendanceRate, 0) / students.length)
         : 0;
 
+    const socialFollowRate =
+      students.length > 0 ? Math.round((totalSocialFollowCompleted / students.length) * 100) : 0;
+
     return {
       success: true,
       data: {
@@ -233,6 +272,8 @@ export async function getAdminStudentsDirectoryData(): Promise<{
           totalAttendanceLogs: attendance.length,
           totalWorkshopRegistrations: workshops.length,
           avgAttendanceRate,
+          totalSocialFollowCompleted,
+          socialFollowRate,
           byFaculty,
           byYear,
           byTrack,

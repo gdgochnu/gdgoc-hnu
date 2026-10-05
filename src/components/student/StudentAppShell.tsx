@@ -29,6 +29,8 @@ import { signOutAction } from '@/app/auth/actions';
 import { StudentNotificationCenter } from './notifications/StudentNotificationCenter';
 import { ToastProvider } from './StudentToast';
 import { BackToTopButton } from './BackToTopButton';
+import { SocialFollowGateModal } from './SocialFollowGateModal';
+import { checkStudentSocialFollowStatus, SocialFollowStatus } from '@/app/student/social-gate/actions';
 
 interface NavItem {
   label: string;
@@ -56,7 +58,17 @@ export function StudentAppShell({ student, teamRole, children }: StudentAppShell
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
+  const [socialFollowStatus, setSocialFollowStatus] = useState<SocialFollowStatus | null>(null);
   const sidebarNavRef = useRef<HTMLDivElement | null>(null);
+
+  // Check mandatory social follow gate status in Supabase
+  useEffect(() => {
+    let isMounted = true;
+    checkStudentSocialFollowStatus().then((status) => {
+      if (isMounted) setSocialFollowStatus(status);
+    }).catch(() => null);
+    return () => { isMounted = false; };
+  }, [student.id]);
 
   // Hydrate collapsed state from localStorage
   useEffect(() => {
@@ -1039,8 +1051,22 @@ export function StudentAppShell({ student, teamRole, children }: StudentAppShell
         </Link>
       </nav>
       <BackToTopButton />
+
+      {/* Mandatory Social Media Follow Gate */}
+      {socialFollowStatus && !socialFollowStatus.completedAll && (
+        <SocialFollowGateModal
+          initialFollowedPlatforms={socialFollowStatus.followedPlatforms}
+          studentName={student.full_name_en || student.full_name_ar}
+          onAllCompleted={() =>
+            setSocialFollowStatus((prev) =>
+              prev ? { ...prev, completedAll: true } : null
+            )
+          }
+        />
+      )}
     </div>
     </ToastProvider>
   );
 }
+
 
