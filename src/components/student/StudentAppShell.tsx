@@ -30,7 +30,9 @@ import { StudentNotificationCenter } from './notifications/StudentNotificationCe
 import { ToastProvider } from './StudentToast';
 import { BackToTopButton } from './BackToTopButton';
 import { SocialFollowGateModal } from './SocialFollowGateModal';
+import { CourseSuggestionModal } from './CourseSuggestionModal';
 import { checkStudentSocialFollowStatus, SocialFollowStatus } from '@/app/student/social-gate/actions';
+import { getSuggestedCoursesForUnenrolledStudentAction, SuggestedCourseItem } from '@/app/student/courses/actions';
 import { MANDATORY_SOCIAL_CHANNELS } from '@/config/social-gate';
 
 function renderSidebarSocialIcon(type: string, size = 16) {
@@ -103,16 +105,56 @@ export function StudentAppShell({ student, teamRole, children }: StudentAppShell
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [socialFollowStatus, setSocialFollowStatus] = useState<SocialFollowStatus | null>(null);
+  const [suggestedCourses, setSuggestedCourses] = useState<SuggestedCourseItem[]>([]);
+  const [hasDismissedCourseSuggestion, setHasDismissedCourseSuggestion] = useState(false);
   const sidebarNavRef = useRef<HTMLDivElement | null>(null);
 
-  // Check mandatory social follow gate status in Supabase
+  // Check mandatory social follow gate status in Supabase (Only for accounts > 24 hours old)
   useEffect(() => {
     let isMounted = true;
+
+    // Check if account is at least 24 hours old
+    const accountCreatedAt = student.created_at ? new Date(student.created_at).getTime() : 0;
+    const isOver24HoursOld = Date.now() - accountCreatedAt >= 24 * 60 * 60 * 1000;
+
+    if (!isOver24HoursOld) {
+      // New accounts (<24h) are exempt from the mandatory modal
+      return;
+    }
+
     checkStudentSocialFollowStatus().then((status) => {
       if (isMounted) setSocialFollowStatus(status);
     }).catch(() => null);
     return () => { isMounted = false; };
+  }, [student.id, student.created_at]);
+
+  // Check if student has 0 course enrollments and suggest available courses
+  useEffect(() => {
+    let isMounted = true;
+
+    getSuggestedCoursesForUnenrolledStudentAction()
+      .then((res) => {
+        if (isMounted && res.hasNoEnrollments && res.courses.length > 0) {
+          setSuggestedCourses(res.courses);
+        }
+      })
+      .catch((err) => console.warn('Course suggestion fetch error:', err));
+
+    return () => {
+      isMounted = false;
+    };
   }, [student.id]);
+
+  const handleDismissCourseSuggestion = () => {
+    setHasDismissedCourseSuggestion(true);
+  };
+
+  const isSocialGateActive = !!(socialFollowStatus && !socialFollowStatus.completedAll);
+  const shouldShowCourseSuggestion =
+    !isSocialGateActive &&
+    !hasDismissedCourseSuggestion &&
+    suggestedCourses.length > 0 &&
+    pathname !== '/student/courses';
 
   // Hydrate collapsed state from localStorage
   useEffect(() => {
@@ -1243,6 +1285,14 @@ export function StudentAppShell({ student, teamRole, children }: StudentAppShell
               prev ? { ...prev, completedAll: true } : null
             )
           }
+        />
+      )}
+
+      {/* Course Suggestion Modal for Unenrolled Students (Guaranteed No Overlap with Social Gate) */}
+      {shouldShowCourseSuggestion && (
+        <CourseSuggestionModal
+          courses={suggestedCourses}
+          onDismiss={handleDismissCourseSuggestion}
         />
       )}
     </div>

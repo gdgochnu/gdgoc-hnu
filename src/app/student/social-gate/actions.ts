@@ -31,7 +31,29 @@ export async function checkStudentSocialFollowStatus(): Promise<SocialFollowStat
     const studentId = context.user.id;
     const admin = createAdminClient();
 
-    // Query single follow record for this student
+    // 1. Check if the student account is at least 24 hours old (to avoid disturbing newly registered accounts)
+    const { data: studentProfile } = await admin
+      .from('student_profiles')
+      .select('created_at')
+      .eq('id', studentId)
+      .maybeSingle();
+
+    if (studentProfile?.created_at) {
+      const accountAgeMs = Date.now() - new Date(studentProfile.created_at).getTime();
+      const TWENTY_FOUR_HOURS_MS = 24 * 60 * 60 * 1000;
+      if (accountAgeMs < TWENTY_FOUR_HOURS_MS) {
+        // Account is less than 24 hours old - do not disturb with mandatory follow gate
+        return {
+          completedAll: true,
+          followedPlatforms: [],
+          totalRequired: MANDATORY_SOCIAL_CHANNELS.length,
+          completedCount: 0,
+          studentId,
+        };
+      }
+    }
+
+    // 2. Query single follow record for this student
     const { data: record, error } = await admin
       .from('student_social_follows')
       .select('*')

@@ -833,3 +833,106 @@ export async function enrollInCourse(courseId: string): Promise<{
     return { success: false, error: err.message || 'Failed to complete enrollment.' };
   }
 }
+
+export interface SuggestedCourseItem {
+  id: string;
+  title: string;
+  description: string | null;
+  cover_image_url: string | null;
+  category: string | null;
+  department_name?: string;
+  sessions_count: number;
+  total_duration_minutes: number;
+  instructor_name?: string;
+  instructor_avatar?: string | null;
+  is_full: boolean;
+}
+
+/**
+ * Checks if the student has 0 course enrollments and returns top published courses as recommendations.
+ */
+export async function getSuggestedCoursesForUnenrolledStudentAction(): Promise<{
+  hasNoEnrollments: boolean;
+  courses: SuggestedCourseItem[];
+}> {
+  try {
+    const context = await getUserContext();
+    if (!context.user) {
+      return { hasNoEnrollments: false, courses: [] };
+    }
+
+    const studentId = context.user.id;
+    const admin = createAdminClient();
+
+    // 1. Check if student has any confirmed active course enrollments
+    const { count: confirmedCount, error: countErr } = await admin
+      .from('course_enrollments')
+      .select('id', { count: 'exact', head: true })
+      .eq('student_id', studentId)
+      .eq('status', 'confirmed');
+
+    if (countErr) {
+      console.warn('getSuggestedCoursesForUnenrolledStudentAction countErr:', countErr);
+      return { hasNoEnrollments: false, courses: [] };
+    }
+
+    // If student already has at least 1 confirmed active course, no popup needed
+    if ((confirmedCount ?? 0) > 0) {
+      return { hasNoEnrollments: false, courses: [] };
+    }
+
+    // 2. Fetch active published courses
+    const { data: rawCourses, error: coursesErr } = await admin
+      .from('courses')
+      .select(`
+        id,
+        title,
+        description,
+        cover_image_url,
+        category,
+        capacity,
+        status,
+        department:departments(name),
+        instructors:course_instructors(
+          role,
+          profile:profiles!course_instructors_profile_id_fkey(full_name, avatar_url)
+        ),
+        sessions:course_sessions(id, duration_minutes),
+        enrollments:course_enrollments(id)
+      `)
+      .eq('status', 'published')
+      .order('created_at', { ascending: true })
+      .limit(3);
+
+    if (coursesErr || !rawCourses || rawCourses.length === 0) {
+      return { hasNoEnrollments: true, courses: [] };
+    }
+
+    const courses: SuggestedCourseItem[] = rawCourses.map((c: any) => {
+      const primaryInstructor = c.instructors?.[0]?.profile;
+      const enrolledCount = c.enrollments?.length || 0;
+      const isFull = c.capacity ? enrolledCount >= c.capacity : false;
+      const sessions = c.sessions || [];
+      const totalDuration = sessions.reduce((acc: number, s: any) => acc + (s.duration_minutes || 0), 0);
+
+      return {
+        id: c.id,
+        title: c.title,
+        description: c.description,
+        cover_image_url: c.cover_image_url,
+        category: c.category || c.department?.name || 'Technical Track',
+        department_name: c.department?.name,
+        sessions_count: sessions.length,
+        total_duration_minutes: totalDuration,
+        instructor_name: primaryInstructor?.full_name || 'GDGoC Lead',
+        instructor_avatar: primaryInstructor?.avatar_url || null,
+        is_full: isFull,
+      };
+    });
+
+    return { hasNoEnrollments: true, courses };
+  } catch (err) {
+    console.error('getSuggestedCoursesForUnenrolledStudentAction exception:', err);
+    return { hasNoEnrollments: false, courses: [] };
+  }
+}
