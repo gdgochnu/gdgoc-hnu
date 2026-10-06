@@ -912,3 +912,121 @@ export async function approveAllPendingCourseEnrollments(courseId: string): Prom
 }
 
 
+/**
+ * Sends a test enrollment confirmation email to a given email address.
+ */
+export async function sendTestEnrollmentEmail(
+  courseId: string,
+  testEmail: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const access = await verifyEnrollmentAccess(courseId);
+    if (!access.authorized || !access.course) {
+      return { success: false, error: access.error };
+    }
+
+    const { course, admin } = access;
+
+    // Sample WhatsApp group for the preview send
+    const { data: sampleGroup } = await admin
+      .from('course_groups')
+      .select('name, whatsapp_link')
+      .eq('course_id', courseId)
+      .limit(1)
+      .maybeSingle();
+
+    const result = await sendCourseEnrollmentConfirmedEmail({
+      to: testEmail.trim(),
+      studentName: 'Test User (Preview)',
+      courseTitle: course.title,
+      courseCategory: course.category,
+      courseId,
+      whatsappGroupLink: sampleGroup?.whatsapp_link || null,
+      whatsappGroupName: sampleGroup?.name || null,
+    });
+
+    if (!result.success) {
+      return { success: false, error: result.error || 'Failed to send test email.' };
+    }
+
+    return { success: true };
+  } catch (err: any) {
+    console.error('sendTestEnrollmentEmail exception:', err);
+    return { success: false, error: err.message };
+  }
+}
+
+/**
+ * Resends enrollment confirmation emails to ALL currently confirmed students.
+ * Useful for students approved before the email system was set up.
+ */
+export async function resendEnrollmentEmailsToConfirmed(courseId: string): Promise<{
+  success: boolean;
+  sentCount?: number;
+  failedCount?: number;
+  error?: string;
+}> {
+  try {
+    const access = await verifyEnrollmentAccess(courseId);
+    if (!access.authorized || !access.course) {
+      return { success: false, error: access.error };
+    }
+
+    const { course, admin } = access;
+
+    // Fetch confirmed enrollments with student info + group
+    const { data: confirmedList, error: fetchErr } = await admin
+      .from('course_enrollments')
+      .select(`
+        student_id,
+        group_id,
+        student:student_profiles!course_enrollments_student_id_fkey(
+          id, full_name_en, email
+        )
+      `)
+      .eq('course_id', courseId)
+      .eq('status', 'confirmed');
+
+    if (fetchErr) return { success: false, error: fetchErr.message };
+    if (!confirmedList || confirmedList.length === 0) {
+      return { success: false, error: 'No confirmed students found for this course.' };
+    }
+
+    // Batch-fetch groups
+    const groupIds = [...new Set(
+      confirmedList.map((e: any) => e.group_id).filter(Boolean)
+    )];
+    const { data: groups } = groupIds.length
+      ? await admin.from('course_groups').select('id, name, whatsapp_link').in('id', groupIds)
+      : { data: [] };
+
+    const groupMap: Record<string, { name: string; whatsapp_link: string }> = {};
+    for (const g of groups || []) groupMap[(g as any).id] = g as any;
+
+    // Send emails in parallel
+    const results = await Promise.allSettled(
+      confirmedList.map(async (e: any) => {
+        const stu = Array.isArray(e.student) ? e.student[0] : e.student;
+        if (!stu?.email) throw new Error('No email');
+        const grp = e.group_id ? groupMap[e.group_id] : null;
+        return sendCourseEnrollmentConfirmedEmail({
+          to: stu.email,
+          studentName: stu.full_name_en || 'Student',
+          courseTitle: course.title,
+          courseCategory: course.category,
+          courseId,
+          whatsappGroupLink: grp?.whatsapp_link || null,
+          whatsappGroupName: (grp as any)?.name || null,
+        });
+      })
+    );
+
+    const sentCount = results.filter((r) => r.status === 'fulfilled').length;
+    const failedCount = results.filter((r) => r.status === 'rejected').length;
+
+    return { success: true, sentCount, failedCount };
+  } catch (err: any) {
+    console.error('resendEnrollmentEmailsToConfirmed exception:', err);
+    return { success: false, error: err.message };
+  }
+}

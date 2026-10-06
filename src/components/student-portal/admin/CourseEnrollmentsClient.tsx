@@ -21,7 +21,7 @@ import {
   X,
   UserX,
   ExternalLink,
-  MessageCircle,
+  MessageSquare,
   Eye,
   ShieldCheck,
   ArrowUpRight,
@@ -31,6 +31,9 @@ import {
   Download,
   FileSpreadsheet,
   Loader2,
+  Send,
+  RefreshCw,
+  MessageCircle,
 } from 'lucide-react';
 import {
   CourseEnrollmentsHeader,
@@ -42,6 +45,8 @@ import {
   removeCourseEnrollment,
   resetEnrollmentToPending,
   approveAllPendingCourseEnrollments,
+  sendTestEnrollmentEmail,
+  resendEnrollmentEmailsToConfirmed,
 } from '@/app/student-portal/admin/courses/[id]/enrollments/actions';
 import { EnrollmentStatus } from '@/types/student';
 
@@ -78,6 +83,13 @@ export function CourseEnrollmentsClient({
   // Bulk Approve state
   const [isBulkApproving, setIsBulkApproving] = useState(false);
   const [showBulkApproveModal, setShowBulkApproveModal] = useState(false);
+
+  // Email Management state
+  const [showEmailModal, setShowEmailModal] = useState(false);
+  const [testEmail, setTestEmail] = useState('');
+  const [isSendingTest, setIsSendingTest] = useState(false);
+  const [isResendingAll, setIsResendingAll] = useState(false);
+  const [emailModalFeedback, setEmailModalFeedback] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   // Grouped counts
   const pendingCount = enrollments.filter((e) => e.status === 'pending').length;
@@ -396,6 +408,48 @@ export function CourseEnrollmentsClient({
       setFeedback({ type: 'error', text: err.message || 'An error occurred during bulk approval.' });
     } finally {
       setIsBulkApproving(false);
+    }
+  };
+
+  const handleSendTestEmail = async () => {
+    if (!testEmail.trim()) {
+      setEmailModalFeedback({ type: 'error', text: 'Please enter a valid email address.' });
+      return;
+    }
+    try {
+      setIsSendingTest(true);
+      setEmailModalFeedback(null);
+      const res = await sendTestEnrollmentEmail(header.id, testEmail.trim());
+      if (!res.success) {
+        setEmailModalFeedback({ type: 'error', text: res.error || 'Failed to send test email.' });
+      } else {
+        setEmailModalFeedback({ type: 'success', text: `✅ Test email sent successfully to ${testEmail}` });
+      }
+    } catch (err: any) {
+      setEmailModalFeedback({ type: 'error', text: err.message || 'An error occurred.' });
+    } finally {
+      setIsSendingTest(false);
+    }
+  };
+
+  const handleResendToAllConfirmed = async () => {
+    if (!confirm(`Send enrollment confirmation emails to all ${confirmedCount} confirmed students? Each will receive the email with their WhatsApp group info (if assigned).`)) return;
+    try {
+      setIsResendingAll(true);
+      setEmailModalFeedback(null);
+      const res = await resendEnrollmentEmailsToConfirmed(header.id);
+      if (!res.success) {
+        setEmailModalFeedback({ type: 'error', text: res.error || 'Failed to send emails.' });
+      } else {
+        setEmailModalFeedback({
+          type: 'success',
+          text: `✅ Emails sent! ${res.sentCount} delivered${res.failedCount ? `, ${res.failedCount} failed` : ''}.`,
+        });
+      }
+    } catch (err: any) {
+      setEmailModalFeedback({ type: 'error', text: err.message || 'An error occurred.' });
+    } finally {
+      setIsResendingAll(false);
     }
   };
 
@@ -837,8 +891,35 @@ export function CourseEnrollmentsClient({
               )}
             </div>
 
-            {/* Export CSV Button */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+              {/* Email Management Button */}
+              {canManage && (
+                <button
+                  type="button"
+                  onClick={() => { setShowEmailModal(true); setEmailModalFeedback(null); }}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '0.45rem',
+                    padding: '0.55rem 1.1rem',
+                    borderRadius: '10px',
+                    background: 'linear-gradient(135deg, rgba(234, 67, 53, 0.2) 0%, rgba(251, 188, 4, 0.15) 100%)',
+                    border: '1px solid rgba(234, 67, 53, 0.45)',
+                    color: '#FCA5A5',
+                    fontSize: '0.84rem',
+                    fontWeight: 800,
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease',
+                    boxShadow: '0 2px 10px rgba(0,0,0,0.2)',
+                    whiteSpace: 'nowrap',
+                  }}
+                  title="إدارة إيميلات التأكيد"
+                >
+                  <Send size={15} />
+                  <span>إدارة الإيميلات</span>
+                </button>
+              )}
+
+              {/* Export CSV Button */}
               <button
                 type="button"
                 onClick={() => setShowExportModal(true)}
@@ -894,7 +975,6 @@ export function CourseEnrollmentsClient({
             </div>
           </div>
         </div>
-      </div>
 
       {/* Quick Action Alert Banner for Pending Tab */}
       {activeTab === 'pending' && pendingCount > 0 && canManage && (
@@ -2323,6 +2403,185 @@ export function CourseEnrollmentsClient({
           </div>
         </div>
       )}
+
+      {/* ─── Email Management Modal ─────────────────────────────────── */}
+      {showEmailModal && (
+        <div
+          style={{
+            position: 'fixed', inset: 0, zIndex: 9999,
+            background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(6px)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            padding: '1rem',
+          }}
+          onClick={(e) => { if (e.target === e.currentTarget) setShowEmailModal(false); }}
+        >
+          <div
+            style={{
+              background: 'linear-gradient(135deg, #0F172A 0%, #131722 100%)',
+              border: '1px solid rgba(255,255,255,0.1)',
+              borderRadius: '20px',
+              width: '100%',
+              maxWidth: '780px',
+              maxHeight: '90vh',
+              overflow: 'hidden',
+              display: 'flex',
+              flexDirection: 'column',
+              boxShadow: '0 24px 64px rgba(0,0,0,0.6)',
+            }}
+          >
+            {/* Modal Header */}
+            <div style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              padding: '1.5rem 2rem',
+              borderBottom: '1px solid rgba(255,255,255,0.08)',
+              background: 'rgba(255,255,255,0.02)',
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                <div style={{
+                  width: '40px', height: '40px', borderRadius: '12px',
+                  background: 'linear-gradient(135deg, rgba(234,67,53,0.25), rgba(251,188,4,0.2))',
+                  border: '1px solid rgba(234,67,53,0.4)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}>
+                  <Send size={18} color="#FCA5A5" />
+                </div>
+                <div>
+                  <div style={{ fontSize: '1.1rem', fontWeight: 800, color: '#FFFFFF' }}>إدارة إيميلات التأكيد</div>
+                  <div style={{ fontSize: '0.8rem', color: '#94A3B8', marginTop: '2px' }}>
+                    معاينة الإيميل • إرسال test • إرسال لجميع المقبولين
+                  </div>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowEmailModal(false)}
+                style={{ background: 'transparent', border: 'none', color: '#94A3B8', cursor: 'pointer', padding: '0.4rem', borderRadius: '8px' }}
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Modal Body - Scrollable */}
+            <div style={{ overflowY: 'auto', flex: 1, padding: '1.5rem 2rem', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+
+              {/* Feedback Banner */}
+              {emailModalFeedback && (
+                <div style={{
+                  padding: '0.85rem 1.2rem', borderRadius: '10px',
+                  background: emailModalFeedback.type === 'success' ? 'rgba(52,168,83,0.15)' : 'rgba(234,67,53,0.15)',
+                  border: `1px solid ${emailModalFeedback.type === 'success' ? 'rgba(52,168,83,0.4)' : 'rgba(234,67,53,0.4)'}`,
+                  color: emailModalFeedback.type === 'success' ? '#34D399' : '#F87171',
+                  fontSize: '0.88rem', fontWeight: 600,
+                  display: 'flex', alignItems: 'center', gap: '0.6rem',
+                }}>
+                  {emailModalFeedback.type === 'success' ? <CheckCircle2 size={16} /> : <AlertCircle size={16} />}
+                  {emailModalFeedback.text}
+                </div>
+              )}
+
+              {/* ── Section 1: Email Preview ── */}
+              <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '14px', overflow: 'hidden' }}>
+                <div style={{
+                  padding: '0.9rem 1.2rem', borderBottom: '1px solid rgba(255,255,255,0.06)',
+                  display: 'flex', alignItems: 'center', gap: '0.6rem',
+                  background: 'rgba(255,255,255,0.03)',
+                }}>
+                  <Eye size={16} color="#60A5FA" />
+                  <span style={{ fontSize: '0.9rem', fontWeight: 700, color: '#FFFFFF' }}>معاينة الإيميل</span>
+                  <span style={{ fontSize: '0.78rem', color: '#94A3B8', marginLeft: 'auto' }}>هكذا سيظهر الإيميل للطلاب المقبولين</span>
+                </div>
+                <div style={{ padding: '1rem', background: '#f1f3f4' }}>
+                  <iframe
+                    title="Email Preview"
+                    style={{ width: '100%', height: '480px', border: 'none', borderRadius: '8px', background: '#ffffff' }}
+                    srcDoc={`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Preview</title></head><body style="margin:0;padding:0;background:#f1f3f4;font-family:'Google Sans',Roboto,Arial,sans-serif;"><table width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#f1f3f4;padding:16px 8px;"><tr><td align="center"><table width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:580px;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);border:1px solid #e8eaed;"><tr><td style="padding:0;line-height:0;"><img src="https://lh3.googleusercontent.com/d/18LntSS9Esar14rqfRVlkvTr8elSEOzLV" alt="GDGoC HNU" width="100%" style="display:block;width:100%;height:auto;border:0;"></td></tr><tr><td style="padding:28px 32px 22px;"><p style="margin:0 0 14px;font-size:17px;font-weight:bold;color:#202124;font-family:'Google Sans',Roboto,Arial,sans-serif;">Dear Ahmed Mohamed,</p><p style="margin:0 0 14px;font-size:14px;color:#3c4043;line-height:1.75;font-family:Arial,sans-serif;">Congratulations! 🎉 Your application to join the <strong style="color:#1a73e8;">${header.title}</strong> track at <strong>GDGoC Helwan National University</strong> has been officially reviewed and <strong style="color:#34a853;">confirmed</strong>.</p><table width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#f8f9fa;border-radius:12px;border:1.5px solid #e8eaed;overflow:hidden;margin-bottom:16px;"><tr><td style="background:#1a73e8;padding:10px 18px;color:#fff;font-size:13px;font-weight:bold;">Enrollment Details</td></tr><tr><td style="padding:14px 18px;"><table width="100%"><tr><td width="110" style="padding:5px 0;font-size:12px;color:#5f6368;font-weight:bold;">Track:</td><td style="padding:5px 0;font-size:14px;color:#202124;font-weight:bold;">${header.title}</td></tr><tr><td style="padding:5px 0;font-size:12px;color:#5f6368;font-weight:bold;">Category:</td><td style="padding:5px 0;font-size:13px;color:#1a73e8;font-weight:bold;">${header.category || 'GDGoC HNU'}</td></tr><tr><td style="padding:5px 0;font-size:12px;color:#5f6368;font-weight:bold;">Status:</td><td style="padding:5px 0;font-size:13px;color:#34a853;font-weight:bold;">✅ Confirmed</td></tr></table></td></tr></table><table border="0" cellspacing="0" cellpadding="0" style="margin-bottom:14px;"><tr><td style="border-radius:8px;background:#1a73e8;"><a style="font-size:14px;font-weight:700;color:#fff;text-decoration:none;padding:12px 24px;display:inline-block;border-radius:8px;">Open My Course Portal →</a></td></tr></table><div style="background:#e8f0fe;border-left:4px solid #1a73e8;border-radius:0 8px 8px 0;padding:12px 16px;"><p style="margin:0;font-size:12px;color:#1a73e8;line-height:1.6;font-family:Arial,sans-serif;"><strong>📱 Study Group:</strong> Your WhatsApp study group link will be assigned shortly. Stay tuned!</p></div><p style="margin:20px 0 0;font-size:14px;color:#202124;font-weight:bold;">We look forward to having you in the track. Best of luck!</p></td></tr><tr><td style="padding:0 32px;"><div style="height:1px;background:#e8eaed;width:100%;"></div></td></tr><tr><td style="padding:20px 32px 28px;"><img src="https://lh3.googleusercontent.com/d/1DyyrxR0WWi7z9sPzAM5c1YPTkpcQhusI" width="200" style="display:block;height:auto;border:0;margin-bottom:10px;"><p style="margin:0 0 2px;font-size:14px;font-weight:bold;color:#202124;">Ahmed Salman</p><p style="margin:0 0 2px;font-size:12px;color:#ea4335;font-weight:600;">President</p><p style="margin:0;font-size:11px;color:#1a73e8;">Google Developer Groups on Campus — Helwan National University</p></td></tr></table></td></tr></table></body></html>`}
+                  />
+                </div>
+              </div>
+
+              {/* ── Section 2: Send Test Email ── */}
+              <div style={{ background: 'rgba(66,133,244,0.06)', border: '1px solid rgba(66,133,244,0.2)', borderRadius: '14px', padding: '1.25rem 1.5rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '0.6rem' }}>
+                  <Send size={16} color="#60A5FA" />
+                  <span style={{ fontSize: '0.95rem', fontWeight: 700, color: '#FFFFFF' }}>إرسال إيميل تجريبي (Test)</span>
+                </div>
+                <p style={{ margin: '0 0 1rem', fontSize: '0.84rem', color: '#94A3B8', lineHeight: 1.6 }}>
+                  أدخل إيميلك لترى كيف ستبدو الرسالة في صندوق الوارد قبل الإرسال الفعلي.
+                </p>
+                <div style={{ display: 'flex', gap: '0.65rem', flexWrap: 'wrap' }}>
+                  <input
+                    type="email"
+                    placeholder="test@example.com"
+                    value={testEmail}
+                    onChange={(e) => setTestEmail(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') handleSendTestEmail(); }}
+                    style={{
+                      flex: 1, minWidth: '220px',
+                      padding: '0.65rem 1rem', borderRadius: '10px',
+                      background: 'rgba(255,255,255,0.06)',
+                      border: '1px solid rgba(255,255,255,0.15)',
+                      color: '#FFFFFF', fontSize: '0.88rem', outline: 'none',
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={handleSendTestEmail}
+                    disabled={isSendingTest || !testEmail.trim()}
+                    style={{
+                      display: 'inline-flex', alignItems: 'center', gap: '0.5rem',
+                      padding: '0.65rem 1.4rem', borderRadius: '10px',
+                      background: !testEmail.trim() ? 'rgba(66,133,244,0.2)' : 'linear-gradient(135deg, #4285F4, #1A73E8)',
+                      border: 'none', color: '#FFFFFF', fontSize: '0.88rem', fontWeight: 700,
+                      cursor: isSendingTest || !testEmail.trim() ? 'not-allowed' : 'pointer',
+                      opacity: !testEmail.trim() ? 0.5 : 1,
+                    }}
+                  >
+                    {isSendingTest ? <Loader2 size={15} className="animate-spin" /> : <Send size={15} />}
+                    <span>{isSendingTest ? 'جاري الإرسال...' : 'أرسل Test'}</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* ── Section 3: Resend to All Confirmed ── */}
+              <div style={{ background: 'rgba(16,185,129,0.06)', border: '1px solid rgba(16,185,129,0.25)', borderRadius: '14px', padding: '1.25rem 1.5rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '0.6rem' }}>
+                  <RefreshCw size={16} color="#34D399" />
+                  <span style={{ fontSize: '0.95rem', fontWeight: 700, color: '#FFFFFF' }}>
+                    إرسال لجميع المقبولين ({confirmedCount} طالب)
+                  </span>
+                </div>
+                <p style={{ margin: '0 0 1rem', fontSize: '0.84rem', color: '#94A3B8', lineHeight: 1.6 }}>
+                  أرسل إيميل التأكيد لكل الطلاب المقبولين، بما فيهم اللي اتقبلوا قبل كده.
+                  كل طالب سيحصل على إيميل مخصص مع لينك جروب الواتساب الخاص به لو اتعمله assign.
+                </p>
+                {confirmedCount === 0 ? (
+                  <div style={{ padding: '0.75rem 1rem', borderRadius: '8px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: '#64748B', fontSize: '0.85rem' }}>
+                    لا يوجد طلاب مقبولون في هذا الكورس حتى الآن.
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={handleResendToAllConfirmed}
+                    disabled={isResendingAll}
+                    style={{
+                      display: 'inline-flex', alignItems: 'center', gap: '0.55rem',
+                      padding: '0.75rem 1.5rem', borderRadius: '10px',
+                      background: isResendingAll ? 'rgba(16,185,129,0.2)' : 'linear-gradient(135deg, #10B981, #059669)',
+                      border: 'none', color: '#FFFFFF', fontSize: '0.9rem', fontWeight: 800,
+                      cursor: isResendingAll ? 'not-allowed' : 'pointer',
+                      boxShadow: '0 4px 14px rgba(16,185,129,0.3)',
+                    }}
+                  >
+                    {isResendingAll ? <Loader2 size={16} className="animate-spin" /> : <RefreshCw size={16} />}
+                    <span>{isResendingAll ? 'جاري الإرسال...' : `إرسال لـ ${confirmedCount} طالب مقبول`}</span>
+                  </button>
+                )}
+              </div>
+
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }
