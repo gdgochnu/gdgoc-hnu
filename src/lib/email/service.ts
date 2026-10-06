@@ -20,41 +20,79 @@ export interface EmailResult {
 const HOSTINGER_API_KEY =
   process.env.HOSTINGER_MAIL_API_KEY ||
   'b1e9ca826d6fe01a5fd3b72b0bb0abf7858f4b06abc281efbbe3039625a4e895';
+const HOSTINGER_MAILBOX_ID =
+  process.env.HOSTINGER_MAILBOX_ID || 'ACe76d7001c70c12e4953f16be536f';
 const HOSTINGER_SENDER_EMAIL = process.env.HOSTINGER_SENDER_EMAIL || 'gdgochnu@uniskills.pro';
 const HOSTINGER_SENDER_NAME = process.env.HOSTINGER_SENDER_NAME || 'GDGoC Helwan National University';
 
+let cachedMailboxId: string = HOSTINGER_MAILBOX_ID;
+
+/**
+ * Resolves the active Hostinger Mailbox Resource ID.
+ * Defaults to env / constant, but can dynamically discover from /api/v1/me.
+ */
+async function resolveMailboxResourceId(): Promise<string> {
+  if (cachedMailboxId) return cachedMailboxId;
+  try {
+    const res = await fetch('https://api.mail.hostinger.com/api/v1/me', {
+      headers: {
+        Authorization: `Bearer ${HOSTINGER_API_KEY}`,
+      },
+    });
+    if (res.ok) {
+      const data = await res.json();
+      const firstMailbox = data?.data?.mailboxes?.[0]?.resourceId;
+      if (firstMailbox) {
+        cachedMailboxId = firstMailbox;
+        return firstMailbox;
+      }
+    }
+  } catch (err) {
+    console.warn('[Hostinger Mail API] Failed to auto-resolve mailbox id:', err);
+  }
+  return 'ACe76d7001c70c12e4953f16be536f';
+}
+
 /**
  * Generic email dispatcher.
- * Primary: Hostinger Mail API (api.mail.hostinger.com)
+ * Primary: Hostinger Official Mail API (api.mail.hostinger.com/api/v1/mailboxes/{id}/send)
  * Fallback: Audit log for local development
  */
 export async function sendEmail(params: SendEmailParams): Promise<EmailResult> {
   try {
     // ── 1. Hostinger Mail API ─────────────────────────────────────────────
-    const response = await fetch('https://api.mail.hostinger.com/v1/emails', {
+    const mailboxId = await resolveMailboxResourceId();
+    const endpoint = `https://api.mail.hostinger.com/api/v1/mailboxes/${mailboxId}/send`;
+
+    const response = await fetch(endpoint, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${HOSTINGER_API_KEY}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        from: `${HOSTINGER_SENDER_NAME} <${HOSTINGER_SENDER_EMAIL}>`,
-        to: params.to,
+        to: [params.to.trim()],
+        displayName: HOSTINGER_SENDER_NAME,
         subject: params.subject,
         html: params.html,
         ...(params.text ? { text: params.text } : {}),
       }),
     });
 
-    if (response.ok) {
-      const resData = await response.json().catch(() => ({}));
-      console.log(`[EMAIL SENT] To: ${params.to} | Subject: "${params.subject}"`);
-      return { success: true, id: resData?.id || `hostinger-${Date.now()}` };
+    if (response.ok || response.status === 204) {
+      console.log(`[EMAIL SENT VIA HOSTINGER] To: ${params.to} | Subject: "${params.subject}"`);
+      return { success: true, id: `hostinger-${Date.now()}` };
     }
 
-    // Non-200 from Hostinger – log warning and fall through to audit log
-    const errBody = await response.json().catch(() => ({}));
-    console.warn('Hostinger Mail API non-200 response:', response.status, errBody);
+    // Non-200/204 from Hostinger – log warning and fall through to audit log
+    const errText = await response.text().catch(() => '');
+    let errBody: any = null;
+    try {
+      errBody = JSON.parse(errText);
+    } catch {
+      errBody = { error: errText };
+    }
+    console.error('Hostinger Mail API non-200 response:', response.status, errBody);
 
     // ── 2. Audit log fallback (local / dev) ──────────────────────────────
     const admin = createAdminClient();
@@ -67,13 +105,18 @@ export async function sendEmail(params: SendEmailParams): Promise<EmailResult> {
         subject: params.subject,
         simulated: true,
         sent_at: new Date().toISOString(),
+        hostinger_status: response.status,
         hostinger_error: errBody,
         ...params.metadata,
       },
     });
 
     console.log(`[EMAIL FALLBACK LOG] To: ${params.to} | Subject: "${params.subject}"`);
-    return { success: true, id: `fallback-${Date.now()}`, simulated: true };
+    return {
+      success: false,
+      error: errBody?.error || `Hostinger Mail error (HTTP ${response.status})`,
+      simulated: true,
+    };
   } catch (err: unknown) {
     console.error('Error during email dispatch:', err);
 
