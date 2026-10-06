@@ -51,7 +51,10 @@ import {
   assignStudentToGroupAction,
   autoDistributeStudentsToGroupsAction,
   bulkAssignStudentsToGroupAction,
+  sendTestGroupEmailAction,
+  sendGroupConfirmationEmailsAction,
 } from '@/app/student-portal/admin/courses/[id]/groups/actions';
+import { renderCourseEnrollmentEmailHtml } from '@/lib/email/service';
 
 interface CourseGroupsClientProps {
   initialData: CourseGroupsPageData;
@@ -78,6 +81,27 @@ export function CourseGroupsClient({ initialData }: CourseGroupsClientProps) {
   const [showAddGroupModal, setShowAddGroupModal] = useState(false);
   const [editingGroup, setEditingGroup] = useState<CourseGroup | null>(null);
   const [showAutoDistributeModal, setShowAutoDistributeModal] = useState(false);
+
+  // Group Email Modal state
+  const [selectedGroupForEmail, setSelectedGroupForEmail] = useState<CourseGroup | null>(null);
+  const [showGroupEmailModal, setShowGroupEmailModal] = useState(false);
+  const [groupTestEmail, setGroupTestEmail] = useState('');
+  const [isSendingGroupTest, setIsSendingGroupTest] = useState(false);
+  const [isSendingGroupAll, setIsSendingGroupAll] = useState(false);
+  const [groupEmailFeedback, setGroupEmailFeedback] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  // Group Email Preview HTML
+  const groupEmailPreviewHtml = useMemo(() => {
+    if (!selectedGroupForEmail) return '';
+    return renderCourseEnrollmentEmailHtml({
+      studentName: 'Ahmed Mohamed (Preview)',
+      courseTitle: course.title,
+      courseCategory: course.category,
+      courseId: course.id,
+      whatsappGroupLink: selectedGroupForEmail.invitation_link || null,
+      whatsappGroupName: selectedGroupForEmail.name || 'Your Study Group',
+    });
+  }, [selectedGroupForEmail, course.title, course.category, course.id]);
 
   // Form states for Add/Edit Group
   const [groupNameInput, setGroupNameInput] = useState('');
@@ -171,6 +195,76 @@ export function CourseGroupsClient({ initialData }: CourseGroupsClientProps) {
     setSelectedStudentIds((prev) =>
       prev.includes(enrollmentId) ? prev.filter((id) => id !== enrollmentId) : [...prev, enrollmentId]
     );
+  };
+
+  // Group Email Handlers
+  const handleOpenGroupEmailModal = (g: CourseGroup) => {
+    setSelectedGroupForEmail(g);
+    setGroupEmailFeedback(null);
+    setShowGroupEmailModal(true);
+  };
+
+  const handleSendGroupTestEmail = async () => {
+    if (!selectedGroupForEmail || !groupTestEmail.trim()) {
+      setGroupEmailFeedback({ type: 'error', text: 'يرجى إدخال بريد إلكتروني صالح للتجربة.' });
+      return;
+    }
+    try {
+      setIsSendingGroupTest(true);
+      setGroupEmailFeedback(null);
+      const res = await sendTestGroupEmailAction({
+        courseId: course.id,
+        groupId: selectedGroupForEmail.id,
+        testEmail: groupTestEmail.trim(),
+      });
+      if (!res.success) {
+        setGroupEmailFeedback({ type: 'error', text: res.error || 'فشل إرسال الإيميل التجريبي.' });
+      } else {
+        setGroupEmailFeedback({ type: 'success', text: `✅ تم إرسال الإيميل التجريبي بنجاح إلى ${groupTestEmail}` });
+      }
+    } catch (err: any) {
+      setGroupEmailFeedback({ type: 'error', text: err.message || 'حدث خطأ غير متوقع.' });
+    } finally {
+      setIsSendingGroupTest(false);
+    }
+  };
+
+  const handleSendGroupAllConfirmation = async () => {
+    if (!selectedGroupForEmail) return;
+    const assignedCount = selectedGroupForEmail.assigned_count || 0;
+    if (assignedCount === 0) {
+      setGroupEmailFeedback({ type: 'error', text: 'لا يوجد طلاب مسجلون في هذه المجموعة لإرسال الإيميلات لهم.' });
+      return;
+    }
+    if (
+      !confirm(
+        `هل أنت متأكد من إرسال إيميل التأكيد ورابط الواتساب لجميع طلاب ${selectedGroupForEmail.name} (${assignedCount} طالب)؟`
+      )
+    ) {
+      return;
+    }
+
+    try {
+      setIsSendingGroupAll(true);
+      setGroupEmailFeedback(null);
+      const res = await sendGroupConfirmationEmailsAction({
+        courseId: course.id,
+        groupId: selectedGroupForEmail.id,
+      });
+
+      if (!res.success) {
+        setGroupEmailFeedback({ type: 'error', text: res.error || 'فشل إرسال الإيميلات للمجموعة.' });
+      } else {
+        setGroupEmailFeedback({
+          type: 'success',
+          text: `✅ تم إرسال الإيميلات بنجاح! تم تسليم ${res.sentCount} إيميل${res.failedCount ? `، وفشل ${res.failedCount}` : ''}.`,
+        });
+      }
+    } catch (err: any) {
+      setGroupEmailFeedback({ type: 'error', text: err.message || 'حدث خطأ غير متوقع أثناء الإرسال.' });
+    } finally {
+      setIsSendingGroupAll(false);
+    }
   };
 
   // Open Add Group Modal
@@ -1008,6 +1102,33 @@ ${link}
                         </button>
                       )}
                     </div>
+                  )}
+
+                  {/* Send Group Confirmation Email Button */}
+                  {canManage && (
+                    <button
+                      type="button"
+                      onClick={() => handleOpenGroupEmailModal(g)}
+                      style={{
+                        padding: '0.55rem 0.85rem',
+                        borderRadius: '8px',
+                        background: 'linear-gradient(135deg, rgba(234, 67, 53, 0.18) 0%, rgba(251, 188, 4, 0.15) 100%)',
+                        border: '1px solid rgba(234, 67, 53, 0.38)',
+                        color: '#FCA5A5',
+                        fontSize: '0.78rem',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '0.45rem',
+                        transition: 'all 0.15s ease',
+                      }}
+                      title={`معاينة وإرسال إيميل التأكيد لطلاب ${g.name}`}
+                    >
+                      <Send size={13} />
+                      <span>إرسال إيميل تأكيد للجروب ({assigned} طالب)</span>
+                    </button>
                   )}
 
                   {/* Filter by this group shortcut button */}
@@ -1901,6 +2022,243 @@ ${link}
           </div>
         </div>
       )}
+
+      {/* ─── Group Email Confirmation & Preview Modal ──────────────────────── */}
+      {showGroupEmailModal && selectedGroupForEmail && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 9999,
+            background: 'rgba(0,0,0,0.75)',
+            backdropFilter: 'blur(6px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '1rem',
+          }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setShowGroupEmailModal(false);
+          }}
+        >
+          <div
+            style={{
+              background: 'linear-gradient(135deg, #0F172A 0%, #131722 100%)',
+              border: '1px solid rgba(255,255,255,0.1)',
+              borderRadius: '20px',
+              width: '100%',
+              maxWidth: '820px',
+              maxHeight: '92vh',
+              overflow: 'hidden',
+              display: 'flex',
+              flexDirection: 'column',
+              boxShadow: '0 24px 64px rgba(0,0,0,0.6)',
+            }}
+          >
+            {/* Modal Header */}
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '1.25rem 1.75rem',
+                borderBottom: '1px solid rgba(255,255,255,0.08)',
+                background: 'rgba(255,255,255,0.02)',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                <div
+                  style={{
+                    width: '40px',
+                    height: '40px',
+                    borderRadius: '12px',
+                    background: 'linear-gradient(135deg, rgba(234,67,53,0.25), rgba(251,188,4,0.2))',
+                    border: '1px solid rgba(234,67,53,0.4)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <Send size={18} color="#FCA5A5" />
+                </div>
+                <div>
+                  <div style={{ fontSize: '1.1rem', fontWeight: 800, color: '#FFFFFF' }}>
+                    إرسال إيميل تأكيد لـ {selectedGroupForEmail.name}
+                  </div>
+                  <div style={{ fontSize: '0.8rem', color: '#94A3B8', marginTop: '2px' }}>
+                    {selectedGroupForEmail.assigned_count || 0} طالب مسجل • {selectedGroupForEmail.invitation_link ? '✅ رابط واتساب مضاف' : '⚠️ لا يوجد رابط واتساب'}
+                  </div>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowGroupEmailModal(false)}
+                style={{ background: 'transparent', border: 'none', color: '#94A3B8', cursor: 'pointer', padding: '0.4rem', borderRadius: '8px' }}
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Modal Body - Scrollable */}
+            <div style={{ overflowY: 'auto', flex: 1, padding: '1.5rem 1.75rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+
+              {/* Feedback Banner */}
+              {groupEmailFeedback && (
+                <div
+                  style={{
+                    padding: '0.85rem 1.2rem',
+                    borderRadius: '10px',
+                    background: groupEmailFeedback.type === 'success' ? 'rgba(52,168,83,0.15)' : 'rgba(234,67,53,0.15)',
+                    border: `1px solid ${groupEmailFeedback.type === 'success' ? 'rgba(52,168,83,0.4)' : 'rgba(234,67,53,0.4)'}`,
+                    color: groupEmailFeedback.type === 'success' ? '#34D399' : '#F87171',
+                    fontSize: '0.88rem',
+                    fontWeight: 600,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.6rem',
+                  }}
+                >
+                  {groupEmailFeedback.type === 'success' ? <CheckCircle2 size={16} /> : <AlertCircle size={16} />}
+                  <span>{groupEmailFeedback.text}</span>
+                </div>
+              )}
+
+              {/* ── Section 1: Live Email Preview ── */}
+              <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '14px', overflow: 'hidden' }}>
+                <div
+                  style={{
+                    padding: '0.85rem 1.2rem',
+                    borderBottom: '1px solid rgba(255,255,255,0.06)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.6rem',
+                    background: 'rgba(255,255,255,0.03)',
+                  }}
+                >
+                  <Eye size={16} color="#60A5FA" />
+                  <span style={{ fontSize: '0.9rem', fontWeight: 700, color: '#FFFFFF' }}>معاينة الإيميل لهذا الجروب</span>
+                  <span style={{ fontSize: '0.78rem', color: '#94A3B8', marginLeft: 'auto' }}>
+                    هكذا سيظهر الإيميل لطلاب {selectedGroupForEmail.name}
+                  </span>
+                </div>
+                <div style={{ padding: '0.75rem', background: '#f1f3f4', borderRadius: '0 0 14px 14px' }}>
+                  <iframe
+                    title="Group Email Preview"
+                    style={{ width: '100%', height: '460px', border: 'none', borderRadius: '10px', background: '#ffffff', display: 'block' }}
+                    srcDoc={groupEmailPreviewHtml}
+                  />
+                </div>
+              </div>
+
+              {/* ── Section 2: Send Test Email ── */}
+              <div style={{ background: 'rgba(66,133,244,0.06)', border: '1px solid rgba(66,133,244,0.2)', borderRadius: '14px', padding: '1.15rem 1.35rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.55rem', marginBottom: '0.5rem' }}>
+                  <Send size={15} color="#60A5FA" />
+                  <span style={{ fontSize: '0.92rem', fontWeight: 700, color: '#FFFFFF' }}>إرسال إيميل تجريبي (Test) لبيانات هذا الجروب</span>
+                </div>
+                <p style={{ margin: '0 0 0.85rem', fontSize: '0.82rem', color: '#94A3B8', lineHeight: 1.5 }}>
+                  أدخل إيميلك لتصلك الرسالة بنفس شكلها ورابط واتساب الخاص بـ {selectedGroupForEmail.name}.
+                </p>
+                <div style={{ display: 'flex', gap: '0.65rem', flexWrap: 'wrap' }}>
+                  <input
+                    type="email"
+                    placeholder="test@example.com"
+                    value={groupTestEmail}
+                    onChange={(e) => setGroupTestEmail(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') handleSendGroupTestEmail();
+                    }}
+                    style={{
+                      flex: 1,
+                      minWidth: '220px',
+                      padding: '0.6rem 0.9rem',
+                      borderRadius: '10px',
+                      background: 'rgba(255,255,255,0.06)',
+                      border: '1px solid rgba(255,255,255,0.15)',
+                      color: '#FFFFFF',
+                      fontSize: '0.86rem',
+                      outline: 'none',
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={handleSendGroupTestEmail}
+                    disabled={isSendingGroupTest || !groupTestEmail.trim()}
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '0.45rem',
+                      padding: '0.6rem 1.3rem',
+                      borderRadius: '10px',
+                      background: !groupTestEmail.trim() ? 'rgba(66,133,244,0.2)' : 'linear-gradient(135deg, #4285F4, #1A73E8)',
+                      border: 'none',
+                      color: '#FFFFFF',
+                      fontSize: '0.86rem',
+                      fontWeight: 700,
+                      cursor: isSendingGroupTest || !groupTestEmail.trim() ? 'not-allowed' : 'pointer',
+                      opacity: !groupTestEmail.trim() ? 0.5 : 1,
+                    }}
+                  >
+                    {isSendingGroupTest ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
+                    <span>{isSendingGroupTest ? 'جاري الإرسال...' : 'أرسل Test'}</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* ── Section 3: Send Confirmation to all in this group ── */}
+              <div style={{ background: 'rgba(16,185,129,0.06)', border: '1px solid rgba(16,185,129,0.25)', borderRadius: '14px', padding: '1.15rem 1.35rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.55rem', marginBottom: '0.5rem' }}>
+                  <Users size={16} color="#34D399" />
+                  <span style={{ fontSize: '0.92rem', fontWeight: 700, color: '#FFFFFF' }}>
+                    إرسال لجميع طلاب {selectedGroupForEmail.name} ({selectedGroupForEmail.assigned_count || 0} طالب)
+                  </span>
+                </div>
+                <p style={{ margin: '0 0 0.85rem', fontSize: '0.82rem', color: '#94A3B8', lineHeight: 1.5 }}>
+                  سيتم إرسال إيميل التأكيد الرسمي لجميع الطلاب المقبولين المعينين في هذه المجموعة حصراً، مع تضمين رابط الواتساب:
+                  {' '}
+                  <span style={{ color: selectedGroupForEmail.invitation_link ? '#34D399' : '#F87171', fontWeight: 700 }}>
+                    {selectedGroupForEmail.invitation_link ? selectedGroupForEmail.invitation_link : '⚠️ لم يتم إضافة رابط واتساب بعد'}
+                  </span>
+                </p>
+
+                {(selectedGroupForEmail.assigned_count || 0) === 0 ? (
+                  <div style={{ padding: '0.65rem 0.9rem', borderRadius: '8px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: '#94A3B8', fontSize: '0.82rem' }}>
+                    لا يوجد طلاب مسجلون في هذه المجموعة بعد. قم بتعيين الطلاب أولاً عبر الجدول أدناه.
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={handleSendGroupAllConfirmation}
+                    disabled={isSendingGroupAll}
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '0.55rem',
+                      padding: '0.7rem 1.4rem',
+                      borderRadius: '10px',
+                      background: isSendingGroupAll ? 'rgba(16,185,129,0.2)' : 'linear-gradient(135deg, #10B981, #059669)',
+                      border: 'none',
+                      color: '#FFFFFF',
+                      fontSize: '0.88rem',
+                      fontWeight: 800,
+                      cursor: isSendingGroupAll ? 'not-allowed' : 'pointer',
+                      boxShadow: '0 4px 14px rgba(16,185,129,0.3)',
+                    }}
+                  >
+                    {isSendingGroupAll ? <Loader2 size={15} className="animate-spin" /> : <Send size={15} />}
+                    <span>
+                      {isSendingGroupAll
+                        ? 'جاري إرسال الإيميلات...'
+                        : `إرسال التأكيد لـ ${selectedGroupForEmail.assigned_count || 0} طالب في هذا الجروب`}
+                    </span>
+                  </button>
+                )}
+              </div>
+
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

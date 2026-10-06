@@ -54,12 +54,31 @@ async function resolveMailboxResourceId(): Promise<string> {
 }
 
 /**
+ * Sanitizes and normalizes an email address string.
+ * Strips whitespace, quotes, angular brackets, and extracts pure email format.
+ */
+export function sanitizeRecipientEmail(rawEmail: string): string {
+  if (!rawEmail) return '';
+  let cleaned = rawEmail.trim().replace(/^<|>$/g, '').replace(/^["']|["']$/g, '').trim();
+  const match = cleaned.match(/<([^>]+)>/) || cleaned.match(/([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/);
+  if (match && match[1]) {
+    cleaned = match[1].trim();
+  }
+  return cleaned.toLowerCase();
+}
+
+/**
  * Generic email dispatcher.
  * Primary: Hostinger Official Mail API (api.mail.hostinger.com/api/v1/mailboxes/{id}/send)
  * Fallback: Audit log for local development
  */
 export async function sendEmail(params: SendEmailParams): Promise<EmailResult> {
   try {
+    const recipient = sanitizeRecipientEmail(params.to);
+    if (!recipient || !recipient.includes('@')) {
+      return { success: false, error: `Invalid recipient email address: "${params.to}"` };
+    }
+
     // ── 1. Hostinger Mail API ─────────────────────────────────────────────
     const mailboxId = await resolveMailboxResourceId();
     const endpoint = `https://api.mail.hostinger.com/api/v1/mailboxes/${mailboxId}/send`;
@@ -71,7 +90,7 @@ export async function sendEmail(params: SendEmailParams): Promise<EmailResult> {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        to: [params.to.trim()],
+        to: [recipient],
         displayName: HOSTINGER_SENDER_NAME,
         subject: params.subject,
         html: params.html,
@@ -1241,7 +1260,7 @@ export async function sendStudentCertificateEmail(params: SendStudentCertificate
  * Renders the official GDGoC HNU email layout matching the standard
  * Non-Tech template design (white card, header banner, footer logo + signature).
  */
-function renderGdgocEmailLayout(title: string, contentHtml: string): string {
+export function renderGdgocEmailLayout(title: string, contentHtml: string): string {
   return `
 <!DOCTYPE html>
 <html>
@@ -1314,12 +1333,10 @@ function renderGdgocEmailLayout(title: string, contentHtml: string): string {
 }
 
 /**
- * Student Course Enrollment Confirmed Email
- * Sent when an admin approves a student enrollment.
- * Includes WhatsApp group join reminder if a group link is available.
+ * Builds the complete standalone HTML for Course Enrollment Confirmation Email.
+ * Used for both email delivery and high-fidelity live preview in UI.
  */
-export async function sendCourseEnrollmentConfirmedEmail(params: {
-  to: string;
+export function renderCourseEnrollmentEmailHtml(params: {
   studentName: string;
   courseTitle: string;
   courseCategory?: string | null;
@@ -1327,7 +1344,7 @@ export async function sendCourseEnrollmentConfirmedEmail(params: {
   whatsappGroupLink?: string | null;
   whatsappGroupName?: string | null;
   portalUrl?: string;
-}): Promise<EmailResult> {
+}): string {
   const appUrl = params.portalUrl || 'https://gdgoc-hnu.vercel.app';
   const courseUrl = `${appUrl}/student/courses/${params.courseId}`;
   const categoryDisplay = params.courseCategory || 'GDGoC HNU';
@@ -1431,10 +1448,30 @@ export async function sendCourseEnrollmentConfirmedEmail(params: {
     </p>
   `;
 
+  return renderGdgocEmailLayout(`Enrollment Confirmed — ${params.courseTitle}`, contentHtml);
+}
+
+/**
+ * Student Course Enrollment Confirmed Email
+ * Sent when an admin approves a student enrollment.
+ * Includes WhatsApp group join reminder if a group link is available.
+ */
+export async function sendCourseEnrollmentConfirmedEmail(params: {
+  to: string;
+  studentName: string;
+  courseTitle: string;
+  courseCategory?: string | null;
+  courseId: string;
+  whatsappGroupLink?: string | null;
+  whatsappGroupName?: string | null;
+  portalUrl?: string;
+}): Promise<EmailResult> {
+  const html = renderCourseEnrollmentEmailHtml(params);
+
   return sendEmail({
     to: params.to,
     subject: `[Enrollment Confirmed] ${params.courseTitle} | GDGoC Helwan National University`,
-    html: renderGdgocEmailLayout(`Enrollment Confirmed — ${params.courseTitle}`, contentHtml),
+    html,
     metadata: {
       type: 'course_enrollment_confirmed',
       course_id: params.courseId,

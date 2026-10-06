@@ -48,6 +48,7 @@ import {
   sendTestEnrollmentEmail,
   resendEnrollmentEmailsToConfirmed,
 } from '@/app/student-portal/admin/courses/[id]/enrollments/actions';
+import { renderCourseEnrollmentEmailHtml } from '@/lib/email/service';
 import { EnrollmentStatus } from '@/types/student';
 
 interface CourseEnrollmentsClientProps {
@@ -90,6 +91,17 @@ export function CourseEnrollmentsClient({
   const [isSendingTest, setIsSendingTest] = useState(false);
   const [isResendingAll, setIsResendingAll] = useState(false);
   const [emailModalFeedback, setEmailModalFeedback] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  const emailPreviewHtml = useMemo(() => {
+    return renderCourseEnrollmentEmailHtml({
+      studentName: 'Ahmed Mohamed',
+      courseTitle: header.title,
+      courseCategory: header.category,
+      courseId: header.id,
+      whatsappGroupLink: 'https://chat.whatsapp.com/sample-group-link',
+      whatsappGroupName: 'Group 1 (Sample Section)',
+    });
+  }, [header.title, header.category, header.id]);
 
   // Grouped counts
   const pendingCount = enrollments.filter((e) => e.status === 'pending').length;
@@ -2489,11 +2501,11 @@ export function CourseEnrollmentsClient({
                   <span style={{ fontSize: '0.9rem', fontWeight: 700, color: '#FFFFFF' }}>معاينة الإيميل</span>
                   <span style={{ fontSize: '0.78rem', color: '#94A3B8', marginLeft: 'auto' }}>هكذا سيظهر الإيميل للطلاب المقبولين</span>
                 </div>
-                <div style={{ padding: '1rem', background: '#f1f3f4' }}>
+                <div style={{ padding: '0.75rem', background: '#f1f3f4', borderRadius: '0 0 14px 14px' }}>
                   <iframe
                     title="Email Preview"
-                    style={{ width: '100%', height: '480px', border: 'none', borderRadius: '8px', background: '#ffffff' }}
-                    srcDoc={`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Preview</title></head><body style="margin:0;padding:0;background:#f1f3f4;font-family:'Google Sans',Roboto,Arial,sans-serif;"><table width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#f1f3f4;padding:16px 8px;"><tr><td align="center"><table width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:580px;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);border:1px solid #e8eaed;"><tr><td style="padding:0;line-height:0;"><img src="https://lh3.googleusercontent.com/d/18LntSS9Esar14rqfRVlkvTr8elSEOzLV" alt="GDGoC HNU" width="100%" style="display:block;width:100%;height:auto;border:0;"></td></tr><tr><td style="padding:28px 32px 22px;"><p style="margin:0 0 14px;font-size:17px;font-weight:bold;color:#202124;font-family:'Google Sans',Roboto,Arial,sans-serif;">Dear Ahmed Mohamed,</p><p style="margin:0 0 14px;font-size:14px;color:#3c4043;line-height:1.75;font-family:Arial,sans-serif;">Congratulations! 🎉 Your application to join the <strong style="color:#1a73e8;">${header.title}</strong> track at <strong>GDGoC Helwan National University</strong> has been officially reviewed and <strong style="color:#34a853;">confirmed</strong>.</p><table width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#f8f9fa;border-radius:12px;border:1.5px solid #e8eaed;overflow:hidden;margin-bottom:16px;"><tr><td style="background:#1a73e8;padding:10px 18px;color:#fff;font-size:13px;font-weight:bold;">Enrollment Details</td></tr><tr><td style="padding:14px 18px;"><table width="100%"><tr><td width="110" style="padding:5px 0;font-size:12px;color:#5f6368;font-weight:bold;">Track:</td><td style="padding:5px 0;font-size:14px;color:#202124;font-weight:bold;">${header.title}</td></tr><tr><td style="padding:5px 0;font-size:12px;color:#5f6368;font-weight:bold;">Category:</td><td style="padding:5px 0;font-size:13px;color:#1a73e8;font-weight:bold;">${header.category || 'GDGoC HNU'}</td></tr><tr><td style="padding:5px 0;font-size:12px;color:#5f6368;font-weight:bold;">Status:</td><td style="padding:5px 0;font-size:13px;color:#34a853;font-weight:bold;">✅ Confirmed</td></tr></table></td></tr></table><table border="0" cellspacing="0" cellpadding="0" style="margin-bottom:14px;"><tr><td style="border-radius:8px;background:#1a73e8;"><a style="font-size:14px;font-weight:700;color:#fff;text-decoration:none;padding:12px 24px;display:inline-block;border-radius:8px;">Open My Course Portal →</a></td></tr></table><div style="background:#e8f0fe;border-left:4px solid #1a73e8;border-radius:0 8px 8px 0;padding:12px 16px;"><p style="margin:0;font-size:12px;color:#1a73e8;line-height:1.6;font-family:Arial,sans-serif;"><strong>📱 Study Group:</strong> Your WhatsApp study group link will be assigned shortly. Stay tuned!</p></div><p style="margin:20px 0 0;font-size:14px;color:#202124;font-weight:bold;">We look forward to having you in the track. Best of luck!</p></td></tr><tr><td style="padding:0 32px;"><div style="height:1px;background:#e8eaed;width:100%;"></div></td></tr><tr><td style="padding:20px 32px 28px;"><img src="https://lh3.googleusercontent.com/d/1DyyrxR0WWi7z9sPzAM5c1YPTkpcQhusI" width="200" style="display:block;height:auto;border:0;margin-bottom:10px;"><p style="margin:0 0 2px;font-size:14px;font-weight:bold;color:#202124;">Ahmed Salman</p><p style="margin:0 0 2px;font-size:12px;color:#ea4335;font-weight:600;">President</p><p style="margin:0;font-size:11px;color:#1a73e8;">Google Developer Groups on Campus — Helwan National University</p></td></tr></table></td></tr></table></body></html>`}
+                    style={{ width: '100%', height: '520px', border: 'none', borderRadius: '10px', background: '#ffffff', display: 'block' }}
+                    srcDoc={emailPreviewHtml}
                   />
                 </div>
               </div>

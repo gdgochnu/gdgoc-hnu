@@ -5,6 +5,7 @@ import { getUserContext } from '@/lib/auth/get-user-context';
 import { revalidatePath } from 'next/cache';
 import { CourseGroup } from '@/types/student';
 import { dispatchStudentNotification } from '@/app/student/notifications/actions';
+import { sendCourseEnrollmentConfirmedEmail } from '@/lib/email/service';
 
 export interface GroupStudentItem {
   enrollment_id: string;
@@ -746,3 +747,140 @@ export async function trackCourseGroupJoinAction(input: {
     return { success: false, error: err.message };
   }
 }
+
+/**
+ * Sends a test confirmation email for a specific course group to verify styling and WhatsApp link.
+ */
+export async function sendTestGroupEmailAction(input: {
+  courseId: string;
+  groupId: string;
+  testEmail: string;
+}): Promise<{ success: boolean; error?: string }> {
+  try {
+    const access = await verifyGroupAccess(input.courseId);
+    if (!access.authorized || !access.course) {
+      return { success: false, error: access.error };
+    }
+
+    const { course, admin } = access;
+
+    const { data: group, error: groupErr } = await admin
+      .from('course_groups')
+      .select('name, invitation_link')
+      .eq('id', input.groupId)
+      .eq('course_id', input.courseId)
+      .single();
+
+    if (groupErr || !group) {
+      return { success: false, error: 'Course group not found.' };
+    }
+
+    const result = await sendCourseEnrollmentConfirmedEmail({
+      to: input.testEmail.trim(),
+      studentName: 'Test Student (Preview)',
+      courseTitle: course.title,
+      courseCategory: course.category,
+      courseId: input.courseId,
+      whatsappGroupLink: group.invitation_link || null,
+      whatsappGroupName: group.name || null,
+    });
+
+    if (!result.success) {
+      return { success: false, error: result.error || 'Failed to send test email.' };
+    }
+
+    return { success: true };
+  } catch (err: any) {
+    console.error('sendTestGroupEmailAction error:', err);
+    return { success: false, error: err.message };
+  }
+}
+
+/**
+ * Sends confirmation emails to all confirmed students assigned to a specific course group.
+ */
+export async function sendGroupConfirmationEmailsAction(input: {
+  courseId: string;
+  groupId: string;
+}): Promise<{
+  success: boolean;
+  sentCount?: number;
+  failedCount?: number;
+  totalStudents?: number;
+  error?: string;
+}> {
+  try {
+    const access = await verifyGroupAccess(input.courseId);
+    if (!access.authorized || !access.course) {
+      return { success: false, error: access.error };
+    }
+
+    const { course, admin } = access;
+
+    // 1. Fetch group details
+    const { data: group, error: groupErr } = await admin
+      .from('course_groups')
+      .select('id, name, invitation_link')
+      .eq('id', input.groupId)
+      .eq('course_id', input.courseId)
+      .single();
+
+    if (groupErr || !group) {
+      return { success: false, error: 'Course group not found.' };
+    }
+
+    // 2. Fetch all confirmed students in this group
+    const { data: enrollments, error: enrollErr } = await admin
+      .from('course_enrollments')
+      .select(`
+        student_id,
+        student:student_profiles!course_enrollments_student_id_fkey(
+          id, full_name_en, full_name_ar, email
+        )
+      `)
+      .eq('course_id', input.courseId)
+      .eq('group_id', input.groupId)
+      .eq('status', 'confirmed');
+
+    if (enrollErr) {
+      return { success: false, error: enrollErr.message };
+    }
+
+    if (!enrollments || enrollments.length === 0) {
+      return { success: false, error: 'No confirmed students are assigned to this group yet.' };
+    }
+
+    // 3. Dispatch emails in parallel
+    const results = await Promise.allSettled(
+      enrollments.map(async (e: any) => {
+        const stu = Array.isArray(e.student) ? e.student[0] : e.student;
+        if (!stu?.email) throw new Error('No email found');
+        return sendCourseEnrollmentConfirmedEmail({
+          to: stu.email,
+          studentName: stu.full_name_en || stu.full_name_ar || 'Student',
+          courseTitle: course.title,
+          courseCategory: course.category,
+          courseId: input.courseId,
+          whatsappGroupLink: group.invitation_link || null,
+          whatsappGroupName: group.name || null,
+        });
+      })
+    );
+
+    const sentCount = results.filter(
+      (r) => r.status === 'fulfilled' && (r as any).value?.success !== false
+    ).length;
+    const failedCount = enrollments.length - sentCount;
+
+    return {
+      success: true,
+      sentCount,
+      failedCount,
+      totalStudents: enrollments.length,
+    };
+  } catch (err: any) {
+    console.error('sendGroupConfirmationEmailsAction error:', err);
+    return { success: false, error: err.message };
+  }
+}
+
