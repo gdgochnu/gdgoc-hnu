@@ -77,6 +77,7 @@ CREATE POLICY "Staff can view and manage course groups"
             SELECT 1 FROM public.profiles p
             WHERE p.id = auth.uid()
               AND p.status = 'active'
-              AND p.role IN ('president', 'co_president', 'branch_head', 'committee_head', 'committee_co_head', 'core_team_member', 'general_member')
+              AND p.role IN ('president', 'co_president', 'branch_head', 'committee_head', 'committee_co_head', 'member')
         )
     );
+
