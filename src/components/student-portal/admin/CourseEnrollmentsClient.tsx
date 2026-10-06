@@ -30,6 +30,7 @@ import {
   Trash2,
   Download,
   FileSpreadsheet,
+  Loader2,
 } from 'lucide-react';
 import {
   CourseEnrollmentsHeader,
@@ -40,6 +41,7 @@ import {
   waitlistCourseEnrollment,
   removeCourseEnrollment,
   resetEnrollmentToPending,
+  approveAllPendingCourseEnrollments,
 } from '@/app/student-portal/admin/courses/[id]/enrollments/actions';
 import { EnrollmentStatus } from '@/types/student';
 
@@ -72,6 +74,10 @@ export function CourseEnrollmentsClient({
   const [exportFilterFaculty, setExportFilterFaculty] = useState<string>('all');
   const [exportTicketTitle, setExportTicketTitle] = useState<string>(header.title || 'General Admission');
   const [exportTicketVenue, setExportTicketVenue] = useState<string>('In-Person');
+
+  // Bulk Approve state
+  const [isBulkApproving, setIsBulkApproving] = useState(false);
+  const [showBulkApproveModal, setShowBulkApproveModal] = useState(false);
 
   // Grouped counts
   const pendingCount = enrollments.filter((e) => e.status === 'pending').length;
@@ -349,6 +355,47 @@ export function CourseEnrollmentsClient({
       setFeedback({ type: 'error', text: err.message || 'An error occurred.' });
     } finally {
       setProcessingId(null);
+    }
+  };
+
+  const handleBulkApprove = async () => {
+    try {
+      setIsBulkApproving(true);
+      setFeedback(null);
+
+      const res = await approveAllPendingCourseEnrollments(header.id);
+      if (!res.success) {
+        setFeedback({ type: 'error', text: res.error || 'Failed to approve pending applications.' });
+        return;
+      }
+
+      const nowStr = new Date().toISOString();
+      let remaining = res.approvedCount || 0;
+
+      setEnrollments((prev) =>
+        prev.map((e) => {
+          if (e.status === 'pending' && remaining > 0) {
+            remaining--;
+            return {
+              ...e,
+              status: 'confirmed',
+              confirmed_at: nowStr,
+            };
+          }
+          return e;
+        })
+      );
+
+      setShowBulkApproveModal(false);
+      setFeedback({
+        type: 'success',
+        text: res.message || `Successfully approved ${res.approvedCount} pending applicants!`,
+      });
+      setActiveTab('confirmed');
+    } catch (err: any) {
+      setFeedback({ type: 'error', text: err.message || 'An error occurred during bulk approval.' });
+    } finally {
+      setIsBulkApproving(false);
     }
   };
 
@@ -816,10 +863,105 @@ export function CourseEnrollmentsClient({
                 <Download size={15} color="#60A5FA" />
                 <span>استخراج بيانات المشتركين (CSV)</span>
               </button>
+
+              {/* Bulk Approve All Pending Button */}
+              {pendingCount > 0 && canManage && (
+                <button
+                  type="button"
+                  onClick={() => setShowBulkApproveModal(true)}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '0.45rem',
+                    padding: '0.55rem 1.15rem',
+                    borderRadius: '10px',
+                    background: 'linear-gradient(135deg, #10B981 0%, #059669 100%)',
+                    border: '1px solid rgba(16, 185, 129, 0.45)',
+                    color: '#FFFFFF',
+                    fontSize: '0.84rem',
+                    fontWeight: 800,
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease',
+                    boxShadow: '0 2px 10px rgba(16, 185, 129, 0.3)',
+                    whiteSpace: 'nowrap',
+                  }}
+                  title="قبول جميع طلبات الانضمام المعلقة دفعة واحدة"
+                >
+                  <CheckCircle2 size={15} color="#FFFFFF" />
+                  <span>قبول كل المعلقين ({pendingCount})</span>
+                </button>
+              )}
             </div>
           </div>
         </div>
       </div>
+
+      {/* Quick Action Alert Banner for Pending Tab */}
+      {activeTab === 'pending' && pendingCount > 0 && canManage && (
+        <div
+          className="glass-panel"
+          style={{
+            padding: '1.25rem 1.5rem',
+            borderRadius: '16px',
+            border: '1px solid rgba(251, 188, 4, 0.3)',
+            background: 'linear-gradient(135deg, rgba(251, 188, 4, 0.12) 0%, rgba(15, 23, 42, 0.9) 100%)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: '1rem',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
+            <div
+              style={{
+                width: '42px',
+                height: '42px',
+                borderRadius: '12px',
+                background: 'rgba(251, 188, 4, 0.2)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: '#FBBF24',
+                flexShrink: 0,
+              }}
+            >
+              <Clock3 size={22} />
+            </div>
+            <div>
+              <div style={{ fontSize: '0.96rem', fontWeight: 800, color: '#FFFFFF' }}>
+                يوجد {pendingCount} طلب انضمام بانتظار المراجعة والقبول
+              </div>
+              <div style={{ fontSize: '0.8rem', color: '#94A3B8', marginTop: '0.2rem' }}>
+                يمكنك مراجعة كل طالب على حدة من الكروت أدناه أو قبول جميع الطلاب المعلقين دفعة واحدة بضغطة زر.
+              </div>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setShowBulkApproveModal(true)}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.5rem',
+              padding: '0.65rem 1.25rem',
+              borderRadius: '10px',
+              background: 'linear-gradient(135deg, #10B981 0%, #059669 100%)',
+              color: '#FFFFFF',
+              fontSize: '0.86rem',
+              fontWeight: 800,
+              border: 'none',
+              cursor: 'pointer',
+              boxShadow: '0 4px 14px rgba(16, 185, 129, 0.4)',
+              transition: 'all 0.15s ease',
+            }}
+          >
+            <CheckCircle2 size={16} />
+            <span>قبول جميع الطلبات المعلقة الآن ({pendingCount})</span>
+          </button>
+        </div>
+      )}
 
       {/* Students Roster Grid / List */}
       {filteredEnrollments.length === 0 ? (
@@ -2001,6 +2143,181 @@ export function CourseEnrollmentsClient({
               >
                 <Download size={16} />
                 <span>تحميل ملف CSV ({exportMatchingStudents.length})</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* BULK APPROVE CONFIRMATION MODAL */}
+      {/* ========================================================================= */}
+      {showBulkApproveModal && (
+        <div
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.75)',
+            backdropFilter: 'blur(8px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 9999,
+            padding: '1rem',
+          }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget && !isBulkApproving) {
+              setShowBulkApproveModal(false);
+            }
+          }}
+        >
+          <div
+            className="glass-panel"
+            style={{
+              width: '100%',
+              maxWidth: '520px',
+              borderRadius: '20px',
+              border: '1px solid rgba(16, 185, 129, 0.35)',
+              background: '#0F172A',
+              padding: '2rem',
+              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.7)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '1.5rem',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                <div
+                  style={{
+                    width: '44px',
+                    height: '44px',
+                    borderRadius: '12px',
+                    background: 'rgba(16, 185, 129, 0.15)',
+                    border: '1px solid rgba(16, 185, 129, 0.3)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: '#34D399',
+                  }}
+                >
+                  <CheckCircle2 size={24} />
+                </div>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 800, color: '#FFFFFF' }}>
+                    تأكيد قبول جميع الطلاب المعلقين
+                  </h3>
+                  <p style={{ margin: '0.15rem 0 0 0', fontSize: '0.8rem', color: '#94A3B8' }}>
+                    {header.title}
+                  </p>
+                </div>
+              </div>
+
+              {!isBulkApproving && (
+                <button
+                  type="button"
+                  onClick={() => setShowBulkApproveModal(false)}
+                  style={{
+                    background: 'transparent',
+                    border: 'none',
+                    color: '#94A3B8',
+                    cursor: 'pointer',
+                    padding: '0.25rem',
+                  }}
+                >
+                  <X size={20} />
+                </button>
+              )}
+            </div>
+
+            <div
+              style={{
+                background: 'rgba(255, 255, 255, 0.03)',
+                border: '1px solid rgba(255, 255, 255, 0.08)',
+                borderRadius: '12px',
+                padding: '1.25rem',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '0.75rem',
+                fontSize: '0.88rem',
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', color: '#CBD5E1' }}>
+                <span>عدد الطلبات المعلقة:</span>
+                <span style={{ color: '#FBBF24', fontWeight: 800 }}>{pendingCount} طالب</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', color: '#CBD5E1' }}>
+                <span>المقاعد المؤكدة الحالية:</span>
+                <span style={{ color: '#34D399', fontWeight: 800 }}>
+                  {confirmedCount} {capacity ? `/ ${capacity}` : ''}
+                </span>
+              </div>
+              {capacity && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', color: '#CBD5E1' }}>
+                  <span>المقاعد المتبقية في الكورس:</span>
+                  <span style={{ color: capacity - confirmedCount > 0 ? '#60A5FA' : '#EF4444', fontWeight: 800 }}>
+                    {Math.max(0, capacity - confirmedCount)} مقعد
+                  </span>
+                </div>
+              )}
+            </div>
+
+            <p style={{ margin: 0, fontSize: '0.86rem', color: '#94A3B8', lineHeight: 1.5 }}>
+              عند التأكيد، سيتم قبول ونقل الطلاب إلى قائمة <strong>المقبولين (Confirmed)</strong>، وسيتم إرسال إشعار ترحيبي لكل طالب لتمكينه من الانضمام لمجموعات الكورس ومشاهدة المحاضرات.
+            </p>
+
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '0.75rem' }}>
+              <button
+                type="button"
+                disabled={isBulkApproving}
+                onClick={() => setShowBulkApproveModal(false)}
+                style={{
+                  padding: '0.65rem 1.25rem',
+                  borderRadius: '10px',
+                  background: 'rgba(255, 255, 255, 0.05)',
+                  border: '1px solid rgba(255, 255, 255, 0.1)',
+                  color: '#94A3B8',
+                  fontSize: '0.86rem',
+                  fontWeight: 600,
+                  cursor: isBulkApproving ? 'not-allowed' : 'pointer',
+                }}
+              >
+                إلغاء
+              </button>
+
+              <button
+                type="button"
+                disabled={isBulkApproving}
+                onClick={handleBulkApprove}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.5rem',
+                  padding: '0.65rem 1.5rem',
+                  borderRadius: '10px',
+                  background: 'linear-gradient(135deg, #10B981 0%, #059669 100%)',
+                  color: '#FFFFFF',
+                  fontSize: '0.86rem',
+                  fontWeight: 800,
+                  border: 'none',
+                  cursor: isBulkApproving ? 'not-allowed' : 'pointer',
+                  boxShadow: '0 4px 14px rgba(16, 185, 129, 0.4)',
+                }}
+              >
+                {isBulkApproving ? (
+                  <>
+                    <Loader2 size={16} className="animate-spin" />
+                    <span>جاري القبول...</span>
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle2 size={16} />
+                    <span>تأكيد قبول {pendingCount} طالب</span>
+                  </>
+                )}
               </button>
             </div>
           </div>

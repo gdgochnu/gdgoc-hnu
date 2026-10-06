@@ -693,3 +693,111 @@ export async function waitlistCourseEnrollment(
   }
 }
 
+/**
+ * 8. Approve all pending enrollment applications in bulk
+ */
+export async function approveAllPendingCourseEnrollments(courseId: string): Promise<{
+  success: boolean;
+  approvedCount?: number;
+  message?: string;
+  error?: string;
+}> {
+  try {
+    const access = await verifyEnrollmentAccess(courseId);
+    if (!access.authorized || !access.course) {
+      return { success: false, error: access.error };
+    }
+
+    const { course, profile, admin } = access;
+
+    // 1. Fetch all pending enrollments ordered by submission time
+    const { data: pendingList, error: fetchErr } = await admin
+      .from('course_enrollments')
+      .select('id, student_id, enrolled_at')
+      .eq('course_id', courseId)
+      .eq('status', 'pending')
+      .order('enrolled_at', { ascending: true });
+
+    if (fetchErr) {
+      return { success: false, error: fetchErr.message };
+    }
+
+    if (!pendingList || pendingList.length === 0) {
+      return { success: false, error: 'No pending enrollment applications found to approve.' };
+    }
+
+    // 2. Check capacity
+    let toApprove = pendingList;
+    if (course.capacity) {
+      const { count: confirmedCount } = await admin
+        .from('course_enrollments')
+        .select('id', { count: 'exact', head: true })
+        .eq('course_id', courseId)
+        .eq('status', 'confirmed');
+
+      const remainingSeats = Math.max(0, course.capacity - (confirmedCount || 0));
+
+      if (remainingSeats <= 0) {
+        return {
+          success: false,
+          error: `Course capacity is full (${course.capacity} seats). Please expand capacity first or waitlist applicants.`,
+        };
+      }
+
+      toApprove = pendingList.slice(0, remainingSeats);
+    }
+
+    const toApproveIds = toApprove.map((e) => e.id);
+    const nowStr = new Date().toISOString();
+
+    // 3. Batch update all approved enrollments
+    const { error: updateErr } = await admin
+      .from('course_enrollments')
+      .update({
+        status: 'confirmed',
+        confirmed_at: nowStr,
+        confirmed_by: profile.id,
+        updated_at: nowStr,
+      })
+      .in('id', toApproveIds);
+
+    if (updateErr) {
+      return { success: false, error: updateErr.message };
+    }
+
+    // 4. Send notifications to all approved students in parallel background
+    Promise.allSettled(
+      toApprove.map((e) =>
+        dispatchStudentNotification({
+          studentId: e.student_id,
+          type: 'course',
+          title: `Enrollment Confirmed: ${course.title}`,
+          message: `Congratulations! Your application to enroll in "${course.title}" has been approved. You can now access all lectures, study materials, and assignments.`,
+          linkUrl: `/student/courses/${courseId}`,
+          relatedEntityType: 'course',
+          relatedEntityId: courseId,
+        })
+      )
+    ).catch((notifErr) => console.warn('dispatchStudentNotification bulk approve warning:', notifErr));
+
+    revalidatePath(`/student-portal/admin/courses/${courseId}/enrollments`);
+    revalidatePath(`/student-portal/admin/courses/${courseId}/groups`);
+    revalidatePath(`/student/courses/${courseId}`);
+    revalidatePath(`/student/courses`);
+    revalidatePath(`/student/dashboard`);
+
+    const wasLimited = toApprove.length < pendingList.length;
+    return {
+      success: true,
+      approvedCount: toApprove.length,
+      message: wasLimited
+        ? `Successfully approved ${toApprove.length} pending students. Note: ${pendingList.length - toApprove.length} remain pending due to course capacity limit (${course.capacity} seats).`
+        : `Successfully approved all ${toApprove.length} pending student applications!`,
+    };
+  } catch (err: any) {
+    console.error('approveAllPendingCourseEnrollments exception:', err);
+    return { success: false, error: err.message || 'Failed to approve all pending enrollments.' };
+  }
+}
+
+
