@@ -5,6 +5,8 @@ import { getUserContext } from '@/lib/auth/get-user-context';
 import { revalidatePath } from 'next/cache';
 import { EnrollmentStatus } from '@/types/student';
 import { dispatchStudentNotification } from '@/app/student/notifications/actions';
+import { sendCourseEnrollmentConfirmedEmail } from '@/lib/email/service';
+
 
 export interface EnrollmentStudentItem {
   id: string; // enrollment id
@@ -337,10 +339,12 @@ export async function approveCourseEnrollment(courseId: string, enrollmentId: st
       return { success: false, error: updateErr.message };
     }
 
-    // Notify student in English
+    // Notify student + send confirmation email (fire & forget)
     if (updatedEnrollment?.student_id) {
+      const studentId = updatedEnrollment.student_id;
+
       dispatchStudentNotification({
-        studentId: updatedEnrollment.student_id,
+        studentId,
         type: 'course',
         title: `Enrollment Confirmed: ${course.title}`,
         message: `Congratulations! Your application to enroll in "${course.title}" has been reviewed and approved by course instructors. You can now access all lectures, study materials, and assignments.`,
@@ -348,7 +352,54 @@ export async function approveCourseEnrollment(courseId: string, enrollmentId: st
         relatedEntityType: 'course',
         relatedEntityId: courseId,
       }).catch((notifErr) => console.warn('dispatchStudentNotification approve warning:', notifErr));
+
+      // Fetch student profile + assigned WhatsApp group for email
+      ;(async () => {
+        try {
+          const { data: stu } = await admin
+            .from('student_profiles')
+            .select('full_name_en, email')
+            .eq('id', studentId)
+            .maybeSingle();
+
+          if (!stu?.email) return;
+
+          // Check if student already has a group assigned
+          const { data: enrollment } = await admin
+            .from('course_enrollments')
+            .select('group_id')
+            .eq('course_id', courseId)
+            .eq('student_id', studentId)
+            .maybeSingle();
+
+          let whatsappLink: string | null = null;
+          let whatsappName: string | null = null;
+
+          if (enrollment?.group_id) {
+            const { data: grp } = await admin
+              .from('course_groups')
+              .select('name, whatsapp_link')
+              .eq('id', enrollment.group_id)
+              .maybeSingle();
+            whatsappLink = grp?.whatsapp_link || null;
+            whatsappName = grp?.name || null;
+          }
+
+          await sendCourseEnrollmentConfirmedEmail({
+            to: stu.email,
+            studentName: stu.full_name_en || 'Student',
+            courseTitle: course.title,
+            courseCategory: course.category,
+            courseId,
+            whatsappGroupLink: whatsappLink,
+            whatsappGroupName: whatsappName,
+          });
+        } catch (emailErr) {
+          console.warn('sendCourseEnrollmentConfirmedEmail single-approve error:', emailErr);
+        }
+      })();
     }
+
 
     revalidatePath(`/student-portal/admin/courses/${courseId}/enrollments`);
     revalidatePath(`/student/courses/${courseId}`);
@@ -765,7 +816,7 @@ export async function approveAllPendingCourseEnrollments(courseId: string): Prom
       return { success: false, error: updateErr.message };
     }
 
-    // 4. Send notifications to all approved students in parallel background
+    // 4. Send notifications + emails to all approved students in parallel background
     Promise.allSettled(
       toApprove.map((e) =>
         dispatchStudentNotification({
@@ -779,6 +830,66 @@ export async function approveAllPendingCourseEnrollments(courseId: string): Prom
         })
       )
     ).catch((notifErr) => console.warn('dispatchStudentNotification bulk approve warning:', notifErr));
+
+    // Send confirmation emails with WhatsApp group info in the background
+    ;(async () => {
+      try {
+        const studentIds = toApprove.map((e) => e.student_id);
+
+        // Fetch all student profiles at once
+        const { data: profiles } = await admin
+          .from('student_profiles')
+          .select('id, full_name_en, email')
+          .in('id', studentIds);
+
+        // Fetch all enrollments with group info at once
+        const { data: enrollments } = await admin
+          .from('course_enrollments')
+          .select('student_id, group_id')
+          .eq('course_id', courseId)
+          .in('student_id', studentIds);
+
+        // Fetch all groups that are referenced
+        const groupIds = [...new Set(
+          (enrollments || []).map((e: any) => e.group_id).filter(Boolean)
+        )];
+        const { data: groups } = groupIds.length
+          ? await admin
+              .from('course_groups')
+              .select('id, name, whatsapp_link')
+              .in('id', groupIds)
+          : { data: [] };
+
+        const groupMap: Record<string, { name: string; whatsapp_link: string }> = {};
+        for (const g of groups || []) {
+          groupMap[g.id] = g;
+        }
+        const enrollmentGroupMap: Record<string, string | null> = {};
+        for (const e of enrollments || []) {
+          enrollmentGroupMap[(e as any).student_id] = (e as any).group_id || null;
+        }
+
+        await Promise.allSettled(
+          (profiles || []).map(async (stu: any) => {
+            if (!stu.email) return;
+            const groupId = enrollmentGroupMap[stu.id] || null;
+            const grp = groupId ? groupMap[groupId] : null;
+            return sendCourseEnrollmentConfirmedEmail({
+              to: stu.email,
+              studentName: stu.full_name_en || 'Student',
+              courseTitle: course.title,
+              courseCategory: course.category,
+              courseId,
+              whatsappGroupLink: grp?.whatsapp_link || null,
+              whatsappGroupName: grp?.name || null,
+            });
+          })
+        );
+      } catch (emailErr) {
+        console.warn('sendCourseEnrollmentConfirmedEmail bulk-approve error:', emailErr);
+      }
+    })();
+
 
     revalidatePath(`/student-portal/admin/courses/${courseId}/enrollments`);
     revalidatePath(`/student-portal/admin/courses/${courseId}/groups`);

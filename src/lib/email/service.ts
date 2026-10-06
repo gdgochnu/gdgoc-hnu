@@ -16,43 +16,47 @@ export interface EmailResult {
   simulated?: boolean;
 }
 
+// ─── Hostinger Mail API Configuration ──────────────────────────────────────
+const HOSTINGER_API_KEY =
+  process.env.HOSTINGER_MAIL_API_KEY ||
+  'b1e9ca826d6fe01a5fd3b72b0bb0abf7858f4b06abc281efbbe3039625a4e895';
+const HOSTINGER_SENDER_EMAIL = process.env.HOSTINGER_SENDER_EMAIL || 'gdgochnu@uniskills.pro';
+const HOSTINGER_SENDER_NAME = process.env.HOSTINGER_SENDER_NAME || 'GDGoC Helwan National University';
+
 /**
  * Generic email dispatcher.
- * Supports Resend / standard HTTP email providers, with graceful local fallback and audit logging.
+ * Primary: Hostinger Mail API (api.mail.hostinger.com)
+ * Fallback: Audit log for local development
  */
 export async function sendEmail(params: SendEmailParams): Promise<EmailResult> {
-  const apiKey = process.env.RESEND_API_KEY || process.env.EMAIL_PROVIDER_API_KEY;
-  const fromEmail = process.env.EMAIL_FROM || 'GDGoC HNU <notifications@gdgoc.hnu.edu.eg>';
-
   try {
-    // 1. If an active API key is provided, send through Resend
-    if (apiKey && apiKey.startsWith('re_')) {
-      const response = await fetch('https://api.resend.com/emails', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${apiKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          from: fromEmail,
-          to: [params.to],
-          subject: params.subject,
-          html: params.html,
-          text: params.text || params.subject,
-        }),
-      });
+    // ── 1. Hostinger Mail API ─────────────────────────────────────────────
+    const response = await fetch('https://api.mail.hostinger.com/v1/emails', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${HOSTINGER_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        from: `${HOSTINGER_SENDER_NAME} <${HOSTINGER_SENDER_EMAIL}>`,
+        to: params.to,
+        subject: params.subject,
+        html: params.html,
+        ...(params.text ? { text: params.text } : {}),
+      }),
+    });
 
-      const resData = await response.json();
-      if (!response.ok) {
-        console.warn('Email provider returned non-200 response:', resData);
-        // Fall back to audit logging without throwing
-      } else {
-        return { success: true, id: resData.id };
-      }
+    if (response.ok) {
+      const resData = await response.json().catch(() => ({}));
+      console.log(`[EMAIL SENT] To: ${params.to} | Subject: "${params.subject}"`);
+      return { success: true, id: resData?.id || `hostinger-${Date.now()}` };
     }
 
-    // 2. Simulated / Local Development Delivery
-    // We log to audit_logs to preserve a verifiable record of every notification email
+    // Non-200 from Hostinger – log warning and fall through to audit log
+    const errBody = await response.json().catch(() => ({}));
+    console.warn('Hostinger Mail API non-200 response:', response.status, errBody);
+
+    // ── 2. Audit log fallback (local / dev) ──────────────────────────────
     const admin = createAdminClient();
     await admin.from('audit_logs').insert({
       actor_id: null,
@@ -61,16 +65,34 @@ export async function sendEmail(params: SendEmailParams): Promise<EmailResult> {
       metadata: {
         to: params.to,
         subject: params.subject,
-        simulated: !apiKey,
+        simulated: true,
         sent_at: new Date().toISOString(),
+        hostinger_error: errBody,
         ...params.metadata,
       },
     });
 
-    console.log(`[EMAIL DISPATCHED] To: ${params.to} | Subject: "${params.subject}" (Simulated: ${!apiKey})`);
-    return { success: true, id: `local-${Date.now()}`, simulated: !apiKey };
+    console.log(`[EMAIL FALLBACK LOG] To: ${params.to} | Subject: "${params.subject}"`);
+    return { success: true, id: `fallback-${Date.now()}`, simulated: true };
   } catch (err: unknown) {
     console.error('Error during email dispatch:', err);
+
+    // Attempt audit log even on network error
+    try {
+      const admin = createAdminClient();
+      await admin.from('audit_logs').insert({
+        actor_id: null,
+        action: 'email_dispatch_failed',
+        entity_type: 'email',
+        metadata: {
+          to: params.to,
+          subject: params.subject,
+          error: err instanceof Error ? err.message : 'Unknown',
+          sent_at: new Date().toISOString(),
+        },
+      });
+    } catch (_) { /* ignore audit log failure */ }
+
     return { success: false, error: err instanceof Error ? err.message : 'Unknown email error' };
   }
 }
@@ -1172,3 +1194,208 @@ export async function sendStudentCertificateEmail(params: SendStudentCertificate
 }
 
 
+/**
+ * Renders the official GDGoC HNU email layout matching the standard
+ * Non-Tech template design (white card, header banner, footer logo + signature).
+ */
+function renderGdgocEmailLayout(title: string, contentHtml: string): string {
+  return `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${title}</title>
+</head>
+<body style="margin:0;padding:0;background-color:#f1f3f4;font-family:'Google Sans',Roboto,Arial,sans-serif;-webkit-font-smoothing:antialiased;">
+  <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#f1f3f4;padding:24px 12px;margin:0;">
+    <tr>
+      <td align="center">
+        <table width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:600px;background-color:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);border:1px solid #e8eaed;">
+
+          <!-- ── Header Banner ── -->
+          <tr>
+            <td style="padding:0;line-height:0;">
+              <img src="https://lh3.googleusercontent.com/d/18LntSS9Esar14rqfRVlkvTr8elSEOzLV"
+                   alt="GDGoC Helwan National University"
+                   width="100%"
+                   style="display:block;width:100%;max-width:600px;height:auto;border:0;">
+            </td>
+          </tr>
+
+          <!-- ── Body Content ── -->
+          <tr>
+            <td style="padding:32px 36px 26px;direction:ltr;text-align:left;">
+              ${contentHtml}
+            </td>
+          </tr>
+
+          <!-- ── Divider ── -->
+          <tr>
+            <td style="padding:0 36px;">
+              <div style="height:1px;background-color:#e8eaed;width:100%;"></div>
+            </td>
+          </tr>
+
+          <!-- ── Footer: Logo + Signature ── -->
+          <tr>
+            <td style="padding:24px 36px 36px;direction:ltr;text-align:left;">
+              <table cellpadding="0" cellspacing="0" border="0" style="font-family:'Google Sans',Roboto,Arial,sans-serif;">
+                <tr>
+                  <td style="padding-bottom:12px;">
+                    <img src="https://lh3.googleusercontent.com/d/1DyyrxR0WWi7z9sPzAM5c1YPTkpcQhusI"
+                         alt="Google Developer Group On Campus - Helwan National University"
+                         width="240"
+                         style="display:block;max-width:240px;height:auto;border:0;">
+                  </td>
+                </tr>
+                <tr>
+                  <td>
+                    <p style="margin:0 0 2px;font-size:15px;font-weight:bold;color:#202124;">Ahmed Salman</p>
+                    <p style="margin:0 0 3px;font-size:13px;font-weight:600;color:#ea4335;">President</p>
+                    <p style="margin:0 0 2px;font-size:12px;font-weight:500;color:#1a73e8;">Google Developer Groups on Campus</p>
+                    <p style="margin:0;font-size:11px;color:#70757a;">Helwan National University</p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+  `.trim();
+}
+
+/**
+ * Student Course Enrollment Confirmed Email
+ * Sent when an admin approves a student enrollment.
+ * Includes WhatsApp group join reminder if a group link is available.
+ */
+export async function sendCourseEnrollmentConfirmedEmail(params: {
+  to: string;
+  studentName: string;
+  courseTitle: string;
+  courseCategory?: string | null;
+  courseId: string;
+  whatsappGroupLink?: string | null;
+  whatsappGroupName?: string | null;
+  portalUrl?: string;
+}): Promise<EmailResult> {
+  const appUrl = params.portalUrl || 'https://gdgoc-hnu.vercel.app';
+  const courseUrl = `${appUrl}/student/courses/${params.courseId}`;
+  const categoryDisplay = params.courseCategory || 'GDGoC HNU';
+
+  const whatsappSection = params.whatsappGroupLink
+    ? `
+      <!-- WhatsApp Group Box -->
+      <div style="background-color:#e8f5e9;border:2px dashed #34a853;border-radius:12px;padding:18px 22px;text-align:center;margin:20px 0 0;">
+        <div style="font-size:22px;margin-bottom:6px;">💬</div>
+        <div style="font-size:15px;font-weight:800;color:#1e7e34;margin-bottom:6px;font-family:'Google Sans',Roboto,Arial,sans-serif;">
+          Join Your Study WhatsApp Group
+        </div>
+        <p style="margin:0 0 14px;font-size:14px;color:#2d6a4f;line-height:1.6;font-family:Arial,sans-serif;">
+          You have been assigned to <strong>${params.whatsappGroupName || 'your study group'}</strong>.
+          Please join as soon as possible to stay connected with your peers and receive course updates.
+        </p>
+        <table border="0" cellspacing="0" cellpadding="0" style="margin:0 auto;">
+          <tr>
+            <td align="center" style="border-radius:8px;background-color:#25d366;">
+              <a href="${params.whatsappGroupLink}" target="_blank"
+                 style="font-size:14px;font-weight:700;color:#ffffff;text-decoration:none;padding:12px 28px;display:inline-block;border-radius:8px;">
+                📲 Join WhatsApp Group &rarr;
+              </a>
+            </td>
+          </tr>
+        </table>
+      </div>
+    `
+    : `
+      <!-- WhatsApp Reminder without link -->
+      <div style="background-color:#e8f0fe;border-left:4px solid #1a73e8;border-radius:0 8px 8px 0;padding:14px 18px;margin:20px 0 0;">
+        <p style="margin:0;font-size:13px;color:#1a73e8;line-height:1.6;font-family:Arial,sans-serif;">
+          <strong>📱 Study Group:</strong> Your WhatsApp study group link will be assigned and sent to you shortly. Stay tuned!
+        </p>
+      </div>
+    `;
+
+  const contentHtml = `
+    <!-- Greeting -->
+    <p style="margin:0 0 16px;font-size:18px;font-weight:bold;color:#202124;font-family:'Google Sans',Roboto,Arial,sans-serif;">
+      Dear ${params.studentName},
+    </p>
+
+    <!-- Congrats message -->
+    <p style="margin:0 0 16px;font-size:14px;color:#3c4043;line-height:1.75;font-family:Arial,sans-serif;">
+      Congratulations! 🎉 Your application to join the
+      <strong style="color:#1a73e8;">${params.courseTitle}</strong> track at
+      <strong>GDGoC Helwan National University</strong> has been officially reviewed and
+      <strong style="color:#34a853;">confirmed</strong>.
+    </p>
+
+    <p style="margin:0 0 20px;font-size:14px;color:#3c4043;line-height:1.75;font-family:Arial,sans-serif;">
+      You now have full access to all lectures, study materials, sessions, and assignments for this track.
+    </p>
+
+    <!-- Course Details Card -->
+    <table width="100%" cellpadding="0" cellspacing="0" border="0"
+           style="background-color:#f8f9fa;border-radius:12px;border:1.5px solid #e8eaed;overflow:hidden;margin-bottom:20px;">
+      <tr>
+        <td style="background-color:#1a73e8;padding:12px 20px;color:#ffffff;font-size:14px;font-weight:bold;font-family:'Google Sans',Roboto,Arial,sans-serif;">
+          Enrollment Details
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:16px 20px;">
+          <table width="100%" cellpadding="0" cellspacing="0" border="0">
+            <tr>
+              <td width="120" style="padding:6px 0;font-size:13px;color:#5f6368;font-family:Arial,sans-serif;font-weight:bold;">Track:</td>
+              <td style="padding:6px 0;font-size:15px;color:#202124;font-family:Arial,sans-serif;font-weight:bold;">${params.courseTitle}</td>
+            </tr>
+            <tr>
+              <td style="padding:6px 0;font-size:13px;color:#5f6368;font-family:Arial,sans-serif;font-weight:bold;">Category:</td>
+              <td style="padding:6px 0;font-size:14px;color:#1a73e8;font-family:Arial,sans-serif;font-weight:bold;">${categoryDisplay}</td>
+            </tr>
+            <tr>
+              <td style="padding:6px 0;font-size:13px;color:#5f6368;font-family:Arial,sans-serif;font-weight:bold;">Status:</td>
+              <td style="padding:6px 0;font-size:14px;color:#34a853;font-family:Arial,sans-serif;font-weight:bold;">✅ Confirmed</td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+
+    <!-- CTA Button -->
+    <table border="0" cellspacing="0" cellpadding="0" style="margin-bottom:4px;">
+      <tr>
+        <td align="center" style="border-radius:8px;background-color:#1a73e8;">
+          <a href="${courseUrl}" target="_blank"
+             style="font-size:15px;font-weight:700;color:#ffffff;text-decoration:none;padding:14px 28px;display:inline-block;border-radius:8px;">
+            Open My Course Portal &rarr;
+          </a>
+        </td>
+      </tr>
+    </table>
+
+    ${whatsappSection}
+
+    <!-- Closing -->
+    <p style="margin:24px 0 0;font-size:15px;color:#202124;font-weight:bold;font-family:'Google Sans',Roboto,Arial,sans-serif;">
+      We look forward to having you in the track. Best of luck!
+    </p>
+  `;
+
+  return sendEmail({
+    to: params.to,
+    subject: `[Enrollment Confirmed] ${params.courseTitle} | GDGoC Helwan National University`,
+    html: renderGdgocEmailLayout(`Enrollment Confirmed — ${params.courseTitle}`, contentHtml),
+    metadata: {
+      type: 'course_enrollment_confirmed',
+      course_id: params.courseId,
+      student_email: params.to,
+    },
+  });
+}
