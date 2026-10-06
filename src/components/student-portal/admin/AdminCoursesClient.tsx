@@ -44,6 +44,19 @@ import {
 } from '@/app/student-portal/admin/courses/actions';
 import { CourseStatus, EnrollmentType, CourseInstructorRole } from '@/types/student';
 
+function toLocalDatetimeInput(isoStr: string | null | undefined): string {
+  if (!isoStr) return '';
+  const d = new Date(isoStr);
+  if (isNaN(d.getTime())) return '';
+  const pad = (n: number) => String(n).padStart(2, '0');
+  const year = d.getFullYear();
+  const month = pad(d.getMonth() + 1);
+  const day = pad(d.getDate());
+  const hours = pad(d.getHours());
+  const minutes = pad(d.getMinutes());
+  return `${year}-${month}-${day}T${hours}:${minutes}`;
+}
+
 interface AdminCoursesClientProps {
   initialCourses: AdminCourseItem[];
   departments: Array<{ id: string; name: string; code: string; branch: string }>;
@@ -164,11 +177,7 @@ export function AdminCoursesClient({
     setFormCoverUrl(course.cover_image_url || '');
     setFormEnrollType(course.enrollment_type);
     setFormCapacity(course.capacity ? String(course.capacity) : '');
-    setFormDeadline(
-      course.registration_deadline
-        ? new Date(course.registration_deadline).toISOString().slice(0, 16)
-        : ''
-    );
+    setFormDeadline(toLocalDatetimeInput(course.registration_deadline));
     setFormRegOpen(course.registration_open !== false);
     setFormSyllabus(course.syllabus || '');
     setFormStatus(course.status);

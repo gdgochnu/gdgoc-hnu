@@ -41,6 +41,19 @@ import {
 } from '@/app/student-portal/admin/workshops/actions';
 import { WorkshopStatus, CourseInstructorRole } from '@/types/student';
 
+function toLocalDatetimeInput(isoStr: string | null | undefined): string {
+  if (!isoStr) return '';
+  const d = new Date(isoStr);
+  if (isNaN(d.getTime())) return '';
+  const pad = (n: number) => String(n).padStart(2, '0');
+  const year = d.getFullYear();
+  const month = pad(d.getMonth() + 1);
+  const day = pad(d.getDate());
+  const hours = pad(d.getHours());
+  const minutes = pad(d.getMinutes());
+  return `${year}-${month}-${day}T${hours}:${minutes}`;
+}
+
 interface AdminWorkshopsClientProps {
   initialWorkshops: AdminWorkshopItem[];
   departments: Array<{ id: string; name: string; code: string; branch: string }>;
@@ -186,7 +199,7 @@ export function AdminWorkshopsClient({
     setFormDeptId(w.department_id || (departments[0]?.id || ''));
     setFormCoverUrl(w.cover_image_url || '');
     setFormCapacity(w.capacity ? String(w.capacity) : '');
-    setFormDeadline(w.registration_deadline ? w.registration_deadline.slice(0, 16) : '');
+    setFormDeadline(toLocalDatetimeInput(w.registration_deadline));
     setFormStatus(w.status);
     setFormRegOpen(w.registration_open);
     setSelectedInstructors(

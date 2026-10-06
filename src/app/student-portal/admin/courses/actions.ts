@@ -231,15 +231,15 @@ export async function createAdminCourse(input: CreateCourseInput): Promise<{
 
     const profile = context.profile;
     const role = profile.role;
-    const isPresident = role === 'president' || role === 'co_president';
+    const isLeadership = ['president', 'co_president', 'branch_head'].includes(role);
     const isCommitteeHead = ['committee_head', 'committee_co_head'].includes(role);
 
-    if (!isPresident && !isCommitteeHead) {
+    if (!isLeadership && !isCommitteeHead) {
       return { success: false, error: 'Permission denied: Only Leadership and Committee Heads can create courses.' };
     }
 
     // Determine target department
-    const targetDeptId = isPresident
+    const targetDeptId = isLeadership
       ? input.department_id || profile.department_id
       : profile.department_id;
 
@@ -331,7 +331,7 @@ export async function updateAdminCourse(input: UpdateCourseInput): Promise<{
 
     const profile = context.profile;
     const role = profile.role;
-    const isPresident = role === 'president' || role === 'co_president';
+    const isLeadership = ['president', 'co_president', 'branch_head'].includes(role);
     const isOwnerHead = ['committee_head', 'committee_co_head'].includes(role) && profile.department_id === existingCourse.department_id;
 
     // Check if user is assigned instructor
@@ -342,7 +342,7 @@ export async function updateAdminCourse(input: UpdateCourseInput): Promise<{
       .eq('profile_id', profile.id)
       .maybeSingle();
 
-    if (!isPresident && !isOwnerHead && !isInst) {
+    if (!isLeadership && !isOwnerHead && !isInst) {
       return { success: false, error: 'Permission denied to edit this course.' };
     }
 
@@ -361,8 +361,8 @@ export async function updateAdminCourse(input: UpdateCourseInput): Promise<{
     if (input.syllabus !== undefined) updatePayload.syllabus = input.syllabus.trim() || null;
     if (input.status !== undefined) updatePayload.status = input.status;
 
-    // Only President can reassign owning department
-    if (isPresident && input.department_id) {
+    // Only Leadership can reassign owning department
+    if (isLeadership && input.department_id) {
       updatePayload.department_id = input.department_id;
     }
 
@@ -376,7 +376,7 @@ export async function updateAdminCourse(input: UpdateCourseInput): Promise<{
     }
 
     // Sync instructors if provided and user has rights
-    if ((isPresident || isOwnerHead) && input.instructors !== undefined) {
+    if ((isLeadership || isOwnerHead) && input.instructors !== undefined) {
       // Remove previous instructors
       await admin.from('course_instructors').delete().eq('course_id', input.id);
 
@@ -429,10 +429,10 @@ export async function deleteAdminCourse(courseId: string): Promise<{
     }
 
     const role = context.profile.role;
-    const isPresident = role === 'president' || role === 'co_president';
+    const isLeadership = ['president', 'co_president', 'branch_head'].includes(role);
     const isOwnerHead = ['committee_head', 'committee_co_head'].includes(role) && context.profile.department_id === course.department_id;
 
-    if (!isPresident && !isOwnerHead) {
+    if (!isLeadership && !isOwnerHead) {
       return { success: false, error: 'Only Leadership or Owning Committee Head can delete a course.' };
     }
 
