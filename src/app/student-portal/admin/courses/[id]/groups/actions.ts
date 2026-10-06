@@ -4,6 +4,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { getUserContext } from '@/lib/auth/get-user-context';
 import { revalidatePath } from 'next/cache';
 import { CourseGroup } from '@/types/student';
+import { dispatchStudentNotification } from '@/app/student/notifications/actions';
 
 export interface GroupStudentItem {
   enrollment_id: string;
@@ -391,9 +392,9 @@ export async function assignStudentToGroupAction(input: {
     const access = await verifyGroupAccess(input.courseId);
     if (!access.authorized) return { success: false, error: access.error };
 
-    const { admin } = access;
+    const { admin, course } = access;
 
-    const { error: updErr } = await admin
+    const { data: updatedEnrollment, error: updErr } = await admin
       .from('course_enrollments')
       .update({
         group_id: input.groupId,
@@ -402,10 +403,34 @@ export async function assignStudentToGroupAction(input: {
         joined_group_at: null,
       })
       .eq('id', input.enrollmentId)
-      .eq('course_id', input.courseId);
+      .eq('course_id', input.courseId)
+      .select('student_id')
+      .single();
 
     if (updErr) {
       return { success: false, error: updErr.message };
+    }
+
+    // Dispatch notification to student if assigned to a group
+    if (input.groupId && updatedEnrollment?.student_id) {
+      const { data: grp } = await admin
+        .from('course_groups')
+        .select('name')
+        .eq('id', input.groupId)
+        .maybeSingle();
+
+      const groupName = grp?.name || 'Study Group';
+      const courseTitle = course.title || 'the track';
+
+      dispatchStudentNotification({
+        studentId: updatedEnrollment.student_id,
+        type: 'course',
+        title: `Group Assigned: ${courseTitle}`,
+        message: `You have been assigned to "${groupName}" in "${courseTitle}". Open your course page now to join the WhatsApp group and meet your peers!`,
+        linkUrl: `/student/courses/${input.courseId}`,
+        relatedEntityType: 'course',
+        relatedEntityId: input.courseId,
+      }).catch((notifErr) => console.warn('dispatchStudentNotification assign warning:', notifErr));
     }
 
     revalidatePath(`/student-portal/admin/courses/${input.courseId}/groups`);
@@ -436,7 +461,7 @@ export async function autoDistributeStudentsToGroupsAction(input: {
     const access = await verifyGroupAccess(input.courseId);
     if (!access.authorized) return { success: false, error: access.error };
 
-    const { admin } = access;
+    const { admin, course } = access;
     const capacity = input.groupCapacity && input.groupCapacity > 0 ? input.groupCapacity : 50;
     const prefix = input.groupPrefix?.trim() || 'Group';
 
@@ -537,6 +562,7 @@ export async function autoDistributeStudentsToGroupsAction(input: {
     // 3. Distribute chunks of students into activeGroups
     const nowIso = new Date().toISOString();
     let assignedCount = 0;
+    const notifsToSend: Array<{ studentId: string; groupName: string }> = [];
 
     for (let i = 0; i < sorted.length; i++) {
       const groupIdx = Math.floor(i / capacity);
@@ -554,8 +580,32 @@ export async function autoDistributeStudentsToGroupsAction(input: {
 
         if (!updErr) {
           assignedCount++;
+          if (enrollment.student_id) {
+            notifsToSend.push({
+              studentId: enrollment.student_id,
+              groupName: targetGroup.name,
+            });
+          }
         }
       }
+    }
+
+    // Dispatch notifications in background
+    if (notifsToSend.length > 0) {
+      const courseTitle = course.title || 'the track';
+      Promise.allSettled(
+        notifsToSend.map(({ studentId, groupName }) =>
+          dispatchStudentNotification({
+            studentId,
+            type: 'course',
+            title: `Group Assigned: ${courseTitle}`,
+            message: `You have been assigned to "${groupName}" in "${courseTitle}". Open your course page now to join the WhatsApp group!`,
+            linkUrl: `/student/courses/${input.courseId}`,
+            relatedEntityType: 'course',
+            relatedEntityId: input.courseId,
+          })
+        )
+      ).catch((notifErr) => console.warn('dispatchStudentNotification auto-distribute warning:', notifErr));
     }
 
     revalidatePath(`/student-portal/admin/courses/${input.courseId}/groups`);
@@ -584,13 +634,13 @@ export async function bulkAssignStudentsToGroupAction(input: {
     const access = await verifyGroupAccess(input.courseId);
     if (!access.authorized) return { success: false, error: access.error };
 
-    const { admin } = access;
+    const { admin, course } = access;
     if (!input.enrollmentIds || input.enrollmentIds.length === 0) {
       return { success: false, error: 'No students selected.' };
     }
 
     const nowIso = new Date().toISOString();
-    const { error: updErr } = await admin
+    const { data: updatedEnrollments, error: updErr } = await admin
       .from('course_enrollments')
       .update({
         group_id: input.groupId,
@@ -598,10 +648,37 @@ export async function bulkAssignStudentsToGroupAction(input: {
         joined_group_at: null,
       })
       .in('id', input.enrollmentIds)
-      .eq('course_id', input.courseId);
+      .eq('course_id', input.courseId)
+      .select('student_id');
 
     if (updErr) {
       return { success: false, error: updErr.message };
+    }
+
+    // Dispatch notifications if assigned to a group
+    if (input.groupId && updatedEnrollments && updatedEnrollments.length > 0) {
+      const { data: grp } = await admin
+        .from('course_groups')
+        .select('name')
+        .eq('id', input.groupId)
+        .maybeSingle();
+
+      const groupName = grp?.name || 'Study Group';
+      const courseTitle = course.title || 'the track';
+
+      Promise.allSettled(
+        updatedEnrollments.map((e) =>
+          dispatchStudentNotification({
+            studentId: e.student_id,
+            type: 'course',
+            title: `Group Assigned: ${courseTitle}`,
+            message: `You have been assigned to "${groupName}" in "${courseTitle}". Open your course page now to join the WhatsApp group!`,
+            linkUrl: `/student/courses/${input.courseId}`,
+            relatedEntityType: 'course',
+            relatedEntityId: input.courseId,
+          })
+        )
+      ).catch((notifErr) => console.warn('dispatchStudentNotification bulk assign warning:', notifErr));
     }
 
     revalidatePath(`/student-portal/admin/courses/${input.courseId}/groups`);

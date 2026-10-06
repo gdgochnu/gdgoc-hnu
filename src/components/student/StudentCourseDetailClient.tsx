@@ -66,6 +66,16 @@ function getYouTubeEmbedUrl(url: string | null): string | null {
   return match ? `https://www.youtube-nocookie.com/embed/${match[1]}` : null;
 }
 
+function normalizeExternalLink(url: string | null | undefined): string {
+  if (!url) return '#';
+  const trimmed = url.trim();
+  if (!trimmed) return '#';
+  if (/^https?:\/\//i.test(trimmed)) {
+    return trimmed;
+  }
+  return `https://${trimmed}`;
+}
+
 function getTaskDeadlineInfo(dueDate: string | null | undefined, isCompleted: boolean) {
   if (!dueDate) return null;
   const due = new Date(dueDate).getTime();
@@ -968,30 +978,90 @@ export function StudentCourseDetailClient({ initialData }: StudentCourseDetailCl
                 <span>Sign In to Enroll</span>
               </Link>
             ) : isConfirmed ? (
-              <button
-                type="button"
-                onClick={() => {
-                  handleTabChange('sessions');
-                  const el = document.getElementById('course-workspace-tabs');
-                  if (el) el.scrollIntoView({ behavior: 'smooth' });
-                }}
-                style={{
-                  padding: '0.75rem 1.4rem',
-                  borderRadius: '12px',
-                  background: 'linear-gradient(135deg, rgba(52, 168, 83, 0.25) 0%, rgba(66, 133, 244, 0.2) 100%)',
-                  border: '1px solid rgba(52, 168, 83, 0.5)',
-                  color: '#FFFFFF',
-                  fontSize: '0.9rem',
-                  fontWeight: 800,
-                  cursor: 'pointer',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '0.5rem',
-                }}
-              >
-                <Play size={16} color="#34D399" />
-                <span>Go to Sessions & Lessons</span>
-              </button>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+                {myEnrollment?.group?.invitation_link ? (
+                  <a
+                    href={normalizeExternalLink(myEnrollment.group.invitation_link)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={() => {
+                      trackCourseGroupJoinAction({ courseId: course.id }).catch(console.error);
+                      setMyEnrollment((prev) =>
+                        prev ? { ...prev, joined_group_at: new Date().toISOString() } : null
+                      );
+                    }}
+                    style={{
+                      padding: '0.75rem 1.4rem',
+                      borderRadius: '12px',
+                      background: 'linear-gradient(135deg, #25D366 0%, #128C7E 100%)',
+                      color: '#FFFFFF',
+                      fontSize: '0.9rem',
+                      fontWeight: 800,
+                      textDecoration: 'none',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '0.55rem',
+                      boxShadow: '0 4px 16px rgba(37, 211, 102, 0.4)',
+                      transition: 'transform 0.15s ease',
+                    }}
+                  >
+                    <MessageCircle size={18} />
+                    <span>
+                      {myEnrollment.joined_group_at
+                        ? `جروب الواتساب (${myEnrollment.group.name})`
+                        : `انضم لجروب الواتساب (${myEnrollment.group.name})`}
+                    </span>
+                    <ExternalLink size={14} />
+                  </a>
+                ) : myEnrollment?.group ? (
+                  <div
+                    style={{
+                      padding: '0.65rem 1.15rem',
+                      borderRadius: '10px',
+                      background: 'rgba(37, 211, 102, 0.12)',
+                      border: '1px solid rgba(37, 211, 102, 0.35)',
+                      color: '#4ADE80',
+                      fontSize: '0.85rem',
+                      fontWeight: 700,
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '0.45rem',
+                    }}
+                  >
+                    <MessageCircle size={16} />
+                    <span>مجموعتك: {myEnrollment.group.name}</span>
+                  </div>
+                ) : null}
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    handleTabChange('sessions');
+                    const el = document.getElementById('course-workspace-tabs');
+                    if (el) el.scrollIntoView({ behavior: 'smooth' });
+                  }}
+                  style={{
+                    padding: '0.75rem 1.25rem',
+                    borderRadius: '12px',
+                    background: myEnrollment?.group?.invitation_link
+                      ? 'rgba(255, 255, 255, 0.06)'
+                      : 'linear-gradient(135deg, rgba(52, 168, 83, 0.25) 0%, rgba(66, 133, 244, 0.2) 100%)',
+                    border: myEnrollment?.group?.invitation_link
+                      ? '1px solid rgba(255, 255, 255, 0.15)'
+                      : '1px solid rgba(52, 168, 83, 0.5)',
+                    color: '#FFFFFF',
+                    fontSize: '0.88rem',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '0.5rem',
+                  }}
+                >
+                  <Play size={16} color="#34D399" />
+                  <span>Go to Sessions & Lessons</span>
+                </button>
+              </div>
             ) : isPending ? (
               <div
                 style={{
@@ -1837,10 +1907,16 @@ export function StudentCourseDetailClient({ initialData }: StudentCourseDetailCl
                     </div>
 
                     {myEnrollment.group.invitation_link ? (
-                      <button
-                        type="button"
-                        onClick={handleJoinWhatsAppGroup}
-                        disabled={isJoiningGroup}
+                      <a
+                        href={normalizeExternalLink(myEnrollment.group.invitation_link)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={() => {
+                          trackCourseGroupJoinAction({ courseId: course.id }).catch(console.error);
+                          setMyEnrollment((prev) =>
+                            prev ? { ...prev, joined_group_at: new Date().toISOString() } : null
+                          );
+                        }}
                         style={{
                           display: 'flex',
                           alignItems: 'center',
@@ -1852,16 +1928,15 @@ export function StudentCourseDetailClient({ initialData }: StudentCourseDetailCl
                           color: '#FFFFFF',
                           fontSize: '0.85rem',
                           fontWeight: 700,
-                          border: 'none',
-                          cursor: isJoiningGroup ? 'not-allowed' : 'pointer',
+                          textDecoration: 'none',
                           boxShadow: '0 4px 14px rgba(37, 211, 102, 0.3)',
                           transition: 'all 0.2s ease',
                         }}
                       >
                         <MessageCircle size={16} />
-                        {myEnrollment.joined_group_at ? 'Open WhatsApp Group' : 'Join WhatsApp Group'}
+                        <span>{myEnrollment.joined_group_at ? 'Open WhatsApp Group' : 'Join WhatsApp Group'}</span>
                         <ExternalLink size={14} />
-                      </button>
+                      </a>
                     ) : (
                       <div style={{ fontSize: '0.78rem', color: '#94A3B8', fontStyle: 'italic', textAlign: 'center' }}>
                         Group invite link will be published soon by your instructor.
