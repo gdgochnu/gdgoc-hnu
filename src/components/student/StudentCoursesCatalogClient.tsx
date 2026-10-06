@@ -858,24 +858,24 @@ export function StudentCoursesCatalogClient({
                       <span style={{ fontWeight: 600 }}>~{hoursEst} hrs Total</span>
                     </div>
 
-                    {course.registration_deadline && (
+                    {!course.is_registration_closed && course.registration_open !== false && course.registration_deadline && (
                       <div
+                        suppressHydrationWarning
                         style={{
                           display: 'flex',
                           alignItems: 'center',
                           gap: '0.45rem',
                           gridColumn: 'span 2',
                           fontSize: '0.76rem',
-                          color: course.is_registration_closed ? '#F87171' : '#FBBF24',
+                          color: '#FBBF24',
                           fontWeight: 600,
                           paddingTop: '0.2rem',
                           borderTop: '1px dashed rgba(255, 255, 255, 0.08)',
                         }}
                       >
                         <Clock size={13} style={{ flexShrink: 0 }} />
-                        <span>
-                          {course.is_registration_closed ? 'Deadline passed: ' : 'Deadline: '}
-                          {new Date(course.registration_deadline).toLocaleDateString(undefined, {
+                        <span suppressHydrationWarning>
+                          Deadline: {new Date(course.registration_deadline).toLocaleDateString('en-US', {
                             month: 'short',
                             day: 'numeric',
                             hour: '2-digit',

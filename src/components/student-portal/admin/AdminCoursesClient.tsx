@@ -873,10 +873,13 @@ export function AdminCoursesClient({
                         </div>
 
                         {course.registration_deadline && (
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.72rem', color: isDeadlinePassed ? '#F87171' : '#94A3B8' }}>
+                          <div
+                            suppressHydrationWarning
+                            style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.72rem', color: isDeadlinePassed ? '#F87171' : '#94A3B8' }}
+                          >
                             <Clock size={12} />
-                            <span>
-                              Deadline: {new Date(course.registration_deadline).toLocaleDateString(undefined, {
+                            <span suppressHydrationWarning>
+                              Deadline: {new Date(course.registration_deadline).toLocaleDateString('en-US', {
                                 month: 'short',
                                 day: 'numeric',
                                 hour: '2-digit',

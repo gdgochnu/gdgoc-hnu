@@ -1100,12 +1100,14 @@ export function StudentWorkshopsCatalogClient({
                         )}
                       </div>
 
-                      {workshop.registration_deadline && (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.76rem', color: new Date(workshop.registration_deadline) < new Date() ? '#F87171' : '#FBBF24', fontWeight: 600 }}>
+                      {workshop.registration_open && workshop.registration_deadline && new Date(workshop.registration_deadline) >= new Date() && (
+                        <div
+                          suppressHydrationWarning
+                          style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.76rem', color: '#FBBF24', fontWeight: 600 }}
+                        >
                           <Clock size={12} style={{ flexShrink: 0 }} />
-                          <span>
-                            {new Date(workshop.registration_deadline) < new Date() ? 'Deadline passed: ' : 'Deadline: '}
-                            {new Date(workshop.registration_deadline).toLocaleDateString(undefined, {
+                          <span suppressHydrationWarning>
+                            Deadline: {new Date(workshop.registration_deadline).toLocaleDateString('en-US', {
                               month: 'short',
                               day: 'numeric',
                               hour: '2-digit',

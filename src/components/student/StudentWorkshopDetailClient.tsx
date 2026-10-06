@@ -566,11 +566,11 @@ export function StudentWorkshopDetailClient({ initialData }: StudentWorkshopDeta
                     </span>
                   </div>
                 )}
-                {workshop.registration_deadline && (
-                  <div style={{ display: 'flex', justifyContent: 'space-between', color: '#94A3B8' }}>
+                {!isRegClosed && workshop.registration_deadline && (
+                  <div suppressHydrationWarning style={{ display: 'flex', justifyContent: 'space-between', color: '#94A3B8' }}>
                     <span>Deadline:</span>
-                    <span style={{ color: '#CBD5E1', fontWeight: 500 }}>
-                      {new Date(workshop.registration_deadline).toLocaleDateString(undefined, {
+                    <span suppressHydrationWarning style={{ color: '#CBD5E1', fontWeight: 500 }}>
+                      {new Date(workshop.registration_deadline).toLocaleDateString('en-US', {
                         month: 'short',
                         day: 'numeric',
                         hour: '2-digit',

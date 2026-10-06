@@ -74,7 +74,7 @@ function getTaskDeadlineInfo(dueDate: string | null | undefined, isCompleted: bo
   if (isCompleted) {
     return {
       type: 'completed' as const,
-      label: `Due ${new Date(dueDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}`,
+      label: `Due ${new Date(dueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`,
       color: '#94A3B8',
       background: 'rgba(255, 255, 255, 0.04)',
       border: '1px solid rgba(255, 255, 255, 0.08)',
@@ -112,7 +112,7 @@ function getTaskDeadlineInfo(dueDate: string | null | undefined, isCompleted: bo
   if (diffHours <= 48) {
     return {
       type: 'soon' as const,
-      label: `Due Tomorrow (${new Date(dueDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })})`,
+      label: `Due Tomorrow (${new Date(dueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })})`,
       color: '#FBBF24',
       background: 'rgba(251, 188, 4, 0.15)',
       border: '1px solid rgba(251, 188, 4, 0.35)',
@@ -123,7 +123,7 @@ function getTaskDeadlineInfo(dueDate: string | null | undefined, isCompleted: bo
 
   return {
     type: 'future' as const,
-    label: `Due: ${new Date(dueDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}`,
+    label: `Due: ${new Date(dueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`,
     color: '#CBD5E1',
     background: 'rgba(255, 255, 255, 0.05)',
     border: '1px solid rgba(255, 255, 255, 0.08)',
@@ -851,22 +851,22 @@ export function StudentCourseDetailClient({ initialData }: StudentCourseDetailCl
               </div>
             </div>
 
-            {hasDeadline && (
+            {!isRegistrationClosed && isRegOpen && hasDeadline && (
               <>
                 <div style={{ width: '1px', height: '28px', background: 'rgba(255, 255, 255, 0.1)' }} />
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  <Clock size={18} style={{ color: isDeadlinePassed ? '#F87171' : '#FBBF24' }} />
+                  <Clock size={18} style={{ color: '#FBBF24' }} />
                   <div>
-                    <div style={{ fontSize: '0.94rem', fontWeight: 800, color: isDeadlinePassed ? '#F87171' : '#FFFFFF' }}>
-                      {new Date(course.registration_deadline!).toLocaleDateString(undefined, {
+                    <div suppressHydrationWarning style={{ fontSize: '0.94rem', fontWeight: 800, color: '#FFFFFF' }}>
+                      {new Date(course.registration_deadline!).toLocaleDateString('en-US', {
                         month: 'short',
                         day: 'numeric',
                         hour: '2-digit',
                         minute: '2-digit',
                       })}
                     </div>
-                    <div style={{ fontSize: '0.75rem', color: isDeadlinePassed ? '#F87171' : '#94A3B8' }}>
-                      {isDeadlinePassed ? 'Deadline passed' : 'Registration deadline'}
+                    <div style={{ fontSize: '0.75rem', color: '#94A3B8' }}>
+                      Registration deadline
                     </div>
                   </div>
                 </div>
@@ -1162,28 +1162,6 @@ export function StudentCourseDetailClient({ initialData }: StudentCourseDetailCl
                 {course.description ||
                   'This comprehensive learning journey is designed by Google Developer Groups on Campus Helwan National University technical departments to equip students with production-grade skills through structured sessions and practical milestones.'}
               </p>
-
-              {/* Learning Highlights Grid */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginTop: '0.5rem' }}>
-                <div style={{ padding: '1rem', borderRadius: '12px', background: 'rgba(66, 133, 244, 0.08)', border: '1px solid rgba(66, 133, 244, 0.2)' }}>
-                  <div style={{ fontSize: '0.8rem', color: '#60A5FA', fontWeight: 700 }}>Track Category</div>
-                  <div style={{ fontSize: '0.95rem', fontWeight: 800, color: '#FFFFFF', marginTop: '0.2rem' }}>{course.category || 'Technical Track'}</div>
-                </div>
-                <div style={{ padding: '1rem', borderRadius: '12px', background: 'rgba(52, 168, 83, 0.08)', border: '1px solid rgba(52, 168, 83, 0.2)' }}>
-                  <div style={{ fontSize: '0.8rem', color: '#34D399', fontWeight: 700 }}>Total Curriculum Duration</div>
-                  <div style={{ fontSize: '0.95rem', fontWeight: 800, color: '#FFFFFF', marginTop: '0.2rem' }}>~{totalHours} Training Hours</div>
-                </div>
-                <div style={{ padding: '1rem', borderRadius: '12px', background: 'rgba(251, 188, 4, 0.08)', border: '1px solid rgba(251, 188, 4, 0.2)' }}>
-                  <div style={{ fontSize: '0.8rem', color: '#FBBF24', fontWeight: 700 }}>Sessions & Workshops</div>
-                  <div style={{ fontSize: '0.95rem', fontWeight: 800, color: '#FFFFFF', marginTop: '0.2rem' }}>
-                    {sessions.length > 0 ? `${sessions.length} Interactive Sessions` : 'Comprehensive Modules'}
-                  </div>
-                </div>
-                <div style={{ padding: '1rem', borderRadius: '12px', background: 'rgba(168, 85, 247, 0.08)', border: '1px solid rgba(168, 85, 247, 0.2)' }}>
-                  <div style={{ fontSize: '0.8rem', color: '#C084FC', fontWeight: 700 }}>Credential</div>
-                  <div style={{ fontSize: '0.95rem', fontWeight: 800, color: '#FFFFFF', marginTop: '0.2rem' }}>Official GDGoC Certificate</div>
-                </div>
-              </div>
             </div>
 
             {/* 2. Syllabus & Topics (Parsed Rich Markdown) */}
@@ -1463,26 +1441,27 @@ export function StudentCourseDetailClient({ initialData }: StudentCourseDetailCl
                 </h3>
               </div>
 
-              {/* Deadline notice if set */}
-              {hasDeadline && (
+              {/* Deadline notice if set and registration is open */}
+              {!isRegistrationClosed && isRegOpen && hasDeadline && (
                 <div
+                  suppressHydrationWarning
                   style={{
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'space-between',
                     padding: '0.65rem 0.85rem',
                     borderRadius: '10px',
-                    background: isDeadlinePassed ? 'rgba(239, 68, 68, 0.1)' : 'rgba(251, 188, 4, 0.1)',
-                    border: `1px solid ${isDeadlinePassed ? 'rgba(239, 68, 68, 0.25)' : 'rgba(251, 188, 4, 0.25)'}`,
+                    background: 'rgba(251, 188, 4, 0.1)',
+                    border: '1px solid rgba(251, 188, 4, 0.25)',
                     fontSize: '0.82rem',
                   }}
                 >
                   <span style={{ color: '#94A3B8', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                    <Clock size={14} style={{ color: isDeadlinePassed ? '#F87171' : '#FBBF24' }} />
+                    <Clock size={14} style={{ color: '#FBBF24' }} />
                     <span>Registration Deadline:</span>
                   </span>
-                  <span style={{ color: isDeadlinePassed ? '#F87171' : '#CBD5E1', fontWeight: 700 }}>
-                    {new Date(course.registration_deadline!).toLocaleDateString(undefined, {
+                  <span suppressHydrationWarning style={{ color: '#CBD5E1', fontWeight: 700 }}>
+                    {new Date(course.registration_deadline!).toLocaleDateString('en-US', {
                       month: 'short',
                       day: 'numeric',
                       hour: '2-digit',
@@ -1938,8 +1917,8 @@ export function StudentCourseDetailClient({ initialData }: StudentCourseDetailCl
                           >
                             {s.title}
                           </div>
-                          <div style={{ fontSize: '0.72rem', color: '#94A3B8', marginTop: '0.1rem' }}>
-                            {new Date(s.session_date).toLocaleDateString(undefined, {
+                          <div suppressHydrationWarning style={{ fontSize: '0.72rem', color: '#94A3B8', marginTop: '0.1rem' }}>
+                            {new Date(s.session_date).toLocaleDateString('en-US', {
                               month: 'short',
                               day: 'numeric',
                             })}{' '}
@@ -2148,9 +2127,9 @@ export function StudentCourseDetailClient({ initialData }: StudentCourseDetailCl
                   </h2>
 
                   <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem', marginTop: '0.5rem', color: '#94A3B8', fontSize: '0.84rem', flexWrap: 'wrap' }}>
-                    <span style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                    <span suppressHydrationWarning style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
                       <Calendar size={14} style={{ color: '#60A5FA' }} />
-                      {new Date(activeSession.session_date).toLocaleDateString(undefined, {
+                      {new Date(activeSession.session_date).toLocaleDateString('en-US', {
                         weekday: 'long',
                         year: 'numeric',
                         month: 'long',
