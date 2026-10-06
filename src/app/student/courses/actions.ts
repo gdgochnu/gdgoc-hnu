@@ -27,6 +27,9 @@ export interface StudentCourseCardItem {
   department_name?: string;
   department_code?: string;
   capacity: number | null;
+  registration_deadline?: string | null;
+  registration_open?: boolean;
+  is_registration_closed?: boolean;
   enrollment_type: EnrollmentType;
   status: CourseStatus;
   sessions_count: number;
@@ -260,6 +263,10 @@ export async function getPublishedCourses(): Promise<{
         }
       }
 
+      const isRegistrationClosed =
+        c.registration_open === false ||
+        (c.registration_deadline && new Date(c.registration_deadline) < new Date());
+
       return {
         id: c.id,
         title: c.title,
@@ -270,6 +277,9 @@ export async function getPublishedCourses(): Promise<{
         department_name: dept?.name,
         department_code: dept?.code,
         capacity: c.capacity,
+        registration_deadline: c.registration_deadline || null,
+        registration_open: c.registration_open !== false,
+        is_registration_closed: isRegistrationClosed,
         enrollment_type: c.enrollment_type,
         status: c.status,
         sessions_count: sessionsCount,
@@ -484,8 +494,6 @@ export async function getCourseDetail(courseId: string): Promise<{
       };
     });
 
-    const canEnroll = !myEnrollment && !isFull && courseData.status === 'published';
-
     // 3. Fetch lessons
     const { data: lessonsRaw } = await admin
       .from('course_lessons')
@@ -586,11 +594,19 @@ export async function getCourseDetail(courseId: string): Promise<{
       };
     });
 
+    const isRegistrationClosed =
+      courseData.registration_open === false ||
+      Boolean(courseData.registration_deadline && new Date(courseData.registration_deadline) < new Date());
+    const canEnroll = !myEnrollment && !isRegistrationClosed && courseData.status === 'published';
+
     return {
       success: true,
       data: {
         course: {
           ...courseData,
+          registration_open: courseData.registration_open !== false,
+          registration_deadline: courseData.registration_deadline || null,
+          is_registration_closed: isRegistrationClosed,
           department_name: dept?.name,
           department_code: dept?.code,
           enrollment_count: confirmedCount,
@@ -734,7 +750,7 @@ export async function enrollInCourse(courseId: string): Promise<{
     // Verify course exists and is published
     const { data: course, error: courseErr } = await admin
       .from('courses')
-      .select('id, title, capacity, enrollment_type, status')
+      .select('id, title, capacity, enrollment_type, status, registration_open, registration_deadline')
       .eq('id', courseId)
       .single();
 
@@ -744,6 +760,20 @@ export async function enrollInCourse(courseId: string): Promise<{
 
     if (course.status !== 'published') {
       return { success: false, error: 'This course is not currently accepting enrollments.' };
+    }
+
+    if (course.registration_open === false) {
+      return {
+        success: false,
+        error: 'عذراً، تم إغلاق باب التقديم لهذا الكورس والاكتفاء بالعدد المسجل.',
+      };
+    }
+
+    if (course.registration_deadline && new Date(course.registration_deadline) < new Date()) {
+      return {
+        success: false,
+        error: 'عذراً، انتهى الموعد النهائي للتقديم في هذا الكورس.',
+      };
     }
 
     // Check existing enrollment
@@ -892,6 +922,8 @@ export async function getSuggestedCoursesForUnenrolledStudentAction(): Promise<{
         category,
         capacity,
         status,
+        registration_open,
+        registration_deadline,
         department:departments(name),
         instructors:course_instructors(
           role,
@@ -901,14 +933,20 @@ export async function getSuggestedCoursesForUnenrolledStudentAction(): Promise<{
         enrollments:course_enrollments(id)
       `)
       .eq('status', 'published')
-      .order('created_at', { ascending: true })
-      .limit(3);
+      .order('created_at', { ascending: true });
 
     if (coursesErr || !rawCourses || rawCourses.length === 0) {
       return { hasNoEnrollments: true, courses: [] };
     }
 
-    const courses: SuggestedCourseItem[] = rawCourses.map((c: any) => {
+    const now = new Date();
+    const openCourses = rawCourses.filter((c: any) => {
+      const isOpen = c.registration_open !== false;
+      const isPassed = c.registration_deadline ? new Date(c.registration_deadline) < now : false;
+      return isOpen && !isPassed;
+    }).slice(0, 3);
+
+    const courses: SuggestedCourseItem[] = openCourses.map((c: any) => {
       const primaryInstructor = c.instructors?.[0]?.profile;
       const enrolledCount = c.enrollments?.length || 0;
       const isFull = c.capacity ? enrolledCount >= c.capacity : false;

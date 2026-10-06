@@ -1079,19 +1079,40 @@ export function StudentWorkshopsCatalogClient({
                         ~{totalHours} hrs Total
                       </span>
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', gridColumn: 'span 2' }}>
-                      {workshop.is_full ? (
-                        <span style={{ fontSize: '0.78rem', color: '#EF4444', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}>
-                          <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#EF4444' }} /> Full (Waitlist Only)
-                        </span>
-                      ) : workshop.registration_open ? (
-                        <span style={{ fontSize: '0.78rem', color: '#34D399', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}>
-                          <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#34D399' }} /> Open for Registration
-                        </span>
-                      ) : (
-                        <span style={{ fontSize: '0.78rem', color: '#94A3B8', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}>
-                          <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#94A3B8' }} /> Registration Closed
-                        </span>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', gridColumn: 'span 2' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+                        {workshop.is_full ? (
+                          <span style={{ fontSize: '0.78rem', color: '#EF4444', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}>
+                            <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#EF4444' }} /> Full (Waitlist Only)
+                          </span>
+                        ) : !workshop.registration_open ? (
+                          <span style={{ fontSize: '0.78rem', color: '#F87171', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}>
+                            <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#F87171' }} /> Registration Closed
+                          </span>
+                        ) : workshop.registration_deadline && new Date(workshop.registration_deadline) < new Date() ? (
+                          <span style={{ fontSize: '0.78rem', color: '#F87171', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}>
+                            <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#F87171' }} /> Deadline Passed
+                          </span>
+                        ) : (
+                          <span style={{ fontSize: '0.78rem', color: '#34D399', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}>
+                            <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#34D399' }} /> Open for Registration
+                          </span>
+                        )}
+                      </div>
+
+                      {workshop.registration_deadline && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.76rem', color: new Date(workshop.registration_deadline) < new Date() ? '#F87171' : '#FBBF24', fontWeight: 600 }}>
+                          <Clock size={12} style={{ flexShrink: 0 }} />
+                          <span>
+                            {new Date(workshop.registration_deadline) < new Date() ? 'Deadline passed: ' : 'Deadline: '}
+                            {new Date(workshop.registration_deadline).toLocaleDateString(undefined, {
+                              month: 'short',
+                              day: 'numeric',
+                              hour: '2-digit',
+                              minute: '2-digit',
+                            })}
+                          </span>
+                        </div>
                       )}
                     </div>
                   </div>

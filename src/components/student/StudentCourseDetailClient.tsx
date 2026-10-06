@@ -233,6 +233,11 @@ export function StudentCourseDetailClient({ initialData }: StudentCourseDetailCl
   const isWaitlisted = myEnrollment?.status === 'waitlisted';
   const isEnrolled = isConfirmed || isStaff;
 
+  const isRegOpen = course.registration_open !== false;
+  const hasDeadline = Boolean(course.registration_deadline);
+  const isDeadlinePassed = hasDeadline && new Date(course.registration_deadline!) < new Date();
+  const isRegistrationClosed = !isRegOpen || isDeadlinePassed;
+
   const [activeTab, setActiveTab] = useState<'overview' | 'sessions' | 'lessons' | 'tasks' | 'quizzes'>(
     initialMyEnrollment?.status === 'confirmed' || initialData.isStaff ? 'sessions' : 'overview'
   );
@@ -840,11 +845,33 @@ export function StudentCourseDetailClient({ initialData }: StudentCourseDetailCl
                 <div style={{ fontSize: '0.98rem', fontWeight: 800, color: '#FFFFFF' }}>
                   {isStaff && course.capacity ? `${course.enrollment_count} / ${course.capacity} Enrolled` : 'Cohort Admission'}
                 </div>
-                <div style={{ fontSize: '0.75rem', color: '#94A3B8' }}>
-                  {course.is_full ? 'Capacity reached' : 'Registration open'}
+                <div style={{ fontSize: '0.75rem', color: isRegistrationClosed ? '#F87171' : '#94A3B8' }}>
+                  {isRegistrationClosed ? 'Registration closed' : course.is_full ? 'Capacity reached' : 'Registration open'}
                 </div>
               </div>
             </div>
+
+            {hasDeadline && (
+              <>
+                <div style={{ width: '1px', height: '28px', background: 'rgba(255, 255, 255, 0.1)' }} />
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <Clock size={18} style={{ color: isDeadlinePassed ? '#F87171' : '#FBBF24' }} />
+                  <div>
+                    <div style={{ fontSize: '0.94rem', fontWeight: 800, color: isDeadlinePassed ? '#F87171' : '#FFFFFF' }}>
+                      {new Date(course.registration_deadline!).toLocaleDateString(undefined, {
+                        month: 'short',
+                        day: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })}
+                    </div>
+                    <div style={{ fontSize: '0.75rem', color: isDeadlinePassed ? '#F87171' : '#94A3B8' }}>
+                      {isDeadlinePassed ? 'Deadline passed' : 'Registration deadline'}
+                    </div>
+                  </div>
+                </div>
+              </>
+            )}
           </div>
           {/* Hero Action Strip */}
           <div
@@ -878,6 +905,11 @@ export function StudentCourseDetailClient({ initialData }: StudentCourseDetailCl
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', color: '#C084FC', fontSize: '0.92rem', fontWeight: 800 }}>
                   <Clock3 size={18} />
                   <span>You are placed on the waitlist</span>
+                </div>
+              ) : isRegistrationClosed ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', color: '#F87171', fontSize: '0.9rem', fontWeight: 700 }}>
+                  <Lock size={17} />
+                  <span>{isDeadlinePassed ? 'Registration deadline has passed' : 'Registration for this track is currently closed'}</span>
                 </div>
               ) : (
                 <div style={{ fontSize: '0.86rem', color: '#94A3B8' }}>
@@ -966,6 +998,24 @@ export function StudentCourseDetailClient({ initialData }: StudentCourseDetailCl
                 }}
               >
                 On Waitlist
+              </div>
+            ) : isRegistrationClosed ? (
+              <div
+                style={{
+                  padding: '0.75rem 1.4rem',
+                  borderRadius: '12px',
+                  background: 'rgba(239, 68, 68, 0.12)',
+                  border: '1px solid rgba(239, 68, 68, 0.35)',
+                  color: '#F87171',
+                  fontSize: '0.9rem',
+                  fontWeight: 800,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.5rem',
+                }}
+              >
+                <Lock size={16} />
+                <span>{isDeadlinePassed ? 'Registration Deadline Passed' : 'Registration Closed'}</span>
               </div>
             ) : (
               <button
@@ -1405,11 +1455,42 @@ export function StudentCourseDetailClient({ initialData }: StudentCourseDetailCl
                     ? 'Application Under Review'
                     : isWaitlisted
                     ? 'You are on the Waitlist'
+                    : isRegistrationClosed
+                    ? (isDeadlinePassed ? 'Registration Deadline Passed' : 'Registration Closed')
                     : course.enrollment_type === 'open'
                     ? 'Join Course Track'
                     : 'Apply for Admission'}
                 </h3>
               </div>
+
+              {/* Deadline notice if set */}
+              {hasDeadline && (
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    padding: '0.65rem 0.85rem',
+                    borderRadius: '10px',
+                    background: isDeadlinePassed ? 'rgba(239, 68, 68, 0.1)' : 'rgba(251, 188, 4, 0.1)',
+                    border: `1px solid ${isDeadlinePassed ? 'rgba(239, 68, 68, 0.25)' : 'rgba(251, 188, 4, 0.25)'}`,
+                    fontSize: '0.82rem',
+                  }}
+                >
+                  <span style={{ color: '#94A3B8', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                    <Clock size={14} style={{ color: isDeadlinePassed ? '#F87171' : '#FBBF24' }} />
+                    <span>Registration Deadline:</span>
+                  </span>
+                  <span style={{ color: isDeadlinePassed ? '#F87171' : '#CBD5E1', fontWeight: 700 }}>
+                    {new Date(course.registration_deadline!).toLocaleDateString(undefined, {
+                      month: 'short',
+                      day: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })}
+                  </span>
+                </div>
+              )}
 
               {/* Status Message */}
               <p style={{ color: '#94A3B8', fontSize: '0.86rem', lineHeight: 1.6, margin: 0 }}>
@@ -1419,6 +1500,8 @@ export function StudentCourseDetailClient({ initialData }: StudentCourseDetailCl
                   ? 'Your application has been received and is currently under review by track leads. You will receive a notification once evaluated.'
                   : isWaitlisted
                   ? 'You are registered on the waitlist. You will be notified automatically if an enrollment spot becomes available.'
+                  : isRegistrationClosed
+                  ? (isDeadlinePassed ? 'The registration deadline for this track has passed. Enrollments are now closed.' : 'Registration for this track is currently closed.')
                   : course.enrollment_type === 'open'
                   ? 'Open admission program: click below to confirm your spot immediately.'
                   : 'Admission by review: applications are evaluated by track leads before enrollment is confirmed.'}
@@ -1467,6 +1550,25 @@ export function StudentCourseDetailClient({ initialData }: StudentCourseDetailCl
                 >
                   <Clock3 size={18} />
                   <span>Awaiting Evaluation...</span>
+                </div>
+              ) : isRegistrationClosed ? (
+                <div
+                  style={{
+                    padding: '0.9rem',
+                    borderRadius: '12px',
+                    background: 'rgba(239, 68, 68, 0.12)',
+                    border: '1px solid rgba(239, 68, 68, 0.35)',
+                    color: '#F87171',
+                    fontWeight: 800,
+                    fontSize: '0.92rem',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '0.5rem',
+                  }}
+                >
+                  <Lock size={18} />
+                  <span>{isDeadlinePassed ? 'Registration Deadline Passed' : 'Registration Closed'}</span>
                 </div>
               ) : (
                 <button

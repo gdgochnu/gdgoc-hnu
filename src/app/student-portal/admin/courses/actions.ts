@@ -28,6 +28,8 @@ export interface CreateCourseInput {
   cover_image_url?: string;
   enrollment_type: EnrollmentType;
   capacity?: number | null;
+  registration_deadline?: string | null;
+  registration_open?: boolean;
   syllabus?: string;
   status: CourseStatus;
   instructors?: Array<{
@@ -171,6 +173,8 @@ export async function getAdminCourses(): Promise<{
         category: c.category,
         department_id: c.department_id,
         capacity: c.capacity,
+        registration_deadline: c.registration_deadline || null,
+        registration_open: c.registration_open !== false,
         enrollment_type: c.enrollment_type,
         syllabus: c.syllabus,
         status: c.status,
@@ -256,6 +260,8 @@ export async function createAdminCourse(input: CreateCourseInput): Promise<{
         cover_image_url: input.cover_image_url?.trim() || null,
         enrollment_type: input.enrollment_type || 'open',
         capacity: input.capacity && input.capacity > 0 ? input.capacity : null,
+        registration_deadline: input.registration_deadline ? new Date(input.registration_deadline).toISOString() : null,
+        registration_open: input.registration_open !== false,
         syllabus: input.syllabus?.trim() || null,
         status: input.status || 'draft',
         created_by: profile.id,
@@ -350,6 +356,8 @@ export async function updateAdminCourse(input: UpdateCourseInput): Promise<{
     if (input.cover_image_url !== undefined) updatePayload.cover_image_url = input.cover_image_url.trim() || null;
     if (input.enrollment_type !== undefined) updatePayload.enrollment_type = input.enrollment_type;
     if (input.capacity !== undefined) updatePayload.capacity = input.capacity && input.capacity > 0 ? input.capacity : null;
+    if (input.registration_deadline !== undefined) updatePayload.registration_deadline = input.registration_deadline ? new Date(input.registration_deadline).toISOString() : null;
+    if (input.registration_open !== undefined) updatePayload.registration_open = input.registration_open;
     if (input.syllabus !== undefined) updatePayload.syllabus = input.syllabus.trim() || null;
     if (input.status !== undefined) updatePayload.status = input.status;
 
@@ -385,6 +393,8 @@ export async function updateAdminCourse(input: UpdateCourseInput): Promise<{
 
     revalidatePath('/student-portal/admin/courses');
     revalidatePath('/student');
+    revalidatePath('/student/courses');
+    revalidatePath(`/student/courses/${input.id}`);
     revalidatePath('/student/dashboard');
 
     return { success: true };
@@ -436,6 +446,66 @@ export async function deleteAdminCourse(courseId: string): Promise<{
     }
 
     revalidatePath('/student-portal/admin/courses');
+    revalidatePath('/student');
+    revalidatePath('/student/courses');
+
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err.message };
+  }
+}
+
+/**
+ * 5. Fast Toggle Course Registration Open/Closed Status
+ */
+export async function toggleCourseRegistrationOpen(
+  courseId: string,
+  currentOpen: boolean
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const context = await getUserContext();
+    if (!context.user || !context.profile) {
+      return { success: false, error: 'Unauthorized' };
+    }
+
+    const admin = createAdminClient();
+    const { data: course } = await admin
+      .from('courses')
+      .select('id, department_id')
+      .eq('id', courseId)
+      .maybeSingle();
+
+    if (!course) {
+      return { success: false, error: 'Course not found.' };
+    }
+
+    const profile = context.profile;
+    const role = profile.role;
+    const isPresident = role === 'president' || role === 'co_president' || role === 'branch_head';
+    const isOwnerHead =
+      ['committee_head', 'committee_co_head'].includes(role) &&
+      profile.department_id === course.department_id;
+
+    if (!isPresident && !isOwnerHead) {
+      return { success: false, error: 'Permission denied: Only Leadership and Committee Heads can toggle registration.' };
+    }
+
+    const newOpen = !currentOpen;
+    const { error: updErr } = await admin
+      .from('courses')
+      .update({
+        registration_open: newOpen,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', courseId);
+
+    if (updErr) {
+      return { success: false, error: updErr.message };
+    }
+
+    revalidatePath('/student-portal/admin/courses');
+    revalidatePath('/student/courses');
+    revalidatePath(`/student/courses/${courseId}`);
     revalidatePath('/student');
 
     return { success: true };

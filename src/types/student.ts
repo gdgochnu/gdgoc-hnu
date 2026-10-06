@@ -201,6 +201,8 @@ export interface Course {
   category: string | null;
   department_id: string | null;
   capacity: number | null;
+  registration_deadline?: string | null;
+  registration_open?: boolean;
   enrollment_type: EnrollmentType;
   syllabus: string | null;
   status: CourseStatus;

@@ -19,6 +19,7 @@ import {
   GraduationCap,
   Layers,
   ChevronRight,
+  Lock,
 } from 'lucide-react';
 import { StudentCourseCardItem } from '@/app/student/courses/actions';
 
@@ -64,7 +65,7 @@ export function StudentCoursesCatalogClient({
 
       let matchesMode = true;
       if (filterMode === 'open') {
-        matchesMode = !course.is_full && !course.my_enrollment_status;
+        matchesMode = !course.is_full && !course.my_enrollment_status && !course.is_registration_closed;
       } else if (filterMode === 'enrolled') {
         matchesMode = Boolean(course.my_enrollment_status);
       }
@@ -739,6 +740,24 @@ export function StudentCoursesCatalogClient({
                       >
                         Full
                       </span>
+                    ) : course.is_registration_closed ? (
+                      <span
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '0.35rem',
+                          padding: '0.3rem 0.75rem',
+                          borderRadius: '8px',
+                          fontSize: '0.74rem',
+                          fontWeight: 800,
+                          background: 'rgba(239, 68, 68, 0.9)',
+                          color: '#FFFFFF',
+                          boxShadow: '0 4px 12px rgba(239, 68, 68, 0.35)',
+                        }}
+                      >
+                        <Lock size={12} />
+                        Registration Closed
+                      </span>
                     ) : (
                       <span
                         style={{
@@ -838,6 +857,33 @@ export function StudentCoursesCatalogClient({
                       <Clock size={15} style={{ color: '#34D399', flexShrink: 0 }} />
                       <span style={{ fontWeight: 600 }}>~{hoursEst} hrs Total</span>
                     </div>
+
+                    {course.registration_deadline && (
+                      <div
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '0.45rem',
+                          gridColumn: 'span 2',
+                          fontSize: '0.76rem',
+                          color: course.is_registration_closed ? '#F87171' : '#FBBF24',
+                          fontWeight: 600,
+                          paddingTop: '0.2rem',
+                          borderTop: '1px dashed rgba(255, 255, 255, 0.08)',
+                        }}
+                      >
+                        <Clock size={13} style={{ flexShrink: 0 }} />
+                        <span>
+                          {course.is_registration_closed ? 'Deadline passed: ' : 'Deadline: '}
+                          {new Date(course.registration_deadline).toLocaleDateString(undefined, {
+                            month: 'short',
+                            day: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })}
+                        </span>
+                      </div>
+                    )}
                   </div>
 
                   {/* Teaching Staff Avatars & Footer Action */}

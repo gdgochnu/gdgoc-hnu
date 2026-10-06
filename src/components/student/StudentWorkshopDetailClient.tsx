@@ -70,6 +70,9 @@ export function StudentWorkshopDetailClient({ initialData }: StudentWorkshopDeta
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
+  const isDeadlinePassed = Boolean(workshop.registration_deadline && new Date(workshop.registration_deadline) < new Date());
+  const isRegClosed = !workshop.registration_open || isDeadlinePassed;
+
   // Active modular session selection
   const [activeSessionId, setActiveSessionId] = useState<string>(
     sessions.length > 0 ? sessions[0].id : ''
@@ -651,25 +654,25 @@ export function StudentWorkshopDetailClient({ initialData }: StudentWorkshopDeta
                 <button
                   type="button"
                   onClick={handleRegister}
-                  disabled={!canRegister || isSubmitting || workshop.is_full}
+                  disabled={!canRegister || isSubmitting || workshop.is_full || isRegClosed}
                   style={{
                     width: '100%',
                     padding: '0.85rem',
                     borderRadius: '12px',
                     background:
-                      workshop.is_full || !workshop.registration_open
+                      workshop.is_full || isRegClosed
                         ? 'rgba(255, 255, 255, 0.08)'
                         : 'linear-gradient(135deg, var(--google-blue, #4285F4) 0%, #2563EB 100%)',
                     border: 'none',
-                    color: workshop.is_full || !workshop.registration_open ? '#64748B' : '#FFFFFF',
+                    color: workshop.is_full || isRegClosed ? '#94A3B8' : '#FFFFFF',
                     fontWeight: 700,
                     fontSize: '0.9rem',
-                    cursor: workshop.is_full || !workshop.registration_open || isSubmitting ? 'not-allowed' : 'pointer',
+                    cursor: workshop.is_full || isRegClosed || isSubmitting ? 'not-allowed' : 'pointer',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
                     gap: '0.5rem',
-                    boxShadow: canRegister && !workshop.is_full ? '0 4px 14px rgba(66, 133, 244, 0.3)' : 'none',
+                    boxShadow: canRegister && !workshop.is_full && !isRegClosed ? '0 4px 14px rgba(66, 133, 244, 0.3)' : 'none',
                     opacity: isSubmitting ? 0.7 : 1,
                   }}
                 >
@@ -677,6 +680,8 @@ export function StudentWorkshopDetailClient({ initialData }: StudentWorkshopDeta
                     'Processing Registration...'
                   ) : workshop.is_full ? (
                     'Workshop is Full'
+                  ) : isDeadlinePassed ? (
+                    'Registration Deadline Passed'
                   ) : !workshop.registration_open ? (
                     'Registration Closed'
                   ) : needsOnboarding ? (
@@ -1723,31 +1728,33 @@ export function StudentWorkshopDetailClient({ initialData }: StudentWorkshopDeta
         ) : (
           <button
             type="button"
-            disabled={!canRegister || isSubmitting || workshop.is_full}
+            disabled={!canRegister || isSubmitting || workshop.is_full || isRegClosed}
             onClick={handleRegister}
             style={{
               padding: '0.65rem 1.25rem',
               borderRadius: '10px',
               background:
-                workshop.is_full || !workshop.registration_open
+                workshop.is_full || isRegClosed
                   ? 'rgba(255, 255, 255, 0.08)'
                   : 'linear-gradient(135deg, var(--google-blue, #4285F4) 0%, #2563EB 100%)',
               border: 'none',
-              color: workshop.is_full || !workshop.registration_open ? '#64748B' : '#FFFFFF',
+              color: workshop.is_full || isRegClosed ? '#94A3B8' : '#FFFFFF',
               fontSize: '0.85rem',
               fontWeight: 800,
-              cursor: workshop.is_full || !workshop.registration_open || isSubmitting ? 'not-allowed' : 'pointer',
+              cursor: workshop.is_full || isRegClosed || isSubmitting ? 'not-allowed' : 'pointer',
               display: 'inline-flex',
               alignItems: 'center',
               gap: '0.4rem',
               flexShrink: 0,
-              boxShadow: canRegister && !workshop.is_full ? '0 4px 12px rgba(66, 133, 244, 0.4)' : 'none',
+              boxShadow: canRegister && !workshop.is_full && !isRegClosed ? '0 4px 12px rgba(66, 133, 244, 0.4)' : 'none',
             }}
           >
             {isSubmitting ? (
               'Registering...'
             ) : workshop.is_full ? (
               'Full'
+            ) : isDeadlinePassed ? (
+              'Deadline Passed'
             ) : !workshop.registration_open ? (
               'Closed'
             ) : (

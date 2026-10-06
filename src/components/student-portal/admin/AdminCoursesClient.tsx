@@ -23,6 +23,8 @@ import {
   UserCheck,
   Lock,
   Unlock,
+  ToggleLeft,
+  ToggleRight,
   QrCode,
   FileText,
   Award,
@@ -37,6 +39,7 @@ import {
   createAdminCourse,
   updateAdminCourse,
   deleteAdminCourse,
+  toggleCourseRegistrationOpen,
   uploadCourseCoverImageAction,
 } from '@/app/student-portal/admin/courses/actions';
 import { CourseStatus, EnrollmentType, CourseInstructorRole } from '@/types/student';
@@ -62,6 +65,7 @@ export function AdminCoursesClient({
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | CourseStatus>('all');
   const [deptFilter, setDeptFilter] = useState<string>('all');
+  const [regFilter, setRegFilter] = useState<'all' | 'open' | 'closed'>('all');
 
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -77,6 +81,8 @@ export function AdminCoursesClient({
   const [formCoverUrl, setFormCoverUrl] = useState('');
   const [formEnrollType, setFormEnrollType] = useState<EnrollmentType>('open');
   const [formCapacity, setFormCapacity] = useState<string>('');
+  const [formDeadline, setFormDeadline] = useState('');
+  const [formRegOpen, setFormRegOpen] = useState(true);
   const [formSyllabus, setFormSyllabus] = useState('');
   const [formStatus, setFormStatus] = useState<CourseStatus>('draft');
   const [assignedInstructors, setAssignedInstructors] = useState<Array<{ profile_id: string; role: CourseInstructorRole }>>([]);
@@ -137,6 +143,8 @@ export function AdminCoursesClient({
     setFormCoverUrl('');
     setFormEnrollType('open');
     setFormCapacity('');
+    setFormDeadline('');
+    setFormRegOpen(true);
     setFormSyllabus('');
     setFormStatus('draft');
     setAssignedInstructors([]);
@@ -156,6 +164,12 @@ export function AdminCoursesClient({
     setFormCoverUrl(course.cover_image_url || '');
     setFormEnrollType(course.enrollment_type);
     setFormCapacity(course.capacity ? String(course.capacity) : '');
+    setFormDeadline(
+      course.registration_deadline
+        ? new Date(course.registration_deadline).toISOString().slice(0, 16)
+        : ''
+    );
+    setFormRegOpen(course.registration_open !== false);
     setFormSyllabus(course.syllabus || '');
     setFormStatus(course.status);
     setAssignedInstructors(
@@ -186,6 +200,22 @@ export function AdminCoursesClient({
     );
   };
 
+  const handleToggleReg = async (course: AdminCourseItem) => {
+    try {
+      const currentOpen = course.registration_open !== false;
+      const res = await toggleCourseRegistrationOpen(course.id, currentOpen);
+      if (!res.success) {
+        alert(res.error || 'Failed to toggle registration.');
+        return;
+      }
+      setCourses((prev) =>
+        prev.map((c) => (c.id === course.id ? { ...c, registration_open: !currentOpen } : c))
+      );
+    } catch (err: any) {
+      alert(err.message || 'An error occurred.');
+    }
+  };
+
   const handleSubmitCourse = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formTitle.trim()) {
@@ -205,6 +235,8 @@ export function AdminCoursesClient({
         cover_image_url: formCoverUrl,
         enrollment_type: formEnrollType,
         capacity: formCapacity ? parseInt(formCapacity, 10) : null,
+        registration_deadline: formDeadline ? new Date(formDeadline).toISOString() : null,
+        registration_open: formRegOpen,
         syllabus: formSyllabus,
         status: formStatus,
         instructors: assignedInstructors,
@@ -262,6 +294,8 @@ export function AdminCoursesClient({
           category: payload.category || null,
           department_id: payload.department_id || null,
           capacity: payload.capacity || null,
+          registration_deadline: payload.registration_deadline || null,
+          registration_open: payload.registration_open !== false,
           enrollment_type: payload.enrollment_type,
           syllabus: payload.syllabus || null,
           status: payload.status,
@@ -322,7 +356,11 @@ export function AdminCoursesClient({
     const matchesStatus = statusFilter === 'all' || c.status === statusFilter;
     const matchesDept = deptFilter === 'all' || c.department_id === deptFilter;
 
-    return matchesSearch && matchesStatus && matchesDept;
+    let matchesReg = true;
+    if (regFilter === 'open') matchesReg = c.registration_open !== false;
+    if (regFilter === 'closed') matchesReg = c.registration_open === false;
+
+    return matchesSearch && matchesStatus && matchesDept && matchesReg;
   });
 
   const totalCourses = courses.length;
@@ -535,6 +573,35 @@ export function AdminCoursesClient({
             ))}
           </div>
 
+          {/* Registration Filter */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+            {(
+              [
+                { key: 'all', label: 'All Reg' },
+                { key: 'open', label: 'Open' },
+                { key: 'closed', label: 'Closed' },
+              ] as const
+            ).map((r) => (
+              <button
+                key={r.key}
+                type="button"
+                onClick={() => setRegFilter(r.key)}
+                style={{
+                  padding: '0.4rem 0.65rem',
+                  borderRadius: '6px',
+                  fontSize: '0.76rem',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  border: regFilter === r.key ? '1px solid rgba(52, 168, 83, 0.4)' : '1px solid transparent',
+                  background: regFilter === r.key ? 'rgba(52, 168, 83, 0.15)' : 'rgba(255, 255, 255, 0.03)',
+                  color: regFilter === r.key ? '#86EFAC' : 'var(--text-secondary, #94A3B8)',
+                }}
+              >
+                {r.label}
+              </button>
+            ))}
+          </div>
+
           {/* Committee Filter for Leadership */}
           {isPresident && departments.length > 0 && (
             <select
@@ -743,6 +810,85 @@ export function AdminCoursesClient({
                       {course.description}
                     </p>
                   )}
+
+                  {/* Quick Registration Status Toggle & Deadline Bar */}
+                  {(() => {
+                    const isRegOpen = course.registration_open !== false;
+                    const hasDeadline = Boolean(course.registration_deadline);
+                    const isDeadlinePassed = hasDeadline && new Date(course.registration_deadline!) < new Date();
+
+                    return (
+                      <div
+                        style={{
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: '0.4rem',
+                          marginTop: '0.85rem',
+                          padding: '0.6rem 0.8rem',
+                          background: 'rgba(255, 255, 255, 0.03)',
+                          borderRadius: '8px',
+                          border: '1px solid rgba(255, 255, 255, 0.06)',
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', fontSize: '0.78rem' }}>
+                            <span
+                              style={{
+                                width: '8px',
+                                height: '8px',
+                                borderRadius: '50%',
+                                background: isRegOpen && !isDeadlinePassed ? '#10B981' : '#EF4444',
+                              }}
+                            />
+                            <span style={{ color: isRegOpen && !isDeadlinePassed ? '#86EFAC' : '#FCA5A5', fontWeight: 600 }}>
+                              {isRegOpen
+                                ? isDeadlinePassed
+                                  ? 'Registration Closed (Deadline Passed)'
+                                  : 'Registration Open'
+                                : 'Registration Closed (Manually Capped)'}
+                            </span>
+                          </div>
+
+                          {isOwner && (
+                            <button
+                              type="button"
+                              onClick={() => handleToggleReg(course)}
+                              style={{
+                                background: 'transparent',
+                                border: 'none',
+                                cursor: 'pointer',
+                                color: isRegOpen ? '#34D399' : '#94A3B8',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '0.25rem',
+                                fontSize: '0.75rem',
+                                fontWeight: 700,
+                              }}
+                              title={isRegOpen ? 'Click to close / lock registration' : 'Click to open registration'}
+                            >
+                              {isRegOpen ? <ToggleRight size={22} /> : <ToggleLeft size={22} />}
+                              <span>{isRegOpen ? 'Close Reg' : 'Open Reg'}</span>
+                            </button>
+                          )}
+                        </div>
+
+                        {course.registration_deadline && (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.72rem', color: isDeadlinePassed ? '#F87171' : '#94A3B8' }}>
+                            <Clock size={12} />
+                            <span>
+                              Deadline: {new Date(course.registration_deadline).toLocaleDateString(undefined, {
+                                month: 'short',
+                                day: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit',
+                              })}
+                            </span>
+                            {isDeadlinePassed && <span style={{ fontWeight: 700 }}>(Expired)</span>}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
 
                   {/* Metrics Bar */}
                   <div
@@ -1515,6 +1661,86 @@ export function AdminCoursesClient({
                     <option value="published">Published (Visible to Students)</option>
                     <option value="archived">Archived</option>
                   </select>
+                </div>
+              </div>
+
+              {/* Registration Open & Deadline Settings */}
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
+                  gap: '1rem',
+                  padding: '1rem',
+                  borderRadius: '12px',
+                  background: 'rgba(255, 255, 255, 0.02)',
+                  border: '1px solid rgba(255, 255, 255, 0.08)',
+                }}
+              >
+                {/* Registration Open Toggle */}
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, color: '#CBD5E1', marginBottom: '0.35rem' }}>
+                    Registration Gate (Open / Closed)
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setFormRegOpen(!formRegOpen)}
+                    style={{
+                      width: '100%',
+                      padding: '0.65rem 0.9rem',
+                      borderRadius: '8px',
+                      background: formRegOpen ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)',
+                      border: `1px solid ${formRegOpen ? 'rgba(16, 185, 129, 0.4)' : 'rgba(239, 68, 68, 0.4)'}`,
+                      color: formRegOpen ? '#86EFAC' : '#FCA5A5',
+                      fontSize: '0.88rem',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      transition: 'all 0.15s ease',
+                    }}
+                  >
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+                      <span
+                        style={{
+                          width: '8px',
+                          height: '8px',
+                          borderRadius: '50%',
+                          background: formRegOpen ? '#10B981' : '#EF4444',
+                        }}
+                      />
+                      <span>{formRegOpen ? 'Accepting Applications (Open)' : 'Registration Closed / Capped'}</span>
+                    </span>
+                    {formRegOpen ? <ToggleRight size={22} color="#10B981" /> : <ToggleLeft size={22} color="#EF4444" />}
+                  </button>
+                  <p style={{ margin: '0.3rem 0 0', fontSize: '0.74rem', color: '#94A3B8' }}>
+                    {formRegOpen ? 'Students can apply/enroll in this course.' : 'Registration is closed. No new applications accepted.'}
+                  </p>
+                </div>
+
+                {/* Registration Deadline */}
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, color: '#CBD5E1', marginBottom: '0.35rem' }}>
+                    Registration Deadline (Optional)
+                  </label>
+                  <input
+                    type="datetime-local"
+                    value={formDeadline}
+                    onChange={(e) => setFormDeadline(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '0.65rem 0.9rem',
+                      borderRadius: '8px',
+                      background: '#1E293B',
+                      border: '1px solid rgba(255, 255, 255, 0.12)',
+                      color: '#FFFFFF',
+                      fontSize: '0.88rem',
+                      outline: 'none',
+                    }}
+                  />
+                  <p style={{ margin: '0.3rem 0 0', fontSize: '0.74rem', color: '#94A3B8' }}>
+                    Automatically closes registration when the date/time arrives.
+                  </p>
                 </div>
               </div>
 
