@@ -32,6 +32,7 @@ import {
   UploadCloud,
   Image as ImageIcon,
   Loader2,
+  MessageCircle,
 } from 'lucide-react';
 import {
   AdminCourseItem,
@@ -1146,52 +1147,75 @@ export function AdminCoursesClient({
                       <span>Enroll ({course.enrollment_count})</span>
                     </Link>
 
-                  <Link
-                    href={`/student-portal/admin/courses/${course.id}/instructors`}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: '0.4rem',
-                      padding: '0.55rem 0.6rem',
-                      borderRadius: '8px',
-                      background: 'rgba(255, 255, 255, 0.04)',
-                      border: '1px solid rgba(255, 255, 255, 0.1)',
-                      color: '#E2E8F0',
-                      fontSize: '0.78rem',
-                      fontWeight: 600,
-                      textDecoration: 'none',
-                      transition: 'all 0.15s ease',
-                    }}
-                    title="Manage Instructors & Mentors"
-                  >
-                    <Users size={13} />
-                    <span>Instructors</span>
-                  </Link>
+                    <Link
+                      href={`/student-portal/admin/courses/${course.id}/groups`}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '0.4rem',
+                        padding: '0.55rem 0.6rem',
+                        borderRadius: '8px',
+                        background: 'rgba(56, 189, 248, 0.12)',
+                        border: '1px solid rgba(56, 189, 248, 0.28)',
+                        color: '#38BDF8',
+                        fontSize: '0.78rem',
+                        fontWeight: 700,
+                        textDecoration: 'none',
+                        transition: 'all 0.15s ease',
+                      }}
+                      title="Manage Study Groups & WhatsApp Links"
+                    >
+                      <MessageCircle size={13} />
+                      <span>Groups</span>
+                    </Link>
 
-                  <Link
-                    href={`/student-portal/admin/attendance/scan?type=course&courseId=${course.id}`}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: '0.4rem',
-                      padding: '0.55rem 0.6rem',
-                      borderRadius: '8px',
-                      background: 'linear-gradient(135deg, rgba(66, 133, 244, 0.16) 0%, rgba(52, 168, 83, 0.16) 100%)',
-                      border: '1px solid rgba(66, 133, 244, 0.35)',
-                      color: '#60A5FA',
-                      fontSize: '0.78rem',
-                      fontWeight: 700,
-                      textDecoration: 'none',
-                      transition: 'all 0.15s ease',
-                    }}
-                    title="Scan Student QR Codes for Attendance"
-                  >
-                    <QrCode size={13} style={{ color: '#34A853' }} />
-                    <span>Scan QR</span>
-                  </Link>
-                </div>
+                    <Link
+                      href={`/student-portal/admin/courses/${course.id}/instructors`}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '0.4rem',
+                        padding: '0.55rem 0.6rem',
+                        borderRadius: '8px',
+                        background: 'rgba(255, 255, 255, 0.04)',
+                        border: '1px solid rgba(255, 255, 255, 0.1)',
+                        color: '#E2E8F0',
+                        fontSize: '0.78rem',
+                        fontWeight: 600,
+                        textDecoration: 'none',
+                        transition: 'all 0.15s ease',
+                      }}
+                      title="Manage Instructors & Mentors"
+                    >
+                      <Users size={13} />
+                      <span>Instructors</span>
+                    </Link>
+
+                    <Link
+                      href={`/student-portal/admin/attendance/scan?type=course&courseId=${course.id}`}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '0.4rem',
+                        padding: '0.55rem 0.6rem',
+                        borderRadius: '8px',
+                        background: 'linear-gradient(135deg, rgba(66, 133, 244, 0.16) 0%, rgba(52, 168, 83, 0.16) 100%)',
+                        border: '1px solid rgba(66, 133, 244, 0.35)',
+                        color: '#60A5FA',
+                        fontSize: '0.78rem',
+                        fontWeight: 700,
+                        textDecoration: 'none',
+                        transition: 'all 0.15s ease',
+                      }}
+                      title="Scan Student QR Codes for Attendance"
+                    >
+                      <QrCode size={13} style={{ color: '#34A853' }} />
+                      <span>Scan QR</span>
+                    </Link>
+                  </div>
               </div>
             </div>
           );

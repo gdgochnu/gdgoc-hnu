@@ -121,6 +121,15 @@ export interface CourseDetailResult {
     status: EnrollmentStatus;
     enrolled_at: string;
     confirmed_at: string | null;
+    group_id?: string | null;
+    joined_group_at?: string | null;
+    group?: {
+      id: string;
+      name: string;
+      group_number: number;
+      invitation_link: string | null;
+      notes: string | null;
+    } | null;
   } | null;
   canEnroll: boolean;
   needsOnboarding: boolean;
@@ -364,7 +373,16 @@ export async function getCourseDetail(courseId: string): Promise<{
             department:departments!profiles_department_id_fkey(name, code)
           )
         ),
-        enrollments:course_enrollments(id, status, student_id, enrolled_at, confirmed_at)
+        enrollments:course_enrollments(
+          id,
+          status,
+          student_id,
+          enrolled_at,
+          confirmed_at,
+          group_id,
+          joined_group_at,
+          group:course_groups(id, name, group_number, invitation_link, notes)
+        )
       `)
       .eq('id', courseId)
       .single();
@@ -412,19 +430,27 @@ export async function getCourseDetail(courseId: string): Promise<{
     });
 
     // Check my enrollment
-    let myEnrollment: {
-      status: EnrollmentStatus;
-      enrolled_at: string;
-      confirmed_at: string | null;
-    } | null = null;
+    let myEnrollment: CourseDetailResult['myEnrollment'] = null;
 
     if (studentProfileId) {
       const myRecord = enrollments.find((e: any) => e.student_id === studentProfileId);
       if (myRecord) {
+        const grp = Array.isArray(myRecord.group) ? myRecord.group[0] : myRecord.group;
         myEnrollment = {
           status: myRecord.status as EnrollmentStatus,
           enrolled_at: myRecord.enrolled_at,
           confirmed_at: myRecord.confirmed_at,
+          group_id: myRecord.group_id || null,
+          joined_group_at: myRecord.joined_group_at || null,
+          group: grp
+            ? {
+                id: grp.id,
+                name: grp.name,
+                group_number: grp.group_number,
+                invitation_link: grp.invitation_link || null,
+                notes: grp.notes || null,
+              }
+            : null,
         };
       }
     }

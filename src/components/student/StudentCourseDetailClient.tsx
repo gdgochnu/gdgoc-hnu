@@ -40,6 +40,7 @@ import {
   PanelLeftOpen,
   Maximize2,
   Minimize2,
+  MessageCircle,
 } from 'lucide-react';
 import {
   CourseDetailResult,
@@ -50,6 +51,7 @@ import {
   enrollInCourse,
   submitStudentTask,
 } from '@/app/student/courses/actions';
+import { trackCourseGroupJoinAction } from '@/app/student-portal/admin/courses/[id]/groups/actions';
 import { RichMarkdownView } from './RichMarkdownView';
 
 interface StudentCourseDetailClientProps {
@@ -255,6 +257,29 @@ export function StudentCourseDetailClient({ initialData }: StudentCourseDetailCl
   // Cinema / Focus Mode for expanded lecture view
   const [isCinemaMode, setIsCinemaMode] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
+  const [isJoiningGroup, setIsJoiningGroup] = useState(false);
+
+  const handleJoinWhatsAppGroup = async () => {
+    if (!myEnrollment?.group?.invitation_link) return;
+    try {
+      setIsJoiningGroup(true);
+      await trackCourseGroupJoinAction({ courseId: course.id });
+      setMyEnrollment((prev) =>
+        prev
+          ? {
+              ...prev,
+              joined_group_at: new Date().toISOString(),
+            }
+          : null
+      );
+      window.open(myEnrollment.group.invitation_link, '_blank', 'noopener,noreferrer');
+    } catch (err: any) {
+      console.error('Error tracking WhatsApp group join:', err);
+      window.open(myEnrollment.group.invitation_link, '_blank', 'noopener,noreferrer');
+    } finally {
+      setIsJoiningGroup(false);
+    }
+  };
 
   // Tasks local state for dynamic updates
   const [tasksList, setTasksList] = useState<StudentTaskDetail[]>(tasks);
@@ -1670,76 +1695,186 @@ export function StudentCourseDetailClient({ initialData }: StudentCourseDetailCl
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
           {/* Student Learning Progress Card (Only shown when enrolled) */}
           {isConfirmed ? (
-            <div
-              className="glass-panel"
-              style={{
-                padding: '1.5rem',
-                borderRadius: '16px',
-                border: '1px solid rgba(52, 168, 83, 0.25)',
-                background: 'linear-gradient(135deg, rgba(52, 168, 83, 0.08) 0%, rgba(15, 23, 42, 0.8) 100%)',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '1rem',
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <div style={{ fontSize: '0.8rem', color: '#34D399', fontWeight: 700, textTransform: 'uppercase' }}>
-                  My Course Progress
-                </div>
-                <div style={{ fontSize: '0.85rem', fontWeight: 800, color: '#FFFFFF' }}>
-                  {attendanceRate}%
-                </div>
-              </div>
-
-              {/* Progress Bar */}
+            <>
               <div
+                className="glass-panel"
                 style={{
-                  width: '100%',
-                  height: '8px',
-                  borderRadius: '4px',
-                  background: 'rgba(255, 255, 255, 0.08)',
-                  overflow: 'hidden',
+                  padding: '1.5rem',
+                  borderRadius: '16px',
+                  border: '1px solid rgba(52, 168, 83, 0.25)',
+                  background: 'linear-gradient(135deg, rgba(52, 168, 83, 0.08) 0%, rgba(15, 23, 42, 0.8) 100%)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '1rem',
                 }}
               >
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <div style={{ fontSize: '0.8rem', color: '#34D399', fontWeight: 700, textTransform: 'uppercase' }}>
+                    My Course Progress
+                  </div>
+                  <div style={{ fontSize: '0.85rem', fontWeight: 800, color: '#FFFFFF' }}>
+                    {attendanceRate}%
+                  </div>
+                </div>
+
+                {/* Progress Bar */}
                 <div
                   style={{
-                    width: `${attendanceRate}%`,
-                    height: '100%',
-                    background: 'linear-gradient(90deg, #4285F4, #34A853)',
+                    width: '100%',
+                    height: '8px',
                     borderRadius: '4px',
-                    transition: 'width 0.3s ease',
+                    background: 'rgba(255, 255, 255, 0.08)',
+                    overflow: 'hidden',
                   }}
-                />
+                >
+                  <div
+                    style={{
+                      width: `${attendanceRate}%`,
+                      height: '100%',
+                      background: 'linear-gradient(90deg, #4285F4, #34A853)',
+                      borderRadius: '4px',
+                      transition: 'width 0.3s ease',
+                    }}
+                  />
+                </div>
+
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem', color: '#94A3B8' }}>
+                  <span>{attendedCount} of {sessions.length} attended</span>
+                  <span>{sessions.length - attendedCount} remaining</span>
+                </div>
+
+                {/* Permanent QR Pass Shortcut */}
+                <Link
+                  href="/student/my-qr"
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '0.5rem',
+                    padding: '0.65rem 1rem',
+                    borderRadius: '10px',
+                    background: 'rgba(66, 133, 244, 0.15)',
+                    border: '1px solid rgba(66, 133, 244, 0.35)',
+                    color: '#60A5FA',
+                    fontSize: '0.82rem',
+                    fontWeight: 700,
+                    textDecoration: 'none',
+                    marginTop: '0.25rem',
+                  }}
+                >
+                  <QrCode size={15} />
+                  Open Attendance QR Pass
+                </Link>
               </div>
 
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem', color: '#94A3B8' }}>
-                <span>{attendedCount} of {sessions.length} attended</span>
-                <span>{sessions.length - attendedCount} remaining</span>
-              </div>
-
-              {/* Permanent QR Pass Shortcut */}
-              <Link
-                href="/student/my-qr"
+              {/* Study Group / WhatsApp Cohort Card */}
+              <div
+                className="glass-panel"
                 style={{
+                  padding: '1.25rem 1.4rem',
+                  borderRadius: '16px',
+                  border: '1px solid rgba(37, 211, 102, 0.25)',
+                  background: 'linear-gradient(135deg, rgba(37, 211, 102, 0.08) 0%, rgba(15, 23, 42, 0.95) 100%)',
                   display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '0.5rem',
-                  padding: '0.65rem 1rem',
-                  borderRadius: '10px',
-                  background: 'rgba(66, 133, 244, 0.15)',
-                  border: '1px solid rgba(66, 133, 244, 0.35)',
-                  color: '#60A5FA',
-                  fontSize: '0.82rem',
-                  fontWeight: 700,
-                  textDecoration: 'none',
-                  marginTop: '0.25rem',
+                  flexDirection: 'column',
+                  gap: '0.85rem',
                 }}
               >
-                <QrCode size={15} />
-                Open Attendance QR Pass
-              </Link>
-            </div>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#4ADE80', fontWeight: 700, fontSize: '0.88rem' }}>
+                    <MessageCircle size={17} />
+                    <span>Study Group & Community</span>
+                  </div>
+                  {myEnrollment?.joined_group_at ? (
+                    <span
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '0.3rem',
+                        padding: '0.2rem 0.5rem',
+                        borderRadius: '6px',
+                        background: 'rgba(74, 222, 128, 0.15)',
+                        color: '#4ADE80',
+                        fontSize: '0.72rem',
+                        fontWeight: 700,
+                      }}
+                    >
+                      <CheckCircle2 size={12} />
+                      Joined
+                    </span>
+                  ) : (
+                    <span
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '0.3rem',
+                        padding: '0.2rem 0.5rem',
+                        borderRadius: '6px',
+                        background: 'rgba(251, 188, 4, 0.15)',
+                        color: '#FBBF24',
+                        fontSize: '0.72rem',
+                        fontWeight: 700,
+                      }}
+                    >
+                      <Clock3 size={12} />
+                      Action Required
+                    </span>
+                  )}
+                </div>
+
+                {myEnrollment?.group ? (
+                  <>
+                    <div style={{ background: 'rgba(255, 255, 255, 0.03)', border: '1px solid rgba(255, 255, 255, 0.06)', borderRadius: '10px', padding: '0.75rem 0.9rem' }}>
+                      <div style={{ fontSize: '0.72rem', color: '#94A3B8', fontWeight: 600 }}>Your Assigned Cohort</div>
+                      <div style={{ fontSize: '0.95rem', fontWeight: 800, color: '#FFFFFF', marginTop: '0.15rem' }}>
+                        {myEnrollment.group.name}
+                      </div>
+                      {myEnrollment.group.notes && (
+                        <div style={{ fontSize: '0.76rem', color: '#CBD5E1', marginTop: '0.35rem', lineHeight: 1.4 }}>
+                          {myEnrollment.group.notes}
+                        </div>
+                      )}
+                    </div>
+
+                    {myEnrollment.group.invitation_link ? (
+                      <button
+                        type="button"
+                        onClick={handleJoinWhatsAppGroup}
+                        disabled={isJoiningGroup}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: '0.5rem',
+                          padding: '0.75rem 1rem',
+                          borderRadius: '10px',
+                          background: 'linear-gradient(135deg, #25D366 0%, #128C7E 100%)',
+                          color: '#FFFFFF',
+                          fontSize: '0.85rem',
+                          fontWeight: 700,
+                          border: 'none',
+                          cursor: isJoiningGroup ? 'not-allowed' : 'pointer',
+                          boxShadow: '0 4px 14px rgba(37, 211, 102, 0.3)',
+                          transition: 'all 0.2s ease',
+                        }}
+                      >
+                        <MessageCircle size={16} />
+                        {myEnrollment.joined_group_at ? 'Open WhatsApp Group' : 'Join WhatsApp Group'}
+                        <ExternalLink size={14} />
+                      </button>
+                    ) : (
+                      <div style={{ fontSize: '0.78rem', color: '#94A3B8', fontStyle: 'italic', textAlign: 'center' }}>
+                        Group invite link will be published soon by your instructor.
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <div style={{ fontSize: '0.8rem', color: '#94A3B8', lineHeight: 1.5 }}>
+                    Cohort assignment in progress. Your instructor will assign you to a study group shortly.
+                  </div>
+                )}
+              </div>
+            </>
           ) : !isPending && canEnroll ? (
             /* Enrollment Action Box (Only shown if NOT yet enrolled) */
             <div

@@ -260,11 +260,29 @@ export interface CourseSession {
   updated_at: string;
 }
 
+export interface CourseGroup {
+  id: string;
+  course_id: string;
+  name: string;
+  group_number: number;
+  max_capacity: number;
+  invitation_link?: string | null;
+  notes?: string | null;
+  created_at: string;
+  updated_at: string;
+  assigned_count?: number;
+  joined_count?: number;
+}
+
 export interface CourseEnrollment {
   id: string;
   course_id: string;
   student_id: string;
   status: EnrollmentStatus;
+  group_id?: string | null;
+  joined_group_at?: string | null;
+  group_assigned_at?: string | null;
+  group?: CourseGroup | null;
   enrolled_at: string;
   confirmed_at: string | null;
   confirmed_by: string | null;

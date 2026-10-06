@@ -465,6 +465,72 @@ export function CourseEnrollmentsClient({
     >
 
 
+      {/* Top Navigation Bar */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem' }}>
+        <Link
+          href="/student-portal/admin/courses"
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '0.5rem',
+            color: '#94A3B8',
+            fontSize: '0.86rem',
+            fontWeight: 600,
+            textDecoration: 'none',
+            padding: '0.4rem 0.8rem',
+            borderRadius: '8px',
+            background: 'rgba(255, 255, 255, 0.04)',
+            border: '1px solid rgba(255, 255, 255, 0.08)',
+            transition: 'all 0.2s ease',
+          }}
+        >
+          <ArrowLeft size={16} />
+          Back to Courses
+        </Link>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+          <Link
+            href={`/student-portal/admin/courses/${header.id}/sessions`}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.5rem',
+              color: '#94A3B8',
+              fontSize: '0.84rem',
+              fontWeight: 600,
+              textDecoration: 'none',
+              padding: '0.5rem 1rem',
+              borderRadius: '10px',
+              background: 'rgba(255, 255, 255, 0.04)',
+              border: '1px solid rgba(255, 255, 255, 0.1)',
+            }}
+          >
+            <Calendar size={15} />
+            Sessions & Schedule
+          </Link>
+
+          <Link
+            href={`/student-portal/admin/courses/${header.id}/groups`}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.5rem',
+              color: '#38BDF8',
+              fontSize: '0.84rem',
+              fontWeight: 700,
+              textDecoration: 'none',
+              padding: '0.5rem 1rem',
+              borderRadius: '10px',
+              background: 'rgba(56, 189, 248, 0.12)',
+              border: '1px solid rgba(56, 189, 248, 0.3)',
+            }}
+          >
+            <Users size={15} />
+            Study Groups & WhatsApp Links
+          </Link>
+        </div>
+      </div>
+
       {/* Feedback Banner */}
       {feedback && (
         <div
