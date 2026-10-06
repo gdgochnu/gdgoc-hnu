@@ -859,6 +859,7 @@ export function StudentCourseDetailClient({ initialData }: StudentCourseDetailCl
                   <div>
                     <div suppressHydrationWarning style={{ fontSize: '0.94rem', fontWeight: 800, color: '#FFFFFF' }}>
                       {new Date(course.registration_deadline!).toLocaleDateString('en-US', {
+                        timeZone: 'Africa/Cairo',
                         month: 'short',
                         day: 'numeric',
                         hour: '2-digit',
@@ -1462,6 +1463,7 @@ export function StudentCourseDetailClient({ initialData }: StudentCourseDetailCl
                   </span>
                   <span suppressHydrationWarning style={{ color: '#CBD5E1', fontWeight: 700 }}>
                     {new Date(course.registration_deadline!).toLocaleDateString('en-US', {
+                      timeZone: 'Africa/Cairo',
                       month: 'short',
                       day: 'numeric',
                       hour: '2-digit',

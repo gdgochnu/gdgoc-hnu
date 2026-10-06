@@ -571,6 +571,7 @@ export function StudentWorkshopDetailClient({ initialData }: StudentWorkshopDeta
                     <span>Deadline:</span>
                     <span suppressHydrationWarning style={{ color: '#CBD5E1', fontWeight: 500 }}>
                       {new Date(workshop.registration_deadline).toLocaleDateString('en-US', {
+                        timeZone: 'Africa/Cairo',
                         month: 'short',
                         day: 'numeric',
                         hour: '2-digit',

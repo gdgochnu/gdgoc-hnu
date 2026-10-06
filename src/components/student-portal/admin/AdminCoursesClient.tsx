@@ -889,6 +889,7 @@ export function AdminCoursesClient({
                             <Clock size={12} />
                             <span suppressHydrationWarning>
                               Deadline: {new Date(course.registration_deadline).toLocaleDateString('en-US', {
+                                timeZone: 'Africa/Cairo',
                                 month: 'short',
                                 day: 'numeric',
                                 hour: '2-digit',

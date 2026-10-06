@@ -1108,6 +1108,7 @@ export function StudentWorkshopsCatalogClient({
                           <Clock size={12} style={{ flexShrink: 0 }} />
                           <span suppressHydrationWarning>
                             Deadline: {new Date(workshop.registration_deadline).toLocaleDateString('en-US', {
+                              timeZone: 'Africa/Cairo',
                               month: 'short',
                               day: 'numeric',
                               hour: '2-digit',
