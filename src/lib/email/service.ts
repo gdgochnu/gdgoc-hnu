@@ -1277,11 +1277,11 @@ export function renderGdgocEmailLayout(title: string, contentHtml: string): stri
 
           <!-- ── Header Banner ── -->
           <tr>
-            <td style="padding:0;line-height:0;">
-              <img src="https://lh3.googleusercontent.com/d/18LntSS9Esar14rqfRVlkvTr8elSEOzLV"
+            <td style="padding:0;line-height:0;font-size:0;background-color:#ffffff;">
+              <img src="https://drive.google.com/thumbnail?id=18LntSS9Esar14rqfRVlkvTr8elSEOzLV&sz=w1200"
                    alt="GDGoC Helwan National University"
-                   width="100%"
-                   style="display:block;width:100%;max-width:600px;height:auto;border:0;">
+                   width="600"
+                   style="display:block;width:100%;max-width:600px;height:auto;border:0;outline:none;-ms-interpolation-mode:bicubic;">
             </td>
           </tr>
 
@@ -1304,11 +1304,11 @@ export function renderGdgocEmailLayout(title: string, contentHtml: string): stri
             <td style="padding:24px 36px 36px;direction:ltr;text-align:left;">
               <table cellpadding="0" cellspacing="0" border="0" style="font-family:'Google Sans',Roboto,Arial,sans-serif;">
                 <tr>
-                  <td style="padding-bottom:12px;">
-                    <img src="https://lh3.googleusercontent.com/d/1DyyrxR0WWi7z9sPzAM5c1YPTkpcQhusI"
+                  <td style="padding-bottom:12px;line-height:0;font-size:0;">
+                    <img src="https://drive.google.com/thumbnail?id=1DyyrxR0WWi7z9sPzAM5c1YPTkpcQhusI&sz=w600"
                          alt="Google Developer Group On Campus - Helwan National University"
                          width="240"
-                         style="display:block;max-width:240px;height:auto;border:0;">
+                         style="display:block;width:240px;max-width:100%;height:auto;border:0;outline:none;">
                   </td>
                 </tr>
                 <tr>
