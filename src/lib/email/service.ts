@@ -1257,10 +1257,35 @@ export async function sendStudentCertificateEmail(params: SendStudentCertificate
 
 
 /**
+ * Resolves full public URL for email assets.
+ */
+export function getEmailAssetUrl(assetPath: string, portalUrl?: string): string {
+  const cleanPath = assetPath.replace(/^\//, '');
+  const base = (
+    portalUrl ||
+    process.env.NEXT_PUBLIC_APP_URL ||
+    process.env.NEXT_PUBLIC_SITE_URL ||
+    'https://gdgoc-hnu.vercel.app'
+  ).replace(/\/$/, '');
+
+  // When sending from localhost, external mail clients cannot reach localhost:3000,
+  // so use the canonical production domain for email delivery.
+  const resolvedBase =
+    base.includes('localhost') || base.includes('127.0.0.1')
+      ? 'https://gdgoc-hnu.vercel.app'
+      : base;
+
+  return `${resolvedBase}/${cleanPath}`;
+}
+
+/**
  * Renders the official GDGoC HNU email layout matching the standard
  * Non-Tech template design (white card, header banner, footer logo + signature).
  */
 export function renderGdgocEmailLayout(title: string, contentHtml: string): string {
+  const headerImgUrl = getEmailAssetUrl('images/email/header.png');
+  const logoImgUrl = getEmailAssetUrl('images/email/logo.png');
+
   return `
 <!DOCTYPE html>
 <html>
@@ -1278,7 +1303,7 @@ export function renderGdgocEmailLayout(title: string, contentHtml: string): stri
           <!-- ── Header Banner ── -->
           <tr>
             <td style="padding:0;line-height:0;font-size:0;background-color:#ffffff;">
-              <img src="https://drive.google.com/thumbnail?id=18LntSS9Esar14rqfRVlkvTr8elSEOzLV&sz=w1200"
+              <img src="${headerImgUrl}"
                    alt="GDGoC Helwan National University"
                    width="600"
                    style="display:block;width:100%;max-width:600px;height:auto;border:0;outline:none;-ms-interpolation-mode:bicubic;">
@@ -1305,7 +1330,7 @@ export function renderGdgocEmailLayout(title: string, contentHtml: string): stri
               <table cellpadding="0" cellspacing="0" border="0" style="font-family:'Google Sans',Roboto,Arial,sans-serif;">
                 <tr>
                   <td style="padding-bottom:12px;line-height:0;font-size:0;">
-                    <img src="https://drive.google.com/thumbnail?id=1DyyrxR0WWi7z9sPzAM5c1YPTkpcQhusI&sz=w600"
+                    <img src="${logoImgUrl}"
                          alt="Google Developer Group On Campus - Helwan National University"
                          width="240"
                          style="display:block;width:240px;max-width:100%;height:auto;border:0;outline:none;">
