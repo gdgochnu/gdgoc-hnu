@@ -1507,8 +1507,8 @@ export async function sendCourseEnrollmentConfirmedEmail(params: {
 
 /**
  * Builds the standalone HTML for Course WhatsApp Group Join Reminder Email.
- * Crucial: Does NOT include the raw WhatsApp link directly; instead instructs students
- * to visit their course page on the portal to join and register their group attendance.
+ * English version: Instructs students to visit their course page on the portal
+ * to join their group (without raw WhatsApp links in email).
  */
 export function renderCourseWhatsAppReminderEmailHtml(params: {
   studentName: string;
@@ -1520,60 +1520,60 @@ export function renderCourseWhatsAppReminderEmailHtml(params: {
 }): string {
   const appUrl = (params.portalUrl || process.env.NEXT_PUBLIC_APP_URL || 'https://gdgoc-hnu.vercel.app').replace(/\/$/, '');
   const courseUrl = `${appUrl}/student/courses/${params.courseId}`;
-  const groupDisplay = params.groupName || 'مجموعتك الدراسية';
+  const groupDisplay = params.groupName || 'Your Assigned Study Group';
   const categoryDisplay = params.courseCategory || 'GDGoC HNU';
 
   const contentHtml = `
     <!-- Greeting -->
-    <p style="margin:0 0 16px;font-size:18px;font-weight:bold;color:#202124;font-family:'Google Sans',Roboto,Arial,sans-serif;direction:rtl;text-align:right;">
-      عزيزي/عزيزتي <strong>${params.studentName}</strong>،
+    <p style="margin:0 0 16px;font-size:18px;font-weight:bold;color:#202124;font-family:'Google Sans',Roboto,Arial,sans-serif;direction:ltr;text-align:left;">
+      Dear <strong>${params.studentName}</strong>,
     </p>
 
     <!-- Urgency / Reminder Banner -->
-    <div style="background-color:#fff8e1;border-right:4px solid #fbbc04;border-radius:8px 0 0 8px;padding:16px 20px;margin:0 0 22px;direction:rtl;text-align:right;">
+    <div style="background-color:#fff8e1;border-left:4px solid #fbbc04;border-radius:0 8px 8px 0;padding:16px 20px;margin:0 0 22px;direction:ltr;text-align:left;">
       <div style="display:flex;align-items:center;gap:8px;">
         <span style="font-size:20px;">⚠️</span>
         <span style="font-size:15px;color:#b45309;font-weight:800;font-family:'Google Sans',Roboto,Arial,sans-serif;">
-          تذكير هام: لم تنضم إلى مجموعة الواتساب لمسار "${params.courseTitle}" بعد!
+          Action Required: You haven't joined your WhatsApp group for "${params.courseTitle}" yet!
         </span>
       </div>
       <p style="margin:8px 0 0;font-size:13.5px;color:#92400e;line-height:1.6;font-family:Arial,sans-serif;">
-        لاحظنا أنك مسجل في المسار ولكنك لم تقم بالدخول والانضمام لجروب المتابعة عبر موقع المنصة.
+        We noticed that you are confirmed for the course but have not yet accessed the student portal to join your assigned study group.
       </p>
     </div>
 
-    <!-- Main Explanation in Arabic -->
-    <p style="margin:0 0 16px;font-size:14.5px;color:#3c4043;line-height:1.8;font-family:Arial,sans-serif;direction:rtl;text-align:right;">
-      نود تذكيرك بأنك مسجل رسمياً في مسار <strong>${params.courseTitle}</strong> وتم تعيينك في: 
+    <!-- Main Explanation in English -->
+    <p style="margin:0 0 16px;font-size:14.5px;color:#3c4043;line-height:1.8;font-family:Arial,sans-serif;direction:ltr;text-align:left;">
+      You are officially enrolled in <strong>${params.courseTitle}</strong> and allocated to: 
       <strong style="color:#1a73e8;">${groupDisplay}</strong>.
     </p>
 
-    <p style="margin:0 0 20px;font-size:14.5px;color:#3c4043;line-height:1.8;font-family:Arial,sans-serif;direction:rtl;text-align:right;">
-      للحفاظ على تسجيل حضورك وربط حسابك بالمجموعة وضمان وصول مواعيد المحاضرات وروابط الجلسات والمواد التعليمية إليك أولاً بأول، يرجى <strong>الدخول إلى الموقع والضغط على زر الانضمام للجروب من داخل صفحة الكورس</strong>.
+    <p style="margin:0 0 20px;font-size:14.5px;color:#3c4043;line-height:1.8;font-family:Arial,sans-serif;direction:ltr;text-align:left;">
+      To keep up with upcoming session dates, meeting links, learning materials, and announcements from instructors, please <strong>log in to the student portal and click the "Join WhatsApp Group" button directly on your course page</strong>.
     </p>
 
     <!-- Course & Group Details Card -->
     <table width="100%" cellpadding="0" cellspacing="0" border="0"
-           style="background-color:#f8f9fa;border-radius:12px;border:1.5px solid #e8eaed;overflow:hidden;margin-bottom:22px;direction:rtl;text-align:right;">
+           style="background-color:#f8f9fa;border-radius:12px;border:1.5px solid #e8eaed;overflow:hidden;margin-bottom:22px;direction:ltr;text-align:left;">
       <tr>
         <td style="background-color:#1a73e8;padding:12px 20px;color:#ffffff;font-size:14px;font-weight:bold;font-family:'Google Sans',Roboto,Arial,sans-serif;">
-          بيانات التسجيل والمجموعة
+          Enrollment & Cohort Information
         </td>
       </tr>
       <tr>
         <td style="padding:16px 20px;">
-          <table width="100%" cellpadding="0" cellspacing="0" border="0" style="direction:rtl;text-align:right;">
+          <table width="100%" cellpadding="0" cellspacing="0" border="0" style="direction:ltr;text-align:left;">
             <tr>
-              <td width="130" style="padding:6px 0;font-size:13px;color:#5f6368;font-family:Arial,sans-serif;font-weight:bold;">المسار التدريبي:</td>
+              <td width="150" style="padding:6px 0;font-size:13px;color:#5f6368;font-family:Arial,sans-serif;font-weight:bold;">Course Track:</td>
               <td style="padding:6px 0;font-size:14.5px;color:#202124;font-family:Arial,sans-serif;font-weight:bold;">${params.courseTitle}</td>
             </tr>
             <tr>
-              <td style="padding:6px 0;font-size:13px;color:#5f6368;font-family:Arial,sans-serif;font-weight:bold;">المجموعة المخصصة:</td>
+              <td style="padding:6px 0;font-size:13px;color:#5f6368;font-family:Arial,sans-serif;font-weight:bold;">Assigned Group:</td>
               <td style="padding:6px 0;font-size:14.5px;color:#1a73e8;font-family:Arial,sans-serif;font-weight:bold;">${groupDisplay}</td>
             </tr>
             <tr>
-              <td style="padding:6px 0;font-size:13px;color:#5f6368;font-family:Arial,sans-serif;font-weight:bold;">حالة الجروب:</td>
-              <td style="padding:6px 0;font-size:14px;color:#ea4335;font-family:Arial,sans-serif;font-weight:bold;">⏳ في انتظار انضمامك عبر المنصة</td>
+              <td style="padding:6px 0;font-size:13px;color:#5f6368;font-family:Arial,sans-serif;font-weight:bold;">WhatsApp Status:</td>
+              <td style="padding:6px 0;font-size:14px;color:#ea4335;font-family:Arial,sans-serif;font-weight:bold;">⏳ Pending your join via student portal</td>
             </tr>
           </table>
         </td>
@@ -1581,18 +1581,15 @@ export function renderCourseWhatsAppReminderEmailHtml(params: {
     </table>
 
     <!-- Step by Step instructions box -->
-    <div style="background-color:#f0f7ff;border:1.5px dashed #4285f4;border-radius:12px;padding:20px;margin:0 0 24px;direction:rtl;text-align:right;">
+    <div style="background-color:#f0f7ff;border:1.5px dashed #4285f4;border-radius:12px;padding:20px;margin:0 0 24px;direction:ltr;text-align:left;">
       <div style="font-size:15px;font-weight:bold;color:#1a73e8;margin-bottom:10px;font-family:'Google Sans',Roboto,Arial,sans-serif;">
-        📌 خطوات الانضمام للجروب:
+        📌 How to Join Your Study Group:
       </div>
-      <ol style="margin:0;padding-right:22px;font-size:14px;color:#374151;line-height:1.9;font-family:Arial,sans-serif;">
-        <li>اضغط على الزر أدناه <strong>"الدخول لصفحة الكورس والانضمام للجروب"</strong>.</li>
-        <li>في صفحة المسار، ستجد بطاقة مجموعتك الدراسية (<strong>${groupDisplay}</strong>).</li>
-        <li>اضغط على زر <strong>"📲 الانضمام إلى جروب الواتساب"</strong> ليتم تسجيل انضمامك على الفور وفتح رابط المحادثة.</li>
+      <ol style="margin:0;padding-left:22px;font-size:14px;color:#374151;line-height:1.9;font-family:Arial,sans-serif;">
+        <li>Click the button below: <strong>"Go to Course Page & Join Group"</strong>.</li>
+        <li>On your course dashboard, locate your study section card (<strong>${groupDisplay}</strong>).</li>
+        <li>Click <strong>"📲 Join WhatsApp Group"</strong> to connect with your peers and confirm your attendance.</li>
       </ol>
-      <div style="margin-top:14px;padding-top:12px;border-top:1px solid #dbeafe;font-size:12.5px;color:#6b7280;line-height:1.5;">
-        🔒 <strong>ملاحظة أمنية:</strong> لا يتم إرفاق رابط الواتساب المباشر في هذا الإيميل لضمان دخول الطلاب المقبولين فقط وحفظ سجل متابعتك.
-      </div>
     </div>
 
     <!-- CTA Button -->
@@ -1601,30 +1598,20 @@ export function renderCourseWhatsAppReminderEmailHtml(params: {
         <td align="center" style="border-radius:10px;background:linear-gradient(135deg, #1a73e8 0%, #4285f4 100%);box-shadow:0 4px 14px rgba(26,115,232,0.35);">
           <a href="${courseUrl}" target="_blank"
              style="font-size:16px;font-weight:700;color:#ffffff;text-decoration:none;padding:15px 36px;display:inline-block;border-radius:10px;font-family:'Google Sans',Roboto,Arial,sans-serif;">
-            🚀 الدخول لصفحة الكورس والانضمام للجروب &rarr;
+            🚀 Go to Course Page & Join Group &rarr;
           </a>
         </td>
       </tr>
     </table>
 
-    <!-- English Summary Section -->
-    <div style="background-color:#f8f9fa;border-radius:10px;border:1px solid #e8eaed;padding:16px 20px;margin-bottom:20px;font-family:Arial,sans-serif;direction:ltr;text-align:left;">
-      <p style="margin:0 0 6px;font-size:12px;font-weight:bold;color:#5f6368;text-transform:uppercase;letter-spacing:0.5px;">
-        English Instructions
-      </p>
-      <p style="margin:0;font-size:13.5px;color:#3c4043;line-height:1.6;">
-        Dear <strong>${params.studentName}</strong>, this is a reminder that you have not yet joined your assigned study group (<strong>${groupDisplay}</strong>) for <strong>${params.courseTitle}</strong>. Please click the button above to access your student portal and click the "Join WhatsApp Group" button to complete your group onboarding.
-      </p>
-    </div>
-
     <!-- Closing -->
-    <p style="margin:20px 0 0;font-size:14px;color:#202124;font-weight:bold;font-family:'Google Sans',Roboto,Arial,sans-serif;direction:rtl;text-align:right;">
-      بالتوفيق لك، ونراك قريباً في أولى المحاضرات! ✨<br/>
-      فريق عمل GDGoC — Helwan National University
+    <p style="margin:20px 0 0;font-size:14px;color:#202124;font-weight:bold;font-family:'Google Sans',Roboto,Arial,sans-serif;direction:ltr;text-align:left;">
+      Best of luck, and we look forward to seeing you in the upcoming sessions! ✨<br/>
+      GDGoC Team — Helwan National University
     </p>
   `;
 
-  return renderGdgocEmailLayout(`[تذكير] انضم لمجموعة ${params.courseTitle} — GDGoC HNU`, contentHtml);
+  return renderGdgocEmailLayout(`[Reminder] Join Your WhatsApp Group for ${params.courseTitle} — GDGoC HNU`, contentHtml);
 }
 
 /**
@@ -1643,7 +1630,7 @@ export async function sendCourseWhatsAppReminderEmail(params: {
 
   return sendEmail({
     to: params.to,
-    subject: `[تذكير مهم] انضم إلى مجموعة الواتساب لمسار "${params.courseTitle}" عبر موقع المنصة | GDGoC HNU`,
+    subject: `[Reminder] Join your WhatsApp Group for "${params.courseTitle}" via Portal | GDGoC HNU`,
     html,
     metadata: {
       type: 'course_whatsapp_reminder',

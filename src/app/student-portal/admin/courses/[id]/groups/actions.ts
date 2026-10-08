@@ -966,8 +966,8 @@ export async function sendCourseWhatsAppReminderEmailsAction(input: {
         const grp = Array.isArray(e.group) ? e.group[0] : e.group;
         if (!stu?.email) throw new Error('No email found');
 
-        const studentName = stu.full_name_ar || stu.full_name_en || 'Student';
-        const groupName = grp?.name || 'مجموعتك الدراسية';
+        const studentName = stu.full_name_en || stu.full_name_ar || 'Student';
+        const groupName = grp?.name || 'Your Study Group';
 
         // 1) Send Email
         const mailRes = await sendCourseWhatsAppReminderEmail({
@@ -984,8 +984,8 @@ export async function sendCourseWhatsAppReminderEmailsAction(input: {
           dispatchStudentNotification({
             studentId: stu.id,
             type: 'course',
-            title: `تذكير: انضم لجروب الواتساب لمسار ${course.title}`,
-            message: `يرجى فتح صفحة المسار والانضمام إلى ${groupName} لتسجيل حضورك ومتابعة آخر التحديثات مع المدربين والزملاء.`,
+            title: `Reminder: Join WhatsApp Group for ${course.title}`,
+            message: `Please open your course page and click "Join WhatsApp Group" in "${groupName}" to stay updated with your instructors and peers.`,
             linkUrl: `/student/courses/${input.courseId}`,
             relatedEntityType: 'course',
             relatedEntityId: input.courseId,
@@ -1045,7 +1045,7 @@ export async function sendTestCourseWhatsAppReminderEmailAction(input: {
 
     const result = await sendCourseWhatsAppReminderEmail({
       to: input.testEmail.trim(),
-      studentName: 'Test Student (تجربة المعاينة)',
+      studentName: 'Test Student (Preview)',
       courseTitle: course.title,
       courseCategory: course.category,
       courseId: input.courseId,
