@@ -40,6 +40,8 @@ import {
   UserCheck,
   Send,
   Loader2,
+  Bell,
+  MailCheck,
 } from 'lucide-react';
 import { CourseGroup } from '@/types/student';
 import {
@@ -53,8 +55,13 @@ import {
   bulkAssignStudentsToGroupAction,
   sendTestGroupEmailAction,
   sendGroupConfirmationEmailsAction,
+  sendCourseWhatsAppReminderEmailsAction,
+  sendTestCourseWhatsAppReminderEmailAction,
 } from '@/app/student-portal/admin/courses/[id]/groups/actions';
-import { renderCourseEnrollmentEmailHtml } from '@/lib/email/service';
+import {
+  renderCourseEnrollmentEmailHtml,
+  renderCourseWhatsAppReminderEmailHtml,
+} from '@/lib/email/service';
 
 interface CourseGroupsClientProps {
   initialData: CourseGroupsPageData;
@@ -103,6 +110,32 @@ export function CourseGroupsClient({ initialData }: CourseGroupsClientProps) {
     });
   }, [selectedGroupForEmail, course.title, course.category, course.id]);
 
+  // ─── WhatsApp Reminder Modal State ──────────────────────────────
+  const [showReminderModal, setShowReminderModal] = useState(false);
+  const [reminderTarget, setReminderTarget] = useState<{
+    type: 'all' | 'group' | 'selected' | 'single';
+    groupId?: string;
+    groupName?: string;
+    enrollmentId?: string;
+    studentName?: string;
+    count: number;
+  } | null>(null);
+  const [reminderTestEmail, setReminderTestEmail] = useState('');
+  const [isSendingReminderTest, setIsSendingReminderTest] = useState(false);
+  const [isSendingReminders, setIsSendingReminders] = useState(false);
+  const [reminderFeedback, setReminderFeedback] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  // WhatsApp Reminder Preview HTML (Without direct WhatsApp link)
+  const reminderPreviewHtml = useMemo(() => {
+    return renderCourseWhatsAppReminderEmailHtml({
+      studentName: reminderTarget?.studentName || 'Ahmed Mohamed (Preview)',
+      courseTitle: course.title,
+      courseCategory: course.category,
+      courseId: course.id,
+      groupName: reminderTarget?.groupName || 'Group 1',
+    });
+  }, [reminderTarget, course.title, course.category, course.id]);
+
   // Form states for Add/Edit Group
   const [groupNameInput, setGroupNameInput] = useState('');
   const [groupCapacityInput, setGroupCapacityInput] = useState('50');
@@ -131,6 +164,17 @@ export function CourseGroupsClient({ initialData }: CourseGroupsClientProps) {
   const assignedStudents = students.filter((s) => s.group_id);
   const unassignedStudents = students.filter((s) => !s.group_id);
   const joinedStudents = students.filter((s) => s.joined_group_at);
+  const unjoinedAssignedStudents = useMemo(
+    () => students.filter((s) => s.group_id && !s.joined_group_at),
+    [students]
+  );
+  const selectedUnjoinedCount = useMemo(
+    () =>
+      students.filter(
+        (s) => selectedStudentIds.includes(s.enrollment_id) && !s.joined_group_at && s.group_id
+      ).length,
+    [students, selectedStudentIds]
+  );
   const joinRatePercent = assignedStudents.length > 0
     ? Math.round((joinedStudents.length / assignedStudents.length) * 100)
     : 0;
@@ -195,6 +239,107 @@ export function CourseGroupsClient({ initialData }: CourseGroupsClientProps) {
     setSelectedStudentIds((prev) =>
       prev.includes(enrollmentId) ? prev.filter((id) => id !== enrollmentId) : [...prev, enrollmentId]
     );
+  };
+
+  // ─── WhatsApp Reminder Action Handlers ──────────────────────────
+  const handleOpenReminderModal = (target: {
+    type: 'all' | 'group' | 'selected' | 'single';
+    groupId?: string;
+    groupName?: string;
+    enrollmentId?: string;
+    studentName?: string;
+    count: number;
+  }) => {
+    setReminderTarget(target);
+    setReminderFeedback(null);
+    setShowReminderModal(true);
+  };
+
+  const handleSendReminderTest = async () => {
+    if (!reminderTestEmail.trim()) {
+      setReminderFeedback({ type: 'error', text: 'يرجى إدخال بريد إلكتروني صالح للتجربة.' });
+      return;
+    }
+    try {
+      setIsSendingReminderTest(true);
+      setReminderFeedback(null);
+      const res = await sendTestCourseWhatsAppReminderEmailAction({
+        courseId: course.id,
+        groupId: reminderTarget?.groupId || null,
+        testEmail: reminderTestEmail.trim(),
+      });
+      if (!res.success) {
+        setReminderFeedback({ type: 'error', text: res.error || 'فشل إرسال إيميل التذكير التجريبي.' });
+      } else {
+        setReminderFeedback({ type: 'success', text: `✅ تم إرسال إيميل التذكير التجريبي بنجاح إلى ${reminderTestEmail}` });
+      }
+    } catch (err: any) {
+      setReminderFeedback({ type: 'error', text: err.message || 'حدث خطأ غير متوقع أثناء إرسال التجربة.' });
+    } finally {
+      setIsSendingReminderTest(false);
+    }
+  };
+
+  const handleExecuteSendReminders = async () => {
+    if (!reminderTarget) return;
+    if (reminderTarget.count === 0) {
+      setReminderFeedback({ type: 'error', text: 'لا يوجد طلاب غير منضمين في النطاق المحدد لإرسال التذكير لهم.' });
+      return;
+    }
+
+    const targetDesc =
+      reminderTarget.type === 'all'
+        ? `جميع الطلاب غير المنضمين للمجموعات (${reminderTarget.count} طالب)`
+        : reminderTarget.type === 'group'
+        ? `غير المنضمين في ${reminderTarget.groupName || 'المجموعة'} (${reminderTarget.count} طالب)`
+        : reminderTarget.type === 'single'
+        ? `الطالب ${reminderTarget.studentName || 'المحدد'}`
+        : `الطلاب المحددين (${reminderTarget.count} طالب)`;
+
+    if (
+      !confirm(
+        `هل أنت متأكد من إرسال إيميل تذكير بالانضمام للجروب عبر موقع المنصة إلى ${targetDesc}؟\n(ملاحظة: الإيميل سيوجه الطلاب للدخول إلى الموقع ولن يحتوي على رابط الواتساب المباشر)`
+      )
+    ) {
+      return;
+    }
+
+    try {
+      setIsSendingReminders(true);
+      setReminderFeedback(null);
+
+      let enrollmentIdsToSend: string[] | undefined = undefined;
+      if (reminderTarget.type === 'single' && reminderTarget.enrollmentId) {
+        enrollmentIdsToSend = [reminderTarget.enrollmentId];
+      } else if (reminderTarget.type === 'selected') {
+        enrollmentIdsToSend = students
+          .filter((s) => selectedStudentIds.includes(s.enrollment_id) && !s.joined_group_at && s.group_id)
+          .map((s) => s.enrollment_id);
+      }
+
+      const res = await sendCourseWhatsAppReminderEmailsAction({
+        courseId: course.id,
+        groupId: reminderTarget.type === 'group' ? reminderTarget.groupId : undefined,
+        enrollmentIds: enrollmentIdsToSend,
+      });
+
+      if (!res.success) {
+        setReminderFeedback({ type: 'error', text: res.error || 'فشل إرسال إيميلات التذكير.' });
+      } else {
+        setReminderFeedback({
+          type: 'success',
+          text: `🎉 تم إرسال إيميلات التذكير بنجاح! تم تسليم ${res.sentCount} إيميل وإشعار${res.failedCount ? `، وفشل ${res.failedCount}` : ''}.`,
+        });
+        setFeedback({
+          type: 'success',
+          text: `تم إرسال تذكير الدخول والانضمام لجروب الواتساب لـ ${res.sentCount} طالب بنجاح!`,
+        });
+      }
+    } catch (err: any) {
+      setReminderFeedback({ type: 'error', text: err.message || 'حدث خطأ غير متوقع أثناء إرسال التذكيرات.' });
+    } finally {
+      setIsSendingReminders(false);
+    }
   };
 
   // Group Email Handlers
@@ -675,6 +820,35 @@ ${link}
 
             {canManage && (
               <>
+                {unjoinedAssignedStudents.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      handleOpenReminderModal({
+                        type: 'all',
+                        count: unjoinedAssignedStudents.length,
+                      })
+                    }
+                    style={{
+                      padding: '0.65rem 1.15rem',
+                      borderRadius: '10px',
+                      background: 'linear-gradient(135deg, #F59E0B 0%, #D97706 100%)',
+                      border: 'none',
+                      color: '#FFFFFF',
+                      fontSize: '0.85rem',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '0.45rem',
+                      boxShadow: '0 4px 14px rgba(245, 158, 11, 0.35)',
+                    }}
+                    title="إرسال إيميل تذكير بالدخول والانضمام للجروب لجميع الطلاب الذين لم ينضموا بعد"
+                  >
+                    <Bell size={15} /> تذكير غير المنضمين ({unjoinedAssignedStudents.length})
+                  </button>
+                )}
+
                 <button
                   type="button"
                   onClick={() => setShowAutoDistributeModal(true)}
@@ -1104,31 +1278,66 @@ ${link}
                     </div>
                   )}
 
-                  {/* Send Group Confirmation Email Button */}
+                  {/* Send Group Confirmation Email & Reminder Buttons */}
                   {canManage && (
-                    <button
-                      type="button"
-                      onClick={() => handleOpenGroupEmailModal(g)}
-                      style={{
-                        padding: '0.55rem 0.85rem',
-                        borderRadius: '8px',
-                        background: 'linear-gradient(135deg, rgba(234, 67, 53, 0.18) 0%, rgba(251, 188, 4, 0.15) 100%)',
-                        border: '1px solid rgba(234, 67, 53, 0.38)',
-                        color: '#FCA5A5',
-                        fontSize: '0.78rem',
-                        fontWeight: 700,
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        gap: '0.45rem',
-                        transition: 'all 0.15s ease',
-                      }}
-                      title={`معاينة وإرسال إيميل التأكيد لطلاب ${g.name}`}
-                    >
-                      <Send size={13} />
-                      <span>إرسال إيميل تأكيد للجروب ({assigned} طالب)</span>
-                    </button>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                      <button
+                        type="button"
+                        onClick={() => handleOpenGroupEmailModal(g)}
+                        style={{
+                          padding: '0.55rem 0.85rem',
+                          borderRadius: '8px',
+                          background: 'linear-gradient(135deg, rgba(234, 67, 53, 0.18) 0%, rgba(251, 188, 4, 0.15) 100%)',
+                          border: '1px solid rgba(234, 67, 53, 0.38)',
+                          color: '#FCA5A5',
+                          fontSize: '0.78rem',
+                          fontWeight: 700,
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: '0.45rem',
+                          transition: 'all 0.15s ease',
+                        }}
+                        title={`معاينة وإرسال إيميل التأكيد لطلاب ${g.name}`}
+                      >
+                        <Send size={13} />
+                        <span>إرسال إيميل تأكيد للجروب ({assigned} طالب)</span>
+                      </button>
+
+                      {assigned - joined > 0 && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            handleOpenReminderModal({
+                              type: 'group',
+                              groupId: g.id,
+                              groupName: g.name,
+                              count: assigned - joined,
+                            })
+                          }
+                          style={{
+                            padding: '0.55rem 0.85rem',
+                            borderRadius: '8px',
+                            background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.2) 0%, rgba(217, 119, 6, 0.18) 100%)',
+                            border: '1px solid rgba(245, 158, 11, 0.45)',
+                            color: '#FDE68A',
+                            fontSize: '0.78rem',
+                            fontWeight: 700,
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: '0.45rem',
+                            transition: 'all 0.15s ease',
+                          }}
+                          title={`تذكير الطلاب الذين لم يدخلوا الجروب بعد (${assigned - joined} طالب)`}
+                        >
+                          <Bell size={13} />
+                          <span>تذكير غير المنضمين بالإيميل ({assigned - joined} طالب)</span>
+                        </button>
+                      )}
+                    </div>
                   )}
 
                   {/* Filter by this group shortcut button */}
@@ -1368,6 +1577,36 @@ ${link}
                   {isBulkAssigning ? 'Applying...' : 'Apply Group'}
                 </button>
 
+                {selectedUnjoinedCount > 0 && (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      handleOpenReminderModal({
+                        type: 'selected',
+                        count: selectedUnjoinedCount,
+                      })
+                    }
+                    style={{
+                      padding: '0.45rem 0.9rem',
+                      borderRadius: '8px',
+                      background: 'linear-gradient(135deg, #F59E0B 0%, #D97706 100%)',
+                      border: 'none',
+                      color: '#FFFFFF',
+                      fontWeight: 700,
+                      fontSize: '0.82rem',
+                      cursor: 'pointer',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '0.35rem',
+                      boxShadow: '0 2px 8px rgba(245, 158, 11, 0.3)',
+                    }}
+                    title="إرسال إيميل تذكير بالانضمام للجروب للطلاب المحددين الذين لم ينضموا بعد"
+                  >
+                    <Bell size={13} />
+                    <span>تذكير غير المنضمين ({selectedUnjoinedCount})</span>
+                  </button>
+                )}
+
                 <button
                   type="button"
                   onClick={() => setSelectedStudentIds([])}
@@ -1588,6 +1827,38 @@ ${link}
                       {/* WhatsApp Nudge & Phone */}
                       <td style={{ padding: '0.85rem 1rem', textAlign: 'right' }}>
                         <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.45rem', justifyContent: 'flex-end' }}>
+                          {canManage && isAssigned && !isJoined && (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                handleOpenReminderModal({
+                                  type: 'single',
+                                  enrollmentId: s.enrollment_id,
+                                  studentName: s.full_name_ar || s.full_name_en || s.email,
+                                  groupId: s.group_id || undefined,
+                                  groupName: s.group_name || undefined,
+                                  count: 1,
+                                })
+                              }
+                              style={{
+                                padding: '0.35rem 0.65rem',
+                                borderRadius: '6px',
+                                background: 'rgba(245, 158, 11, 0.15)',
+                                border: '1px solid rgba(245, 158, 11, 0.35)',
+                                color: '#FBBF24',
+                                fontSize: '0.75rem',
+                                fontWeight: 700,
+                                cursor: 'pointer',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '0.35rem',
+                              }}
+                              title="إرسال إيميل تذكير بالدخول والانضمام لهذا الطالب"
+                            >
+                              <MailCheck size={13} /> تذكير ميل
+                            </button>
+                          )}
+
                           {(s.whatsapp_number || s.phone) && isAssigned && grp?.invitation_link && (
                             <a
                               href={getWhatsAppNudgeUrl(s)}
@@ -2249,6 +2520,281 @@ ${link}
                       {isSendingGroupAll
                         ? 'جاري إرسال الإيميلات...'
                         : `إرسال التأكيد لـ ${selectedGroupForEmail.assigned_count || 0} طالب في هذا الجروب`}
+                    </span>
+                  </button>
+                )}
+              </div>
+
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─── WhatsApp Reminder Modal ──────────────────────── */}
+      {showReminderModal && reminderTarget && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 9999,
+            background: 'rgba(0,0,0,0.78)',
+            backdropFilter: 'blur(8px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '1rem',
+          }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setShowReminderModal(false);
+          }}
+        >
+          <div
+            style={{
+              background: 'linear-gradient(135deg, #0F172A 0%, #171C2E 100%)',
+              border: '1px solid rgba(245, 158, 11, 0.35)',
+              borderRadius: '20px',
+              width: '100%',
+              maxWidth: '840px',
+              maxHeight: '92vh',
+              overflow: 'hidden',
+              display: 'flex',
+              flexDirection: 'column',
+              boxShadow: '0 25px 60px rgba(0,0,0,0.8), 0 0 30px rgba(245, 158, 11, 0.15)',
+            }}
+          >
+            {/* Modal Header */}
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '1.25rem 1.75rem',
+                borderBottom: '1px solid rgba(255,255,255,0.08)',
+                background: 'rgba(255,255,255,0.02)',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                <div
+                  style={{
+                    width: '42px',
+                    height: '42px',
+                    borderRadius: '12px',
+                    background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.25), rgba(217, 119, 6, 0.2))',
+                    border: '1px solid rgba(245, 158, 11, 0.45)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <Bell size={20} color="#FBBF24" />
+                </div>
+                <div>
+                  <div style={{ fontSize: '1.15rem', fontWeight: 800, color: '#FFFFFF', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <span>إرسال إيميل تذكير بالانضمام لجروب الواتساب</span>
+                    <span
+                      style={{
+                        padding: '0.2rem 0.6rem',
+                        borderRadius: '20px',
+                        background: 'rgba(245, 158, 11, 0.2)',
+                        border: '1px solid rgba(245, 158, 11, 0.4)',
+                        color: '#FDE68A',
+                        fontSize: '0.75rem',
+                        fontWeight: 700,
+                      }}
+                    >
+                      {reminderTarget.type === 'all'
+                        ? `كافة غير المنضمين (${reminderTarget.count})`
+                        : reminderTarget.type === 'group'
+                        ? `${reminderTarget.groupName || 'المجموعة'} (${reminderTarget.count})`
+                        : reminderTarget.type === 'single'
+                        ? reminderTarget.studentName
+                        : `المحددين (${reminderTarget.count})`}
+                    </span>
+                  </div>
+                  <div style={{ fontSize: '0.8rem', color: '#94A3B8', marginTop: '2px' }}>
+                    يوجه الطلاب للدخول إلى المنصة والانضمام من صفحة الكورس لتسجيل الحضور وتوثيق الانضمام
+                  </div>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowReminderModal(false)}
+                style={{ background: 'transparent', border: 'none', color: '#94A3B8', cursor: 'pointer', padding: '0.4rem', borderRadius: '8px' }}
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Modal Body - Scrollable */}
+            <div style={{ overflowY: 'auto', flex: 1, padding: '1.5rem 1.75rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+
+              {/* Feedback Banner */}
+              {reminderFeedback && (
+                <div
+                  style={{
+                    padding: '0.85rem 1.2rem',
+                    borderRadius: '10px',
+                    background: reminderFeedback.type === 'success' ? 'rgba(52,168,83,0.15)' : 'rgba(234,67,53,0.15)',
+                    border: `1px solid ${reminderFeedback.type === 'success' ? 'rgba(52,168,83,0.4)' : 'rgba(234,67,53,0.4)'}`,
+                    color: reminderFeedback.type === 'success' ? '#34D399' : '#F87171',
+                    fontSize: '0.88rem',
+                    fontWeight: 600,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.6rem',
+                  }}
+                >
+                  {reminderFeedback.type === 'success' ? <CheckCircle2 size={16} /> : <AlertCircle size={16} />}
+                  <span>{reminderFeedback.text}</span>
+                </div>
+              )}
+
+              {/* Security & Tracking Notice */}
+              <div
+                style={{
+                  background: 'rgba(59, 130, 246, 0.08)',
+                  border: '1px solid rgba(59, 130, 246, 0.25)',
+                  borderRadius: '12px',
+                  padding: '1rem 1.25rem',
+                  display: 'flex',
+                  alignItems: 'flex-start',
+                  gap: '0.75rem',
+                }}
+              >
+                <ShieldCheck size={20} color="#60A5FA" style={{ flexShrink: 0, marginTop: '2px' }} />
+                <div style={{ fontSize: '0.84rem', color: '#CBD5E1', lineHeight: 1.6 }}>
+                  <strong style={{ color: '#93C5FD' }}>حماية وأمان الروابط وتتبع الحضور:</strong> لا يحتوي هذا الإيميل على رابط الواتساب المباشر، بل يرشد الطلاب للدخول إلى صفحة الكورس في موقع المنصة والضغط على زر الانضمام، مما يحفظ سجل تتبع حضور الطلاب (<code style={{ color: '#60A5FA' }}>joined_group_at</code>) بدقة ويمنع تسريب الروابط لغير المقبولين.
+                </div>
+              </div>
+
+              {/* Section 1: Live Email Preview */}
+              <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '14px', overflow: 'hidden' }}>
+                <div
+                  style={{
+                    padding: '0.85rem 1.2rem',
+                    borderBottom: '1px solid rgba(255,255,255,0.06)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.6rem',
+                    background: 'rgba(255,255,255,0.03)',
+                  }}
+                >
+                  <Eye size={16} color="#FBBF24" />
+                  <span style={{ fontSize: '0.9rem', fontWeight: 700, color: '#FFFFFF' }}>معاينة شكل إيميل التذكير</span>
+                  <span style={{ fontSize: '0.78rem', color: '#94A3B8', marginLeft: 'auto' }}>
+                    هكذا سيظهر الإيميل للطلاب غير المنضمين
+                  </span>
+                </div>
+                <div style={{ padding: '0.75rem', background: '#f1f3f4', borderRadius: '0 0 14px 14px' }}>
+                  <iframe
+                    title="WhatsApp Reminder Email Preview"
+                    style={{ width: '100%', height: '420px', border: 'none', borderRadius: '10px', background: '#ffffff', display: 'block' }}
+                    srcDoc={reminderPreviewHtml}
+                  />
+                </div>
+              </div>
+
+              {/* Section 2: Send Test Reminder Email */}
+              <div style={{ background: 'rgba(245, 158, 11, 0.06)', border: '1px solid rgba(245, 158, 11, 0.25)', borderRadius: '14px', padding: '1.15rem 1.35rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.55rem', marginBottom: '0.5rem' }}>
+                  <Send size={15} color="#FBBF24" />
+                  <span style={{ fontSize: '0.92rem', fontWeight: 700, color: '#FFFFFF' }}>إرسال إيميل تذكير تجريبي (Test)</span>
+                </div>
+                <p style={{ margin: '0 0 0.85rem', fontSize: '0.82rem', color: '#94A3B8', lineHeight: 1.5 }}>
+                  أدخل بريدك الإلكتروني لاختبار استلام وتنسيق رسالة التذكير قبل إرسالها للطلاب.
+                </p>
+                <div style={{ display: 'flex', gap: '0.65rem', flexWrap: 'wrap' }}>
+                  <input
+                    type="email"
+                    placeholder="test@example.com"
+                    value={reminderTestEmail}
+                    onChange={(e) => setReminderTestEmail(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') handleSendReminderTest();
+                    }}
+                    style={{
+                      flex: 1,
+                      minWidth: '220px',
+                      padding: '0.6rem 0.9rem',
+                      borderRadius: '10px',
+                      background: 'rgba(255,255,255,0.06)',
+                      border: '1px solid rgba(255,255,255,0.15)',
+                      color: '#FFFFFF',
+                      fontSize: '0.86rem',
+                      outline: 'none',
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={handleSendReminderTest}
+                    disabled={isSendingReminderTest || !reminderTestEmail.trim()}
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '0.45rem',
+                      padding: '0.6rem 1.3rem',
+                      borderRadius: '10px',
+                      background: !reminderTestEmail.trim() ? 'rgba(245, 158, 11, 0.2)' : 'linear-gradient(135deg, #F59E0B, #D97706)',
+                      border: 'none',
+                      color: '#FFFFFF',
+                      fontSize: '0.86rem',
+                      fontWeight: 700,
+                      cursor: isSendingReminderTest || !reminderTestEmail.trim() ? 'not-allowed' : 'pointer',
+                      opacity: !reminderTestEmail.trim() ? 0.5 : 1,
+                    }}
+                  >
+                    {isSendingReminderTest ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
+                    <span>{isSendingReminderTest ? 'جاري الإرسال...' : 'أرسل Test'}</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Section 3: Execute Dispatch to Target */}
+              <div style={{ background: 'rgba(245, 158, 11, 0.08)', border: '1px solid rgba(245, 158, 11, 0.3)', borderRadius: '14px', padding: '1.15rem 1.35rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.55rem', marginBottom: '0.5rem' }}>
+                  <Users size={16} color="#FBBF24" />
+                  <span style={{ fontSize: '0.92rem', fontWeight: 700, color: '#FFFFFF' }}>
+                    إرسال التذكيرات الآن إلى: {reminderTarget.type === 'all'
+                      ? `جميع الطلاب غير المنضمين (${reminderTarget.count} طالب)`
+                      : reminderTarget.type === 'group'
+                      ? `غير المنضمين في ${reminderTarget.groupName || 'المجموعة'} (${reminderTarget.count} طالب)`
+                      : reminderTarget.type === 'single'
+                      ? `الطالب ${reminderTarget.studentName}`
+                      : `الطلاب المحددين (${reminderTarget.count} طالب)`}
+                  </span>
+                </div>
+                <p style={{ margin: '0 0 0.85rem', fontSize: '0.82rem', color: '#94A3B8', lineHeight: 1.5 }}>
+                  سيتم إرسال إيميل تذكير مخصص بالإضافة إلى إشعار داخلي في حساب الطالب على المنصة.
+                </p>
+
+                {reminderTarget.count === 0 ? (
+                  <div style={{ padding: '0.65rem 0.9rem', borderRadius: '8px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: '#94A3B8', fontSize: '0.82rem' }}>
+                    لا يوجد أي طلاب مؤهلين غير منضمين في هذا النطاق.
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={handleExecuteSendReminders}
+                    disabled={isSendingReminders}
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '0.55rem',
+                      padding: '0.75rem 1.5rem',
+                      borderRadius: '10px',
+                      background: isSendingReminders ? 'rgba(245, 158, 11, 0.2)' : 'linear-gradient(135deg, #F59E0B 0%, #D97706 100%)',
+                      border: 'none',
+                      color: '#FFFFFF',
+                      fontSize: '0.9rem',
+                      fontWeight: 800,
+                      cursor: isSendingReminders ? 'not-allowed' : 'pointer',
+                      boxShadow: '0 4px 16px rgba(245, 158, 11, 0.35)',
+                    }}
+                  >
+                    {isSendingReminders ? <Loader2 size={16} className="animate-spin" /> : <Bell size={16} />}
+                    <span>
+                      {isSendingReminders
+                        ? 'جاري إرسال إيميلات التذكير...'
+                        : `إرسال التذكيرات الآن (${reminderTarget.count} طالب)`}
                     </span>
                   </button>
                 )}

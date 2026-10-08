@@ -1504,3 +1504,153 @@ export async function sendCourseEnrollmentConfirmedEmail(params: {
     },
   });
 }
+
+/**
+ * Builds the standalone HTML for Course WhatsApp Group Join Reminder Email.
+ * Crucial: Does NOT include the raw WhatsApp link directly; instead instructs students
+ * to visit their course page on the portal to join and register their group attendance.
+ */
+export function renderCourseWhatsAppReminderEmailHtml(params: {
+  studentName: string;
+  courseTitle: string;
+  courseCategory?: string | null;
+  courseId: string;
+  groupName?: string | null;
+  portalUrl?: string;
+}): string {
+  const appUrl = (params.portalUrl || process.env.NEXT_PUBLIC_APP_URL || 'https://gdgoc-hnu.vercel.app').replace(/\/$/, '');
+  const courseUrl = `${appUrl}/student/courses/${params.courseId}`;
+  const groupDisplay = params.groupName || 'مجموعتك الدراسية';
+  const categoryDisplay = params.courseCategory || 'GDGoC HNU';
+
+  const contentHtml = `
+    <!-- Greeting -->
+    <p style="margin:0 0 16px;font-size:18px;font-weight:bold;color:#202124;font-family:'Google Sans',Roboto,Arial,sans-serif;direction:rtl;text-align:right;">
+      عزيزي/عزيزتي <strong>${params.studentName}</strong>،
+    </p>
+
+    <!-- Urgency / Reminder Banner -->
+    <div style="background-color:#fff8e1;border-right:4px solid #fbbc04;border-radius:8px 0 0 8px;padding:16px 20px;margin:0 0 22px;direction:rtl;text-align:right;">
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span style="font-size:20px;">⚠️</span>
+        <span style="font-size:15px;color:#b45309;font-weight:800;font-family:'Google Sans',Roboto,Arial,sans-serif;">
+          تذكير هام: لم تنضم إلى مجموعة الواتساب لمسار "${params.courseTitle}" بعد!
+        </span>
+      </div>
+      <p style="margin:8px 0 0;font-size:13.5px;color:#92400e;line-height:1.6;font-family:Arial,sans-serif;">
+        لاحظنا أنك مسجل في المسار ولكنك لم تقم بالدخول والانضمام لجروب المتابعة عبر موقع المنصة.
+      </p>
+    </div>
+
+    <!-- Main Explanation in Arabic -->
+    <p style="margin:0 0 16px;font-size:14.5px;color:#3c4043;line-height:1.8;font-family:Arial,sans-serif;direction:rtl;text-align:right;">
+      نود تذكيرك بأنك مسجل رسمياً في مسار <strong>${params.courseTitle}</strong> وتم تعيينك في: 
+      <strong style="color:#1a73e8;">${groupDisplay}</strong>.
+    </p>
+
+    <p style="margin:0 0 20px;font-size:14.5px;color:#3c4043;line-height:1.8;font-family:Arial,sans-serif;direction:rtl;text-align:right;">
+      للحفاظ على تسجيل حضورك وربط حسابك بالمجموعة وضمان وصول مواعيد المحاضرات وروابط الجلسات والمواد التعليمية إليك أولاً بأول، يرجى <strong>الدخول إلى الموقع والضغط على زر الانضمام للجروب من داخل صفحة الكورس</strong>.
+    </p>
+
+    <!-- Course & Group Details Card -->
+    <table width="100%" cellpadding="0" cellspacing="0" border="0"
+           style="background-color:#f8f9fa;border-radius:12px;border:1.5px solid #e8eaed;overflow:hidden;margin-bottom:22px;direction:rtl;text-align:right;">
+      <tr>
+        <td style="background-color:#1a73e8;padding:12px 20px;color:#ffffff;font-size:14px;font-weight:bold;font-family:'Google Sans',Roboto,Arial,sans-serif;">
+          بيانات التسجيل والمجموعة
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:16px 20px;">
+          <table width="100%" cellpadding="0" cellspacing="0" border="0" style="direction:rtl;text-align:right;">
+            <tr>
+              <td width="130" style="padding:6px 0;font-size:13px;color:#5f6368;font-family:Arial,sans-serif;font-weight:bold;">المسار التدريبي:</td>
+              <td style="padding:6px 0;font-size:14.5px;color:#202124;font-family:Arial,sans-serif;font-weight:bold;">${params.courseTitle}</td>
+            </tr>
+            <tr>
+              <td style="padding:6px 0;font-size:13px;color:#5f6368;font-family:Arial,sans-serif;font-weight:bold;">المجموعة المخصصة:</td>
+              <td style="padding:6px 0;font-size:14.5px;color:#1a73e8;font-family:Arial,sans-serif;font-weight:bold;">${groupDisplay}</td>
+            </tr>
+            <tr>
+              <td style="padding:6px 0;font-size:13px;color:#5f6368;font-family:Arial,sans-serif;font-weight:bold;">حالة الجروب:</td>
+              <td style="padding:6px 0;font-size:14px;color:#ea4335;font-family:Arial,sans-serif;font-weight:bold;">⏳ في انتظار انضمامك عبر المنصة</td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+
+    <!-- Step by Step instructions box -->
+    <div style="background-color:#f0f7ff;border:1.5px dashed #4285f4;border-radius:12px;padding:20px;margin:0 0 24px;direction:rtl;text-align:right;">
+      <div style="font-size:15px;font-weight:bold;color:#1a73e8;margin-bottom:10px;font-family:'Google Sans',Roboto,Arial,sans-serif;">
+        📌 خطوات الانضمام للجروب:
+      </div>
+      <ol style="margin:0;padding-right:22px;font-size:14px;color:#374151;line-height:1.9;font-family:Arial,sans-serif;">
+        <li>اضغط على الزر أدناه <strong>"الدخول لصفحة الكورس والانضمام للجروب"</strong>.</li>
+        <li>في صفحة المسار، ستجد بطاقة مجموعتك الدراسية (<strong>${groupDisplay}</strong>).</li>
+        <li>اضغط على زر <strong>"📲 الانضمام إلى جروب الواتساب"</strong> ليتم تسجيل انضمامك على الفور وفتح رابط المحادثة.</li>
+      </ol>
+      <div style="margin-top:14px;padding-top:12px;border-top:1px solid #dbeafe;font-size:12.5px;color:#6b7280;line-height:1.5;">
+        🔒 <strong>ملاحظة أمنية:</strong> لا يتم إرفاق رابط الواتساب المباشر في هذا الإيميل لضمان دخول الطلاب المقبولين فقط وحفظ سجل متابعتك.
+      </div>
+    </div>
+
+    <!-- CTA Button -->
+    <table border="0" cellspacing="0" cellpadding="0" style="margin:0 auto 24px auto;">
+      <tr>
+        <td align="center" style="border-radius:10px;background:linear-gradient(135deg, #1a73e8 0%, #4285f4 100%);box-shadow:0 4px 14px rgba(26,115,232,0.35);">
+          <a href="${courseUrl}" target="_blank"
+             style="font-size:16px;font-weight:700;color:#ffffff;text-decoration:none;padding:15px 36px;display:inline-block;border-radius:10px;font-family:'Google Sans',Roboto,Arial,sans-serif;">
+            🚀 الدخول لصفحة الكورس والانضمام للجروب &rarr;
+          </a>
+        </td>
+      </tr>
+    </table>
+
+    <!-- English Summary Section -->
+    <div style="background-color:#f8f9fa;border-radius:10px;border:1px solid #e8eaed;padding:16px 20px;margin-bottom:20px;font-family:Arial,sans-serif;direction:ltr;text-align:left;">
+      <p style="margin:0 0 6px;font-size:12px;font-weight:bold;color:#5f6368;text-transform:uppercase;letter-spacing:0.5px;">
+        English Instructions
+      </p>
+      <p style="margin:0;font-size:13.5px;color:#3c4043;line-height:1.6;">
+        Dear <strong>${params.studentName}</strong>, this is a reminder that you have not yet joined your assigned study group (<strong>${groupDisplay}</strong>) for <strong>${params.courseTitle}</strong>. Please click the button above to access your student portal and click the "Join WhatsApp Group" button to complete your group onboarding.
+      </p>
+    </div>
+
+    <!-- Closing -->
+    <p style="margin:20px 0 0;font-size:14px;color:#202124;font-weight:bold;font-family:'Google Sans',Roboto,Arial,sans-serif;direction:rtl;text-align:right;">
+      بالتوفيق لك، ونراك قريباً في أولى المحاضرات! ✨<br/>
+      فريق عمل GDGoC — Helwan National University
+    </p>
+  `;
+
+  return renderGdgocEmailLayout(`[تذكير] انضم لمجموعة ${params.courseTitle} — GDGoC HNU`, contentHtml);
+}
+
+/**
+ * Sends a WhatsApp group join reminder email to a student without the direct link.
+ */
+export async function sendCourseWhatsAppReminderEmail(params: {
+  to: string;
+  studentName: string;
+  courseTitle: string;
+  courseCategory?: string | null;
+  courseId: string;
+  groupName?: string | null;
+  portalUrl?: string;
+}): Promise<EmailResult> {
+  const html = renderCourseWhatsAppReminderEmailHtml(params);
+
+  return sendEmail({
+    to: params.to,
+    subject: `[تذكير مهم] انضم إلى مجموعة الواتساب لمسار "${params.courseTitle}" عبر موقع المنصة | GDGoC HNU`,
+    html,
+    metadata: {
+      type: 'course_whatsapp_reminder',
+      course_id: params.courseId,
+      student_email: params.to,
+      group_name: params.groupName,
+    },
+  });
+}
+

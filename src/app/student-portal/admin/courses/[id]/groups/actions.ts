@@ -5,7 +5,10 @@ import { getUserContext } from '@/lib/auth/get-user-context';
 import { revalidatePath } from 'next/cache';
 import { CourseGroup } from '@/types/student';
 import { dispatchStudentNotification } from '@/app/student/notifications/actions';
-import { sendCourseEnrollmentConfirmedEmail } from '@/lib/email/service';
+import {
+  sendCourseEnrollmentConfirmedEmail,
+  sendCourseWhatsAppReminderEmail,
+} from '@/lib/email/service';
 
 export interface GroupStudentItem {
   enrollment_id: string;
@@ -883,4 +886,181 @@ export async function sendGroupConfirmationEmailsAction(input: {
     return { success: false, error: err.message };
   }
 }
+
+/**
+ * Sends WhatsApp group joining reminder emails to confirmed students who haven't joined yet.
+ * Can be scoped to:
+ * - All unjoined students in the course (if no groupId or enrollmentIds provided)
+ * - All unjoined students in a specific group (if groupId provided)
+ * - Specific selected students (if enrollmentIds provided)
+ * Crucial: The email instructs students to join via the website and does not expose direct WhatsApp links.
+ */
+export async function sendCourseWhatsAppReminderEmailsAction(input: {
+  courseId: string;
+  groupId?: string | null;
+  enrollmentIds?: string[];
+}): Promise<{
+  success: boolean;
+  sentCount?: number;
+  failedCount?: number;
+  totalStudents?: number;
+  error?: string;
+}> {
+  try {
+    const access = await verifyGroupAccess(input.courseId);
+    if (!access.authorized || !access.course) {
+      return { success: false, error: access.error };
+    }
+
+    const { course, admin } = access;
+
+    // 1. Build Query for enrollments: confirmed + assigned to a group + not joined yet
+    let query = admin
+      .from('course_enrollments')
+      .select(`
+        id,
+        student_id,
+        group_id,
+        joined_group_at,
+        group:course_groups(
+          id,
+          name
+        ),
+        student:student_profiles!course_enrollments_student_id_fkey(
+          id,
+          full_name_en,
+          full_name_ar,
+          email
+        )
+      `)
+      .eq('course_id', input.courseId)
+      .eq('status', 'confirmed')
+      .is('joined_group_at', null);
+
+    if (input.enrollmentIds && input.enrollmentIds.length > 0) {
+      query = query.in('id', input.enrollmentIds);
+    } else if (input.groupId) {
+      query = query.eq('group_id', input.groupId);
+    } else {
+      // All unjoined students who have an assigned group
+      query = query.not('group_id', 'is', null);
+    }
+
+    const { data: enrollments, error: enrollErr } = await query;
+
+    if (enrollErr) {
+      return { success: false, error: enrollErr.message };
+    }
+
+    if (!enrollments || enrollments.length === 0) {
+      return {
+        success: false,
+        error: 'لم يتم العثور على أي طلاب في قائمة غير المنضمين لهذه الفئة.',
+      };
+    }
+
+    // 2. Dispatch reminder emails & in-app notifications in parallel
+    const results = await Promise.allSettled(
+      enrollments.map(async (e: any) => {
+        const stu = Array.isArray(e.student) ? e.student[0] : e.student;
+        const grp = Array.isArray(e.group) ? e.group[0] : e.group;
+        if (!stu?.email) throw new Error('No email found');
+
+        const studentName = stu.full_name_ar || stu.full_name_en || 'Student';
+        const groupName = grp?.name || 'مجموعتك الدراسية';
+
+        // 1) Send Email
+        const mailRes = await sendCourseWhatsAppReminderEmail({
+          to: stu.email,
+          studentName,
+          courseTitle: course.title,
+          courseCategory: course.category,
+          courseId: input.courseId,
+          groupName,
+        });
+
+        // 2) Send in-app notification
+        if (stu.id) {
+          dispatchStudentNotification({
+            studentId: stu.id,
+            type: 'course',
+            title: `تذكير: انضم لجروب الواتساب لمسار ${course.title}`,
+            message: `يرجى فتح صفحة المسار والانضمام إلى ${groupName} لتسجيل حضورك ومتابعة آخر التحديثات مع المدربين والزملاء.`,
+            linkUrl: `/student/courses/${input.courseId}`,
+            relatedEntityType: 'course',
+            relatedEntityId: input.courseId,
+          }).catch((err) => console.warn('dispatchStudentNotification reminder warning:', err));
+        }
+
+        return mailRes;
+      })
+    );
+
+    const sentCount = results.filter(
+      (r) => r.status === 'fulfilled' && (r as any).value?.success !== false
+    ).length;
+    const failedCount = enrollments.length - sentCount;
+
+    return {
+      success: true,
+      sentCount,
+      failedCount,
+      totalStudents: enrollments.length,
+    };
+  } catch (err: any) {
+    console.error('sendCourseWhatsAppReminderEmailsAction error:', err);
+    return { success: false, error: err.message || 'Failed to send WhatsApp reminder emails.' };
+  }
+}
+
+/**
+ * Sends a test WhatsApp group join reminder email.
+ */
+export async function sendTestCourseWhatsAppReminderEmailAction(input: {
+  courseId: string;
+  groupId?: string | null;
+  testEmail: string;
+}): Promise<{ success: boolean; error?: string }> {
+  try {
+    const access = await verifyGroupAccess(input.courseId);
+    if (!access.authorized || !access.course) {
+      return { success: false, error: access.error };
+    }
+
+    const { course, admin } = access;
+    let groupName = 'Group 1 (Study Cohort)';
+
+    if (input.groupId) {
+      const { data: grp } = await admin
+        .from('course_groups')
+        .select('name')
+        .eq('id', input.groupId)
+        .eq('course_id', input.courseId)
+        .maybeSingle();
+
+      if (grp?.name) {
+        groupName = grp.name;
+      }
+    }
+
+    const result = await sendCourseWhatsAppReminderEmail({
+      to: input.testEmail.trim(),
+      studentName: 'Test Student (تجربة المعاينة)',
+      courseTitle: course.title,
+      courseCategory: course.category,
+      courseId: input.courseId,
+      groupName,
+    });
+
+    if (!result.success) {
+      return { success: false, error: result.error || 'Failed to send test reminder email.' };
+    }
+
+    return { success: true };
+  } catch (err: any) {
+    console.error('sendTestCourseWhatsAppReminderEmailAction error:', err);
+    return { success: false, error: err.message };
+  }
+}
+
 
