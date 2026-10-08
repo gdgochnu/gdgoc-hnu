@@ -880,13 +880,19 @@ export function StudentCourseDetailClient({ initialData }: StudentCourseDetailCl
                 <div style={{ fontSize: '0.98rem', fontWeight: 800, color: '#FFFFFF' }}>
                   {isStaff && course.capacity ? `${course.enrollment_count} / ${course.capacity} Enrolled` : 'Cohort Admission'}
                 </div>
-                <div style={{ fontSize: '0.75rem', color: isRegistrationClosed ? '#F87171' : '#94A3B8' }}>
-                  {isRegistrationClosed ? 'Registration closed' : course.is_full ? 'Capacity reached' : 'Registration open'}
+                <div style={{ fontSize: '0.75rem', color: isConfirmed ? '#34D399' : isRegistrationClosed ? '#F87171' : '#94A3B8' }}>
+                  {isConfirmed
+                    ? 'Enrolled & Confirmed'
+                    : isRegistrationClosed
+                    ? 'Registration closed'
+                    : course.is_full
+                    ? 'Capacity reached'
+                    : 'Registration open'}
                 </div>
               </div>
             </div>
 
-            {!isRegistrationClosed && isRegOpen && hasDeadline && (
+            {!isConfirmed && !isRegistrationClosed && isRegOpen && hasDeadline && (
               <>
                 <div style={{ width: '1px', height: '28px', background: 'rgba(255, 255, 255, 0.1)' }} />
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
@@ -1008,8 +1014,8 @@ export function StudentCourseDetailClient({ initialData }: StudentCourseDetailCl
                     <MessageCircle size={18} />
                     <span>
                       {myEnrollment.joined_group_at
-                        ? `جروب الواتساب (${myEnrollment.group.name})`
-                        : `انضم لجروب الواتساب (${myEnrollment.group.name})`}
+                        ? `WhatsApp Group (${myEnrollment.group.name})`
+                        : `Join WhatsApp Group (${myEnrollment.group.name})`}
                     </span>
                     <ExternalLink size={14} />
                   </a>
@@ -1029,7 +1035,7 @@ export function StudentCourseDetailClient({ initialData }: StudentCourseDetailCl
                     }}
                   >
                     <MessageCircle size={16} />
-                    <span>مجموعتك: {myEnrollment.group.name}</span>
+                    <span>Assigned Group: {myEnrollment.group.name}</span>
                   </div>
                 ) : null}
 
@@ -1538,7 +1544,7 @@ export function StudentCourseDetailClient({ initialData }: StudentCourseDetailCl
               </div>
 
               {/* Deadline notice if set and registration is open */}
-              {!isRegistrationClosed && isRegOpen && hasDeadline && (
+              {!isConfirmed && !isRegistrationClosed && isRegOpen && hasDeadline && (
                 <div
                   suppressHydrationWarning
                   style={{
