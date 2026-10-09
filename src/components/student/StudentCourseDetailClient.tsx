@@ -250,9 +250,17 @@ export function StudentCourseDetailClient({ initialData }: StudentCourseDetailCl
   const isDeadlinePassed = hasDeadline && new Date(course.registration_deadline!) < new Date();
   const isRegistrationClosed = !isRegOpen || isDeadlinePassed;
 
-  const [activeTab, setActiveTab] = useState<'overview' | 'sessions' | 'lessons' | 'tasks' | 'quizzes'>(
-    initialMyEnrollment?.status === 'confirmed' || initialData.isStaff ? 'sessions' : 'overview'
-  );
+  const [activeTab, setActiveTab] = useState<'overview' | 'sessions' | 'lessons' | 'tasks' | 'quizzes'>(() => {
+    if (initialData.isStaff) return 'sessions';
+    if (initialMyEnrollment?.status === 'confirmed') {
+      if (sessions.length > 0) return 'sessions';
+      if (lessons.length > 0) return 'lessons';
+      if (tasks.length > 0) return 'tasks';
+      if (quizzes.length > 0) return 'quizzes';
+      return 'overview';
+    }
+    return 'overview';
+  });
 
   // Active modular session selection
   const [activeSessionId, setActiveSessionId] = useState<string>(
@@ -356,7 +364,28 @@ export function StudentCourseDetailClient({ initialData }: StudentCourseDetailCl
 
     if (tabParam && ['overview', 'sessions', 'lessons', 'tasks', 'quizzes'].includes(tabParam)) {
       if (tabParam === 'overview' || isEnrolled) {
-        setActiveTab(tabParam as any);
+        if (
+          isStaff ||
+          tabParam === 'overview' ||
+          (tabParam === 'sessions' && sessions.length > 0) ||
+          (tabParam === 'lessons' && lessons.length > 0) ||
+          (tabParam === 'tasks' && tasks.length > 0) ||
+          (tabParam === 'quizzes' && quizzes.length > 0)
+        ) {
+          setActiveTab(tabParam as any);
+        } else {
+          const firstAvailable =
+            sessions.length > 0
+              ? 'sessions'
+              : lessons.length > 0
+              ? 'lessons'
+              : tasks.length > 0
+              ? 'tasks'
+              : quizzes.length > 0
+              ? 'quizzes'
+              : 'overview';
+          setActiveTab(firstAvailable);
+        }
       }
     }
 
@@ -1042,7 +1071,17 @@ export function StudentCourseDetailClient({ initialData }: StudentCourseDetailCl
                 <button
                   type="button"
                   onClick={() => {
-                    handleTabChange('sessions');
+                    const targetTab =
+                      sessions.length > 0
+                        ? 'sessions'
+                        : lessons.length > 0
+                        ? 'lessons'
+                        : tasksList.length > 0
+                        ? 'tasks'
+                        : quizzes.length > 0
+                        ? 'quizzes'
+                        : 'overview';
+                    handleTabChange(targetTab);
                     const el = document.getElementById('course-workspace-tabs');
                     if (el) el.scrollIntoView({ behavior: 'smooth' });
                   }}
@@ -1065,7 +1104,17 @@ export function StudentCourseDetailClient({ initialData }: StudentCourseDetailCl
                   }}
                 >
                   <Play size={16} color="#34D399" />
-                  <span>Go to Sessions & Lessons</span>
+                  <span>
+                    {sessions.length > 0
+                      ? 'Go to Sessions & Schedule'
+                      : lessons.length > 0
+                      ? 'Go to Lessons & Curriculum'
+                      : tasksList.length > 0
+                      ? 'Go to Tasks & Assignments'
+                      : quizzes.length > 0
+                      ? 'Go to Quizzes & Tests'
+                      : 'Go to Course Workspace'}
+                  </span>
                 </button>
               </div>
             ) : isPending ? (
@@ -1183,12 +1232,14 @@ export function StudentCourseDetailClient({ initialData }: StudentCourseDetailCl
           }}
         >
           {[
-            { key: 'overview', label: 'Course Overview', count: undefined, icon: BookOpen },
-            { key: 'sessions', label: 'Sessions & Schedule', count: sessions.length, icon: Calendar },
-            { key: 'lessons', label: 'Lessons & Curriculum', count: lessons.length, icon: Play },
-            { key: 'tasks', label: 'Tasks & Assignments', count: tasksList.length, icon: FileText },
-            { key: 'quizzes', label: 'Quizzes & Tests', count: quizzes.length, icon: Sparkles },
-          ].map((tab) => {
+            { key: 'overview', label: 'Course Overview', count: undefined, icon: BookOpen, shouldShow: true },
+            { key: 'sessions', label: 'Sessions & Schedule', count: sessions.length, icon: Calendar, shouldShow: isStaff || sessions.length > 0 },
+            { key: 'lessons', label: 'Lessons & Curriculum', count: lessons.length, icon: Play, shouldShow: isStaff || lessons.length > 0 },
+            { key: 'tasks', label: 'Tasks & Assignments', count: tasksList.length, icon: FileText, shouldShow: isStaff || tasksList.length > 0 },
+            { key: 'quizzes', label: 'Quizzes & Tests', count: quizzes.length, icon: Sparkles, shouldShow: isStaff || quizzes.length > 0 },
+          ]
+            .filter((tab) => tab.shouldShow)
+            .map((tab) => {
             const isActive = activeTab === tab.key;
             const Icon = tab.icon;
             return (
@@ -1593,7 +1644,19 @@ export function StudentCourseDetailClient({ initialData }: StudentCourseDetailCl
               {isConfirmed ? (
                 <button
                   type="button"
-                  onClick={() => handleTabChange('sessions')}
+                  onClick={() => {
+                    const targetTab =
+                      sessions.length > 0
+                        ? 'sessions'
+                        : lessons.length > 0
+                        ? 'lessons'
+                        : tasksList.length > 0
+                        ? 'tasks'
+                        : quizzes.length > 0
+                        ? 'quizzes'
+                        : 'overview';
+                    handleTabChange(targetTab);
+                  }}
                   style={{
                     width: '100%',
                     padding: '0.9rem',
@@ -1612,7 +1675,17 @@ export function StudentCourseDetailClient({ initialData }: StudentCourseDetailCl
                   }}
                 >
                   <BookOpen size={18} />
-                  <span>Go to Learning Workspace (Sessions)</span>
+                  <span>
+                    {sessions.length > 0
+                      ? 'Go to Learning Workspace (Sessions)'
+                      : lessons.length > 0
+                      ? 'Go to Learning Workspace (Lessons)'
+                      : tasksList.length > 0
+                      ? 'Go to Learning Workspace (Tasks)'
+                      : quizzes.length > 0
+                      ? 'Go to Learning Workspace (Quizzes)'
+                      : 'Go to Course Overview'}
+                  </span>
                 </button>
               ) : isPending ? (
                 <div
