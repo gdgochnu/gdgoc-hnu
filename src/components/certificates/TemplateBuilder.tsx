@@ -19,6 +19,11 @@ import {
   X,
   Sliders,
   Image as ImageIcon,
+  ArrowUp,
+  ArrowDown,
+  ArrowLeft,
+  ArrowRight,
+  Crosshair,
 } from 'lucide-react';
 import {
   CertificateTemplate,
@@ -66,11 +71,20 @@ export function TemplateBuilder({
   const [isSaving, setIsSaving] = useState(false);
   const [statusMsg, setStatusMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
-  // Dragging state
+  // Dragging & Precision Navigation state
   const [isDragging, setIsDragging] = useState(false);
   const [draggedFieldKey, setDraggedFieldKey] = useState<string | null>(null);
   const [sampleQrUrl, setSampleQrUrl] = useState<string | null>(null);
+  const [nudgeStep, setNudgeStep] = useState<number>(0.1);
+  const [isHoveringField, setIsHoveringField] = useState<string | null>(null);
   const canvasRef = useRef<HTMLDivElement>(null);
+  const dragStartRef = useRef<{
+    startX: number;
+    startY: number;
+    origX: number;
+    origY: number;
+    fieldKey: string;
+  } | null>(null);
 
   useEffect(() => {
     generateStyledQRDataURL('https://gdgoc-hnu.app/verify/SAMPLE-PREVIEW', 180)
@@ -98,6 +112,7 @@ export function TemplateBuilder({
           align: 'center',
           visible: true,
           sampleText: 'Custom Field',
+          shadow: false,
         }),
         ...updates,
       },
@@ -128,35 +143,64 @@ export function TemplateBuilder({
     setBackgroundDriveId('');
   };
 
-  // Drag and Drop implementation
+  // Drag and Drop implementation with delta positioning (eliminates sudden jumps)
   const handleMouseDownOnField = (fieldKey: string, e: React.MouseEvent) => {
     e.stopPropagation();
     e.preventDefault();
     setSelectedField(fieldKey);
     setDraggedFieldKey(fieldKey);
     setIsDragging(true);
+
+    const field = layout[fieldKey];
+    if (field) {
+      dragStartRef.current = {
+        startX: e.clientX,
+        startY: e.clientY,
+        origX: Number(field.x) || 50,
+        origY: Number(field.y) || 50,
+        fieldKey,
+      };
+    }
   };
 
   const handleMouseMove = useCallback(
     (e: MouseEvent) => {
-      if (!isDragging || !draggedFieldKey || !canvasRef.current) return;
+      if (!isDragging || !dragStartRef.current || !canvasRef.current) return;
 
       const rect = canvasRef.current.getBoundingClientRect();
-      const xPx = e.clientX - rect.left;
-      const yPx = e.clientY - rect.top;
+      if (!rect.width || !rect.height) return;
 
-      const xPct = Math.min(96, Math.max(4, Math.round((xPx / rect.width) * 100)));
-      const yPct = Math.min(96, Math.max(4, Math.round((yPx / rect.height) * 100)));
+      const deltaXPx = e.clientX - dragStartRef.current.startX;
+      const deltaYPx = e.clientY - dragStartRef.current.startY;
 
-      handleFieldChange(draggedFieldKey, { x: xPct, y: yPct });
+      const deltaXPct = (deltaXPx / rect.width) * 100;
+      const deltaYPct = (deltaYPx / rect.height) * 100;
+
+      let targetX = dragStartRef.current.origX + deltaXPct;
+      let targetY = dragStartRef.current.origY + deltaYPct;
+
+      // Gentle snap to 50% center if within 0.35%
+      if (Math.abs(targetX - 50) < 0.35) {
+        targetX = 50;
+      }
+      if (Math.abs(targetY - 50) < 0.35) {
+        targetY = 50;
+      }
+
+      // 0.1% sub-pixel resolution for smooth and ultra-accurate positioning
+      const precisionX = Math.min(98, Math.max(2, Math.round(targetX * 10) / 10));
+      const precisionY = Math.min(98, Math.max(2, Math.round(targetY * 10) / 10));
+
+      handleFieldChange(dragStartRef.current.fieldKey, { x: precisionX, y: precisionY });
     },
-    [isDragging, draggedFieldKey]
+    [isDragging]
   );
 
   const handleMouseUp = useCallback(() => {
     if (isDragging) {
       setIsDragging(false);
       setDraggedFieldKey(null);
+      dragStartRef.current = null;
     }
   }, [isDragging]);
 
@@ -173,6 +217,66 @@ export function TemplateBuilder({
       window.removeEventListener('mouseup', handleMouseUp);
     };
   }, [isDragging, handleMouseMove, handleMouseUp]);
+
+  // Keyboard navigation for arrow key micro-nudging
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const activeEl = document.activeElement;
+      if (
+        activeEl &&
+        ['INPUT', 'TEXTAREA', 'SELECT'].includes(activeEl.tagName)
+      ) {
+        return;
+      }
+
+      if (!selectedField || !layout[selectedField]) return;
+
+      const step = e.shiftKey ? 1.0 : e.altKey ? 0.5 : nudgeStep;
+      let deltaX = 0;
+      let deltaY = 0;
+
+      if (e.key === 'ArrowLeft') deltaX = -step;
+      else if (e.key === 'ArrowRight') deltaX = step;
+      else if (e.key === 'ArrowUp') deltaY = -step;
+      else if (e.key === 'ArrowDown') deltaY = step;
+      else return;
+
+      e.preventDefault();
+
+      setLayout((prev) => {
+        const current = prev[selectedField];
+        if (!current) return prev;
+        const newX = Math.min(98, Math.max(2, Math.round(((current.x ?? 50) + deltaX) * 10) / 10));
+        const newY = Math.min(98, Math.max(2, Math.round(((current.y ?? 50) + deltaY) * 10) / 10));
+        return {
+          ...prev,
+          [selectedField]: {
+            ...current,
+            x: newX,
+            y: newY,
+          },
+        };
+      });
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [selectedField, layout, nudgeStep]);
+
+  // Nudge and center helper functions
+  const handleNudge = (axis: 'x' | 'y', direction: 1 | -1, step = nudgeStep) => {
+    if (!selectedField || !layout[selectedField]) return;
+    const current = layout[selectedField]!;
+    const val = axis === 'x' ? (current.x ?? 50) : (current.y ?? 50);
+    const rawVal = val + direction * step;
+    const newVal = Math.min(98, Math.max(2, Math.round(rawVal * 10) / 10));
+    handleFieldChange(selectedField, { [axis]: newVal });
+  };
+
+  const handleCenter = (axis: 'x' | 'y') => {
+    if (!selectedField || !layout[selectedField]) return;
+    handleFieldChange(selectedField, { [axis]: 50 });
+  };
 
   // Add a new custom text element
   const handleAddCustomField = () => {
@@ -484,17 +588,50 @@ export function TemplateBuilder({
               </div>
             )}
 
+            {/* Smart Alignment Guides */}
+            {isDragging && currentField && Math.abs((currentField.x ?? 50) - 50) < 0.4 && (
+              <div
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  bottom: 0,
+                  left: '50%',
+                  width: '1px',
+                  borderLeft: '1.5px dashed var(--google-blue)',
+                  pointerEvents: 'none',
+                  zIndex: 25,
+                }}
+              />
+            )}
+            {isDragging && currentField && Math.abs((currentField.y ?? 50) - 50) < 0.4 && (
+              <div
+                style={{
+                  position: 'absolute',
+                  left: 0,
+                  right: 0,
+                  top: '50%',
+                  height: '1px',
+                  borderTop: '1.5px dashed var(--google-blue)',
+                  pointerEvents: 'none',
+                  zIndex: 25,
+                }}
+              />
+            )}
+
             {/* Draggable Field Markers Placed Over Background */}
             {allFieldList.map(({ key, label }) => {
               const field = layout[key];
               if (!field || !field.visible) return null;
               const isSelected = selectedField === key;
               const isBeingDragged = isDragging && draggedFieldKey === key;
+              const isHovered = isHoveringField === key;
 
               return (
                 <div
                   key={key}
                   onMouseDown={(e) => handleMouseDownOnField(key, e)}
+                  onMouseEnter={() => setIsHoveringField(key)}
+                  onMouseLeave={() => setIsHoveringField(null)}
                   style={{
                     position: 'absolute',
                     left: `${field.x}%`,
@@ -502,41 +639,44 @@ export function TemplateBuilder({
                     transform: 'translate(-50%, -50%)',
                     cursor: isBeingDragged ? 'grabbing' : 'grab',
                     userSelect: 'none',
-                    padding: '0.25rem 0.65rem',
+                    padding: '0.2rem 0.5rem',
                     borderRadius: '8px',
                     border: isSelected
                       ? '2px solid var(--google-blue)'
-                      : '1px dashed rgba(255, 255, 255, 0.25)',
+                      : isHovered
+                      ? '1px dashed rgba(66, 133, 244, 0.7)'
+                      : '1px dashed rgba(255, 255, 255, 0.2)',
                     background: isSelected
-                      ? 'rgba(66, 133, 244, 0.35)'
-                      : 'rgba(0, 0, 0, 0.55)',
-                    backdropFilter: 'blur(6px)',
+                      ? 'rgba(66, 133, 244, 0.16)'
+                      : 'transparent',
                     textAlign: field.align,
                     zIndex: isSelected ? 30 : 10,
-                    boxShadow: isSelected ? '0 0 15px rgba(66, 133, 244, 0.6)' : 'none',
-                    transition: isBeingDragged ? 'none' : 'border 0.15s ease, box-shadow 0.15s ease',
+                    boxShadow: isSelected ? '0 0 16px rgba(66, 133, 244, 0.45)' : 'none',
+                    transition: isBeingDragged ? 'none' : 'border 0.15s ease, background 0.15s ease, box-shadow 0.15s ease',
                   }}
-                  title={`Drag to reposition "${label}" (X: ${field.x}%, Y: ${field.y}%)`}
+                  title={`Drag to reposition "${label}" (X: ${Number(field.x).toFixed(1)}%, Y: ${Number(field.y).toFixed(1)}%)`}
                 >
                   {/* Position Badge indicator when selected */}
                   {isSelected && (
                     <div
                       style={{
                         position: 'absolute',
-                        top: '-20px',
+                        top: '-22px',
                         left: '50%',
                         transform: 'translateX(-50%)',
                         background: 'var(--google-blue)',
                         color: '#fff',
                         fontSize: '0.62rem',
                         fontWeight: 800,
-                        padding: '0.1rem 0.4rem',
+                        padding: '0.1rem 0.45rem',
                         borderRadius: '4px',
                         whiteSpace: 'nowrap',
                         pointerEvents: 'none',
+                        boxShadow: '0 2px 6px rgba(0,0,0,0.4)',
+                        zIndex: 40,
                       }}
                     >
-                      {label} ({field.x}%, {field.y}%)
+                      {label} ({Number(field.x).toFixed(1)}%, {Number(field.y).toFixed(1)}%)
                     </div>
                   )}
 
@@ -552,6 +692,7 @@ export function TemplateBuilder({
                         justifyContent: 'center',
                         overflow: 'hidden',
                         padding: '2px',
+                        filter: field.shadow ? 'drop-shadow(0 4px 10px rgba(0,0,0,0.5))' : 'none',
                       }}
                     >
                       {sampleQrUrl ? (
@@ -562,7 +703,7 @@ export function TemplateBuilder({
                           draggable={false}
                         />
                       ) : (
-                        <QrCode size={Math.floor((field.fontSize || 54) * 0.75)} color="#1e293b" />
+                        <QrCode size={Math.floor((field.fontSize || 54) * 0.75)} color={field.color || '#1e293b'} />
                       )}
                     </div>
                   ) : (
@@ -572,6 +713,7 @@ export function TemplateBuilder({
                         fontWeight: field.fontWeight === 'bold' ? 800 : field.fontWeight === 'black' ? 900 : 500,
                         color: field.color,
                         whiteSpace: 'nowrap',
+                        textShadow: field.shadow ? '0 2px 8px rgba(0, 0, 0, 0.7)' : 'none',
                       }}
                     >
                       {field.sampleText || label}
@@ -752,36 +894,400 @@ export function TemplateBuilder({
               </div>
             </div>
 
-            {/* Position X */}
-            <div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                <span>Horizontal X Position</span>
-                <strong style={{ color: '#fff' }}>{currentField?.x || 50}%</strong>
+            {/* Precision Position & Alignment Section */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontSize: '0.72rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                  Precision Positioning
+                </span>
+                <span style={{ fontSize: '0.68rem', color: '#93c5fd', fontWeight: 700, background: 'rgba(66, 133, 244, 0.15)', padding: '0.1rem 0.4rem', borderRadius: '4px' }}>
+                  Step: {nudgeStep}%
+                </span>
               </div>
-              <input
-                type="range"
-                min="5"
-                max="95"
-                value={currentField?.x || 50}
-                onChange={(e) => handleFieldChange(selectedField, { x: Number(e.target.value) })}
-                style={{ width: '100%', accentColor: 'var(--google-blue)', marginTop: '0.3rem' }}
-              />
+
+              {/* Position X */}
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.75rem', marginBottom: '0.3rem' }}>
+                  <span style={{ color: 'var(--text-muted)' }}>Horizontal (X)</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                    <button
+                      type="button"
+                      onClick={() => handleNudge('x', -1)}
+                      title="Nudge Left"
+                      style={{
+                        padding: '0.15rem 0.4rem',
+                        borderRadius: '4px',
+                        border: '1px solid rgba(255, 255, 255, 0.15)',
+                        background: 'rgba(255, 255, 255, 0.06)',
+                        color: '#fff',
+                        fontSize: '0.75rem',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      -
+                    </button>
+                    <input
+                      type="number"
+                      step="0.1"
+                      min="2"
+                      max="98"
+                      value={Number(currentField?.x ?? 50).toFixed(1)}
+                      onChange={(e) => {
+                        const val = parseFloat(e.target.value);
+                        if (!isNaN(val)) {
+                          handleFieldChange(selectedField, { x: Math.min(98, Math.max(2, Math.round(val * 10) / 10)) });
+                        }
+                      }}
+                      style={{
+                        width: '54px',
+                        padding: '0.15rem 0.25rem',
+                        borderRadius: '4px',
+                        border: '1px solid rgba(255, 255, 255, 0.2)',
+                        background: '#1a1d2e',
+                        color: '#fff',
+                        fontSize: '0.75rem',
+                        fontWeight: 700,
+                        textAlign: 'center',
+                      }}
+                    />
+                    <span style={{ color: 'var(--text-muted)', fontSize: '0.72rem', fontWeight: 700 }}>%</span>
+                    <button
+                      type="button"
+                      onClick={() => handleNudge('x', 1)}
+                      title="Nudge Right"
+                      style={{
+                        padding: '0.15rem 0.4rem',
+                        borderRadius: '4px',
+                        border: '1px solid rgba(255, 255, 255, 0.15)',
+                        background: 'rgba(255, 255, 255, 0.06)',
+                        color: '#fff',
+                        fontSize: '0.75rem',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      +
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleCenter('x')}
+                      title="Center Horizontally (50%)"
+                      style={{
+                        padding: '0.15rem 0.45rem',
+                        borderRadius: '4px',
+                        border: '1px solid rgba(66, 133, 244, 0.3)',
+                        background: 'rgba(66, 133, 244, 0.15)',
+                        color: '#93c5fd',
+                        fontSize: '0.68rem',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      Center
+                    </button>
+                  </div>
+                </div>
+                <input
+                  type="range"
+                  min="2"
+                  max="98"
+                  step="0.1"
+                  value={currentField?.x || 50}
+                  onChange={(e) => handleFieldChange(selectedField, { x: Number(e.target.value) })}
+                  style={{ width: '100%', accentColor: 'var(--google-blue)' }}
+                />
+              </div>
+
+              {/* Position Y */}
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.75rem', marginBottom: '0.3rem' }}>
+                  <span style={{ color: 'var(--text-muted)' }}>Vertical (Y)</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                    <button
+                      type="button"
+                      onClick={() => handleNudge('y', -1)}
+                      title="Nudge Up"
+                      style={{
+                        padding: '0.15rem 0.4rem',
+                        borderRadius: '4px',
+                        border: '1px solid rgba(255, 255, 255, 0.15)',
+                        background: 'rgba(255, 255, 255, 0.06)',
+                        color: '#fff',
+                        fontSize: '0.75rem',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      -
+                    </button>
+                    <input
+                      type="number"
+                      step="0.1"
+                      min="2"
+                      max="98"
+                      value={Number(currentField?.y ?? 50).toFixed(1)}
+                      onChange={(e) => {
+                        const val = parseFloat(e.target.value);
+                        if (!isNaN(val)) {
+                          handleFieldChange(selectedField, { y: Math.min(98, Math.max(2, Math.round(val * 10) / 10)) });
+                        }
+                      }}
+                      style={{
+                        width: '54px',
+                        padding: '0.15rem 0.25rem',
+                        borderRadius: '4px',
+                        border: '1px solid rgba(255, 255, 255, 0.2)',
+                        background: '#1a1d2e',
+                        color: '#fff',
+                        fontSize: '0.75rem',
+                        fontWeight: 700,
+                        textAlign: 'center',
+                      }}
+                    />
+                    <span style={{ color: 'var(--text-muted)', fontSize: '0.72rem', fontWeight: 700 }}>%</span>
+                    <button
+                      type="button"
+                      onClick={() => handleNudge('y', 1)}
+                      title="Nudge Down"
+                      style={{
+                        padding: '0.15rem 0.4rem',
+                        borderRadius: '4px',
+                        border: '1px solid rgba(255, 255, 255, 0.15)',
+                        background: 'rgba(255, 255, 255, 0.06)',
+                        color: '#fff',
+                        fontSize: '0.75rem',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      +
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleCenter('y')}
+                      title="Center Vertically (50%)"
+                      style={{
+                        padding: '0.15rem 0.45rem',
+                        borderRadius: '4px',
+                        border: '1px solid rgba(66, 133, 244, 0.3)',
+                        background: 'rgba(66, 133, 244, 0.15)',
+                        color: '#93c5fd',
+                        fontSize: '0.68rem',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      Center
+                    </button>
+                  </div>
+                </div>
+                <input
+                  type="range"
+                  min="2"
+                  max="98"
+                  step="0.1"
+                  value={currentField?.y || 50}
+                  onChange={(e) => handleFieldChange(selectedField, { y: Number(e.target.value) })}
+                  style={{ width: '100%', accentColor: 'var(--google-blue)' }}
+                />
+              </div>
+
+              {/* D-Pad Directional Pad & Step Selector */}
+              <div
+                style={{
+                  padding: '0.75rem',
+                  borderRadius: '12px',
+                  background: 'rgba(255, 255, 255, 0.03)',
+                  border: '1px solid rgba(255, 255, 255, 0.08)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '0.5rem',
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 700 }}>
+                    Nudge Step:
+                  </span>
+                  <div style={{ display: 'flex', gap: '0.25rem' }}>
+                    {([0.1, 0.5, 1.0] as const).map((stepVal) => (
+                      <button
+                        key={stepVal}
+                        type="button"
+                        onClick={() => setNudgeStep(stepVal)}
+                        style={{
+                          padding: '0.15rem 0.45rem',
+                          borderRadius: '6px',
+                          fontSize: '0.68rem',
+                          fontWeight: 700,
+                          border: nudgeStep === stepVal ? '1px solid var(--google-blue)' : '1px solid rgba(255,255,255,0.1)',
+                          background: nudgeStep === stepVal ? 'rgba(66, 133, 244, 0.25)' : 'transparent',
+                          color: nudgeStep === stepVal ? '#fff' : 'var(--text-secondary)',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        {stepVal}%
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', margin: '0.25rem 0' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 32px)', gridTemplateRows: 'repeat(3, 32px)', gap: '4px' }}>
+                    <div />
+                    <button
+                      type="button"
+                      onClick={() => handleNudge('y', -1)}
+                      title="Move Up"
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        borderRadius: '6px',
+                        border: '1px solid rgba(255, 255, 255, 0.15)',
+                        background: 'rgba(255, 255, 255, 0.06)',
+                        color: '#fff',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      <ArrowUp size={14} />
+                    </button>
+                    <div />
+
+                    <button
+                      type="button"
+                      onClick={() => handleNudge('x', -1)}
+                      title="Move Left"
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        borderRadius: '6px',
+                        border: '1px solid rgba(255, 255, 255, 0.15)',
+                        background: 'rgba(255, 255, 255, 0.06)',
+                        color: '#fff',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      <ArrowLeft size={14} />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { handleCenter('x'); handleCenter('y'); }}
+                      title="Center Both (50%, 50%)"
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        borderRadius: '6px',
+                        border: '1px solid rgba(66, 133, 244, 0.35)',
+                        background: 'rgba(66, 133, 244, 0.15)',
+                        color: 'var(--google-blue)',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      <Crosshair size={13} />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleNudge('x', 1)}
+                      title="Move Right"
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        borderRadius: '6px',
+                        border: '1px solid rgba(255, 255, 255, 0.15)',
+                        background: 'rgba(255, 255, 255, 0.06)',
+                        color: '#fff',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      <ArrowRight size={14} />
+                    </button>
+
+                    <div />
+                    <button
+                      type="button"
+                      onClick={() => handleNudge('y', 1)}
+                      title="Move Down"
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        borderRadius: '6px',
+                        border: '1px solid rgba(255, 255, 255, 0.15)',
+                        background: 'rgba(255, 255, 255, 0.06)',
+                        color: '#fff',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      <ArrowDown size={14} />
+                    </button>
+                    <div />
+                  </div>
+                </div>
+
+                <div style={{ fontSize: '0.67rem', color: '#94a3b8', textAlign: 'center', lineHeight: 1.35 }}>
+                  💡 Use <strong>Arrow keys (← ↑ → ↓)</strong> for {nudgeStep}% nudge, <strong>Shift+Arrow</strong> for 1.0%
+                </div>
+              </div>
             </div>
 
-            {/* Position Y */}
-            <div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                <span>Vertical Y Position</span>
-                <strong style={{ color: '#fff' }}>{currentField?.y || 50}%</strong>
+            {/* Shadow Control Toggle */}
+            <div
+              style={{
+                padding: '0.75rem',
+                borderRadius: '12px',
+                background: currentField?.shadow ? 'rgba(66, 133, 244, 0.08)' : 'rgba(255, 255, 255, 0.03)',
+                border: currentField?.shadow ? '1px solid rgba(66, 133, 244, 0.35)' : '1px solid rgba(255, 255, 255, 0.08)',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '0.4rem',
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                  <Sparkles size={14} color={currentField?.shadow ? 'var(--google-yellow)' : 'var(--text-muted)'} />
+                  <span style={{ fontSize: '0.76rem', fontWeight: 700, color: '#fff' }}>
+                    Element Shadow (ظل العنصر)
+                  </span>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => handleFieldChange(selectedField, { shadow: !currentField?.shadow })}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '0.35rem',
+                    padding: '0.25rem 0.6rem',
+                    borderRadius: '999px',
+                    border: currentField?.shadow ? '1px solid rgba(52, 168, 83, 0.4)' : '1px solid rgba(255, 255, 255, 0.15)',
+                    background: currentField?.shadow ? 'rgba(52, 168, 83, 0.2)' : 'rgba(255, 255, 255, 0.06)',
+                    color: currentField?.shadow ? '#86efac' : 'var(--text-muted)',
+                    fontSize: '0.7rem',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease',
+                  }}
+                >
+                  <span
+                    style={{
+                      width: '6px',
+                      height: '6px',
+                      borderRadius: '50%',
+                      background: currentField?.shadow ? '#22c55e' : '#64748b',
+                    }}
+                  />
+                  <span>{currentField?.shadow ? 'Active (مُفعّل)' : 'No Shadow (بدون ظل)'}</span>
+                </button>
               </div>
-              <input
-                type="range"
-                min="5"
-                max="95"
-                value={currentField?.y || 50}
-                onChange={(e) => handleFieldChange(selectedField, { y: Number(e.target.value) })}
-                style={{ width: '100%', accentColor: 'var(--google-blue)', marginTop: '0.3rem' }}
-              />
+              <p style={{ margin: 0, fontSize: '0.67rem', color: 'var(--text-muted)', lineHeight: 1.35 }}>
+                {currentField?.shadow
+                  ? 'Drop shadow is active on this element.'
+                  : 'Shadow is removed for clean and sharp presentation.'}
+              </p>
             </div>
 
             {/* Font / Box Size */}

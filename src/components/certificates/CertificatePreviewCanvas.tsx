@@ -127,7 +127,7 @@ export function CertificatePreviewCanvas({
             textAlign: fieldLayout?.recipient_name?.align || 'center',
             whiteSpace: 'nowrap',
             zIndex: 10,
-            textShadow: '0 2px 10px rgba(0,0,0,0.5)',
+            textShadow: fieldLayout?.recipient_name?.shadow ? '0 2px 10px rgba(0,0,0,0.5)' : 'none',
           }}
         >
           {recipientName}
@@ -150,6 +150,7 @@ export function CertificatePreviewCanvas({
             zIndex: 10,
             textTransform: 'uppercase',
             letterSpacing: '0.08em',
+            textShadow: fieldLayout?.title?.shadow ? '0 2px 8px rgba(0,0,0,0.5)' : 'none',
           }}
         >
           {title}
@@ -170,6 +171,7 @@ export function CertificatePreviewCanvas({
             textAlign: fieldLayout?.issue_date?.align || 'center',
             whiteSpace: 'nowrap',
             zIndex: 10,
+            textShadow: fieldLayout?.issue_date?.shadow ? '0 2px 8px rgba(0,0,0,0.5)' : 'none',
           }}
         >
           {formattedDate}
@@ -195,6 +197,7 @@ export function CertificatePreviewCanvas({
             textAlign: fieldLayout?.certificate_number?.align || 'center',
             whiteSpace: 'nowrap',
             zIndex: 10,
+            textShadow: fieldLayout?.certificate_number?.shadow ? '0 2px 8px rgba(0,0,0,0.5)' : 'none',
           }}
         >
           {certificateNumber}
@@ -215,6 +218,7 @@ export function CertificatePreviewCanvas({
             textAlign: fieldLayout?.issuer_name?.align || 'center',
             whiteSpace: 'nowrap',
             zIndex: 10,
+            textShadow: fieldLayout?.issuer_name?.shadow ? '0 2px 8px rgba(0,0,0,0.5)' : 'none',
           }}
         >
           {issuerName || fieldLayout?.issuer_name?.sampleText || 'Chapter Leadership'}
@@ -239,7 +243,7 @@ export function CertificatePreviewCanvas({
               width: `${qrScreenSize}px`,
               height: `${qrScreenSize}px`,
               display: 'block',
-              filter: 'drop-shadow(0 4px 12px rgba(0,0,0,0.5))',
+              filter: fieldLayout?.qr_code?.shadow ? 'drop-shadow(0 4px 12px rgba(0,0,0,0.5))' : 'none',
             }}
           />
         </div>
@@ -276,6 +280,7 @@ export function CertificatePreviewCanvas({
                 textAlign: f!.align || 'center',
                 whiteSpace: 'nowrap',
                 zIndex: 10,
+                textShadow: f!.shadow ? '0 2px 8px rgba(0,0,0,0.5)' : 'none',
               }}
             >
               {f!.sampleText || k}

@@ -13,6 +13,7 @@ export interface FieldPosition {
   width?: number; // percentage width for centering/alignment
   visible: boolean;
   sampleText?: string;
+  shadow?: boolean;
 }
 
 export interface CertificateFieldLayout {
@@ -36,6 +37,7 @@ export const DEFAULT_FIELD_LAYOUT: CertificateFieldLayout = {
     align: 'center',
     visible: true,
     sampleText: 'Karim Mostafa',
+    shadow: false,
   },
   title: {
     x: 50,
@@ -46,6 +48,7 @@ export const DEFAULT_FIELD_LAYOUT: CertificateFieldLayout = {
     align: 'center',
     visible: true,
     sampleText: 'for successfully completing the Flutter & Firebase Bootcamp',
+    shadow: false,
   },
   issue_date: {
     x: 28,
@@ -56,6 +59,7 @@ export const DEFAULT_FIELD_LAYOUT: CertificateFieldLayout = {
     align: 'center',
     visible: true,
     sampleText: 'September 9, 2026',
+    shadow: false,
   },
   certificate_number: {
     x: 50,
@@ -66,6 +70,7 @@ export const DEFAULT_FIELD_LAYOUT: CertificateFieldLayout = {
     align: 'center',
     visible: true,
     sampleText: 'GDGOC-2026-000001',
+    shadow: false,
   },
   qr_code: {
     x: 82,
@@ -75,6 +80,7 @@ export const DEFAULT_FIELD_LAYOUT: CertificateFieldLayout = {
     align: 'center',
     visible: true,
     sampleText: 'QR Code',
+    shadow: false,
   },
   issuer_name: {
     x: 50,
@@ -85,6 +91,7 @@ export const DEFAULT_FIELD_LAYOUT: CertificateFieldLayout = {
     align: 'center',
     visible: true,
     sampleText: 'GDGoC Chapter Leadership',
+    shadow: false,
   },
 };
 
