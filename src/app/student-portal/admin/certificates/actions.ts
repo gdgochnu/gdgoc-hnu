@@ -1,7 +1,5 @@
 'use server';
 
-export const maxDuration = 60;
-
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getUserContext } from '@/lib/auth/get-user-context';
 import { renderCertificatePDFBuffer } from '@/lib/certificates/issue-engine';
