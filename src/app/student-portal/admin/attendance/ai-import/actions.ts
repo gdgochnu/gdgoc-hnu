@@ -27,6 +27,7 @@ export interface AiImportInitialData {
   canManage: boolean;
   officerName: string;
   courses: CourseOptionItem[];
+  allStudents: GeminiStudentCandidate[];
   preselectedCourseId?: string;
 }
 
@@ -45,6 +46,7 @@ export async function getAiImportInitialData(courseId?: string): Promise<AiImpor
         canManage: false,
         officerName: '',
         courses: [],
+        allStudents: [],
       };
     }
 
@@ -64,6 +66,7 @@ export async function getAiImportInitialData(courseId?: string): Promise<AiImpor
         canManage: false,
         officerName: profile.full_name || 'Officer',
         courses: [],
+        allStudents: [],
       };
     }
 
@@ -112,11 +115,28 @@ export async function getAiImportInitialData(courseId?: string): Promise<AiImpor
       };
     });
 
+    // Fetch all portal students for manual picker & matching
+    const { data: allProfilesData } = await admin
+      .from('student_profiles')
+      .select('id, full_name_en, full_name_ar, email, faculty, academic_year')
+      .order('full_name_en', { ascending: true })
+      .limit(3000);
+
+    const allStudents: GeminiStudentCandidate[] = (allProfilesData || []).map((s: any) => ({
+      id: s.id,
+      full_name_ar: s.full_name_ar || null,
+      full_name_en: s.full_name_en || 'Member',
+      email: s.email || '',
+      faculty: s.faculty || null,
+      academic_year: s.academic_year || null,
+    }));
+
     return {
       success: true,
       canManage: true,
       officerName: profile.full_name || 'Officer',
       courses,
+      allStudents,
       preselectedCourseId: courseId,
     };
   } catch (err: any) {
@@ -127,6 +147,7 @@ export async function getAiImportInitialData(courseId?: string): Promise<AiImpor
       canManage: false,
       officerName: '',
       courses: [],
+      allStudents: [],
     };
   }
 }
@@ -321,27 +342,25 @@ export async function runAiAttendanceAnalysis(input: {
       }
     });
 
-    // 3. Fallback: If enrollment list is small, also fetch active students directory
-    if (enrolledStudents.length < 50) {
-      const { data: allProfiles } = await admin
-        .from('student_profiles')
-        .select('id, full_name_en, full_name_ar, email, faculty, academic_year')
-        .limit(100);
+    // 3. Augment with all registered student profiles for maximum matching accuracy
+    const { data: allProfiles } = await admin
+      .from('student_profiles')
+      .select('id, full_name_en, full_name_ar, email, faculty, academic_year')
+      .limit(3000);
 
-      (allProfiles || []).forEach((s: any) => {
-        if (!seenStudentIds.has(s.id)) {
-          seenStudentIds.add(s.id);
-          enrolledStudents.push({
-            id: s.id,
-            full_name_ar: s.full_name_ar || null,
-            full_name_en: s.full_name_en || 'Member',
-            email: s.email || '',
-            faculty: s.faculty || null,
-            academic_year: s.academic_year || null,
-          });
-        }
-      });
-    }
+    (allProfiles || []).forEach((s: any) => {
+      if (!seenStudentIds.has(s.id)) {
+        seenStudentIds.add(s.id);
+        enrolledStudents.push({
+          id: s.id,
+          full_name_ar: s.full_name_ar || null,
+          full_name_en: s.full_name_en || 'Member',
+          email: s.email || '',
+          faculty: s.faculty || null,
+          academic_year: s.academic_year || null,
+        });
+      }
+    });
 
     // 4. Delegate to Gemini Analysis Engine
     const result = await matchAttendanceSheetWithGemini({
