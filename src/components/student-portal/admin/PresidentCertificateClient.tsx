@@ -192,8 +192,18 @@ export function PresidentCertificateClient({
   const [studentFilterTab, setStudentFilterTab] = useState<'all' | 'eligible' | 'not-issued'>('all');
   const [selectedStudentIds, setSelectedStudentIds] = useState<Set<string>>(new Set());
 
-  // Issuance transition
+  // Issuance transition & batch progress state (prevents 504 timeouts for large student cohorts)
   const [isIssuing, startIssueTransition] = useTransition();
+  const [isBatchIssuing, setIsBatchIssuing] = useState<boolean>(false);
+  const [issuanceProgress, setIssuanceProgress] = useState<{
+    totalStudents: number;
+    completedStudents: number;
+    currentBatch: number;
+    totalBatches: number;
+    percent: number;
+    activeBatchSize: number;
+    failedCount: number;
+  } | null>(null);
   const [issuanceResult, setIssuanceResult] = useState<{
     success: boolean;
     issuedCount: number;
@@ -364,7 +374,7 @@ export function PresidentCertificateClient({
     }
   };
 
-  const handleIssueSubmit = () => {
+  const handleIssueSubmit = async () => {
     if (!selectedProgramId) {
       alert('Please select a course or workshop program.');
       return;
@@ -374,74 +384,150 @@ export function PresidentCertificateClient({
       return;
     }
 
-    setIssuanceResult(null);
+    const allIdsToIssue = Array.from(selectedStudentIds);
+    const BATCH_SIZE = 5;
+    const totalStudents = allIdsToIssue.length;
+    const totalBatches = Math.ceil(totalStudents / BATCH_SIZE);
 
-    startIssueTransition(async () => {
-      try {
-        const res = await issueStudentCertificatesBatch({
-          programType,
-          programId: selectedProgramId,
-          templateId: selectedTemplateId || undefined,
-          studentIds: Array.from(selectedStudentIds),
-          thresholds: { minAttendance, minTaskAvg, minQuizAvg },
+    setIsBatchIssuing(true);
+    setIssuanceResult(null);
+    setIssuanceProgress({
+      totalStudents,
+      completedStudents: 0,
+      currentBatch: 1,
+      totalBatches,
+      percent: 0,
+      activeBatchSize: Math.min(BATCH_SIZE, totalStudents),
+      failedCount: 0,
+    });
+
+    let totalIssued = 0;
+    const allIssuedCertificates: Array<{ studentId: string; certificateNumber: string; verifyUrl: string }> = [];
+    const allErrors: string[] = [];
+
+    const currentProgram =
+      programType === 'course'
+        ? courses.find((c) => c.id === selectedProgramId)
+        : workshops.find((w) => w.id === selectedProgramId);
+
+    try {
+      for (let i = 0; i < totalBatches; i++) {
+        const batchIds = allIdsToIssue.slice(i * BATCH_SIZE, (i + 1) * BATCH_SIZE);
+
+        setIssuanceProgress({
+          totalStudents,
+          completedStudents: totalIssued,
+          currentBatch: i + 1,
+          totalBatches,
+          percent: Math.round((totalIssued / totalStudents) * 100),
+          activeBatchSize: batchIds.length,
+          failedCount: allErrors.length,
         });
 
-        setIssuanceResult(res);
-
-        if (res.success && res.issuedCount > 0) {
-          // Re-fetch eligibility to reflect newly issued status
-          fetchEligibility();
-
-          // Also create optimistic records in certificates registry
-          const currentProgram =
-            programType === 'course'
-              ? courses.find((c) => c.id === selectedProgramId)
-              : workshops.find((w) => w.id === selectedProgramId);
-
-          const newlyIssuedRecords: StudentCertificateRecord[] = (res.certificates || []).map((ic) => {
-            const stu = students.find((s) => s.student_id === ic.studentId);
-            return {
-              id: crypto.randomUUID(),
-              title: currentProgram?.title || 'Technical Program',
-              certificate_number: ic.certificateNumber,
-              verification_code: ic.verifyUrl.split('/verify/')[1] || crypto.randomUUID(),
-              issue_date: new Date().toISOString().split('T')[0],
-              created_at: new Date().toISOString(),
-              student_id: ic.studentId,
-              course_id: programType === 'course' ? selectedProgramId : null,
-              workshop_id: programType === 'workshop' ? selectedProgramId : null,
-              template_id: selectedTemplateId || null,
-              student: {
-                id: ic.studentId,
-                full_name_en: stu?.full_name_en || null,
-                full_name_ar: stu?.full_name_ar || null,
-                email: stu?.email || null,
-                phone: null,
-                faculty: stu?.faculty || null,
-                academic_year: stu?.academic_year || null,
-              },
-              course: programType === 'course' ? { id: selectedProgramId, title: currentProgram?.title || '' } : null,
-              workshop: programType === 'workshop' ? { id: selectedProgramId, title: currentProgram?.title || '' } : null,
-              completion_stats: {
-                attendance_percentage: stu?.attendanceRate || 100,
-                task_average_score: stu?.tasksAverageScore ?? 100,
-                quiz_average_score: stu?.quizzesAverageScore ?? 100,
-                total_sessions_attended: stu?.sessionsAttended || 0,
-                total_sessions: stu?.sessionsTotal || 0,
-              },
-            };
+        try {
+          const res = await issueStudentCertificatesBatch({
+            programType,
+            programId: selectedProgramId,
+            templateId: selectedTemplateId || undefined,
+            studentIds: batchIds,
+            thresholds: { minAttendance, minTaskAvg, minQuizAvg },
           });
 
-          setCertificates((prev) => [...newlyIssuedRecords, ...prev]);
+          if (res.certificates && res.certificates.length > 0) {
+            allIssuedCertificates.push(...res.certificates);
+            totalIssued += res.certificates.length;
+
+            // Remove successfully issued IDs from selection so UI shows real-time progress
+            const newlyIssuedSet = new Set(res.certificates.map((c) => c.studentId));
+            setSelectedStudentIds((prev) => {
+              const next = new Set(prev);
+              newlyIssuedSet.forEach((id) => next.delete(id));
+              return next;
+            });
+
+            // Optimistically add to registry
+            const optimisticBatch: StudentCertificateRecord[] = res.certificates.map((ic) => {
+              const stu = students.find((s) => s.student_id === ic.studentId);
+              return {
+                id: crypto.randomUUID(),
+                title: currentProgram?.title || 'Technical Program',
+                certificate_number: ic.certificateNumber,
+                verification_code: ic.verifyUrl.split('/verify/')[1] || crypto.randomUUID(),
+                issue_date: new Date().toISOString().split('T')[0],
+                created_at: new Date().toISOString(),
+                student_id: ic.studentId,
+                course_id: programType === 'course' ? selectedProgramId : null,
+                workshop_id: programType === 'workshop' ? selectedProgramId : null,
+                template_id: selectedTemplateId || null,
+                student: {
+                  id: ic.studentId,
+                  full_name_en: stu?.full_name_en || null,
+                  full_name_ar: stu?.full_name_ar || null,
+                  email: stu?.email || null,
+                  phone: null,
+                  faculty: stu?.faculty || null,
+                  academic_year: stu?.academic_year || null,
+                },
+                course: programType === 'course' ? { id: selectedProgramId, title: currentProgram?.title || '' } : null,
+                workshop: programType === 'workshop' ? { id: selectedProgramId, title: currentProgram?.title || '' } : null,
+                completion_stats: {
+                  attendance_percentage: stu?.attendanceRate || 100,
+                  task_average_score: stu?.tasksAverageScore ?? 100,
+                  quiz_average_score: stu?.quizzesAverageScore ?? 100,
+                  total_sessions_attended: stu?.sessionsAttended || 0,
+                  total_sessions: stu?.sessionsTotal || 0,
+                },
+              };
+            });
+            setCertificates((prev) => [...optimisticBatch, ...prev]);
+          }
+
+          if (res.errors && res.errors.length > 0) {
+            allErrors.push(...res.errors);
+          }
+        } catch (batchErr: any) {
+          console.error(`Batch ${i + 1} failed:`, batchErr);
+          allErrors.push(`Batch ${i + 1} (${batchIds.length} students): ${batchErr?.message || 'Network error'}`);
         }
-      } catch (err: any) {
-        setIssuanceResult({
-          success: false,
-          issuedCount: 0,
-          errors: [err.message || 'An unexpected error occurred.'],
-        });
+
+        // Small 250ms pause between batches to be gentle on external APIs
+        if (i < totalBatches - 1) {
+          await new Promise((resolve) => setTimeout(resolve, 250));
+        }
       }
-    });
+
+      setIssuanceProgress({
+        totalStudents,
+        completedStudents: totalIssued,
+        currentBatch: totalBatches,
+        totalBatches,
+        percent: 100,
+        activeBatchSize: 0,
+        failedCount: allErrors.length,
+      });
+
+      setIssuanceResult({
+        success: totalIssued > 0,
+        issuedCount: totalIssued,
+        certificates: allIssuedCertificates,
+        errors: allErrors.length > 0 ? allErrors : undefined,
+      });
+
+      // Refresh eligibility after all batches complete
+      fetchEligibility();
+    } catch (err: any) {
+      setIssuanceResult({
+        success: totalIssued > 0,
+        issuedCount: totalIssued,
+        certificates: allIssuedCertificates,
+        errors: [err.message || 'An unexpected error occurred during batch execution.'],
+      });
+    } finally {
+      setIsBatchIssuing(false);
+      setTimeout(() => {
+        setIssuanceProgress(null);
+      }, 4000);
+    }
   };
 
   const handleTemplateSaved = (savedTmpl: CertificateTemplate) => {
@@ -1913,6 +1999,82 @@ export function PresidentCertificateClient({
               </div>
             )}
 
+            {/* Active Batch Issuance Live Progress Bar */}
+            {issuanceProgress && (
+              <div
+                style={{
+                  margin: '1rem 1.5rem 0',
+                  padding: '1rem 1.25rem',
+                  borderRadius: '14px',
+                  background: 'rgba(66, 133, 244, 0.08)',
+                  border: '1.5px solid rgba(66, 133, 244, 0.3)',
+                  boxShadow: '0 8px 30px rgba(0, 0, 0, 0.4)',
+                }}
+              >
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    marginBottom: '0.6rem',
+                    flexWrap: 'wrap',
+                    gap: '0.5rem',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                    <Loader2 size={18} className="animate-spin" color="#4285F4" />
+                    <span style={{ fontSize: '0.9rem', fontWeight: 800, color: '#fff' }}>
+                      🚀 جاري إصدار الشهادات بنظام الدُفعات الآمن (Safe Batching)
+                    </span>
+                  </div>
+                  <div style={{ fontSize: '0.85rem', fontWeight: 800, color: '#60A5FA' }}>
+                    {issuanceProgress.completedStudents} / {issuanceProgress.totalStudents} طالب ({issuanceProgress.percent}%)
+                  </div>
+                </div>
+
+                {/* Progress Track */}
+                <div
+                  style={{
+                    width: '100%',
+                    height: '8px',
+                    borderRadius: '999px',
+                    background: 'rgba(255, 255, 255, 0.1)',
+                    overflow: 'hidden',
+                    marginBottom: '0.5rem',
+                  }}
+                >
+                  <div
+                    style={{
+                      width: `${issuanceProgress.percent}%`,
+                      height: '100%',
+                      borderRadius: '999px',
+                      background: 'linear-gradient(90deg, #4285F4 0%, #34A853 100%)',
+                      transition: 'width 0.4s ease-in-out',
+                    }}
+                  />
+                </div>
+
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    fontSize: '0.75rem',
+                    color: 'var(--text-muted)',
+                    flexWrap: 'wrap',
+                    gap: '0.5rem',
+                  }}
+                >
+                  <span>
+                    الدفعة {issuanceProgress.currentBatch} من أصل {issuanceProgress.totalBatches} ({issuanceProgress.activeBatchSize} طلاب في هذه الدفعة)...
+                  </span>
+                  <span style={{ color: '#FDE047', fontWeight: 600 }}>
+                    ⚠️ يرجى ترك الصفحة مفتوحة حتى اكتمال كافة الدفعات بنجاح
+                  </span>
+                </div>
+              </div>
+            )}
+
             {/* Issuance Action Footer */}
             <div
               style={{
@@ -1962,41 +2124,43 @@ export function PresidentCertificateClient({
 
                 <button
                   onClick={handleIssueSubmit}
-                  disabled={isIssuing || selectedStudentIds.size === 0}
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '0.6rem',
-                  padding: '0.75rem 1.75rem',
-                  borderRadius: '12px',
-                  background:
-                    selectedStudentIds.size === 0 || isIssuing
-                      ? 'rgba(255, 255, 255, 0.1)'
-                      : 'linear-gradient(135deg, #34A853, #1e8e3e)',
-                  color: selectedStudentIds.size === 0 || isIssuing ? 'var(--text-muted)' : '#fff',
-                  fontSize: '0.92rem',
-                  fontWeight: 800,
-                  border: 'none',
-                  cursor: selectedStudentIds.size === 0 || isIssuing ? 'not-allowed' : 'pointer',
-                  boxShadow:
-                    selectedStudentIds.size > 0 && !isIssuing
-                      ? '0 6px 20px rgba(52, 168, 83, 0.3)'
-                      : 'none',
-                  transition: 'all 0.2s',
-                }}
-              >
-                {isIssuing ? (
-                  <>
-                    <Loader2 size={18} className="animate-spin" />
-                    <span>Issuing Certificates &amp; Generating PDFs...</span>
-                  </>
-                ) : (
-                  <>
-                    <Sparkles size={18} />
-                    <span>Issue {selectedStudentIds.size} Certificates (Batch)</span>
-                  </>
-                )}
-              </button>
+                  disabled={isBatchIssuing || isIssuing || selectedStudentIds.size === 0}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '0.6rem',
+                    padding: '0.75rem 1.75rem',
+                    borderRadius: '12px',
+                    background:
+                      selectedStudentIds.size === 0 || isBatchIssuing || isIssuing
+                        ? 'rgba(255, 255, 255, 0.1)'
+                        : 'linear-gradient(135deg, #34A853, #1e8e3e)',
+                    color: selectedStudentIds.size === 0 || isBatchIssuing || isIssuing ? 'var(--text-muted)' : '#fff',
+                    fontSize: '0.92rem',
+                    fontWeight: 800,
+                    border: 'none',
+                    cursor: selectedStudentIds.size === 0 || isBatchIssuing || isIssuing ? 'not-allowed' : 'pointer',
+                    boxShadow:
+                      selectedStudentIds.size > 0 && !isBatchIssuing && !isIssuing
+                        ? '0 6px 20px rgba(52, 168, 83, 0.3)'
+                        : 'none',
+                    transition: 'all 0.2s',
+                  }}
+                >
+                  {isBatchIssuing || isIssuing ? (
+                    <>
+                      <Loader2 size={18} className="animate-spin" />
+                      <span>
+                        جاري الإصدار ({issuanceProgress?.completedStudents || 0}/{issuanceProgress?.totalStudents || selectedStudentIds.size})...
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles size={18} />
+                      <span>Issue {selectedStudentIds.size} Certificates (Batch)</span>
+                    </>
+                  )}
+                </button>
               </div>
             </div>
           </div>

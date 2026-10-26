@@ -7,6 +7,7 @@ import { getCertificatePrograms, getAllIssuedStudentCertificates } from './actio
 import { PresidentCertificateClient } from '@/components/student-portal/admin/PresidentCertificateClient';
 
 export const dynamic = 'force-dynamic';
+export const maxDuration = 60;
 
 export const metadata: Metadata = {
   title: 'Student Certificates & Credentials Hub — GDGoC HNU',

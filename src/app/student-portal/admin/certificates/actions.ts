@@ -1,5 +1,7 @@
 'use server';
 
+export const maxDuration = 60;
+
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getUserContext } from '@/lib/auth/get-user-context';
 import { renderCertificatePDFBuffer } from '@/lib/certificates/issue-engine';
@@ -569,7 +571,12 @@ export async function issueStudentCertificatesBatch(input: {
           .maybeSingle();
 
         if (existing) {
-          errors.push(`Certificate already issued for ${studentInfo.full_name_en || studentInfo.email} (${existing.certificate_number}).`);
+          const baseUrl = getAppBaseUrl();
+          issuedCertificates.push({
+            studentId,
+            certificateNumber: existing.certificate_number,
+            verifyUrl: `${baseUrl}/verify/${existing.certificate_number}`,
+          });
           continue;
         }
 
@@ -605,17 +612,21 @@ export async function issueStudentCertificatesBatch(input: {
           backgroundImageUrl: backgroundUrl,
         });
 
-        // 5. Upload to Drive
+        // 5. Upload to Drive with timeout protection
         let driveFileId: string | null = null;
         let driveUrl: string | null = null;
         try {
-          const driveRes = await uploadFileToDrive({
+          const drivePromise = uploadFileToDrive({
             fileName: `${certificateNumber}_${recipientDisplayName.replace(/\s+/g, '_')}.pdf`,
             mimeType: 'application/pdf',
             base64Data: buffer.toString('base64'),
             makePublic: true,
           });
-          if (driveRes.success && driveRes.data) {
+          const timeoutPromise = new Promise<{ success: false }>((resolve) =>
+            setTimeout(() => resolve({ success: false }), 5000)
+          );
+          const driveRes = (await Promise.race([drivePromise, timeoutPromise])) as any;
+          if (driveRes && driveRes.success && driveRes.data) {
             driveFileId = driveRes.data.fileId;
             driveUrl = driveRes.data.fileUrl || driveRes.data.downloadUrl || null;
           }
