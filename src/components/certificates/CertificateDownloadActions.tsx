@@ -70,6 +70,15 @@ export function CertificateDownloadActions({
           const blob = await toBlob(canvasNode, {
             pixelRatio: 3, // 3x ultra-high-definition capture
             cacheBust: true,
+            width: 842,
+            height: 595,
+            style: {
+              transform: 'none',
+              transformOrigin: 'top left',
+              width: '842px',
+              height: '595px',
+              opacity: '1',
+            },
           });
 
           if (blob && blob.size > 1000) {

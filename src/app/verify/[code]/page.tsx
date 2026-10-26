@@ -273,6 +273,7 @@ export default async function CertificateVerificationPage({ params }: VerifyPage
 
   return (
     <div
+      className="verify-page-wrapper"
       style={{
         minHeight: '100vh',
         background: 'radial-gradient(ellipse at top, #0f172a 0%, #080c14 100%)',
@@ -280,9 +281,40 @@ export default async function CertificateVerificationPage({ params }: VerifyPage
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
-        padding: '2.5rem 1.25rem',
       }}
     >
+      <style>{`
+        .verify-page-wrapper {
+          padding: 2.5rem 1.25rem;
+        }
+        .verify-card-panel {
+          padding: 2.5rem;
+          border-radius: 24px;
+          gap: 2rem;
+        }
+        .verify-meta-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+          gap: 1rem;
+          padding: 1.25rem;
+        }
+        @media (max-width: 640px) {
+          .verify-page-wrapper {
+            padding: 1rem 0.6rem !important;
+          }
+          .verify-card-panel {
+            padding: 1.15rem 0.75rem !important;
+            border-radius: 18px !important;
+            gap: 1.25rem !important;
+          }
+          .verify-meta-grid {
+            grid-template-columns: 1fr !important;
+            gap: 0.85rem !important;
+            padding: 0.85rem !important;
+          }
+        }
+      `}</style>
+
       {/* Top Header / Chapter Branding */}
       <header
         style={{
@@ -343,16 +375,13 @@ export default async function CertificateVerificationPage({ params }: VerifyPage
       <main style={{ width: '100%', maxWidth: '860px' }}>
         {certificate ? (
           <div
-            className="glass-panel"
+            className="glass-panel verify-card-panel"
             style={{
-              padding: '2.5rem',
-              borderRadius: '24px',
               position: 'relative',
               overflow: 'hidden',
               boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
               display: 'flex',
               flexDirection: 'column',
-              gap: '2rem',
             }}
           >
             {/* Google 4-Color Accent Strip */}
@@ -443,11 +472,8 @@ export default async function CertificateVerificationPage({ params }: VerifyPage
 
             {/* Credentials Meta Grid */}
             <div
+              className="verify-meta-grid"
               style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
-                gap: '1rem',
-                padding: '1.25rem',
                 background: 'rgba(255, 255, 255, 0.03)',
                 borderRadius: '16px',
                 border: '1px solid rgba(255, 255, 255, 0.06)',
