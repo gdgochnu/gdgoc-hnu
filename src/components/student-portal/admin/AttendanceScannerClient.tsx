@@ -456,6 +456,30 @@ export function AttendanceScannerClient({
                 <span>Attendance Sheet</span>
               </Link>
             )}
+            <Link
+              href={
+                activeSession?.target_type === 'course'
+                  ? `/student-portal/admin/attendance/ai-import?courseId=${activeSession.parent_id}`
+                  : `/student-portal/admin/attendance/ai-import`
+              }
+              style={{
+                marginLeft: '0.4rem',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.35rem',
+                color: '#93C5FD',
+                fontSize: '0.8rem',
+                fontWeight: 700,
+                textDecoration: 'none',
+                padding: '0.2rem 0.6rem',
+                borderRadius: '6px',
+                background: 'linear-gradient(135deg, rgba(66, 133, 244, 0.2), rgba(52, 168, 83, 0.2))',
+                border: '1px solid rgba(66, 133, 244, 0.35)',
+              }}
+            >
+              <Sparkles size={13} color="var(--google-blue)" />
+              <span>AI Excel Import</span>
+            </Link>
           </div>
           <h1 style={{ fontSize: '1.85rem', fontWeight: 900, color: '#FFFFFF', margin: '0.3rem 0 0 0', letterSpacing: '-0.5px' }}>
             Unified QR Attendance Scanner

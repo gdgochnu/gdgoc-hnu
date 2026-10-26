@@ -570,29 +570,53 @@ export function CourseSessionsClient({
           </div>
 
           {canManage && (
-            <button
-              onClick={openCreateModal}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.5rem',
-                padding: '0.75rem 1.4rem',
-                borderRadius: '10px',
-                background: '#4285F4',
-                color: '#FFFFFF',
-                fontWeight: 700,
-                fontSize: '0.9rem',
-                border: 'none',
-                cursor: 'pointer',
-                boxShadow: '0 4px 14px rgba(66, 133, 244, 0.35)',
-                transition: 'transform 0.15s ease, background 0.15s ease',
-              }}
-              onMouseEnter={(e) => (e.currentTarget.style.transform = 'translateY(-2px)')}
-              onMouseLeave={(e) => (e.currentTarget.style.transform = 'translateY(0)')}
-            >
-              <Plus size={18} />
-              Schedule Session
-            </button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+              <Link
+                href={`/student-portal/admin/attendance/ai-import?courseId=${course.id}`}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.5rem',
+                  padding: '0.75rem 1.25rem',
+                  borderRadius: '10px',
+                  background: 'linear-gradient(135deg, rgba(66, 133, 244, 0.2), rgba(52, 168, 83, 0.2))',
+                  border: '1px solid rgba(66, 133, 244, 0.35)',
+                  color: '#93c5fd',
+                  fontWeight: 700,
+                  fontSize: '0.88rem',
+                  textDecoration: 'none',
+                  boxShadow: '0 4px 14px rgba(66, 133, 244, 0.2)',
+                  transition: 'transform 0.15s ease, background 0.15s ease',
+                }}
+              >
+                <Sparkles size={16} color="var(--google-blue)" />
+                <span>AI Excel Import • استيراد بالذكاء الاصطناعي</span>
+              </Link>
+
+              <button
+                onClick={openCreateModal}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.5rem',
+                  padding: '0.75rem 1.4rem',
+                  borderRadius: '10px',
+                  background: '#4285F4',
+                  color: '#FFFFFF',
+                  fontWeight: 700,
+                  fontSize: '0.9rem',
+                  border: 'none',
+                  cursor: 'pointer',
+                  boxShadow: '0 4px 14px rgba(66, 133, 244, 0.35)',
+                  transition: 'transform 0.15s ease, background 0.15s ease',
+                }}
+                onMouseEnter={(e) => (e.currentTarget.style.transform = 'translateY(-2px)')}
+                onMouseLeave={(e) => (e.currentTarget.style.transform = 'translateY(0)')}
+              >
+                <Plus size={18} />
+                Schedule Session
+              </button>
+            </div>
           )}
         </div>
 

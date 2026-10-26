@@ -379,6 +379,32 @@ export function SessionAttendanceSheetClient({ initialData }: SessionAttendanceS
             </div>
           )}
 
+          {/* AI Import Button */}
+          <Link
+            href={
+              parent.target_type === 'course'
+                ? `/student-portal/admin/attendance/ai-import?courseId=${parent.id}`
+                : `/student-portal/admin/attendance/ai-import`
+            }
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.45rem',
+              padding: '0.55rem 0.95rem',
+              borderRadius: '8px',
+              background: 'linear-gradient(135deg, rgba(66, 133, 244, 0.2), rgba(52, 168, 83, 0.2))',
+              border: '1px solid rgba(66, 133, 244, 0.35)',
+              color: '#93C5FD',
+              fontSize: '0.82rem',
+              fontWeight: 700,
+              textDecoration: 'none',
+              boxShadow: '0 2px 10px rgba(66, 133, 244, 0.2)',
+            }}
+          >
+            <Sparkles size={14} color="var(--google-blue)" />
+            <span>AI Excel Import</span>
+          </Link>
+
           {/* Export CSV Button */}
           <button
             type="button"
