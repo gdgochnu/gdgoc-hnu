@@ -2218,7 +2218,7 @@ export function StudentCourseDetailClient({ initialData }: StudentCourseDetailCl
                         </div>
                       </div>
 
-                      {/* Attendance Badge on Item */}
+                      {/* Attendance / Status Badge on Item */}
                       {s.is_attended ? (
                         <span
                           style={{
@@ -2232,6 +2232,20 @@ export function StudentCourseDetailClient({ initialData }: StudentCourseDetailCl
                           }}
                         >
                           Attended
+                        </span>
+                      ) : s.status === 'completed' ? (
+                        <span
+                          style={{
+                            padding: '0.15rem 0.45rem',
+                            borderRadius: '6px',
+                            fontSize: '0.68rem',
+                            fontWeight: 800,
+                            background: 'rgba(52, 168, 83, 0.15)',
+                            color: '#4ADE80',
+                            flexShrink: 0,
+                          }}
+                        >
+                          Completed
                         </span>
                       ) : (
                         <ChevronRight
@@ -2392,6 +2406,26 @@ export function StudentCourseDetailClient({ initialData }: StudentCourseDetailCl
                       {activeSession.type === 'online' ? 'Online Session' : 'In-Person Workshop'}
                     </span>
 
+                    {activeSession.status === 'completed' && (
+                      <span
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '0.35rem',
+                          padding: '0.25rem 0.65rem',
+                          borderRadius: '8px',
+                          fontSize: '0.74rem',
+                          fontWeight: 800,
+                          background: 'rgba(52, 168, 83, 0.15)',
+                          color: '#4ADE80',
+                          border: '1px solid rgba(52, 168, 83, 0.35)',
+                        }}
+                      >
+                        <CheckCircle2 size={13} />
+                        Completed
+                      </span>
+                    )}
+
                     {activeSession.is_attended && (
                       <span
                         style={{
@@ -2468,32 +2502,6 @@ export function StudentCourseDetailClient({ initialData }: StudentCourseDetailCl
                     <span>{isCinemaMode ? 'Show Playlist' : 'Focus Mode'}</span>
                   </button>
 
-                  {/* Share / Copy Direct Session Link */}
-                  <button
-                    type="button"
-                    onClick={handleCopyShareLink}
-                    style={{
-                      padding: '0.45rem 0.75rem',
-                      borderRadius: '8px',
-                      background: copiedLink ? 'rgba(52, 168, 83, 0.2)' : 'rgba(255, 255, 255, 0.05)',
-                      border: copiedLink ? '1px solid rgba(52, 168, 83, 0.4)' : '1px solid rgba(255, 255, 255, 0.1)',
-                      color: copiedLink ? '#34D399' : '#CBD5E1',
-                      cursor: 'pointer',
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '0.35rem',
-                      fontSize: '0.78rem',
-                      fontWeight: 700,
-                      transition: 'all 0.15s ease',
-                    }}
-                    title="Copy direct link to this session"
-                  >
-                    {copiedLink ? <Check size={14} /> : <Share2 size={14} />}
-                    <span>{copiedLink ? 'Copied!' : 'Share'}</span>
-                  </button>
-
-                  <div style={{ width: '1px', height: '18px', background: 'rgba(255, 255, 255, 0.12)', margin: '0 0.1rem' }} />
-
                   <button
                     type="button"
                     disabled={activeSessionIndex === 0}
@@ -2561,76 +2569,138 @@ export function StudentCourseDetailClient({ initialData }: StudentCourseDetailCl
 
                     {/* Check if it's a Live Meeting (Google Meet / Zoom / Teams) */}
                     {activeSession.is_meeting ? (
-                      <div
-                        style={{
-                          padding: '1.5rem',
-                          borderRadius: '14px',
-                          background: 'linear-gradient(135deg, rgba(66, 133, 244, 0.15) 0%, rgba(52, 168, 83, 0.1) 100%)',
-                          border: '1px solid rgba(66, 133, 244, 0.35)',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'space-between',
-                          flexWrap: 'wrap',
-                          gap: '1.25rem',
-                        }}
-                      >
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                          <div
-                            style={{
-                              width: '48px',
-                              height: '48px',
-                              borderRadius: '12px',
-                              background: '#4285F4',
-                              color: '#FFFFFF',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              flexShrink: 0,
-                              boxShadow: '0 4px 12px rgba(66, 133, 244, 0.4)',
-                            }}
-                          >
-                            <Radio size={24} />
+                      activeSession.status === 'completed' ? (
+                        <div
+                          style={{
+                            padding: '1.25rem 1.5rem',
+                            borderRadius: '14px',
+                            background: 'linear-gradient(135deg, rgba(52, 168, 83, 0.1) 0%, rgba(15, 23, 42, 0.7) 100%)',
+                            border: '1px solid rgba(52, 168, 83, 0.3)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            flexWrap: 'wrap',
+                            gap: '1.25rem',
+                          }}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                            <div
+                              style={{
+                                width: '44px',
+                                height: '44px',
+                                borderRadius: '12px',
+                                background: 'rgba(52, 168, 83, 0.2)',
+                                border: '1px solid rgba(52, 168, 83, 0.4)',
+                                color: '#4ADE80',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                flexShrink: 0,
+                              }}
+                            >
+                              <CheckCircle2 size={24} />
+                            </div>
+
+                            <div>
+                              <div style={{ fontSize: '1.05rem', fontWeight: 800, color: '#FFFFFF' }}>
+                                Session Concluded • اكتملت الجلسة
+                              </div>
+                              <div style={{ fontSize: '0.84rem', color: '#94A3B8', marginTop: '0.2rem' }}>
+                                انتهت هذه الجلسة وتم إغلاق رابط الدخول. يمكنك مراجعة ملحقات ومهام الجلسة أدناه.
+                              </div>
+                            </div>
                           </div>
 
-                          <div>
-                            <div style={{ fontSize: '1.1rem', fontWeight: 800, color: '#FFFFFF' }}>
-                              Live Interactive Classroom
-                            </div>
-                            <div style={{ fontSize: '0.84rem', color: '#CBD5E1', marginTop: '0.15rem' }}>
-                              Join the real-time session via Google Meet / conference meeting room with your mentors.
-                            </div>
-                          </div>
-                        </div>
-
-                        {activeSession.youtube_url ? (
-                          <a
-                            href={activeSession.youtube_url}
-                            target="_blank"
-                            rel="noopener noreferrer"
+                          <span
                             style={{
-                              padding: '0.75rem 1.4rem',
-                              borderRadius: '10px',
-                              background: '#34A853',
-                              color: '#FFFFFF',
-                              fontWeight: 800,
-                              fontSize: '0.9rem',
-                              textDecoration: 'none',
                               display: 'inline-flex',
                               alignItems: 'center',
-                              gap: '0.5rem',
-                              boxShadow: '0 4px 12px rgba(52, 168, 83, 0.4)',
+                              gap: '0.4rem',
+                              padding: '0.5rem 0.95rem',
+                              borderRadius: '8px',
+                              background: 'rgba(52, 168, 83, 0.15)',
+                              border: '1px solid rgba(52, 168, 83, 0.35)',
+                              color: '#4ADE80',
+                              fontSize: '0.82rem',
+                              fontWeight: 800,
                             }}
                           >
-                            <Video size={17} />
-                            Launch Live Meeting
-                            <ExternalLink size={14} />
-                          </a>
-                        ) : (
-                          <span style={{ fontSize: '0.84rem', color: '#FBBF24', fontWeight: 600 }}>
-                            Meeting link will be shared 15 mins before start
+                            <Check size={14} />
+                            Meeting Closed
                           </span>
-                        )}
-                      </div>
+                        </div>
+                      ) : (
+                        <div
+                          style={{
+                            padding: '1.5rem',
+                            borderRadius: '14px',
+                            background: 'linear-gradient(135deg, rgba(66, 133, 244, 0.15) 0%, rgba(52, 168, 83, 0.1) 100%)',
+                            border: '1px solid rgba(66, 133, 244, 0.35)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            flexWrap: 'wrap',
+                            gap: '1.25rem',
+                          }}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                            <div
+                              style={{
+                                width: '48px',
+                                height: '48px',
+                                borderRadius: '12px',
+                                background: '#4285F4',
+                                color: '#FFFFFF',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                flexShrink: 0,
+                                boxShadow: '0 4px 12px rgba(66, 133, 244, 0.4)',
+                              }}
+                            >
+                              <Radio size={24} />
+                            </div>
+
+                            <div>
+                              <div style={{ fontSize: '1.1rem', fontWeight: 800, color: '#FFFFFF' }}>
+                                Live Interactive Classroom
+                              </div>
+                              <div style={{ fontSize: '0.84rem', color: '#CBD5E1', marginTop: '0.15rem' }}>
+                                Join the real-time session via Google Meet / conference meeting room with your mentors.
+                              </div>
+                            </div>
+                          </div>
+
+                          {activeSession.youtube_url ? (
+                            <a
+                              href={activeSession.youtube_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              style={{
+                                padding: '0.75rem 1.4rem',
+                                borderRadius: '10px',
+                                background: '#34A853',
+                                color: '#FFFFFF',
+                                fontWeight: 800,
+                                fontSize: '0.9rem',
+                                textDecoration: 'none',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '0.5rem',
+                                boxShadow: '0 4px 12px rgba(52, 168, 83, 0.4)',
+                              }}
+                            >
+                              <Video size={17} />
+                              Launch Live Meeting
+                              <ExternalLink size={14} />
+                            </a>
+                          ) : (
+                            <span style={{ fontSize: '0.84rem', color: '#FBBF24', fontWeight: 600 }}>
+                              Meeting link will be shared 15 mins before start
+                            </span>
+                          )}
+                        </div>
+                      )
                     ) : (
                       /* YouTube Stream / Video Embed Player */
                       (() => {
