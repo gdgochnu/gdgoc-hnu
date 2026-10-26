@@ -2603,10 +2603,10 @@ export function StudentCourseDetailClient({ initialData }: StudentCourseDetailCl
 
                             <div>
                               <div style={{ fontSize: '1.05rem', fontWeight: 800, color: '#FFFFFF' }}>
-                                Session Concluded • اكتملت الجلسة
+                                Session Concluded
                               </div>
                               <div style={{ fontSize: '0.84rem', color: '#94A3B8', marginTop: '0.2rem' }}>
-                                انتهت هذه الجلسة وتم إغلاق رابط الدخول. يمكنك مراجعة ملحقات ومهام الجلسة أدناه.
+                                This session has concluded and the meeting link is closed. You can review the session resources and tasks below.
                               </div>
                             </div>
                           </div>
