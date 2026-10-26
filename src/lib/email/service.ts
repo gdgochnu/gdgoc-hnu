@@ -1324,15 +1324,15 @@ export function renderStudentCertificateEmailHtml(params: RenderStudentCertifica
         <span>📢 Celebrate &amp; Share Your Achievement!</span>
       </div>
       <p style="margin:0 0 12px;font-size:13.5px;color:#374151;line-height:1.7;font-family:Arial,sans-serif;">
-        We encourage you to share your certificate on social media! Post your success story on <strong>LinkedIn, Instagram, Facebook, and X (Twitter)</strong> and <strong>tag / mention us</strong> so we can celebrate and reshare your accomplishment across our official community channels.
+        We encourage you to share your achievement on social media! Post your success story on <strong>LinkedIn, Instagram, and Facebook</strong>, and <strong>tag / mention us</strong> so we can celebrate and reshare your accomplishment across our official community channels.
       </p>
 
       <ul style="margin:0 0 14px;padding-left:20px;font-size:13px;color:#4b5563;line-height:1.8;font-family:Arial,sans-serif;">
         <li>
-          <strong>On LinkedIn:</strong> Add to your <em>Licenses &amp; Certifications</em> under <strong>Google Developer Groups on Campus</strong>. Enter your Certificate Serial (<code>${params.certificateNumber}</code>) and your verification link.
+          <strong>On LinkedIn:</strong> Share a post featuring your certificate image along with your public verification link (<a href="${verifyLink}" target="_blank" style="color:#1a73e8;font-weight:bold;text-decoration:underline;">${verifyLink}</a>), and <strong>tag / mention our official page</strong> so we can celebrate and reshare your achievement with the community!
         </li>
         <li>
-          <strong>On Social Media (Instagram / Facebook / X):</strong> Tag our official accounts so we can feature you on our chapter stories and highlights!
+          <strong>On Instagram &amp; Facebook:</strong> Post your certificate to your feed or stories and tag our official accounts to get featured on our chapter highlights!
         </li>
       </ul>
 
