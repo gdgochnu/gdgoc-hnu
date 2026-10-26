@@ -2,7 +2,7 @@
 
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getUserContext } from '@/lib/auth/get-user-context';
-import { renderCertificatePDFBuffer, renderCertificatePNGBuffer } from '@/lib/certificates/issue-engine';
+import { renderCertificatePDFBuffer } from '@/lib/certificates/issue-engine';
 import { uploadFileToDrive } from '@/lib/drive/drive-client';
 import { notifyCertificateIssued } from '@/lib/notifications/triggers';
 import { dispatchStudentNotification } from '@/app/student/notifications/actions';
@@ -605,25 +605,6 @@ export async function issueStudentCertificatesBatch(input: {
           backgroundImageUrl: backgroundUrl,
         });
 
-        let pngBuffer: Buffer | null = null;
-        try {
-          pngBuffer = await renderCertificatePNGBuffer(
-            {
-              recipientName: recipientDisplayName,
-              recipientEmail: studentInfo.email,
-              title: programTitle,
-              issueDate: issueDateStr,
-              certificateNumber,
-              verificationCode,
-              fieldLayout,
-              backgroundImageUrl: backgroundUrl,
-            },
-            qrCodeDataUrl
-          );
-        } catch (pngErr) {
-          console.warn('PNG generation warning for student cert:', pngErr);
-        }
-
         // 5. Upload to Drive
         let driveFileId: string | null = null;
         let driveUrl: string | null = null;
@@ -691,7 +672,7 @@ export async function issueStudentCertificatesBatch(input: {
           console.warn('Student certificate notification warning:', notifErr);
         }
 
-        // 8. Dispatch Email to student with PDF & PNG attachments
+        // 8. Dispatch Email to student with official PDF attachment
         try {
           if (studentInfo.email) {
             const baseUrl = getAppBaseUrl();
@@ -706,7 +687,6 @@ export async function issueStudentCertificatesBatch(input: {
               verifyUrl,
               issueDate: issueDateStr,
               pdfBuffer: buffer,
-              pngBuffer,
             });
           }
         } catch (emailErr) {
@@ -959,7 +939,7 @@ export async function getCertificateEmailPreviewAction(input: {
       hasAttachments: true,
     });
 
-    const subject = `🎓 Official Certificate: ${programTitle} — ${twoPartName} | GDGoC HNU`;
+    const subject = `🎓 Official Course Certificate: ${programTitle} — ${twoPartName} | GDGoC HNU`;
 
     return {
       success: true,
@@ -1022,8 +1002,8 @@ export async function sendTestCertificateEmailAction(input: {
       year: 'numeric',
     });
 
-    // Render test PDF & PNG buffers with embedded QR
-    const { buffer: pdfBuffer, verifyUrl, qrCodeDataUrl } = await renderCertificatePDFBuffer({
+    // Render test PDF buffer with embedded QR
+    const { buffer: pdfBuffer, verifyUrl } = await renderCertificatePDFBuffer({
       recipientName,
       recipientEmail: input.testEmail,
       title: programTitle,
@@ -1033,25 +1013,6 @@ export async function sendTestCertificateEmailAction(input: {
       fieldLayout,
       backgroundImageUrl: backgroundUrl,
     });
-
-    let pngBuffer: Buffer | null = null;
-    try {
-      pngBuffer = await renderCertificatePNGBuffer(
-        {
-          recipientName,
-          recipientEmail: input.testEmail,
-          title: programTitle,
-          issueDate: issueDateStr,
-          certificateNumber: sampleCertNumber,
-          verificationCode: crypto.randomUUID(),
-          fieldLayout,
-          backgroundImageUrl: backgroundUrl,
-        },
-        qrCodeDataUrl
-      );
-    } catch (pngErr) {
-      console.warn('Test email PNG rendering warning:', pngErr);
-    }
 
     const emailRes = await sendStudentCertificateEmail({
       to: input.testEmail,
@@ -1063,7 +1024,6 @@ export async function sendTestCertificateEmailAction(input: {
       downloadUrl: verifyUrl,
       issueDate: issueDateStr,
       pdfBuffer,
-      pngBuffer,
     });
 
     if (!emailRes.success) {
@@ -1072,7 +1032,7 @@ export async function sendTestCertificateEmailAction(input: {
 
     return {
       success: true,
-      message: `Test certificate email sent successfully to ${input.testEmail} with PDF and PNG attachments!`,
+      message: `Test certificate email sent successfully to ${input.testEmail} with official PDF certificate attachment!`,
     };
   } catch (err: any) {
     return { success: false, error: err?.message || 'Error sending test email.' };

@@ -275,7 +275,7 @@ export function PresidentCertificateClient({
       if (res.success) {
         setTestEmailResult({
           success: true,
-          message: res.message || 'Test email sent successfully with PDF & PNG attachments!',
+          message: res.message || 'Test email sent successfully with official PDF certificate attachment!',
         });
       } else {
         setTestEmailResult({
@@ -2490,7 +2490,7 @@ export function PresidentCertificateClient({
                     fontWeight: 700,
                   }}
                 >
-                  <span>📎 Attached: PDF + PNG</span>
+                  <span>📎 Attached: Official PDF Certificate</span>
                 </span>
               </div>
 
