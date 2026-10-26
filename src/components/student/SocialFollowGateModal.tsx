@@ -15,12 +15,14 @@ import {
   ArrowRight,
   Clock,
   Zap,
+  X,
 } from 'lucide-react';
 
 interface Props {
   initialFollowedPlatforms: string[];
   studentName?: string | null;
   onAllCompleted?: () => void;
+  onClose?: () => void;
 }
 
 function renderChannelIcon(type: SocialChannelConfig['iconType'], size = 28) {
@@ -68,10 +70,22 @@ export function SocialFollowGateModal({
   initialFollowedPlatforms,
   studentName,
   onAllCompleted,
+  onClose,
 }: Props) {
   const [followedSet, setFollowedSet] = useState<Set<string>>(
     new Set(initialFollowedPlatforms)
   );
+
+  // Close modal on Escape key press
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && onClose) {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
 
   // Find first uncompleted step
   const firstUncompletedIndex = MANDATORY_SOCIAL_CHANNELS.findIndex(
@@ -207,6 +221,11 @@ export function SocialFollowGateModal({
 
   return (
     <div
+      onClick={(e) => {
+        if (e.target === e.currentTarget && onClose) {
+          onClose();
+        }
+      }}
       style={{
         position: 'fixed',
         inset: 0,
@@ -237,6 +256,44 @@ export function SocialFollowGateModal({
           animation: shake ? 'shakeAnimation 0.5s ease' : undefined,
         }}
       >
+        {/* Close Button (X) */}
+        {onClose && (
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="إغلاق / Close"
+            style={{
+              position: 'absolute',
+              top: '12px',
+              right: '12px',
+              width: '32px',
+              height: '32px',
+              borderRadius: '50%',
+              background: 'rgba(255, 255, 255, 0.08)',
+              border: '1px solid rgba(255, 255, 255, 0.15)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: '#94A3B8',
+              cursor: 'pointer',
+              zIndex: 10,
+              transition: 'all 0.2s ease',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = 'rgba(239, 68, 68, 0.2)';
+              e.currentTarget.style.color = '#EF4444';
+              e.currentTarget.style.borderColor = 'rgba(239, 68, 68, 0.4)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = 'rgba(255, 255, 255, 0.08)';
+              e.currentTarget.style.color = '#94A3B8';
+              e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.15)';
+            }}
+          >
+            <X size={16} />
+          </button>
+        )}
+
         {/* Google Accent Strip */}
         <div
           style={{
@@ -313,7 +370,11 @@ export function SocialFollowGateModal({
             <button
               onClick={() => {
                 setShowSuccessScreen(false);
-                window.location.reload();
+                if (onClose) {
+                  onClose();
+                } else {
+                  window.location.reload();
+                }
               }}
               style={{
                 width: '100%',
@@ -333,7 +394,7 @@ export function SocialFollowGateModal({
                 transition: 'all 0.2s ease',
               }}
             >
-              <span>Enter Portal</span>
+              <span>الدخول للبوابة • Enter Portal</span>
               <ArrowRight size={16} />
             </button>
           </div>
@@ -359,8 +420,8 @@ export function SocialFollowGateModal({
                   marginBottom: '0.4rem',
                 }}
               >
-                <ShieldCheck size={12} color="#60A5FA" />
-                Community Setup
+                <Sparkles size={12} color="#60A5FA" />
+                Community Channels
               </div>
               <h2
                 style={{
@@ -371,16 +432,17 @@ export function SocialFollowGateModal({
                   letterSpacing: '-0.01em',
                 }}
               >
-                Connect With GDGoC HNU
+                انضم لمجتمع GDGoC HNU
               </h2>
               <p
                 style={{
                   color: '#94A3B8',
                   fontSize: '0.78rem',
                   marginTop: '0.25rem',
+                  lineHeight: 1.4,
                 }}
               >
-                Follow our official channels to unlock the portal.
+                تابع قنواتنا الرسمية للبقاء على اطلاع بالورش والفعاليات (متابعة اختيارية)
               </p>
             </div>
 
@@ -578,15 +640,54 @@ export function SocialFollowGateModal({
               </div>
             )}
 
+            {/* Skip / Close Action Button */}
+            {onClose && (
+              <button
+                type="button"
+                onClick={onClose}
+                style={{
+                  width: '100%',
+                  padding: '0.65rem 1rem',
+                  borderRadius: 10,
+                  background: 'rgba(255, 255, 255, 0.04)',
+                  border: '1px solid rgba(255, 255, 255, 0.1)',
+                  color: '#94A3B8',
+                  fontSize: '0.82rem',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '0.4rem',
+                  transition: 'all 0.2s ease',
+                  marginBottom: '0.75rem',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = 'rgba(255, 255, 255, 0.08)';
+                  e.currentTarget.style.color = '#FFFFFF';
+                  e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.2)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = 'rgba(255, 255, 255, 0.04)';
+                  e.currentTarget.style.color = '#94A3B8';
+                  e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.1)';
+                }}
+              >
+                <span>تخطي ومتابعة لاحقاً</span>
+                <span style={{ fontSize: '0.72rem', opacity: 0.7 }}>(Skip for now)</span>
+              </button>
+            )}
+
             {/* Bottom Footer Note */}
             <div
               style={{
                 textAlign: 'center',
-                fontSize: '0.68rem',
+                fontSize: '0.7rem',
                 color: '#64748B',
+                lineHeight: 1.4,
               }}
             >
-              🔒 Required to unlock student portal
+              يمكنك متابعة قنواتنا في أي وقت عبر القائمة الجانبية
             </div>
           </div>
         )}

@@ -105,9 +105,26 @@ export function StudentAppShell({ student, teamRole, children }: StudentAppShell
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [socialFollowStatus, setSocialFollowStatus] = useState<SocialFollowStatus | null>(null);
+  const [hasDismissedSocialGate, setHasDismissedSocialGate] = useState(false);
   const [suggestedCourses, setSuggestedCourses] = useState<SuggestedCourseItem[]>([]);
   const [hasDismissedCourseSuggestion, setHasDismissedCourseSuggestion] = useState(false);
   const sidebarNavRef = useRef<HTMLDivElement | null>(null);
+
+  // Check if student has dismissed social follow modal during this session
+  useEffect(() => {
+    try {
+      if (sessionStorage.getItem('dismissed_social_gate') === 'true') {
+        setHasDismissedSocialGate(true);
+      }
+    } catch {}
+  }, []);
+
+  const handleDismissSocialGate = () => {
+    setHasDismissedSocialGate(true);
+    try {
+      sessionStorage.setItem('dismissed_social_gate', 'true');
+    } catch {}
+  };
 
   // Check mandatory social follow gate status in Supabase (Only for accounts > 24 hours old)
   useEffect(() => {
@@ -149,7 +166,11 @@ export function StudentAppShell({ student, teamRole, children }: StudentAppShell
     setHasDismissedCourseSuggestion(true);
   };
 
-  const isSocialGateActive = !!(socialFollowStatus && !socialFollowStatus.completedAll);
+  const isSocialGateActive = !!(
+    socialFollowStatus &&
+    !socialFollowStatus.completedAll &&
+    !hasDismissedSocialGate
+  );
   const shouldShowCourseSuggestion =
     !isSocialGateActive &&
     !hasDismissedCourseSuggestion &&
@@ -1275,16 +1296,18 @@ export function StudentAppShell({ student, teamRole, children }: StudentAppShell
       </nav>
       <BackToTopButton />
 
-      {/* Mandatory Social Media Follow Gate */}
-      {socialFollowStatus && !socialFollowStatus.completedAll && (
+      {/* Social Media Follow Modal (Optional & Dismissible) */}
+      {socialFollowStatus && !socialFollowStatus.completedAll && !hasDismissedSocialGate && (
         <SocialFollowGateModal
           initialFollowedPlatforms={socialFollowStatus.followedPlatforms}
           studentName={student.full_name_en || student.full_name_ar}
-          onAllCompleted={() =>
+          onClose={handleDismissSocialGate}
+          onAllCompleted={() => {
             setSocialFollowStatus((prev) =>
               prev ? { ...prev, completedAll: true } : null
-            )
-          }
+            );
+            handleDismissSocialGate();
+          }}
         />
       )}
 
