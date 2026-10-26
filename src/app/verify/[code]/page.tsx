@@ -8,7 +8,6 @@ import {
   ShieldCheck,
   Award,
   Calendar,
-  User,
   Hash,
   Building,
   CheckCircle2,
@@ -489,48 +488,6 @@ export default async function CertificateVerificationPage({ params }: VerifyPage
                     </div>
                     <div style={{ fontSize: '0.9rem', fontWeight: 700, color: '#fff' }}>
                       {eventTitle}
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Student Faculty if present */}
-              {certificate.student_faculty && (
-                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem' }}>
-                  <User size={18} color="#60a5fa" style={{ marginTop: '0.2rem', flexShrink: 0 }} />
-                  <div>
-                    <div style={{ fontSize: '0.72rem', color: '#94a3b8', textTransform: 'uppercase', fontWeight: 700 }}>
-                      Academic Affiliation
-                    </div>
-                    <div style={{ fontSize: '0.9rem', fontWeight: 700, color: '#fff' }}>
-                      {certificate.student_faculty} {certificate.student_university ? `• ${certificate.student_university}` : ''}
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Completion Stats for Student Certificate */}
-              {certificate.completion_stats && (
-                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem' }}>
-                  <CheckCircle2 size={18} color="#4ade80" style={{ marginTop: '0.2rem', flexShrink: 0 }} />
-                  <div>
-                    <div style={{ fontSize: '0.72rem', color: '#94a3b8', textTransform: 'uppercase', fontWeight: 700 }}>
-                      Verified Completion Metrics
-                    </div>
-                    <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.2rem', flexWrap: 'wrap' }}>
-                      <span style={{ fontSize: '0.74rem', padding: '0.15rem 0.5rem', borderRadius: '4px', background: 'rgba(52, 168, 83, 0.2)', color: '#86efac', fontWeight: 700 }}>
-                        Attendance: {certificate.completion_stats.attendance_percentage}%
-                      </span>
-                      {certificate.completion_stats.task_average_score !== null && (
-                        <span style={{ fontSize: '0.74rem', padding: '0.15rem 0.5rem', borderRadius: '4px', background: 'rgba(234, 67, 53, 0.2)', color: '#fca5a5', fontWeight: 700 }}>
-                          Tasks: {certificate.completion_stats.task_average_score}%
-                        </span>
-                      )}
-                      {certificate.completion_stats.quiz_average_score !== null && (
-                        <span style={{ fontSize: '0.74rem', padding: '0.15rem 0.5rem', borderRadius: '4px', background: 'rgba(66, 133, 244, 0.2)', color: '#93c5fd', fontWeight: 700 }}>
-                          Quiz: {certificate.completion_stats.quiz_average_score}%
-                        </span>
-                      )}
                     </div>
                   </div>
                 </div>
