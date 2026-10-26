@@ -848,7 +848,9 @@ export function AdminStudentsDirectoryClient({ initialData, userRole }: Props) {
                     <div style={{ fontSize: '0.95rem', fontWeight: 800, color: student.attendanceRate >= 70 ? '#34A853' : student.attendanceRate >= 40 ? '#FBBC04' : '#EA4335' }}>
                       {student.attendanceRate}%
                     </div>
-                    <div style={{ fontSize: '0.62rem', color: '#64748B', fontWeight: 600, textTransform: 'uppercase' }}>Att.</div>
+                    <div style={{ fontSize: '0.62rem', color: '#64748B', fontWeight: 600, textTransform: 'uppercase' }}>
+                      {student.attendanceCount} sess.
+                    </div>
                   </div>
                   <div>
                     <div style={{ fontSize: '0.95rem', fontWeight: 800, color: student.socialFollowCompleted ? '#10B981' : '#F59E0B' }}>
@@ -992,14 +994,17 @@ export function AdminStudentsDirectoryClient({ initialData, userRole }: Props) {
                       {student.certificatesCount}
                     </td>
                     <td style={{ padding: '0.85rem 1rem', textAlign: 'center' }}>
-                      <span
+                      <div
                         style={{
                           fontWeight: 800,
                           color: student.attendanceRate >= 70 ? '#34A853' : student.attendanceRate >= 40 ? '#FBBC04' : '#EA4335',
                         }}
                       >
                         {student.attendanceRate}%
-                      </span>
+                      </div>
+                      <div style={{ fontSize: '0.68rem', color: '#64748B', fontWeight: 600 }}>
+                        {student.attendanceCount} {student.attendanceCount === 1 ? 'session' : 'sessions'}
+                      </div>
                     </td>
                     <td style={{ padding: '0.85rem 1rem', textAlign: 'center' }}>
                       <span
@@ -1172,8 +1177,18 @@ export function AdminStudentsDirectoryClient({ initialData, userRole }: Props) {
                 <div style={{ fontSize: '0.62rem', color: '#64748B', fontWeight: 600 }}>CERTS</div>
               </div>
               <div>
-                <div style={{ fontSize: '1.1rem', fontWeight: 800, color: '#34A853' }}>{selectedStudent.attendanceRate}%</div>
-                <div style={{ fontSize: '0.62rem', color: '#64748B', fontWeight: 600 }}>ATTEND.</div>
+                <div
+                  style={{
+                    fontSize: '1.1rem',
+                    fontWeight: 800,
+                    color: selectedStudent.attendanceRate >= 70 ? '#34A853' : selectedStudent.attendanceRate >= 40 ? '#FBBC04' : '#EA4335',
+                  }}
+                >
+                  {selectedStudent.attendanceRate}%
+                </div>
+                <div style={{ fontSize: '0.62rem', color: '#64748B', fontWeight: 600 }}>
+                  {selectedStudent.attendanceCount} {selectedStudent.attendanceCount === 1 ? 'SESSION' : 'SESSIONS'}
+                </div>
               </div>
               <div>
                 <div style={{ fontSize: '1.1rem', fontWeight: 800, color: '#8B5CF6' }}>{selectedStudent.workshopsCount}</div>

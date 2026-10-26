@@ -608,6 +608,7 @@ export async function recordStudentAttendance(input: {
     revalidatePath(`/student-portal/admin/attendance/scan`);
     revalidatePath(`/student-portal/admin/attendance/sessions/${input.sessionId}`);
     revalidatePath(`/student/dashboard`);
+    revalidatePath(`/student-portal/admin/students`);
 
     return {
       success: true,

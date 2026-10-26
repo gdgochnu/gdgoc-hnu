@@ -74,7 +74,8 @@ export async function getAdminStudentsDirectoryData(): Promise<{
     const { data: rawStudents, error: studentsErr } = await admin
       .from('student_profiles')
       .select('*')
-      .order('created_at', { ascending: false });
+      .order('created_at', { ascending: false })
+      .limit(50000);
 
     if (studentsErr) {
       console.error('getAdminStudentsDirectoryData student_profiles error:', studentsErr);
@@ -82,35 +83,53 @@ export async function getAdminStudentsDirectoryData(): Promise<{
 
     const studentList = rawStudents || [];
 
-    // 2. Fetch auxiliary data in parallel for stats and student enrichment
+    // 2. Fetch auxiliary data in parallel for stats and student enrichment with safe limits
     const [
       coursesRes,
+      courseSessionsRes,
       enrollmentsRes,
       certificatesRes,
       attendanceRes,
       workshopsRes,
+      workshopSessionsRes,
       socialFollowsRes,
     ] = await Promise.allSettled([
-      admin.from('courses').select('id, title, category'),
-      admin.from('course_enrollments').select('id, student_id, course_id, status'),
-      admin.from('student_certificates').select('id, student_id'),
-      admin.from('student_attendance').select('id, student_id'),
-      admin.from('workshop_registrations').select('id, student_id, status'),
-      admin.from('student_social_follows').select('*'),
+      admin.from('courses').select('id, title, category').limit(50000),
+      admin.from('course_sessions').select('id, course_id').limit(50000),
+      admin.from('course_enrollments').select('id, student_id, course_id, status').limit(50000),
+      admin.from('student_certificates').select('id, student_id').limit(50000),
+      admin.from('student_attendance').select('id, student_id, session_id, workshop_session_id').limit(50000),
+      admin.from('workshop_registrations').select('id, student_id, status, workshop_id').limit(50000),
+      admin.from('workshop_sessions').select('id, workshop_id').limit(50000),
+      admin.from('student_social_follows').select('*').limit(50000),
     ]);
 
     const courses = coursesRes.status === 'fulfilled' && coursesRes.value.data ? coursesRes.value.data : [];
-    const courseMap = new Map<string, { title: string; category: string }>();
-    courses.forEach((c: any) => courseMap.set(c.id, { title: c.title, category: c.category || c.title || 'General' }));
-
+    const courseSessions = courseSessionsRes.status === 'fulfilled' && courseSessionsRes.value.data ? courseSessionsRes.value.data : [];
     const enrollments = enrollmentsRes.status === 'fulfilled' && enrollmentsRes.value.data ? enrollmentsRes.value.data : [];
     const certificates = certificatesRes.status === 'fulfilled' && certificatesRes.value.data ? certificatesRes.value.data : [];
     const attendance = attendanceRes.status === 'fulfilled' && attendanceRes.value.data ? attendanceRes.value.data : [];
     const workshops = workshopsRes.status === 'fulfilled' && workshopsRes.value.data ? workshopsRes.value.data : [];
+    const workshopSessions = workshopSessionsRes.status === 'fulfilled' && workshopSessionsRes.value.data ? workshopSessionsRes.value.data : [];
     const socialFollows = socialFollowsRes.status === 'fulfilled' && socialFollowsRes.value.data ? socialFollowsRes.value.data : [];
+
+    // Map sessions count per course & workshop
+    const courseSessionsCountMap = new Map<string, number>();
+    courseSessions.forEach((cs: any) => {
+      courseSessionsCountMap.set(cs.course_id, (courseSessionsCountMap.get(cs.course_id) || 0) + 1);
+    });
+
+    const wsSessionsCountMap = new Map<string, number>();
+    workshopSessions.forEach((ws: any) => {
+      wsSessionsCountMap.set(ws.workshop_id, (wsSessionsCountMap.get(ws.workshop_id) || 0) + 1);
+    });
+
+    const courseMap = new Map<string, { title: string; category: string }>();
+    courses.forEach((c: any) => courseMap.set(c.id, { title: c.title, category: c.category || c.title || 'General' }));
 
     // Lookup maps
     const enrollmentsByStudent = new Map<string, string[]>();
+    const studentCourseIdsMap = new Map<string, string[]>();
     const trackCountMap: Record<string, number> = {};
     const TRACK_COLORS = ['#4285F4', '#34A853', '#FBBC04', '#EA4335', '#8B5CF6', '#06B6D4', '#EC4899'];
 
@@ -126,6 +145,12 @@ export async function getAdminStudentsDirectoryData(): Promise<{
           const list = enrollmentsByStudent.get(e.student_id) || [];
           list.push(title);
           enrollmentsByStudent.set(e.student_id, list);
+
+          if (e.course_id) {
+            const cIds = studentCourseIdsMap.get(e.student_id) || [];
+            cIds.push(e.course_id);
+            studentCourseIdsMap.set(e.student_id, cIds);
+          }
         }
       }
     }
@@ -142,17 +167,29 @@ export async function getAdminStudentsDirectoryData(): Promise<{
       }
     }
 
-    const attCountMap = new Map<string, number>();
+    // Map each student's distinct attended sessions (session_id or workshop_session_id)
+    const studentAttendedSessionsMap = new Map<string, Set<string>>();
     for (const att of attendance as any[]) {
       if (att.student_id) {
-        attCountMap.set(att.student_id, (attCountMap.get(att.student_id) || 0) + 1);
+        const set = studentAttendedSessionsMap.get(att.student_id) || new Set<string>();
+        const sessKey = att.session_id
+          ? `c_${att.session_id}`
+          : (att.workshop_session_id ? `w_${att.workshop_session_id}` : `id_${att.id}`);
+        set.add(sessKey);
+        studentAttendedSessionsMap.set(att.student_id, set);
       }
     }
 
+    const studentWsIdsMap = new Map<string, string[]>();
     const workshopsCountMap = new Map<string, number>();
     for (const ws of workshops as any[]) {
-      if (ws.student_id) {
+      if (ws.student_id && (ws.status === 'registered' || ws.status === 'confirmed' || !ws.status)) {
         workshopsCountMap.set(ws.student_id, (workshopsCountMap.get(ws.student_id) || 0) + 1);
+        if (ws.workshop_id) {
+          const wIds = studentWsIdsMap.get(ws.student_id) || [];
+          wIds.push(ws.workshop_id);
+          studentWsIdsMap.set(ws.student_id, wIds);
+        }
       }
     }
 
@@ -192,7 +229,8 @@ export async function getAdminStudentsDirectoryData(): Promise<{
       const courseTitles = enrollmentsByStudent.get(s.id) || [];
       const enrolledCoursesCount = courseTitles.length;
       const certsCount = certsCountMap.get(s.id) || 0;
-      const attLogsCount = attCountMap.get(s.id) || 0;
+      const attSessions = studentAttendedSessionsMap.get(s.id) || new Set<string>();
+      const attLogsCount = attSessions.size;
       const wsCount = workshopsCountMap.get(s.id) || 0;
 
       const followedPlatforms = socialFollowsMap.get(s.id) || new Set();
@@ -203,9 +241,26 @@ export async function getAdminStudentsDirectoryData(): Promise<{
         totalSocialFollowCompleted++;
       }
 
-      const expectedSessions = enrolledCoursesCount * 6 || (wsCount > 0 ? wsCount * 3 : 1);
-      const rawRate = Math.round((attLogsCount / expectedSessions) * 100);
-      const attendanceRate = enrolledCoursesCount === 0 && wsCount === 0 && attLogsCount === 0 ? 0 : Math.min(100, Math.max(0, rawRate || 0));
+      // Calculate actual total expected sessions from student's enrolled courses and workshops
+      const studentCourseIds = studentCourseIdsMap.get(s.id) || [];
+      const studentWsIds = studentWsIdsMap.get(s.id) || [];
+
+      let expectedSessions = 0;
+      for (const cId of studentCourseIds) {
+        expectedSessions += courseSessionsCountMap.get(cId) || 0;
+      }
+      for (const wId of studentWsIds) {
+        expectedSessions += wsSessionsCountMap.get(wId) || 0;
+      }
+
+      let attendanceRate = 0;
+      if (expectedSessions > 0) {
+        attendanceRate = Math.min(100, Math.round((attLogsCount / expectedSessions) * 100));
+      } else if (attLogsCount > 0) {
+        attendanceRate = 100;
+      } else {
+        attendanceRate = 0;
+      }
 
       return {
         id: s.id,
