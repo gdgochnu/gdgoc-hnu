@@ -31,6 +31,9 @@ import {
   Filter,
   CheckSquare,
   Users,
+  Mail,
+  Smartphone,
+  Monitor,
 } from 'lucide-react';
 import type { StudentCertificateEligibility } from '@/types/student';
 import type { CertificateTemplate, CertificateFieldLayout } from '@/types/certificates';
@@ -39,6 +42,8 @@ import {
   getCertificateEligibility,
   issueStudentCertificatesBatch,
   deleteStudentCertificateAction,
+  getCertificateEmailPreviewAction,
+  sendTestCertificateEmailAction,
 } from '@/app/student-portal/admin/certificates/actions';
 import { deleteCertificateTemplateAction } from '@/lib/certificates/template-actions';
 import { TemplateBuilder } from '@/components/certificates/TemplateBuilder';
@@ -206,6 +211,87 @@ export function PresidentCertificateClient({
   // Live Canvas Preview Modal
   const [previewModalOpen, setPreviewModalOpen] = useState<boolean>(false);
   const [previewQrUrl, setPreviewQrUrl] = useState<string>('');
+
+  // ---------------------------------------------------------------------------
+  // Certificate Delivery Email Preview & Test State
+  // ---------------------------------------------------------------------------
+  const [showEmailPreviewModal, setShowEmailPreviewModal] = useState<boolean>(false);
+  const [emailPreviewHtml, setEmailPreviewHtml] = useState<string>('');
+  const [emailPreviewSubject, setEmailPreviewSubject] = useState<string>('');
+  const [emailPreviewTwoPartName, setEmailPreviewTwoPartName] = useState<string>('');
+  const [previewDevice, setPreviewDevice] = useState<'desktop' | 'mobile'>('desktop');
+  const [isLoadingPreview, setIsLoadingPreview] = useState<boolean>(false);
+  const [testEmailAddress, setTestEmailAddress] = useState<string>('');
+  const [isSendingTestEmail, setIsSendingTestEmail] = useState<boolean>(false);
+  const [testEmailResult, setTestEmailResult] = useState<{ success: boolean; message: string } | null>(null);
+
+  const handleOpenEmailPreview = async () => {
+    setShowEmailPreviewModal(true);
+    setIsLoadingPreview(true);
+    setTestEmailResult(null);
+
+    // Pick first selected student or generic sample
+    const firstSelectedStudent = students.find((s) => selectedStudentIds.has(s.student_id));
+    const sampleName = firstSelectedStudent?.full_name_en || firstSelectedStudent?.full_name_ar || 'Ahmed Mohamed Mahmoud Ali';
+
+    try {
+      const res = await getCertificateEmailPreviewAction({
+        programTitle: currentProgramTitle || 'Modern Web Development Bootcamp',
+        recipientName: sampleName,
+      });
+
+      if (res.success && res.html) {
+        setEmailPreviewHtml(res.html);
+        setEmailPreviewSubject(res.subject || '');
+        setEmailPreviewTwoPartName(res.twoPartName || '');
+      }
+    } catch (err) {
+      console.error('Preview error:', err);
+    } finally {
+      setIsLoadingPreview(false);
+    }
+  };
+
+  const handleSendTestEmail = async () => {
+    if (!testEmailAddress || !testEmailAddress.includes('@')) {
+      setTestEmailResult({ success: false, message: 'Please enter a valid email address.' });
+      return;
+    }
+
+    setIsSendingTestEmail(true);
+    setTestEmailResult(null);
+
+    const firstSelectedStudent = students.find((s) => selectedStudentIds.has(s.student_id));
+    const sampleName = firstSelectedStudent?.full_name_en || firstSelectedStudent?.full_name_ar || 'Test Student Name (Full)';
+
+    try {
+      const res = await sendTestCertificateEmailAction({
+        testEmail: testEmailAddress,
+        programTitle: currentProgramTitle || 'Modern Web Development Bootcamp',
+        recipientName: sampleName,
+        templateId: selectedTemplateId || undefined,
+      });
+
+      if (res.success) {
+        setTestEmailResult({
+          success: true,
+          message: res.message || 'Test email sent successfully with PDF & PNG attachments!',
+        });
+      } else {
+        setTestEmailResult({
+          success: false,
+          message: res.error || 'Failed to dispatch test email.',
+        });
+      }
+    } catch (err: any) {
+      setTestEmailResult({
+        success: false,
+        message: err?.message || 'Error occurred while sending test email.',
+      });
+    } finally {
+      setIsSendingTestEmail(false);
+    }
+  };
 
   useEffect(() => {
     generateStyledQRDataURL('https://gdgoc-hnu.vercel.app/verify/sample', 180)
@@ -1850,9 +1936,33 @@ export function PresidentCertificateClient({
                 </span>
               </div>
 
-              <button
-                onClick={handleIssueSubmit}
-                disabled={isIssuing || selectedStudentIds.size === 0}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+                <button
+                  type="button"
+                  onClick={handleOpenEmailPreview}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '0.55rem',
+                    padding: '0.75rem 1.35rem',
+                    borderRadius: '12px',
+                    background: 'rgba(66, 133, 244, 0.12)',
+                    border: '1px solid rgba(66, 133, 244, 0.35)',
+                    color: '#60A5FA',
+                    fontSize: '0.88rem',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    transition: 'all 0.2s',
+                  }}
+                  title="Preview certificate delivery email & dispatch live test email"
+                >
+                  <Mail size={17} />
+                  <span>معاينة وتجربة الإيميل • Preview Email</span>
+                </button>
+
+                <button
+                  onClick={handleIssueSubmit}
+                  disabled={isIssuing || selectedStudentIds.size === 0}
                 style={{
                   display: 'inline-flex',
                   alignItems: 'center',
@@ -1887,6 +1997,7 @@ export function PresidentCertificateClient({
                   </>
                 )}
               </button>
+              </div>
             </div>
           </div>
 
@@ -2199,6 +2310,458 @@ export function PresidentCertificateClient({
                 }
                 qrCodeDataUrl={previewQrUrl}
               />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* --------------------------------------------------------------------- */}
+      {/* EMAIL PREVIEW & TEST DISPATCH MODAL                                   */}
+      {/* --------------------------------------------------------------------- */}
+      {showEmailPreviewModal && (
+        <div
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setShowEmailPreviewModal(false);
+            }
+          }}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(5, 8, 15, 0.88)',
+            backdropFilter: 'blur(16px)',
+            WebkitBackdropFilter: 'blur(16px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 99999,
+            padding: '1.25rem',
+            animation: 'fadeIn 0.2s ease',
+          }}
+        >
+          <div
+            className="glass-panel"
+            style={{
+              width: '100%',
+              maxWidth: '920px',
+              maxHeight: '92vh',
+              borderRadius: '22px',
+              background: '#0B1120',
+              border: '1px solid rgba(66, 133, 244, 0.35)',
+              boxShadow: '0 25px 60px -15px rgba(0, 0, 0, 0.9), 0 0 45px -10px rgba(66, 133, 244, 0.25)',
+              display: 'flex',
+              flexDirection: 'column',
+              overflow: 'hidden',
+              position: 'relative',
+            }}
+          >
+            {/* Google Accent Strip */}
+            <div
+              style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                right: 0,
+                height: '3px',
+                background:
+                  'linear-gradient(90deg, #4285F4 25%, #EA4335 25% 50%, #FBBC04 50% 75%, #34A853 75%)',
+                zIndex: 10,
+              }}
+            />
+
+            {/* Modal Header */}
+            <div
+              style={{
+                padding: '1.25rem 1.5rem',
+                borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                background: 'rgba(255, 255, 255, 0.02)',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+                <div
+                  style={{
+                    width: '38px',
+                    height: '38px',
+                    borderRadius: '10px',
+                    background: 'rgba(66, 133, 244, 0.15)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: '#60A5FA',
+                  }}
+                >
+                  <Mail size={20} />
+                </div>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 900, color: '#fff' }}>
+                    معاينة إيميل الشهادة والإرسال التجريبي
+                  </h3>
+                  <div style={{ fontSize: '0.78rem', color: '#94A3B8', marginTop: '0.15rem' }}>
+                    Certificate Delivery Email Live Preview &amp; Test Dispatch
+                  </div>
+                </div>
+              </div>
+
+              <button
+                onClick={() => setShowEmailPreviewModal(false)}
+                style={{
+                  background: 'rgba(255, 255, 255, 0.08)',
+                  border: '1px solid rgba(255, 255, 255, 0.12)',
+                  borderRadius: '50%',
+                  width: '34px',
+                  height: '34px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: '#94A3B8',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s',
+                }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Top Toolbar: Feature Badges & Device Switcher */}
+            <div
+              style={{
+                padding: '0.85rem 1.5rem',
+                borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
+                background: 'rgba(0, 0, 0, 0.3)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                flexWrap: 'wrap',
+                gap: '0.75rem',
+              }}
+            >
+              {/* Feature Chips */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                <span
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '0.35rem',
+                    padding: '0.25rem 0.65rem',
+                    borderRadius: '999px',
+                    background: 'rgba(66, 133, 244, 0.12)',
+                    border: '1px solid rgba(66, 133, 244, 0.25)',
+                    color: '#93C5FD',
+                    fontSize: '0.72rem',
+                    fontWeight: 700,
+                  }}
+                >
+                  <Sparkles size={12} color="#60A5FA" />
+                  <span>Official Header &amp; Trailer (شعار رسمي)</span>
+                </span>
+
+                <span
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '0.35rem',
+                    padding: '0.25rem 0.65rem',
+                    borderRadius: '999px',
+                    background: 'rgba(52, 168, 83, 0.12)',
+                    border: '1px solid rgba(52, 168, 83, 0.25)',
+                    color: '#86EFAC',
+                    fontSize: '0.72rem',
+                    fontWeight: 700,
+                  }}
+                >
+                  <CheckCircle2 size={12} color="#34A853" />
+                  <span>الإسم ثنائي: {emailPreviewTwoPartName || 'Two-Part Name'}</span>
+                </span>
+
+                <span
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '0.35rem',
+                    padding: '0.25rem 0.65rem',
+                    borderRadius: '999px',
+                    background: 'rgba(251, 188, 4, 0.12)',
+                    border: '1px solid rgba(251, 188, 4, 0.25)',
+                    color: '#FDE047',
+                    fontSize: '0.72rem',
+                    fontWeight: 700,
+                  }}
+                >
+                  <span>📎 Attached: PDF + PNG</span>
+                </span>
+              </div>
+
+              {/* Viewport Switcher */}
+              <div
+                style={{
+                  display: 'flex',
+                  background: 'rgba(255, 255, 255, 0.05)',
+                  padding: '0.2rem',
+                  borderRadius: '10px',
+                  border: '1px solid rgba(255, 255, 255, 0.1)',
+                }}
+              >
+                <button
+                  type="button"
+                  onClick={() => setPreviewDevice('desktop')}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.4rem',
+                    padding: '0.35rem 0.8rem',
+                    borderRadius: '8px',
+                    background: previewDevice === 'desktop' ? 'var(--google-blue)' : 'transparent',
+                    color: previewDevice === 'desktop' ? '#fff' : '#94A3B8',
+                    border: 'none',
+                    fontSize: '0.78rem',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    transition: 'all 0.2s',
+                  }}
+                >
+                  <Monitor size={14} />
+                  <span>Desktop (كمبيوتر)</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPreviewDevice('mobile')}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.4rem',
+                    padding: '0.35rem 0.8rem',
+                    borderRadius: '8px',
+                    background: previewDevice === 'mobile' ? 'var(--google-blue)' : 'transparent',
+                    color: previewDevice === 'mobile' ? '#fff' : '#94A3B8',
+                    border: 'none',
+                    fontSize: '0.78rem',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    transition: 'all 0.2s',
+                  }}
+                >
+                  <Smartphone size={14} />
+                  <span>Mobile (موبايل)</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Test Email Dispatch Bar */}
+            <div
+              style={{
+                padding: '0.85rem 1.5rem',
+                borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
+                background: 'rgba(66, 133, 244, 0.04)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                flexWrap: 'wrap',
+                gap: '0.75rem',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flex: 1, minWidth: '280px' }}>
+                <span style={{ fontSize: '0.82rem', fontWeight: 800, color: '#CBD5E1', whiteSpace: 'nowrap' }}>
+                  🚀 إرسال تجريبي:
+                </span>
+                <input
+                  type="email"
+                  value={testEmailAddress}
+                  onChange={(e) => setTestEmailAddress(e.target.value)}
+                  placeholder="أدخل بريدك الإلكتروني لتجربة الإرسال الحي (مع المرفقات)..."
+                  style={{
+                    flex: 1,
+                    padding: '0.55rem 0.85rem',
+                    borderRadius: '10px',
+                    background: 'rgba(255, 255, 255, 0.06)',
+                    border: '1px solid rgba(255, 255, 255, 0.15)',
+                    color: '#fff',
+                    fontSize: '0.82rem',
+                    outline: 'none',
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={handleSendTestEmail}
+                  disabled={isSendingTestEmail || !testEmailAddress}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.45rem',
+                    padding: '0.55rem 1.15rem',
+                    borderRadius: '10px',
+                    background:
+                      isSendingTestEmail || !testEmailAddress
+                        ? 'rgba(255, 255, 255, 0.1)'
+                        : 'linear-gradient(135deg, #4285F4 0%, #1D4ED8 100%)',
+                    color: isSendingTestEmail || !testEmailAddress ? '#64748B' : '#fff',
+                    border: 'none',
+                    fontSize: '0.82rem',
+                    fontWeight: 800,
+                    cursor: isSendingTestEmail || !testEmailAddress ? 'not-allowed' : 'pointer',
+                    whiteSpace: 'nowrap',
+                    boxShadow: !isSendingTestEmail && testEmailAddress ? '0 4px 14px rgba(66, 133, 244, 0.35)' : 'none',
+                  }}
+                >
+                  {isSendingTestEmail ? (
+                    <>
+                      <Loader2 size={14} className="animate-spin" />
+                      <span>جاري الإرسال...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Send size={14} />
+                      <span>إرسال إيميل تجريبي</span>
+                    </>
+                  )}
+                </button>
+              </div>
+
+              {/* Test Email Result Banner */}
+              {testEmailResult && (
+                <div
+                  style={{
+                    width: '100%',
+                    padding: '0.5rem 0.85rem',
+                    borderRadius: '8px',
+                    background: testEmailResult.success ? 'rgba(52, 168, 83, 0.15)' : 'rgba(234, 67, 53, 0.15)',
+                    border: testEmailResult.success ? '1px solid rgba(52, 168, 83, 0.3)' : '1px solid rgba(234, 67, 53, 0.3)',
+                    color: testEmailResult.success ? '#86EFAC' : '#FCA5A5',
+                    fontSize: '0.78rem',
+                    fontWeight: 700,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.4rem',
+                  }}
+                >
+                  {testEmailResult.success ? <CheckCircle2 size={14} color="#34A853" /> : <AlertCircle size={14} color="#EA4335" />}
+                  <span>{testEmailResult.message}</span>
+                </div>
+              )}
+            </div>
+
+            {/* Preview Viewport Canvas */}
+            <div
+              style={{
+                flex: 1,
+                overflowY: 'auto',
+                padding: '1.5rem',
+                background: '#070B14',
+                display: 'flex',
+                justifyContent: 'center',
+                alignItems: 'flex-start',
+                minHeight: '450px',
+              }}
+            >
+              {isLoadingPreview ? (
+                <div
+                  style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    padding: '4rem 1rem',
+                    gap: '1rem',
+                    color: '#60A5FA',
+                  }}
+                >
+                  <Loader2 size={36} className="animate-spin" />
+                  <span style={{ fontSize: '0.9rem', fontWeight: 700, color: '#94A3B8' }}>
+                    جاري تجهيز معاينة الإيميل بالهيدر والتريلر المعتمدين...
+                  </span>
+                </div>
+              ) : previewDevice === 'desktop' ? (
+                /* Desktop View (640px Card Frame) */
+                <div
+                  style={{
+                    width: '100%',
+                    maxWidth: '640px',
+                    borderRadius: '16px',
+                    overflow: 'hidden',
+                    boxShadow: '0 20px 50px rgba(0, 0, 0, 0.8)',
+                    border: '1px solid rgba(255, 255, 255, 0.1)',
+                  }}
+                >
+                  <iframe
+                    srcDoc={emailPreviewHtml}
+                    title="Desktop Email Preview"
+                    style={{
+                      width: '100%',
+                      height: '620px',
+                      border: 'none',
+                      background: '#f1f3f4',
+                      display: 'block',
+                    }}
+                  />
+                </div>
+              ) : (
+                /* Mobile Mockup View (385px Phone Mockup) */
+                <div
+                  style={{
+                    width: '385px',
+                    borderRadius: '42px',
+                    background: '#1E293B',
+                    border: '4px solid #334155',
+                    padding: '12px 10px 18px',
+                    boxShadow: '0 25px 60px rgba(0, 0, 0, 0.9), 0 0 0 1px rgba(255, 255, 255, 0.1)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                  }}
+                >
+                  {/* Phone Notch */}
+                  <div
+                    style={{
+                      width: '120px',
+                      height: '18px',
+                      borderRadius: '999px',
+                      background: '#0F172A',
+                      marginBottom: '10px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}
+                  >
+                    <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#1E293B' }} />
+                  </div>
+
+                  {/* Phone Screen Iframe */}
+                  <div
+                    style={{
+                      width: '100%',
+                      height: '560px',
+                      borderRadius: '28px',
+                      overflow: 'hidden',
+                      background: '#f1f3f4',
+                    }}
+                  >
+                    <iframe
+                      srcDoc={emailPreviewHtml}
+                      title="Mobile Email Preview"
+                      style={{
+                        width: '100%',
+                        height: '100%',
+                        border: 'none',
+                        background: '#f1f3f4',
+                        display: 'block',
+                      }}
+                    />
+                  </div>
+
+                  {/* Phone Home Bar */}
+                  <div
+                    style={{
+                      width: '100px',
+                      height: '4px',
+                      borderRadius: '2px',
+                      background: '#475569',
+                      marginTop: '12px',
+                    }}
+                  />
+                </div>
+              )}
             </div>
           </div>
         </div>

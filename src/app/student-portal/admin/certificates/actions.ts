@@ -2,11 +2,15 @@
 
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getUserContext } from '@/lib/auth/get-user-context';
-import { renderCertificatePDFBuffer } from '@/lib/certificates/issue-engine';
+import { renderCertificatePDFBuffer, renderCertificatePNGBuffer } from '@/lib/certificates/issue-engine';
 import { uploadFileToDrive } from '@/lib/drive/drive-client';
 import { notifyCertificateIssued } from '@/lib/notifications/triggers';
 import { dispatchStudentNotification } from '@/app/student/notifications/actions';
-import { sendStudentCertificateEmail } from '@/lib/email/service';
+import {
+  sendStudentCertificateEmail,
+  renderStudentCertificateEmailHtml,
+  formatTwoPartName,
+} from '@/lib/email/service';
 import { getAppBaseUrl } from '@/lib/utils';
 import { DEFAULT_FIELD_LAYOUT, CertificateTemplate } from '@/types/certificates';
 import type {
@@ -589,8 +593,8 @@ export async function issueStudentCertificatesBatch(input: {
         const certificateNumber = `GDGOC-STU-${currentYear}-${part.join('')}`;
         const recipientDisplayName = studentInfo.full_name_en || studentInfo.full_name_ar || 'Student';
 
-        // 4. Render PDF buffer
-        const { buffer, verifyUrl } = await renderCertificatePDFBuffer({
+        // 4. Render PDF & PNG buffers
+        const { buffer, verifyUrl, qrCodeDataUrl } = await renderCertificatePDFBuffer({
           recipientName: recipientDisplayName,
           recipientEmail: studentInfo.email,
           title: programTitle,
@@ -600,6 +604,25 @@ export async function issueStudentCertificatesBatch(input: {
           fieldLayout,
           backgroundImageUrl: backgroundUrl,
         });
+
+        let pngBuffer: Buffer | null = null;
+        try {
+          pngBuffer = await renderCertificatePNGBuffer(
+            {
+              recipientName: recipientDisplayName,
+              recipientEmail: studentInfo.email,
+              title: programTitle,
+              issueDate: issueDateStr,
+              certificateNumber,
+              verificationCode,
+              fieldLayout,
+              backgroundImageUrl: backgroundUrl,
+            },
+            qrCodeDataUrl
+          );
+        } catch (pngErr) {
+          console.warn('PNG generation warning for student cert:', pngErr);
+        }
 
         // 5. Upload to Drive
         let driveFileId: string | null = null;
@@ -668,7 +691,7 @@ export async function issueStudentCertificatesBatch(input: {
           console.warn('Student certificate notification warning:', notifErr);
         }
 
-        // 8. Dispatch Email to student with PDF download link and verify URL (Checklist S.F.3 & S.F.6)
+        // 8. Dispatch Email to student with PDF & PNG attachments
         try {
           if (studentInfo.email) {
             const baseUrl = getAppBaseUrl();
@@ -681,6 +704,9 @@ export async function issueStudentCertificatesBatch(input: {
               verificationCode,
               downloadUrl,
               verifyUrl,
+              issueDate: issueDateStr,
+              pdfBuffer: buffer,
+              pngBuffer,
             });
           }
         } catch (emailErr) {
@@ -892,6 +918,164 @@ export async function deleteStudentCertificateAction(certId: string): Promise<{
   } catch (err: any) {
     console.error('deleteStudentCertificateAction exception:', err);
     return { success: false, error: err.message };
+  }
+}
+
+/**
+ * 8. Live Certificate Email Preview Action
+ * Returns the exact responsive HTML template rendered with real or sample data.
+ */
+export async function getCertificateEmailPreviewAction(input: {
+  programTitle?: string;
+  recipientName?: string;
+  sampleStudentId?: string;
+}): Promise<{
+  success: boolean;
+  html?: string;
+  subject?: string;
+  twoPartName?: string;
+  error?: string;
+}> {
+  try {
+    const context = await getUserContext();
+    if (!context.user) {
+      return { success: false, error: 'Unauthorized: Authentication required.' };
+    }
+
+    const recipientName = input.recipientName || 'Ahmed Mohamed Mahmoud Ali';
+    const twoPartName = formatTwoPartName(recipientName);
+    const programTitle = input.programTitle || 'Modern Web Development Bootcamp';
+    const sampleCertNumber = 'GDGOC-STU-2026-X8K9M2';
+    const baseUrl = getAppBaseUrl();
+
+    const html = renderStudentCertificateEmailHtml({
+      recipientName,
+      programTitle,
+      certificateNumber: sampleCertNumber,
+      verificationCode: 'preview-sample-uuid',
+      verifyUrl: `${baseUrl}/verify/${sampleCertNumber}`,
+      downloadUrl: `${baseUrl}/api/certificates/${sampleCertNumber}/download`,
+      portalUrl: baseUrl,
+      hasAttachments: true,
+    });
+
+    const subject = `🎓 Official Certificate: ${programTitle} — ${twoPartName} | GDGoC HNU`;
+
+    return {
+      success: true,
+      html,
+      subject,
+      twoPartName,
+    };
+  } catch (err: any) {
+    return { success: false, error: err?.message || 'Failed to render preview' };
+  }
+}
+
+/**
+ * 9. Send Test Certificate Email Action
+ * Dispatches a real test email with generated PDF and PNG certificate attachments.
+ */
+export async function sendTestCertificateEmailAction(input: {
+  testEmail: string;
+  programTitle?: string;
+  recipientName?: string;
+  templateId?: string;
+}): Promise<{
+  success: boolean;
+  message?: string;
+  error?: string;
+}> {
+  try {
+    const context = await getUserContext();
+    if (!context.user) {
+      return { success: false, error: 'Unauthorized: Authentication required.' };
+    }
+
+    if (!input.testEmail || !input.testEmail.includes('@')) {
+      return { success: false, error: 'Please enter a valid email address.' };
+    }
+
+    const admin = createAdminClient();
+    let fieldLayout = DEFAULT_FIELD_LAYOUT;
+    let backgroundUrl: string | null = null;
+
+    if (input.templateId) {
+      const { data: template } = await admin
+        .from('certificate_templates')
+        .select('*')
+        .eq('id', input.templateId)
+        .maybeSingle();
+
+      if (template) {
+        fieldLayout = template.field_layout || DEFAULT_FIELD_LAYOUT;
+        backgroundUrl = template.background_image_drive_file_id || null;
+      }
+    }
+
+    const programTitle = input.programTitle || 'Web Development & AI Engineering Track';
+    const recipientName = input.recipientName || 'Test Student (Full Name)';
+    const sampleCertNumber = `GDGOC-TEST-${new Date().getFullYear()}-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
+    const issueDateStr = new Date().toLocaleDateString('en-US', {
+      month: 'long',
+      day: 'numeric',
+      year: 'numeric',
+    });
+
+    // Render test PDF & PNG buffers with embedded QR
+    const { buffer: pdfBuffer, verifyUrl, qrCodeDataUrl } = await renderCertificatePDFBuffer({
+      recipientName,
+      recipientEmail: input.testEmail,
+      title: programTitle,
+      issueDate: issueDateStr,
+      certificateNumber: sampleCertNumber,
+      verificationCode: crypto.randomUUID(),
+      fieldLayout,
+      backgroundImageUrl: backgroundUrl,
+    });
+
+    let pngBuffer: Buffer | null = null;
+    try {
+      pngBuffer = await renderCertificatePNGBuffer(
+        {
+          recipientName,
+          recipientEmail: input.testEmail,
+          title: programTitle,
+          issueDate: issueDateStr,
+          certificateNumber: sampleCertNumber,
+          verificationCode: crypto.randomUUID(),
+          fieldLayout,
+          backgroundImageUrl: backgroundUrl,
+        },
+        qrCodeDataUrl
+      );
+    } catch (pngErr) {
+      console.warn('Test email PNG rendering warning:', pngErr);
+    }
+
+    const emailRes = await sendStudentCertificateEmail({
+      to: input.testEmail,
+      recipientName,
+      programTitle,
+      certificateNumber: sampleCertNumber,
+      verificationCode: crypto.randomUUID(),
+      verifyUrl,
+      downloadUrl: verifyUrl,
+      issueDate: issueDateStr,
+      pdfBuffer,
+      pngBuffer,
+    });
+
+    if (!emailRes.success) {
+      return { success: false, error: emailRes.error || 'Failed to dispatch test email.' };
+    }
+
+    return {
+      success: true,
+      message: `Test certificate email sent successfully to ${input.testEmail} with PDF and PNG attachments!`,
+    };
+  } catch (err: any) {
+    return { success: false, error: err?.message || 'Error sending test email.' };
   }
 }
 

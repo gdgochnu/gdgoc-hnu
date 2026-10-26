@@ -1,11 +1,18 @@
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getAppBaseUrl } from '@/lib/utils';
 
+export interface EmailAttachment {
+  filename: string;
+  content: string; // Base64 encoded file string
+  contentType: string; // e.g. 'application/pdf', 'image/png'
+}
+
 export interface SendEmailParams {
   to: string;
   subject: string;
   html: string;
   text?: string;
+  attachments?: EmailAttachment[];
   metadata?: Record<string, any>;
 }
 
@@ -83,19 +90,24 @@ export async function sendEmail(params: SendEmailParams): Promise<EmailResult> {
     const mailboxId = await resolveMailboxResourceId();
     const endpoint = `https://api.mail.hostinger.com/api/v1/mailboxes/${mailboxId}/send`;
 
+    const requestBody: Record<string, any> = {
+      to: [recipient],
+      displayName: HOSTINGER_SENDER_NAME,
+      subject: params.subject,
+      html: params.html,
+      ...(params.text ? { text: params.text } : {}),
+      ...(params.attachments && params.attachments.length > 0
+        ? { attachments: params.attachments }
+        : {}),
+    };
+
     const response = await fetch(endpoint, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${HOSTINGER_API_KEY}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        to: [recipient],
-        displayName: HOSTINGER_SENDER_NAME,
-        subject: params.subject,
-        html: params.html,
-        ...(params.text ? { text: params.text } : {}),
-      }),
+      body: JSON.stringify(requestBody),
     });
 
     if (response.ok || response.status === 204) {
@@ -1171,86 +1183,246 @@ export async function sendWorkshopRegistrationEmail(params: {
 }
 
 /**
+ * Extracts a two-part name (First and Second name only / الإسم ثنائي).
+ * Example: "Ahmed Mohamed Mahmoud Ali" -> "Ahmed Mohamed"
+ * Example: "محمد أحمد محمود علي" -> "محمد أحمد"
+ */
+export function formatTwoPartName(fullName: string): string {
+  if (!fullName) return '';
+  const trimmed = fullName.trim();
+  const parts = trimmed.split(/\s+/).filter(Boolean);
+  if (parts.length <= 2) return trimmed;
+  return `${parts[0]} ${parts[1]}`;
+}
+
+/**
+ * Builds the standalone responsive HTML for Student Certificate Delivery Email.
+ * Conforms to the official GDGoC HNU design (header banner, white card, footer logo + president signature).
+ */
+export interface RenderStudentCertificateEmailParams {
+  recipientName: string;
+  programTitle: string;
+  certificateNumber: string;
+  verificationCode?: string;
+  downloadUrl?: string | null;
+  verifyUrl: string;
+  portalUrl?: string;
+  issueDate?: string;
+  hasAttachments?: boolean;
+}
+
+export function renderStudentCertificateEmailHtml(params: RenderStudentCertificateEmailParams): string {
+  const twoPartName = formatTwoPartName(params.recipientName);
+  const appUrl = (params.portalUrl || process.env.NEXT_PUBLIC_APP_URL || 'https://gdgoc-hnu.vercel.app').replace(/\/$/, '');
+  const verifyLink = params.verifyUrl || `${appUrl}/verify/${params.certificateNumber}`;
+  const downloadLink = params.downloadUrl || `${appUrl}/api/certificates/${params.certificateNumber}/download`;
+  const galleryLink = `${appUrl}/student/certificates`;
+  const issueDateDisplay = params.issueDate || new Date().toLocaleDateString('en-US', {
+    month: 'long',
+    day: 'numeric',
+    year: 'numeric',
+  });
+
+  const contentHtml = `
+    <!-- Greeting in English & Arabic -->
+    <div style="margin:0 0 18px;text-align:left;direction:ltr;">
+      <p style="margin:0 0 6px;font-size:18px;font-weight:bold;color:#202124;font-family:'Google Sans',Roboto,Arial,sans-serif;">
+        Dear <strong>${twoPartName}</strong>,
+      </p>
+      <p style="margin:0;font-size:14.5px;color:#1a73e8;font-weight:600;font-family:'Google Sans',Arial,sans-serif;direction:rtl;text-align:right;">
+        أهلاً بك <strong>${twoPartName}</strong>، تهانينا الحارة لك على هذا الإنجاز الرائع! 🎓✨
+      </p>
+    </div>
+
+    <!-- Celebration Hero Banner -->
+    <div style="background:linear-gradient(135deg, rgba(66, 133, 244, 0.08) 0%, rgba(52, 168, 83, 0.08) 100%);border:1.5px solid rgba(66, 133, 244, 0.25);border-radius:14px;padding:20px;margin:0 0 24px;text-align:center;">
+      <div style="display:inline-block;padding:4px 14px;border-radius:999px;background-color:#e8f0fe;color:#1a73e8;font-size:12px;font-weight:bold;letter-spacing:0.5px;text-transform:uppercase;margin-bottom:10px;font-family:'Google Sans',Roboto,Arial,sans-serif;">
+        📜 Official Credential Conferred • شهادة إتمام معتمدة
+      </div>
+      <h1 style="margin:0 0 8px;font-size:22px;font-weight:800;color:#202124;font-family:'Google Sans',Roboto,Arial,sans-serif;line-height:1.35;">
+        Congratulations on earning your certificate in<br/>
+        <span style="color:#1a73e8;">"${params.programTitle}"</span>
+      </h1>
+      <p style="margin:0;font-size:14px;color:#5f6368;line-height:1.6;font-family:Arial,sans-serif;">
+        Your verified completion certificate has been officially approved and issued by Chapter Leadership at Google Developer Groups on Campus — Helwan National University.
+      </p>
+    </div>
+
+    <!-- Certificate Serial & Verification Specs Table -->
+    <table width="100%" cellpadding="0" cellspacing="0" border="0"
+           style="background-color:#f8f9fa;border-radius:12px;border:1.5px solid #e8eaed;overflow:hidden;margin-bottom:24px;direction:ltr;text-align:left;">
+      <tr>
+        <td style="background-color:#1a73e8;padding:12px 20px;color:#ffffff;font-size:14px;font-weight:bold;font-family:'Google Sans',Roboto,Arial,sans-serif;">
+          Credential Details &amp; Verification • تفاصيل الاعتماد
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:16px 20px;">
+          <table width="100%" cellpadding="0" cellspacing="0" border="0">
+            <tr>
+              <td width="160" style="padding:7px 0;font-size:13px;color:#5f6368;font-family:Arial,sans-serif;font-weight:bold;">Recipient:</td>
+              <td style="padding:7px 0;font-size:14.5px;color:#202124;font-family:Arial,sans-serif;font-weight:bold;">${params.recipientName}</td>
+            </tr>
+            <tr>
+              <td style="padding:7px 0;font-size:13px;color:#5f6368;font-family:Arial,sans-serif;font-weight:bold;">Program:</td>
+              <td style="padding:7px 0;font-size:14px;color:#202124;font-family:Arial,sans-serif;font-weight:600;">${params.programTitle}</td>
+            </tr>
+            <tr>
+              <td style="padding:7px 0;font-size:13px;color:#5f6368;font-family:Arial,sans-serif;font-weight:bold;">Certificate Serial:</td>
+              <td style="padding:7px 0;font-size:15px;color:#1a73e8;font-family:monospace;font-weight:bold;letter-spacing:0.8px;">${params.certificateNumber}</td>
+            </tr>
+            <tr>
+              <td style="padding:7px 0;font-size:13px;color:#5f6368;font-family:Arial,sans-serif;font-weight:bold;">Issue Date:</td>
+              <td style="padding:7px 0;font-size:13.5px;color:#3c4043;font-family:Arial,sans-serif;">${issueDateDisplay}</td>
+            </tr>
+            <tr>
+              <td style="padding:7px 0;font-size:13px;color:#5f6368;font-family:Arial,sans-serif;font-weight:bold;">Verification:</td>
+              <td style="padding:7px 0;font-size:13.5px;color:#1e7e34;font-family:Arial,sans-serif;font-weight:bold;">
+                ✅ Cryptographically Signed &amp; Publicly Verifiable
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+
+    <!-- Direct Email Attachments Announcement Box -->
+    <div style="background-color:#e8f5e9;border:1.5px solid #34a853;border-radius:12px;padding:16px 20px;margin:0 0 24px;direction:ltr;text-align:left;">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+        <span style="font-size:20px;">📎</span>
+        <span style="font-size:15px;font-weight:bold;color:#1e7e34;font-family:'Google Sans',Roboto,Arial,sans-serif;">
+          Attached Directly to This Email • مرفقات الشهادة
+        </span>
+      </div>
+      <p style="margin:0 0 10px;font-size:13.5px;color:#2d6a4f;line-height:1.6;font-family:Arial,sans-serif;">
+        Your official certificate has been attached to this email in two formats:
+      </p>
+      <table cellpadding="0" cellspacing="0" border="0" style="margin:0;width:100%;">
+        <tr>
+          <td style="padding:4px 0;font-size:13px;color:#1e7e34;font-family:Arial,sans-serif;font-weight:bold;">
+            📄 <strong>Certificate-${params.certificateNumber}.pdf</strong> — Vector PDF for official print &amp; archive
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:4px 0;font-size:13px;color:#1e7e34;font-family:Arial,sans-serif;font-weight:bold;">
+            🖼️ <strong>Certificate-${params.certificateNumber}.png</strong> — High-resolution image for social sharing
+          </td>
+        </tr>
+      </table>
+    </div>
+
+    <!-- Action Buttons (Responsive on mobile & desktop) -->
+    <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 24px 0;">
+      <tr>
+        <td align="center">
+          <table cellpadding="0" cellspacing="0" border="0" style="margin:0 auto;">
+            <tr>
+              <td align="center" style="border-radius:10px;background:linear-gradient(135deg, #1a73e8 0%, #4285f4 100%);box-shadow:0 4px 14px rgba(26,115,232,0.35);padding:0;">
+                <a href="${verifyLink}" target="_blank"
+                   style="font-size:15px;font-weight:bold;color:#ffffff;text-decoration:none;padding:14px 28px;display:inline-block;border-radius:10px;font-family:'Google Sans',Roboto,Arial,sans-serif;">
+                  🛡️ Verify Credential Online &rarr;
+                </a>
+              </td>
+              <td width="12" style="width:12px;"></td>
+              <td align="center" style="border-radius:10px;background-color:#ffffff;border:1.5px solid #1a73e8;padding:0;">
+                <a href="${downloadLink}" target="_blank"
+                   style="font-size:14px;font-weight:bold;color:#1a73e8;text-decoration:none;padding:13px 22px;display:inline-block;border-radius:10px;font-family:'Google Sans',Roboto,Arial,sans-serif;">
+                  ⬇️ Download PDF
+                </a>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+
+    <!-- LinkedIn & Student Portal Showcase Tip -->
+    <div style="background-color:#f0f7ff;border:1.5px dashed #4285f4;border-radius:12px;padding:16px 20px;margin:0 0 24px;direction:ltr;text-align:left;">
+      <div style="font-size:14px;font-weight:bold;color:#1a73e8;margin-bottom:6px;font-family:'Google Sans',Roboto,Arial,sans-serif;">
+        💼 Showcase Your Credential on LinkedIn
+      </div>
+      <p style="margin:0 0 8px;font-size:13px;color:#374151;line-height:1.6;font-family:Arial,sans-serif;">
+        Add this credential to your <strong>LinkedIn "Licenses &amp; Certifications"</strong>. Set <strong>Google Developer Groups on Campus</strong> as the Issuing Organization and enter your Certificate Serial (<code>${params.certificateNumber}</code>) along with the verification link.
+      </p>
+      <p style="margin:0;font-size:13px;color:#5f6368;font-family:Arial,sans-serif;">
+        💡 You can also access and download all your earned certificates in your 
+        <a href="${galleryLink}" target="_blank" style="color:#1a73e8;font-weight:bold;text-decoration:underline;">Student Portal Gallery</a>.
+      </p>
+    </div>
+
+    <!-- Closing -->
+    <p style="margin:20px 0 0;font-size:14px;color:#202124;font-family:'Google Sans',Roboto,Arial,sans-serif;line-height:1.7;direction:ltr;text-align:left;">
+      Congratulations once again, and we look forward to seeing your future achievements! 🚀<br/>
+      <strong>Google Developer Groups on Campus — Helwan National University</strong>
+    </p>
+  `;
+
+  return renderGdgocEmailLayout(`Official Certificate Conferred — ${params.programTitle}`, contentHtml);
+}
+
+/**
  * Student Certificate Delivery Email
- * Spec §4.S.3, §4.S.8: Sends verified completion certificate notice with direct download link & verify URL
+ * Sends verified completion certificate notice with PDF & PNG attachments
  */
 export interface SendStudentCertificateEmailParams {
   to: string;
   recipientName: string;
   programTitle: string;
   certificateNumber: string;
-  verificationCode: string;
+  verificationCode?: string;
   downloadUrl?: string | null;
   verifyUrl: string;
+  portalUrl?: string;
+  issueDate?: string;
+  pdfBuffer?: Buffer | null;
+  pngBuffer?: Buffer | null;
+  attachments?: EmailAttachment[];
 }
 
 export async function sendStudentCertificateEmail(params: SendStudentCertificateEmailParams): Promise<EmailResult> {
-  const downloadButtonHtml = params.downloadUrl
-    ? `
-      <td align="center" style="border-radius: 8px; background-color: #4285F4; margin-right: 8px;">
-        <a href="${params.downloadUrl}" target="_blank" style="font-size: 14px; font-weight: 700; color: #FFFFFF; text-decoration: none; padding: 12px 24px; display: inline-block; border-radius: 8px;">
-          ⬇️ Download Official PDF
-        </a>
-      </td>
-      <td style="width: 12px;"></td>
-    `
-    : '';
+  const html = renderStudentCertificateEmailHtml({
+    recipientName: params.recipientName,
+    programTitle: params.programTitle,
+    certificateNumber: params.certificateNumber,
+    verificationCode: params.verificationCode,
+    downloadUrl: params.downloadUrl,
+    verifyUrl: params.verifyUrl,
+    portalUrl: params.portalUrl,
+    issueDate: params.issueDate,
+    hasAttachments: Boolean(params.pdfBuffer || params.pngBuffer || (params.attachments && params.attachments.length > 0)),
+  });
 
-  const content = `
-    <div style="margin-bottom: 24px;">
-      <span style="display: inline-block; padding: 4px 12px; border-radius: 999px; background-color: rgba(251, 188, 4, 0.15); color: #FBBC04; font-size: 12px; font-weight: 700; text-transform: uppercase;">
-        Official Credential Conferred 📜
-      </span>
-      <h1 style="font-size: 22px; font-weight: 800; color: #FFFFFF; margin: 12px 0 8px 0;">
-        Congratulations, ${params.recipientName}!
-      </h1>
-      <p style="margin: 0; color: #9CA3AF; font-size: 15px; line-height: 1.6;">
-        Your completion certificate for <strong>${params.programTitle}</strong> has been officially approved and issued by the Chapter Leadership at Google Developer Groups on Campus — Helwan National University.
-      </p>
-    </div>
+  const attachments: EmailAttachment[] = [...(params.attachments || [])];
 
-    <!-- Certificate Serial & Verification Box -->
-    <table width="100%" border="0" cellspacing="0" cellpadding="0" style="margin-bottom: 24px; background: rgba(15, 23, 42, 0.9); border: 1px solid rgba(66, 133, 244, 0.3); border-radius: 14px; padding: 20px; text-align: center;">
-      <tr>
-        <td align="center">
-          <div style="font-size: 11px; font-weight: 700; color: #9CA3AF; text-transform: uppercase; letter-spacing: 0.05em;">
-            Permanent Credential Serial
-          </div>
-          <div style="font-size: 18px; font-weight: 900; color: #60A5FA; letter-spacing: 0.08em; font-family: monospace; margin: 6px 0;">
-            ${params.certificateNumber}
-          </div>
-          <div style="font-size: 12px; color: #6B7280;">
-            Cryptographically signed and publicly verifiable by employers worldwide.
-          </div>
-        </td>
-      </tr>
-    </table>
+  if (params.pdfBuffer) {
+    attachments.push({
+      filename: `Certificate-${params.certificateNumber}.pdf`,
+      content: params.pdfBuffer.toString('base64'),
+      contentType: 'application/pdf',
+    });
+  }
 
-    <!-- Action Buttons -->
-    <table border="0" cellspacing="0" cellpadding="0" style="margin-bottom: 20px;">
-      <tr>
-        ${downloadButtonHtml}
-        <td align="center" style="border-radius: 8px; background-color: rgba(255, 255, 255, 0.08); border: 1px solid rgba(255, 255, 255, 0.15);">
-          <a href="${params.verifyUrl}" target="_blank" style="font-size: 14px; font-weight: 700; color: #FFFFFF; text-decoration: none; padding: 12px 22px; display: inline-block; border-radius: 8px;">
-            🛡️ Verify Credential Online &rarr;
-          </a>
-        </td>
-      </tr>
-    </table>
+  if (params.pngBuffer) {
+    attachments.push({
+      filename: `Certificate-${params.certificateNumber}.png`,
+      content: params.pngBuffer.toString('base64'),
+      contentType: 'image/png',
+    });
+  }
 
-    <div style="padding: 16px; border-radius: 10px; background-color: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.07); margin-top: 20px; font-size: 13px; color: #9CA3AF;">
-      💡 <strong>Pro Tip:</strong> You can view, share on LinkedIn, and download all your earned certificates anytime in your <a href="${getAppBaseUrl()}/student/certificates" style="color: #60A5FA; text-decoration: underline;">Student Portal Certificate Gallery</a>.
-    </div>
-  `;
+  const twoPartName = formatTwoPartName(params.recipientName);
 
   return sendEmail({
     to: params.to,
-    subject: `🎓 Official Certificate Issued: ${params.programTitle} — GDGoC HNU`,
-    html: renderEmailLayout('Certificate Conferred — GDGoC HNU', content),
+    subject: `🎓 Official Certificate: ${params.programTitle} — ${twoPartName} | GDGoC HNU`,
+    html,
+    attachments: attachments.length > 0 ? attachments : undefined,
     metadata: {
       type: 'student_certificate_issued',
       certificate_number: params.certificateNumber,
       verification_code: params.verificationCode,
+      has_pdf: Boolean(params.pdfBuffer),
+      has_png: Boolean(params.pngBuffer),
     },
   });
 }

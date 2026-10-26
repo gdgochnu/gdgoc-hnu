@@ -71,11 +71,169 @@ export async function renderCertificatePDFBuffer(
   const uint8Buffer = await renderToBuffer(doc as any);
   const buffer = Buffer.from(uint8Buffer);
 
-  return {
+    return {
     buffer,
     verifyUrl,
     qrCodeDataUrl,
   };
+}
+
+function escapeXml(unsafe: string): string {
+  return (unsafe || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;');
+}
+
+/**
+ * Renders a crisp, high-resolution PNG buffer of the certificate using sharp.
+ */
+export async function renderCertificatePNGBuffer(
+  input: RenderCertificateInput,
+  existingQrCodeDataUrl?: string
+): Promise<Buffer> {
+  const baseUrl = getAppBaseUrl();
+  const verifyUrl = `${baseUrl}/verify/${input.certificateNumber}`;
+
+  // Dimensions (2x scale for crisp Retina quality: 1684 x 1190)
+  const WIDTH = 1684;
+  const HEIGHT = 1190;
+  const SCALE = 2;
+
+  let qrPngBuffer: Buffer | null = null;
+  if (existingQrCodeDataUrl && existingQrCodeDataUrl.startsWith('data:image/png;base64,')) {
+    try {
+      qrPngBuffer = Buffer.from(existingQrCodeDataUrl.replace('data:image/png;base64,', ''), 'base64');
+    } catch {}
+  }
+
+  if (!qrPngBuffer) {
+    try {
+      const qrSvg = await generateStyledQRSVG(verifyUrl, 240);
+      qrPngBuffer = await sharp(Buffer.from(qrSvg), { density: 192 })
+        .resize(480, 480, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } })
+        .png()
+        .toBuffer();
+    } catch (e) {
+      console.warn('QR render error for PNG certificate:', e);
+    }
+  }
+
+  // Prepare background buffer
+  let bgBuffer: Buffer | null = null;
+  if (input.backgroundImageUrl && input.backgroundImageUrl.startsWith('http')) {
+    try {
+      const res = await fetch(input.backgroundImageUrl, { signal: AbortSignal.timeout(6000) });
+      if (res.ok) {
+        const rawBg = Buffer.from(await res.arrayBuffer());
+        bgBuffer = await sharp(rawBg)
+          .resize(WIDTH, HEIGHT, { fit: 'cover', position: 'center' })
+          .png()
+          .toBuffer();
+      }
+    } catch (bgErr) {
+      console.warn('Background image fetch warning for PNG certificate:', bgErr);
+    }
+  }
+
+  const layout = input.fieldLayout || DEFAULT_FIELD_LAYOUT;
+  const qrField = layout.qr_code || { x: 82, y: 76, fontSize: 85 };
+  const qrSize = Math.max(48, qrField.fontSize || 85) * SCALE;
+  const qrLeft = Math.round((qrField.x / 100) * WIDTH - qrSize / 2);
+  const qrTop = Math.round((qrField.y / 100) * HEIGHT - qrSize / 2);
+
+  // If no background image, create official fallback background
+  if (!bgBuffer) {
+    const bgSvg = `
+      <svg width="${WIDTH}" height="${HEIGHT}" xmlns="http://www.w3.org/2000/svg">
+        <rect width="${WIDTH}" height="${HEIGHT}" fill="#ffffff"/>
+        <!-- Google Brand Color Top Bar -->
+        <rect x="0" y="0" width="${WIDTH / 4}" height="12" fill="#4285F4"/>
+        <rect x="${WIDTH / 4}" y="0" width="${WIDTH / 4}" height="12" fill="#EA4335"/>
+        <rect x="${(WIDTH / 4) * 2}" y="0" width="${WIDTH / 4}" height="12" fill="#FBBC04"/>
+        <rect x="${(WIDTH / 4) * 3}" y="0" width="${WIDTH / 4}" height="12" fill="#34A853"/>
+        <!-- Border Frame -->
+        <rect x="48" y="48" width="${WIDTH - 96}" height="${HEIGHT - 96}" rx="16" fill="none" stroke="#e2e8f0" stroke-width="4"/>
+        <!-- Header Text -->
+        <text x="${WIDTH / 2}" y="120" font-family="Arial, 'Google Sans', sans-serif" font-size="24" font-weight="bold" fill="#475569" text-anchor="middle" letter-spacing="3">GOOGLE DEVELOPER GROUPS ON CAMPUS</text>
+        <text x="${WIDTH / 2}" y="156" font-family="Arial, 'Google Sans', sans-serif" font-size="20" fill="#94a3b8" text-anchor="middle">Helwan National University Chapter • Cairo, Egypt</text>
+      </svg>
+    `;
+    bgBuffer = await sharp(Buffer.from(bgSvg)).png().toBuffer();
+  }
+
+  // Build Text SVG Overlay
+  const textElements: string[] = [];
+
+  const addField = (field: any, text: string) => {
+    if (!field || field.visible === false || !text) return;
+    const fontSize = (field.fontSize || 14) * SCALE;
+    const align = field.align || 'center';
+    const color = field.color || '#1e293b';
+    const isBold = field.fontWeight === 'bold' || field.fontWeight === 'black';
+    const fontWeight = isBold ? 'bold' : 'normal';
+
+    const x = Math.round((field.x / 100) * WIDTH);
+    const y = Math.round((field.y / 100) * HEIGHT);
+
+    let textAnchor = 'middle';
+    if (align === 'left') textAnchor = 'start';
+    if (align === 'right') textAnchor = 'end';
+
+    textElements.push(
+      `<text x="${x}" y="${y}" font-family="Arial, 'Google Sans', sans-serif" font-size="${fontSize}" font-weight="${fontWeight}" fill="${color}" text-anchor="${textAnchor}">${escapeXml(text)}</text>`
+    );
+  };
+
+  addField(layout.recipient_name, input.recipientName);
+  addField(layout.title, input.title);
+  addField(layout.issue_date, input.issueDate);
+  addField(layout.certificate_number, input.certificateNumber);
+  if (layout.issuer_name && layout.issuer_name.visible !== false) {
+    addField(layout.issuer_name, layout.issuer_name.sampleText || 'Chapter Presidential Leadership');
+  }
+
+  // Any custom elements
+  Object.entries(layout)
+    .filter(
+      ([k, f]: any) =>
+        !['recipient_name', 'title', 'issue_date', 'certificate_number', 'issuer_name', 'qr_code', 'signature_image'].includes(k) &&
+        f &&
+        f.visible !== false &&
+        f.sampleText
+    )
+    .forEach(([, f]: any) => {
+      addField(f, f.sampleText);
+    });
+
+  const textOverlaySvg = `
+    <svg width="${WIDTH}" height="${HEIGHT}" xmlns="http://www.w3.org/2000/svg">
+      ${textElements.join('\n')}
+    </svg>
+  `;
+
+  const compositeLayers: Array<{ input: Buffer; top?: number; left?: number }> = [
+    { input: Buffer.from(textOverlaySvg) },
+  ];
+
+  if (qrPngBuffer && qrField.visible !== false) {
+    const resizedQr = await sharp(qrPngBuffer)
+      .resize(qrSize, qrSize)
+      .png()
+      .toBuffer();
+    compositeLayers.push({
+      input: resizedQr,
+      top: qrTop,
+      left: qrLeft,
+    });
+  }
+
+  return await sharp(bgBuffer)
+    .composite(compositeLayers)
+    .png({ quality: 90, compressionLevel: 8 })
+    .toBuffer();
 }
 
 /**
