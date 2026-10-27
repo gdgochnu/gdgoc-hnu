@@ -27,8 +27,20 @@ import {
   Activity,
   QrCode,
   FileSpreadsheet,
+  AlertTriangle,
+  AlertCircle,
+  Send,
+  Loader2,
+  UserCheck,
+  UserX,
+  Eye,
 } from 'lucide-react';
-import { AdminStudentsDirectoryData, AdminStudentItem } from '@/app/student-portal/admin/students/actions';
+import {
+  AdminStudentsDirectoryData,
+  AdminStudentItem,
+  sendProfileCompletionReminderEmail,
+} from '@/app/student-portal/admin/students/actions';
+import { IncompleteProfilesEmailModal } from './IncompleteProfilesEmailModal';
 
 interface Props {
   initialData: AdminStudentsDirectoryData;
@@ -74,6 +86,8 @@ function StatCard({
   label,
   sub,
   glow,
+  onClick,
+  active,
 }: {
   icon: React.ReactNode;
   iconColor: string;
@@ -81,19 +95,24 @@ function StatCard({
   label: string;
   sub?: string;
   glow: string;
+  onClick?: () => void;
+  active?: boolean;
 }) {
   return (
     <div
       className="glass-panel"
+      onClick={onClick}
       style={{
         padding: '1.25rem 1.1rem',
         borderRadius: '16px',
         textAlign: 'center',
         transition: 'all 0.2s ease',
-        cursor: 'default',
+        cursor: onClick ? 'pointer' : 'default',
         position: 'relative',
         overflow: 'hidden',
-        border: '1px solid rgba(255,255,255,0.08)',
+        border: active ? `2px solid ${iconColor}` : '1px solid rgba(255,255,255,0.08)',
+        boxShadow: active ? `0 0 25px -4px ${glow}` : undefined,
+        background: active ? `${iconColor}10` : undefined,
       }}
       onMouseEnter={(e) => {
         (e.currentTarget as HTMLDivElement).style.transform = 'translateY(-3px)';
@@ -101,7 +120,7 @@ function StatCard({
       }}
       onMouseLeave={(e) => {
         (e.currentTarget as HTMLDivElement).style.transform = 'translateY(0)';
-        (e.currentTarget as HTMLDivElement).style.boxShadow = '';
+        (e.currentTarget as HTMLDivElement).style.boxShadow = active ? `0 0 25px -4px ${glow}` : '';
       }}
     >
       <div
@@ -122,6 +141,11 @@ function StatCard({
       <div style={{ fontSize: '1.75rem', fontWeight: 900, color: iconColor, lineHeight: 1.1 }}>{value}</div>
       <div style={{ fontSize: '0.82rem', fontWeight: 700, color: '#FFFFFF', marginTop: '0.25rem' }}>{label}</div>
       {sub && <div style={{ fontSize: '0.7rem', color: '#94A3B8', marginTop: '0.15rem' }}>{sub}</div>}
+      {onClick && (
+        <div style={{ fontSize: '0.65rem', color: iconColor, marginTop: '0.35rem', fontWeight: 600 }}>
+          {active ? '● نشط للتصفية' : 'اضغط للتصفية'}
+        </div>
+      )}
     </div>
   );
 }
@@ -178,11 +202,40 @@ export function AdminStudentsDirectoryClient({ initialData, userRole }: Props) {
   const [filterFaculty, setFilterFaculty] = useState<string | null>(null);
   const [filterCerts, setFilterCerts] = useState<'all' | 'with_certs' | 'no_certs'>('all');
   const [filterSocial, setFilterSocial] = useState<'all' | 'completed' | 'pending'>('all');
+  const [filterCompleteness, setFilterCompleteness] = useState<'all' | 'incomplete' | 'complete'>('all');
   const [sortBy, setSortBy] = useState<'recent' | 'attendance' | 'enrollments' | 'certs' | 'social' | 'name'>('recent');
   const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid');
   const [selectedStudent, setSelectedStudent] = useState<AdminStudentItem | null>(null);
 
+  // Email Campaign Modal State
+  const [isCampaignModalOpen, setIsCampaignModalOpen] = useState(false);
+  const [sendingSingleId, setSendingSingleId] = useState<string | null>(null);
+  const [singleFeedback, setSingleFeedback] = useState<{ id: string; success: boolean; message: string } | null>(null);
+
   const { stats, students, facultiesList } = initialData;
+
+  const incompleteStudentsList = useMemo(() => {
+    return students.filter((s) => !s.isProfileComplete);
+  }, [students]);
+
+  const handleSendIndividualReminder = async (student: AdminStudentItem, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    setSendingSingleId(student.id);
+    setSingleFeedback(null);
+    try {
+      const res = await sendProfileCompletionReminderEmail(student.id);
+      if (res.success) {
+        setSingleFeedback({ id: student.id, success: true, message: 'تم إرسال بريد التذكير بنجاح!' });
+      } else {
+        setSingleFeedback({ id: student.id, success: false, message: res.error || 'فشل إرسال البريد' });
+      }
+    } catch (err: any) {
+      setSingleFeedback({ id: student.id, success: false, message: err?.message || 'حدث خطأ أثناء الإرسال' });
+    } finally {
+      setSendingSingleId(null);
+      setTimeout(() => setSingleFeedback(null), 5000);
+    }
+  };
 
   const filteredStudents = useMemo(() => {
     return students
@@ -218,6 +271,12 @@ export function AdminStudentsDirectoryClient({ initialData, userRole }: Props) {
         if (filterSocial === 'pending' && s.socialFollowCompleted) {
           return false;
         }
+        if (filterCompleteness === 'incomplete' && s.isProfileComplete) {
+          return false;
+        }
+        if (filterCompleteness === 'complete' && !s.isProfileComplete) {
+          return false;
+        }
         return true;
       })
       .sort((a, b) => {
@@ -243,7 +302,7 @@ export function AdminStudentsDirectoryClient({ initialData, userRole }: Props) {
         }
         return 0;
       });
-  }, [students, search, filterYear, filterFaculty, filterCerts, filterSocial, sortBy]);
+  }, [students, search, filterYear, filterFaculty, filterCerts, filterSocial, filterCompleteness, sortBy]);
 
   const maxFaculty = useMemo(() => Math.max(...stats.byFaculty.map((f) => f.count), 1), [stats.byFaculty]);
   const maxYear = useMemo(() => Math.max(...stats.byYear.map((y) => y.count), 1), [stats.byYear]);
@@ -414,12 +473,24 @@ export function AdminStudentsDirectoryClient({ initialData, userRole }: Props) {
           glow="rgba(6, 182, 212, 0.4)"
         />
         <StatCard
-          icon={<Shield size={20} color="#10B981" />}
+          icon={<AlertTriangle size={20} color="#F59E0B" />}
+          iconColor="#F59E0B"
+          value={stats.totalIncompleteProfiles.toLocaleString()}
+          label="Incomplete Profiles"
+          sub={`${stats.missingBreakdown?.missingFaculty ?? 0} missing faculty`}
+          glow="rgba(245, 158, 11, 0.4)"
+          onClick={() => setFilterCompleteness(filterCompleteness === 'incomplete' ? 'all' : 'incomplete')}
+          active={filterCompleteness === 'incomplete'}
+        />
+        <StatCard
+          icon={<UserCheck size={20} color="#10B981" />}
           iconColor="#10B981"
-          value={`${stats.socialFollowRate}%`}
-          label="Social Gate Rate"
-          sub={`${stats.totalSocialFollowCompleted} completed all 6`}
+          value={`${stats.profileCompletionRate}%`}
+          label="Verified Profiles"
+          sub={`${stats.totalCompleteProfiles} fully verified`}
           glow="rgba(16, 185, 129, 0.4)"
+          onClick={() => setFilterCompleteness(filterCompleteness === 'complete' ? 'all' : 'complete')}
+          active={filterCompleteness === 'complete'}
         />
       </div>
 
@@ -470,6 +541,148 @@ export function AdminStudentsDirectoryClient({ initialData, userRole }: Props) {
             colorFn={(idx) => stats.byTrack[idx]?.color || '#4285F4'}
           />
         </div>
+      </div>
+
+      {/* 3.5 Incomplete Profile Action & Reminder Campaign Banner */}
+      <div
+        className="glass-panel"
+        style={{
+          padding: '1.5rem 1.75rem',
+          borderRadius: 20,
+          marginBottom: '1.75rem',
+          border: '1px solid rgba(245, 158, 11, 0.35)',
+          background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.12) 0%, rgba(234, 67, 53, 0.08) 50%, rgba(66, 133, 244, 0.06) 100%)',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '1.25rem',
+          position: 'relative',
+          overflow: 'hidden',
+          boxShadow: '0 8px 32px -4px rgba(245, 158, 11, 0.15)',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1.25rem' }}>
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '1rem', maxWidth: 800 }}>
+            <div
+              style={{
+                width: 48,
+                height: 48,
+                borderRadius: 14,
+                background: 'rgba(245, 158, 11, 0.2)',
+                border: '1px solid rgba(245, 158, 11, 0.4)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: '#F59E0B',
+                flexShrink: 0,
+                marginTop: 2,
+              }}
+            >
+              <AlertTriangle size={24} />
+            </div>
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', flexWrap: 'wrap' }}>
+                <h3 style={{ fontSize: '1.15rem', fontWeight: 800, color: '#FFFFFF', margin: 0 }}>
+                  حملة تذكير استكمال بيانات الطلاب | Profile Completion Campaign
+                </h3>
+                <span
+                  style={{
+                    padding: '0.2rem 0.65rem',
+                    borderRadius: 999,
+                    background: 'rgba(245, 158, 11, 0.25)',
+                    border: '1px solid rgba(245, 158, 11, 0.5)',
+                    color: '#FDE68A',
+                    fontSize: '0.75rem',
+                    fontWeight: 800,
+                  }}
+                >
+                  {stats.totalIncompleteProfiles} طالب بحاجة لاستكمال بياناتهم
+                </span>
+              </div>
+              <p style={{ color: '#CBD5E1', fontSize: '0.86rem', margin: '0.4rem 0 0', lineHeight: 1.5 }}>
+                يوجد <strong style={{ color: '#FDE68A' }}>{stats.totalIncompleteProfiles}</strong> طالب مسجلين بحسابات Google لكن لم يستكملوا بياناتهم الأساسية (الكلية، الفرقة، الرقم القومي، الاسم الرباعي، أو رقم الهاتف). يمكنك معاينة البريد الإلكتروني الرسمي وإرساله تذكير لجميع هؤلاء الطلاب أو اختيار مستلمين محددين.
+              </p>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
+            <button
+              onClick={() => setIsCampaignModalOpen(true)}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.55rem',
+                padding: '0.75rem 1.4rem',
+                borderRadius: 14,
+                background: 'linear-gradient(135deg, #F59E0B 0%, #D97706 100%)',
+                border: 'none',
+                color: '#000000',
+                fontSize: '0.88rem',
+                fontWeight: 800,
+                cursor: 'pointer',
+                boxShadow: '0 4px 16px rgba(245, 158, 11, 0.35)',
+                transition: 'all 0.2s ease',
+              }}
+              onMouseEnter={(e) => ((e.currentTarget as HTMLButtonElement).style.transform = 'translateY(-2px)')}
+              onMouseLeave={(e) => ((e.currentTarget as HTMLButtonElement).style.transform = 'translateY(0)')}
+            >
+              <Eye size={16} />
+              معاينة الرسالة وإرسال التذكير ({stats.totalIncompleteProfiles})
+            </button>
+
+            <button
+              onClick={() => setFilterCompleteness(filterCompleteness === 'incomplete' ? 'all' : 'incomplete')}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+                padding: '0.75rem 1.1rem',
+                borderRadius: 14,
+                background: filterCompleteness === 'incomplete' ? 'rgba(245, 158, 11, 0.3)' : 'rgba(255,255,255,0.08)',
+                border: filterCompleteness === 'incomplete' ? '1px solid #F59E0B' : '1px solid rgba(255,255,255,0.15)',
+                color: filterCompleteness === 'incomplete' ? '#FDE68A' : '#FFFFFF',
+                fontSize: '0.85rem',
+                fontWeight: 700,
+                cursor: 'pointer',
+                transition: 'all 0.2s ease',
+              }}
+            >
+              <Filter size={15} />
+              {filterCompleteness === 'incomplete' ? 'إلغاء التصفية (عرض الكل)' : `تصفية الطلاب غير المكتملين (${stats.totalIncompleteProfiles})`}
+            </button>
+          </div>
+        </div>
+
+        {/* Breakdown pill badges */}
+        {stats.missingBreakdown && (
+          <div
+            style={{
+              display: 'flex',
+              flexWrap: 'wrap',
+              gap: '0.6rem',
+              paddingTop: '0.9rem',
+              borderTop: '1px solid rgba(255,255,255,0.08)',
+              alignItems: 'center',
+              fontSize: '0.78rem',
+            }}
+          >
+            <span style={{ color: '#94A3B8', fontWeight: 600 }}>إحصائيات النواقص بالملفات:</span>
+            <span style={{ background: 'rgba(234, 67, 53, 0.15)', border: '1px solid rgba(234, 67, 53, 0.3)', color: '#FCA5A5', padding: '0.25rem 0.65rem', borderRadius: 8, fontWeight: 700 }}>
+              🏛️ بدون كلية: {stats.missingBreakdown.missingFaculty}
+            </span>
+            <span style={{ background: 'rgba(251, 188, 4, 0.15)', border: '1px solid rgba(251, 188, 4, 0.3)', color: '#FDE047', padding: '0.25rem 0.65rem', borderRadius: 8, fontWeight: 700 }}>
+              🎓 بدون فرقة دراسية: {stats.missingBreakdown.missingYear}
+            </span>
+            <span style={{ background: 'rgba(52, 168, 83, 0.15)', border: '1px solid rgba(52, 168, 83, 0.3)', color: '#86EFAC', padding: '0.25rem 0.65rem', borderRadius: 8, fontWeight: 700 }}>
+              📱 بدون رقم هاتف: {stats.missingBreakdown.missingPhone}
+            </span>
+            <span style={{ background: 'rgba(66, 133, 244, 0.15)', border: '1px solid rgba(66, 133, 244, 0.3)', color: '#93C5FD', padding: '0.25rem 0.65rem', borderRadius: 8, fontWeight: 700 }}>
+              🪪 بدون رقم قومي: {stats.missingBreakdown.missingNationalId}
+            </span>
+            <span style={{ background: 'rgba(139, 92, 246, 0.15)', border: '1px solid rgba(139, 92, 246, 0.3)', color: '#D8B4FE', padding: '0.25rem 0.65rem', borderRadius: 8, fontWeight: 700 }}>
+              📝 بدون اسم رباعي: {stats.missingBreakdown.missingNames}
+            </span>
+          </div>
+        )}
       </div>
 
       {/* 4. Filter & Search Bar */}
@@ -598,6 +811,27 @@ export function AdminStudentsDirectoryClient({ initialData, userRole }: Props) {
             <option value="pending" style={{ background: '#1E293B', color: '#FFFFFF' }}>Pending Follow (&lt; 6)</option>
           </select>
 
+          {/* Profile Completeness Gate Filter */}
+          <select
+            value={filterCompleteness}
+            onChange={(e) => setFilterCompleteness(e.target.value as any)}
+            style={{
+              padding: '0.55rem 1rem',
+              borderRadius: 12,
+              background: 'rgba(255,255,255,0.05)',
+              border: '1px solid rgba(255,255,255,0.12)',
+              color: filterCompleteness === 'incomplete' ? '#F59E0B' : filterCompleteness === 'complete' ? '#10B981' : '#CBD5E1',
+              fontSize: '0.85rem',
+              outline: 'none',
+              cursor: 'pointer',
+              fontWeight: filterCompleteness !== 'all' ? 700 : 400,
+            }}
+          >
+            <option value="all" style={{ background: '#1E293B', color: '#CBD5E1' }}>All Profiles (حالة الملف)</option>
+            <option value="incomplete" style={{ background: '#1E293B', color: '#F59E0B' }}>⚠️ غير مكتمل ({stats.totalIncompleteProfiles})</option>
+            <option value="complete" style={{ background: '#1E293B', color: '#10B981' }}>✅ مكتمل ({stats.totalCompleteProfiles})</option>
+          </select>
+
           {/* Sort By */}
           <select
             value={sortBy}
@@ -621,7 +855,7 @@ export function AdminStudentsDirectoryClient({ initialData, userRole }: Props) {
             <option value="name" style={{ background: '#1E293B', color: '#FFFFFF' }}>Sort: Name A-Z</option>
           </select>
 
-          {(search || filterYear !== null || filterFaculty || filterCerts !== 'all' || filterSocial !== 'all') && (
+          {(search || filterYear !== null || filterFaculty || filterCerts !== 'all' || filterSocial !== 'all' || filterCompleteness !== 'all') && (
             <button
               onClick={() => {
                 setSearch('');
@@ -629,6 +863,7 @@ export function AdminStudentsDirectoryClient({ initialData, userRole }: Props) {
                 setFilterFaculty(null);
                 setFilterCerts('all');
                 setFilterSocial('all');
+                setFilterCompleteness('all');
               }}
               style={{
                 padding: '0.45rem 0.85rem',
@@ -788,6 +1023,40 @@ export function AdminStudentsDirectoryClient({ initialData, userRole }: Props) {
 
                 {/* Faculty & Year Badges */}
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem', marginBottom: '0.9rem' }}>
+                  {!student.isProfileComplete ? (
+                    <span
+                      style={{
+                        padding: '0.2rem 0.55rem',
+                        borderRadius: 6,
+                        background: 'rgba(245, 158, 11, 0.15)',
+                        border: '1px solid rgba(245, 158, 11, 0.35)',
+                        color: '#FCD34D',
+                        fontSize: '0.72rem',
+                        fontWeight: 700,
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '0.3rem',
+                      }}
+                      title={student.missingFields?.join('، ')}
+                    >
+                      <AlertTriangle size={11} />
+                      غير مكتمل ({student.missingFields?.length ?? 0})
+                    </span>
+                  ) : (
+                    <span
+                      style={{
+                        padding: '0.2rem 0.55rem',
+                        borderRadius: 6,
+                        background: 'rgba(52, 168, 83, 0.12)',
+                        border: '1px solid rgba(52, 168, 83, 0.25)',
+                        color: '#86EFAC',
+                        fontSize: '0.72rem',
+                        fontWeight: 600,
+                      }}
+                    >
+                      ✓ مكتمل
+                    </span>
+                  )}
                   {student.faculty && (
                     <span
                       style={{
@@ -892,6 +1161,55 @@ export function AdminStudentsDirectoryClient({ initialData, userRole }: Props) {
                       <Linkedin size={14} />
                     </a>
                   )}
+                  {!student.isProfileComplete && (
+                    <button
+                      onClick={(e) => handleSendIndividualReminder(student, e)}
+                      disabled={sendingSingleId === student.id}
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '0.35rem',
+                        padding: '0.3rem 0.65rem',
+                        borderRadius: 8,
+                        background: singleFeedback?.id === student.id && singleFeedback.success
+                          ? 'rgba(52, 168, 83, 0.25)'
+                          : 'rgba(245, 158, 11, 0.18)',
+                        border: singleFeedback?.id === student.id && singleFeedback.success
+                          ? '1px solid rgba(52, 168, 83, 0.4)'
+                          : '1px solid rgba(245, 158, 11, 0.35)',
+                        color: singleFeedback?.id === student.id && singleFeedback.success ? '#86EFAC' : '#FDE68A',
+                        fontSize: '0.72rem',
+                        fontWeight: 700,
+                        cursor: sendingSingleId === student.id ? 'not-allowed' : 'pointer',
+                        transition: 'all 0.2s ease',
+                      }}
+                      title="إرسال بريد تذكير باستكمال البيانات"
+                    >
+                      {sendingSingleId === student.id ? (
+                        <>
+                          <Loader2 size={12} className="animate-spin" />
+                          إرسال...
+                        </>
+                      ) : singleFeedback?.id === student.id ? (
+                        singleFeedback.success ? (
+                          <>
+                            <CheckCircle2 size={12} color="#86EFAC" />
+                            تم!
+                          </>
+                        ) : (
+                          <>
+                            <AlertCircle size={12} color="#F87171" />
+                            فشل
+                          </>
+                        )
+                      ) : (
+                        <>
+                          <Send size={11} />
+                          تذكير
+                        </>
+                      )}
+                    </button>
+                  )}
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
@@ -974,6 +1292,41 @@ export function AdminStudentsDirectoryClient({ initialData, userRole }: Props) {
                           {student.full_name_ar && student.full_name_en && (
                             <div style={{ fontSize: '0.72rem', color: '#94A3B8' }}>{student.full_name_ar}</div>
                           )}
+                          {!student.isProfileComplete ? (
+                            <span
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '0.25rem',
+                                marginTop: '0.25rem',
+                                padding: '0.1rem 0.45rem',
+                                borderRadius: 4,
+                                background: 'rgba(245, 158, 11, 0.15)',
+                                border: '1px solid rgba(245, 158, 11, 0.3)',
+                                color: '#FCD34D',
+                                fontSize: '0.65rem',
+                                fontWeight: 700,
+                              }}
+                            >
+                              <AlertTriangle size={10} /> غير مكتمل ({student.missingFields?.length ?? 0})
+                            </span>
+                          ) : (
+                            <span
+                              style={{
+                                display: 'inline-block',
+                                marginTop: '0.25rem',
+                                padding: '0.1rem 0.45rem',
+                                borderRadius: 4,
+                                background: 'rgba(52, 168, 83, 0.12)',
+                                border: '1px solid rgba(52, 168, 83, 0.25)',
+                                color: '#86EFAC',
+                                fontSize: '0.65rem',
+                                fontWeight: 600,
+                              }}
+                            >
+                              ✓ مكتمل
+                            </span>
+                          )}
                         </div>
                       </div>
                     </td>
@@ -1022,24 +1375,59 @@ export function AdminStudentsDirectoryClient({ initialData, userRole }: Props) {
                       </span>
                     </td>
                     <td style={{ padding: '0.85rem 1.2rem', textAlign: 'right' }}>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setSelectedStudent(student);
-                        }}
-                        style={{
-                          padding: '0.35rem 0.8rem',
-                          borderRadius: 8,
-                          background: 'rgba(66, 133, 244, 0.15)',
-                          border: '1px solid rgba(66, 133, 244, 0.3)',
-                          color: '#60A5FA',
-                          fontSize: '0.75rem',
-                          fontWeight: 700,
-                          cursor: 'pointer',
-                        }}
-                      >
-                        Details
-                      </button>
+                      <div style={{ display: 'flex', gap: '0.4rem', justifyContent: 'flex-end', alignItems: 'center' }}>
+                        {!student.isProfileComplete && (
+                          <button
+                            onClick={(e) => handleSendIndividualReminder(student, e)}
+                            disabled={sendingSingleId === student.id}
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '0.3rem',
+                              padding: '0.35rem 0.65rem',
+                              borderRadius: 8,
+                              background: singleFeedback?.id === student.id && singleFeedback.success
+                                ? 'rgba(52, 168, 83, 0.25)'
+                                : 'rgba(245, 158, 11, 0.18)',
+                              border: singleFeedback?.id === student.id && singleFeedback.success
+                                ? '1px solid rgba(52, 168, 83, 0.4)'
+                                : '1px solid rgba(245, 158, 11, 0.35)',
+                              color: singleFeedback?.id === student.id && singleFeedback.success ? '#86EFAC' : '#FDE68A',
+                              fontSize: '0.72rem',
+                              fontWeight: 700,
+                              cursor: sendingSingleId === student.id ? 'not-allowed' : 'pointer',
+                            }}
+                            title="إرسال بريد تذكير بالاستكمال"
+                          >
+                            {sendingSingleId === student.id ? (
+                              <Loader2 size={12} className="animate-spin" />
+                            ) : singleFeedback?.id === student.id && singleFeedback.success ? (
+                              <CheckCircle2 size={12} color="#86EFAC" />
+                            ) : (
+                              <Send size={11} />
+                            )}
+                            تذكير
+                          </button>
+                        )}
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedStudent(student);
+                          }}
+                          style={{
+                            padding: '0.35rem 0.8rem',
+                            borderRadius: 8,
+                            background: 'rgba(66, 133, 244, 0.15)',
+                            border: '1px solid rgba(66, 133, 244, 0.3)',
+                            color: '#60A5FA',
+                            fontSize: '0.75rem',
+                            fontWeight: 700,
+                            cursor: 'pointer',
+                          }}
+                        >
+                          Details
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -1152,6 +1540,97 @@ export function AdminStudentsDirectoryClient({ initialData, userRole }: Props) {
               >
                 ✕
               </button>
+            </div>
+
+            {/* Profile Completeness Dossier Box */}
+            <div
+              style={{
+                padding: '1rem 1.25rem',
+                borderRadius: 16,
+                marginBottom: '1.25rem',
+                border: selectedStudent.isProfileComplete
+                  ? '1px solid rgba(52, 168, 83, 0.3)'
+                  : '1px solid rgba(245, 158, 11, 0.4)',
+                background: selectedStudent.isProfileComplete
+                  ? 'rgba(52, 168, 83, 0.08)'
+                  : 'rgba(245, 158, 11, 0.1)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                flexWrap: 'wrap',
+                gap: '1rem',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem', flex: 1 }}>
+                <div style={{ color: selectedStudent.isProfileComplete ? '#86EFAC' : '#F59E0B', marginTop: 2 }}>
+                  {selectedStudent.isProfileComplete ? <CheckCircle2 size={20} /> : <AlertTriangle size={20} />}
+                </div>
+                <div>
+                  <div style={{ fontWeight: 800, color: '#FFFFFF', fontSize: '0.92rem' }}>
+                    {selectedStudent.isProfileComplete
+                      ? 'الملف التعريفي مكتمل وموثق بنجاح'
+                      : 'الملف التعريفي غير مكتمل ويتطلب استكمال البيانات'}
+                  </div>
+                  {!selectedStudent.isProfileComplete && selectedStudent.missingFields && (
+                    <div style={{ color: '#FCD34D', fontSize: '0.78rem', marginTop: '0.25rem' }}>
+                      الحقول الناقصة: {selectedStudent.missingFields.join(' • ')}
+                    </div>
+                  )}
+                  {selectedStudent.isProfileComplete && (
+                    <div style={{ color: '#94A3B8', fontSize: '0.75rem', marginTop: '0.2rem' }}>
+                      الاسم الرباعي، الكلية، الفرقة، الرقم القومي، وأرقام التواصل مسجلة وموثقة.
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {!selectedStudent.isProfileComplete && (
+                <button
+                  onClick={(e) => handleSendIndividualReminder(selectedStudent, e)}
+                  disabled={sendingSingleId === selectedStudent.id}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.45rem',
+                    padding: '0.55rem 1rem',
+                    borderRadius: 10,
+                    background: singleFeedback?.id === selectedStudent.id && singleFeedback.success
+                      ? 'linear-gradient(135deg, #10B981 0%, #059669 100%)'
+                      : 'linear-gradient(135deg, #F59E0B 0%, #D97706 100%)',
+                    border: 'none',
+                    color: '#000000',
+                    fontSize: '0.8rem',
+                    fontWeight: 800,
+                    cursor: sendingSingleId === selectedStudent.id ? 'not-allowed' : 'pointer',
+                    boxShadow: '0 4px 12px rgba(245, 158, 11, 0.3)',
+                    transition: 'all 0.2s ease',
+                  }}
+                >
+                  {sendingSingleId === selectedStudent.id ? (
+                    <>
+                      <Loader2 size={14} className="animate-spin" />
+                      جاري إرسال التذكير...
+                    </>
+                  ) : singleFeedback?.id === selectedStudent.id ? (
+                    singleFeedback.success ? (
+                      <>
+                        <CheckCircle2 size={14} color="#000000" />
+                        تم إرسال التذكير بنجاح!
+                      </>
+                    ) : (
+                      <>
+                        <AlertCircle size={14} color="#000000" />
+                        فشل الإرسال
+                      </>
+                    )
+                  ) : (
+                    <>
+                      <Send size={14} />
+                      إرسال بريد تذكير الآن
+                    </>
+                  )}
+                </button>
+              )}
             </div>
 
             {/* Metric Summary in Modal */}
@@ -1362,6 +1841,16 @@ export function AdminStudentsDirectoryClient({ initialData, userRole }: Props) {
           </div>
         </div>
       )}
+
+      {/* 7. Incomplete Profiles Email Campaign Modal */}
+      <IncompleteProfilesEmailModal
+        isOpen={isCampaignModalOpen}
+        onClose={() => setIsCampaignModalOpen(false)}
+        incompleteStudents={incompleteStudentsList}
+        onCompleted={() => {
+          // Campaign completed
+        }}
+      />
     </div>
   );
 }

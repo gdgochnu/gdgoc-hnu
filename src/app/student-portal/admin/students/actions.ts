@@ -1,7 +1,14 @@
+import { revalidatePath } from 'next/cache';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getUserContext } from '@/lib/auth/get-user-context';
 import { MANDATORY_SOCIAL_CHANNELS } from '@/config/social-gate';
 import { fetchAllSupabaseRows } from '@/lib/supabase/fetch-all';
+import { getAppBaseUrl } from '@/lib/utils';
+import {
+  renderIncompleteProfileEmailHtml,
+  sendIncompleteProfileReminderEmail,
+} from '@/lib/email/service';
+import { isStudentProfileComplete } from '@/lib/student/profile-validation';
 
 export interface AdminStudentItem {
   id: string;
@@ -17,6 +24,9 @@ export interface AdminStudentItem {
   department_major: string | null;
   university: string;
   status: string;
+  isProfileComplete: boolean;
+  missingFields: string[];
+  googleName: string | null;
   linkedin_url: string | null;
   facebook_url: string | null;
   instagram_url: string | null;
@@ -33,6 +43,16 @@ export interface AdminStudentItem {
 
 export interface AdminStudentsAnalytics {
   totalStudents: number;
+  totalCompleteProfiles: number;
+  totalIncompleteProfiles: number;
+  profileCompletionRate: number;
+  missingBreakdown: {
+    missingFaculty: number;
+    missingYear: number;
+    missingPhone: number;
+    missingNationalId: number;
+    missingNames: number;
+  };
   activeCourses: number;
   totalEnrollments: number;
   totalCertificates: number;
@@ -94,6 +114,7 @@ export async function getAdminStudentsDirectoryData(): Promise<{
       workshopsRes,
       workshopSessionsRes,
       socialFollows,
+      authUsersRes,
     ] = await Promise.all([
       admin.from('courses').select('id, title, category').limit(5000),
       admin.from('course_sessions').select('id, course_id').limit(5000),
@@ -111,12 +132,22 @@ export async function getAdminStudentsDirectoryData(): Promise<{
       fetchAllSupabaseRows((from, to) =>
         admin.from('student_social_follows').select('*').range(from, to)
       ),
+      admin.auth.admin.listUsers({ perPage: 1000 }).catch(() => ({ data: { users: [] } })),
     ]);
 
     const courses = coursesRes.data || [];
     const courseSessions = courseSessionsRes.data || [];
     const workshops = workshopsRes.data || [];
     const workshopSessions = workshopSessionsRes.data || [];
+
+    // Map Auth Users for name & avatar fallbacks
+    const authMap = new Map<string, { fullName: string | null; avatarUrl: string | null }>();
+    for (const u of (authUsersRes as any)?.data?.users || []) {
+      authMap.set(u.id, {
+        fullName: u.user_metadata?.full_name || u.user_metadata?.name || null,
+        avatarUrl: u.user_metadata?.avatar_url || u.user_metadata?.picture || null,
+      });
+    }
 
     // Map sessions count per course & workshop
     const courseSessionsCountMap = new Map<string, number>();
@@ -220,6 +251,15 @@ export async function getAdminStudentsDirectoryData(): Promise<{
     const facultyMap: Record<string, number> = {};
     const yearMap: Record<number, number> = {};
 
+    // Completeness aggregators
+    let totalCompleteProfiles = 0;
+    let totalIncompleteProfiles = 0;
+    let missingFacultyCount = 0;
+    let missingYearCount = 0;
+    let missingPhoneCount = 0;
+    let missingNationalIdCount = 0;
+    let missingNamesCount = 0;
+
     const students: AdminStudentItem[] = studentList.map((s: any) => {
       if (s.faculty) {
         facultyMap[s.faculty] = (facultyMap[s.faculty] || 0) + 1;
@@ -267,20 +307,74 @@ export async function getAdminStudentsDirectoryData(): Promise<{
         attendanceRate = 0;
       }
 
+      // Metadata from Google Auth fallback
+      const authMeta = authMap.get(s.id);
+      const googleName = authMeta?.fullName || null;
+      const avatarUrl = s.avatar_url || authMeta?.avatarUrl || null;
+
+      // Determine missing profile data
+      const missing: string[] = [];
+      const hasFaculty = Boolean(s.faculty && s.faculty.trim());
+      if (!hasFaculty) {
+        missing.push('Faculty / الكلية');
+        missingFacultyCount++;
+      }
+
+      const yrNum = Number(s.academic_year);
+      const hasValidYear = Boolean(yrNum && !isNaN(yrNum) && yrNum >= 1 && yrNum <= 5);
+      if (!hasValidYear) {
+        missing.push('Academic Year / الفرقة الدراسية');
+        missingYearCount++;
+      }
+
+      const phoneClean = (s.phone || '').replace(/[\s\-\(\)]/g, '');
+      const waClean = (s.whatsapp_number || '').replace(/[\s\-\(\)]/g, '');
+      const hasValidPhone = Boolean(phoneClean && /^(?:\+20|20|0)?1[0125]\d{8}$/.test(phoneClean));
+      const hasValidWa = Boolean(waClean && /^(?:\+20|20|0)?1[0125]\d{8}$/.test(waClean));
+      if (!hasValidPhone || !hasValidWa) {
+        missing.push('Phone & WhatsApp / الهاتف والواتساب');
+        missingPhoneCount++;
+      }
+
+      const natId = (s.national_id || '').trim();
+      const hasValidNatId = Boolean(natId && /^\d{14}$/.test(natId));
+      if (!hasValidNatId) {
+        missing.push('National ID / الرقم القومي');
+        missingNationalIdCount++;
+      }
+
+      const arParts = (s.full_name_ar || '').trim().split(/\s+/).filter(Boolean);
+      const enParts = (s.full_name_en || '').trim().split(/\s+/).filter(Boolean);
+      const hasValidNames = arParts.length >= 4 && enParts.length >= 4;
+      if (!hasValidNames) {
+        missing.push('Quad Arabic & English Names / الاسم الرباعي');
+        missingNamesCount++;
+      }
+
+      const isProfileComplete = s.status === 'active' && missing.length === 0;
+      if (isProfileComplete) {
+        totalCompleteProfiles++;
+      } else {
+        totalIncompleteProfiles++;
+      }
+
       return {
         id: s.id,
-        full_name_en: s.full_name_en,
+        full_name_en: s.full_name_en || googleName || null,
         full_name_ar: s.full_name_ar,
         email: s.email,
         phone: s.phone,
         whatsapp_number: s.whatsapp_number,
         national_id: s.national_id,
-        avatar_url: s.avatar_url,
+        avatar_url: avatarUrl,
         faculty: s.faculty,
         academic_year: s.academic_year ? Number(s.academic_year) : null,
         department_major: s.department_major,
         university: s.university || 'Helwan National University (HNU)',
         status: s.status || 'active',
+        isProfileComplete,
+        missingFields: missing,
+        googleName,
         linkedin_url: s.linkedin_url,
         facebook_url: s.facebook_url,
         instagram_url: s.instagram_url,
@@ -321,11 +415,24 @@ export async function getAdminStudentsDirectoryData(): Promise<{
     const socialFollowRate =
       students.length > 0 ? Math.round((totalSocialFollowCompleted / students.length) * 100) : 0;
 
+    const profileCompletionRate =
+      students.length > 0 ? Math.round((totalCompleteProfiles / students.length) * 100) : 0;
+
     return {
       success: true,
       data: {
         stats: {
           totalStudents: students.length,
+          totalCompleteProfiles,
+          totalIncompleteProfiles,
+          profileCompletionRate,
+          missingBreakdown: {
+            missingFaculty: missingFacultyCount,
+            missingYear: missingYearCount,
+            missingPhone: missingPhoneCount,
+            missingNationalId: missingNationalIdCount,
+            missingNames: missingNamesCount,
+          },
           activeCourses: courses.length,
           totalEnrollments: enrollments.length,
           totalCertificates: certificates.length,
@@ -348,3 +455,274 @@ export async function getAdminStudentsDirectoryData(): Promise<{
     return { success: false, error: err?.message || 'Failed to load students directory data' };
   }
 }
+
+/**
+ * Sends a profile completion reminder email to an individual student.
+ */
+export async function sendProfileCompletionReminderEmail(studentId: string): Promise<{
+  success: boolean;
+  error?: string;
+  message?: string;
+}> {
+  try {
+    const context = await getUserContext();
+    if (!context.user || !context.profile) {
+      return { success: false, error: 'Unauthorized: Authentication required.' };
+    }
+    const role = context.profile.role;
+    if (role !== 'president' && role !== 'co_president') {
+      return { success: false, error: 'Unauthorized: Presidential permissions required.' };
+    }
+
+    const admin = createAdminClient();
+    const { data: student, error: stuErr } = await admin
+      .from('student_profiles')
+      .select('*')
+      .eq('id', studentId)
+      .maybeSingle();
+
+    if (stuErr || !student) {
+      return { success: false, error: 'Student not found.' };
+    }
+
+    if (!student.email) {
+      return { success: false, error: 'Student has no registered email address.' };
+    }
+
+    // Get name (profile or auth)
+    let studentName = student.full_name_en || student.full_name_ar || null;
+    if (!studentName) {
+      const { data: userAuth } = await admin.auth.admin.getUserById(student.id).catch(() => ({ data: { user: null } }));
+      studentName = userAuth?.user?.user_metadata?.full_name || userAuth?.user?.user_metadata?.name || null;
+    }
+
+    const missing: string[] = [];
+    if (!student.faculty) missing.push('Faculty / كلية الطالب');
+    if (!student.academic_year) missing.push('Academic Year (1-5) / الفرقة الدراسية');
+    if (!student.phone || !student.whatsapp_number) missing.push('Egyptian Mobile & WhatsApp / رقم الهاتف والواتساب');
+    if (!student.national_id) missing.push('14-digit National ID / الرقم القومي');
+    const arParts = (student.full_name_ar || '').trim().split(/\s+/).filter(Boolean);
+    const enParts = (student.full_name_en || '').trim().split(/\s+/).filter(Boolean);
+    if (arParts.length < 4 || enParts.length < 4) missing.push('Quad Arabic & English Names / الاسم الرباعي بالعربية والإنجليزية');
+
+    const appUrl = getAppBaseUrl();
+    const res = await sendIncompleteProfileReminderEmail({
+      to: student.email,
+      studentName,
+      missingFields: missing,
+      portalUrl: appUrl,
+    });
+
+    if (!res.success) {
+      return { success: false, error: res.error || 'Failed to dispatch email via Hostinger Mail API.' };
+    }
+
+    return { success: true, message: `Reminder email successfully sent to ${student.email}` };
+  } catch (err: any) {
+    console.error('sendProfileCompletionReminderEmail error:', err);
+    return { success: false, error: err?.message || 'Failed to send reminder email.' };
+  }
+}
+
+/**
+ * Sends reminder emails in parallel batches to all students with incomplete profiles (or a specified list).
+ */
+export async function sendBulkProfileCompletionReminderEmails(options?: {
+  studentIds?: string[];
+}): Promise<{
+  success: boolean;
+  total: number;
+  sentCount: number;
+  failedCount: number;
+  failedEmails?: string[];
+  error?: string;
+}> {
+  try {
+    const context = await getUserContext();
+    if (!context.user || !context.profile) {
+      return { success: false, total: 0, sentCount: 0, failedCount: 0, error: 'Unauthorized: Authentication required.' };
+    }
+    const role = context.profile.role;
+    if (role !== 'president' && role !== 'co_president') {
+      return { success: false, total: 0, sentCount: 0, failedCount: 0, error: 'Unauthorized: Presidential permissions required.' };
+    }
+
+    const admin = createAdminClient();
+
+    // Fetch target students
+    let query = admin
+      .from('student_profiles')
+      .select('id, email, full_name_en, full_name_ar, faculty, academic_year, phone, whatsapp_number, national_id, status');
+
+    if (options?.studentIds && options.studentIds.length > 0) {
+      query = query.in('id', options.studentIds);
+    } else {
+      query = query.eq('status', 'incomplete');
+    }
+
+    const { data: rawStudents, error: fetchErr } = await query;
+    if (fetchErr) {
+      return { success: false, total: 0, sentCount: 0, failedCount: 0, error: fetchErr.message };
+    }
+
+    const targetStudents = (rawStudents || []).filter((s) => s.email && s.email.includes('@'));
+    if (targetStudents.length === 0) {
+      return { success: true, total: 0, sentCount: 0, failedCount: 0 };
+    }
+
+    // Fetch auth names for fallback
+    const authUsersRes = await admin.auth.admin.listUsers({ perPage: 1000 }).catch(() => ({ data: { users: [] } }));
+    const authMap = new Map<string, string>();
+    for (const u of authUsersRes.data?.users || []) {
+      const name = u.user_metadata?.full_name || u.user_metadata?.name;
+      if (name) authMap.set(u.id, name);
+    }
+
+    const appUrl = getAppBaseUrl();
+    let sentCount = 0;
+    let failedCount = 0;
+    const failedEmails: string[] = [];
+
+    // Process in batches of 5 with 250ms delay
+    const BATCH_SIZE = 5;
+    for (let i = 0; i < targetStudents.length; i += BATCH_SIZE) {
+      const batch = targetStudents.slice(i, i + BATCH_SIZE);
+      const promises = batch.map(async (student) => {
+        const studentName = student.full_name_en || student.full_name_ar || authMap.get(student.id) || null;
+        const missing: string[] = [];
+        if (!student.faculty) missing.push('Faculty / الكلية');
+        if (!student.academic_year) missing.push('Academic Year / الفرقة');
+        if (!student.phone || !student.whatsapp_number) missing.push('Phone & WhatsApp / الهاتف والواتساب');
+        if (!student.national_id) missing.push('National ID / الرقم القومي');
+
+        const result = await sendIncompleteProfileReminderEmail({
+          to: student.email!,
+          studentName,
+          missingFields: missing,
+          portalUrl: appUrl,
+        });
+
+        if (result.success) {
+          sentCount++;
+        } else {
+          failedCount++;
+          failedEmails.push(student.email!);
+        }
+      });
+
+      await Promise.allSettled(promises);
+
+      // Brief pause between batches to be gentle on SMTP/API
+      if (i + BATCH_SIZE < targetStudents.length) {
+        await new Promise((resolve) => setTimeout(resolve, 250));
+      }
+    }
+
+    revalidatePath('/student-portal/admin/students');
+
+    return {
+      success: true,
+      total: targetStudents.length,
+      sentCount,
+      failedCount,
+      failedEmails: failedEmails.slice(0, 10),
+    };
+  } catch (err: any) {
+    console.error('sendBulkProfileCompletionReminderEmails exception:', err);
+    return { success: false, total: 0, sentCount: 0, failedCount: 0, error: err?.message || 'Failed to dispatch bulk reminder emails.' };
+  }
+}
+
+/**
+ * Returns rendered preview HTML and subject line for the incomplete profile reminder email.
+ */
+export async function getIncompleteProfileEmailPreview(studentId?: string): Promise<{
+  success: boolean;
+  html?: string;
+  subject?: string;
+  sender?: string;
+  sampleRecipient?: string;
+  error?: string;
+}> {
+  try {
+    const context = await getUserContext();
+    if (!context.user || !context.profile) {
+      return { success: false, error: 'Unauthorized: Authentication required.' };
+    }
+
+    const appUrl = getAppBaseUrl();
+    let studentName = 'Magdy Ayad';
+    let sampleRecipient = 'magdyayadnady2006@gmail.com';
+    let missingFields = [
+      'Faculty / كلية الطالب',
+      'Academic Year (1-5) / الفرقة الدراسية',
+      'Egyptian Mobile & WhatsApp / رقم الهاتف والواتساب',
+      '14-digit National ID / الرقم القومي',
+      'Quad Name in Arabic & English / الاسم الرباعي بالعربية والإنجليزية',
+    ];
+
+    if (studentId) {
+      const admin = createAdminClient();
+      const { data: s } = await admin.from('student_profiles').select('*').eq('id', studentId).maybeSingle();
+      if (s) {
+        sampleRecipient = s.email || sampleRecipient;
+        studentName = s.full_name_en || s.full_name_ar || studentName;
+      }
+    }
+
+    const html = renderIncompleteProfileEmailHtml({
+      studentName,
+      missingFields,
+      portalUrl: appUrl,
+    });
+
+    return {
+      success: true,
+      html,
+      subject: '⚠️ مطلوب: استكمال بيانات حسابك الأكاديمي في GDGoC HNU | Complete Your Student Profile',
+      sender: 'GDGoC Helwan National University <gdgochnu@uniskills.pro>',
+      sampleRecipient,
+    };
+  } catch (err: any) {
+    console.error('getIncompleteProfileEmailPreview error:', err);
+    return { success: false, error: err?.message || 'Failed to generate preview' };
+  }
+}
+
+/**
+ * Sends a single test preview email to the logged in admin.
+ */
+export async function sendTestProfileCompletionEmail(targetEmail: string): Promise<{
+  success: boolean;
+  error?: string;
+}> {
+  try {
+    const context = await getUserContext();
+    if (!context.user || !context.profile) {
+      return { success: false, error: 'Unauthorized: Authentication required.' };
+    }
+    const role = context.profile.role;
+    if (role !== 'president' && role !== 'co_president') {
+      return { success: false, error: 'Unauthorized: Presidential permissions required.' };
+    }
+
+    const appUrl = getAppBaseUrl();
+    const res = await sendIncompleteProfileReminderEmail({
+      to: targetEmail,
+      studentName: 'Presidential Test Preview',
+      missingFields: [
+        'Faculty / كلية الطالب',
+        'Academic Year (1-5) / الفرقة الدراسية',
+        'Egyptian Mobile & WhatsApp / رقم الهاتف والواتساب',
+        '14-digit National ID / الرقم القومي',
+        'Quad Name in Arabic & English / الاسم الرباعي بالعربية والإنجليزية',
+      ],
+      portalUrl: appUrl,
+    });
+
+    return { success: res.success, error: res.error };
+  } catch (err: any) {
+    return { success: false, error: err?.message || 'Failed to send test email' };
+  }
+}
+
