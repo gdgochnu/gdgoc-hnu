@@ -1,6 +1,7 @@
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getUserContext } from '@/lib/auth/get-user-context';
 import { MANDATORY_SOCIAL_CHANNELS } from '@/config/social-gate';
+import { fetchAllSupabaseRows } from '@/lib/supabase/fetch-all';
 
 export interface AdminStudentItem {
   id: string;
@@ -83,35 +84,39 @@ export async function getAdminStudentsDirectoryData(): Promise<{
 
     const studentList = rawStudents || [];
 
-    // 2. Fetch auxiliary data in parallel for stats and student enrichment with safe limits
+    // 2. Fetch auxiliary data in parallel for stats and student enrichment with safe pagination
     const [
       coursesRes,
       courseSessionsRes,
-      enrollmentsRes,
-      certificatesRes,
-      attendanceRes,
+      enrollments,
+      certificates,
+      attendance,
       workshopsRes,
       workshopSessionsRes,
-      socialFollowsRes,
-    ] = await Promise.allSettled([
-      admin.from('courses').select('id, title, category').limit(50000),
-      admin.from('course_sessions').select('id, course_id').limit(50000),
-      admin.from('course_enrollments').select('id, student_id, course_id, status').limit(50000),
-      admin.from('student_certificates').select('id, student_id').limit(50000),
-      admin.from('student_attendance').select('id, student_id, session_id, workshop_session_id').limit(50000),
-      admin.from('workshop_registrations').select('id, student_id, status, workshop_id').limit(50000),
-      admin.from('workshop_sessions').select('id, workshop_id').limit(50000),
-      admin.from('student_social_follows').select('*').limit(50000),
+      socialFollows,
+    ] = await Promise.all([
+      admin.from('courses').select('id, title, category').limit(5000),
+      admin.from('course_sessions').select('id, course_id').limit(5000),
+      fetchAllSupabaseRows((from, to) =>
+        admin.from('course_enrollments').select('id, student_id, course_id, status').range(from, to)
+      ),
+      fetchAllSupabaseRows((from, to) =>
+        admin.from('student_certificates').select('id, student_id').range(from, to)
+      ),
+      fetchAllSupabaseRows((from, to) =>
+        admin.from('student_attendance').select('id, student_id, session_id, workshop_session_id').range(from, to)
+      ),
+      admin.from('workshops').select('id, title, category').limit(5000),
+      admin.from('workshop_sessions').select('id, workshop_id').limit(5000),
+      fetchAllSupabaseRows((from, to) =>
+        admin.from('student_social_follows').select('*').range(from, to)
+      ),
     ]);
 
-    const courses = coursesRes.status === 'fulfilled' && coursesRes.value.data ? coursesRes.value.data : [];
-    const courseSessions = courseSessionsRes.status === 'fulfilled' && courseSessionsRes.value.data ? courseSessionsRes.value.data : [];
-    const enrollments = enrollmentsRes.status === 'fulfilled' && enrollmentsRes.value.data ? enrollmentsRes.value.data : [];
-    const certificates = certificatesRes.status === 'fulfilled' && certificatesRes.value.data ? certificatesRes.value.data : [];
-    const attendance = attendanceRes.status === 'fulfilled' && attendanceRes.value.data ? attendanceRes.value.data : [];
-    const workshops = workshopsRes.status === 'fulfilled' && workshopsRes.value.data ? workshopsRes.value.data : [];
-    const workshopSessions = workshopSessionsRes.status === 'fulfilled' && workshopSessionsRes.value.data ? workshopSessionsRes.value.data : [];
-    const socialFollows = socialFollowsRes.status === 'fulfilled' && socialFollowsRes.value.data ? socialFollowsRes.value.data : [];
+    const courses = coursesRes.data || [];
+    const courseSessions = courseSessionsRes.data || [];
+    const workshops = workshopsRes.data || [];
+    const workshopSessions = workshopSessionsRes.data || [];
 
     // Map sessions count per course & workshop
     const courseSessionsCountMap = new Map<string, number>();

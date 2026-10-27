@@ -527,6 +527,7 @@ export async function toggleStudentAttendance(input: {
 
       revalidatePath(`/student-portal/admin/attendance/sessions/${input.sessionId}`);
       revalidatePath('/student-portal/admin/students');
+      revalidatePath('/student-portal/admin/certificates');
 
       // Notify student in English
       dispatchStudentNotification({
@@ -560,6 +561,7 @@ export async function toggleStudentAttendance(input: {
 
       revalidatePath(`/student-portal/admin/attendance/sessions/${input.sessionId}`);
       revalidatePath('/student-portal/admin/students');
+      revalidatePath('/student-portal/admin/certificates');
 
       return { success: true };
     }
@@ -630,6 +632,7 @@ export async function bulkMarkSessionAttendance(input: {
 
     revalidatePath(`/student-portal/admin/attendance/sessions/${input.sessionId}`);
     revalidatePath('/student-portal/admin/students');
+    revalidatePath('/student-portal/admin/certificates');
 
     return { success: true, count: input.studentIds.length };
   } catch (err: any) {

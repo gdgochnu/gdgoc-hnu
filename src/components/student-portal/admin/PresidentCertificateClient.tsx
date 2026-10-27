@@ -839,9 +839,11 @@ export function PresidentCertificateClient({
           <span>Issued Student Registry ({certificates.length})</span>
         </button>
 
-        {/* Tab 2: Issue New Batch */}
         <button
-          onClick={() => setActiveTab('issue')}
+          onClick={() => {
+            setActiveTab('issue');
+            fetchEligibility();
+          }}
           style={{
             display: 'inline-flex',
             alignItems: 'center',
@@ -1040,7 +1042,10 @@ export function PresidentCertificateClient({
                     : 'Issue your first batch of verified student credentials using the Issue New Batch tab.'}
                 </div>
                 <button
-                  onClick={() => setActiveTab('issue')}
+                  onClick={() => {
+                    setActiveTab('issue');
+                    fetchEligibility();
+                  }}
                   style={{
                     display: 'inline-flex',
                     alignItems: 'center',

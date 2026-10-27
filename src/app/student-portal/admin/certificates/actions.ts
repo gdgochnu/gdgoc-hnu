@@ -18,6 +18,7 @@ import type {
   StudentCertificateEligibility,
 } from '@/types/student';
 import { revalidatePath } from 'next/cache';
+import { fetchAllSupabaseRows } from '@/lib/supabase/fetch-all';
 
 // ---------------------------------------------------------------------------
 // 1. Get Programs List (Courses & Workshops) for Certificate Issuance
@@ -171,61 +172,79 @@ export async function getCertificateEligibility(params: {
     if (params.programType === 'course') {
       const { data: course } = await admin
         .from('courses')
-        .select('id, title, sessions:course_sessions(id)')
+        .select('id, title')
         .eq('id', params.programId)
         .single();
 
       if (!course) throw new Error('Course not found');
       programTitle = course.title;
-      sessionIds = (course.sessions || []).map((s: any) => s.id);
+
+      const { data: sessions } = await admin
+        .from('course_sessions')
+        .select('id')
+        .eq('course_id', params.programId);
+
+      sessionIds = (sessions || []).map((s: any) => s.id);
       sessionsTotal = sessionIds.length;
 
-      const { data: enrollments } = await admin
-        .from('course_enrollments')
-        .select(`
-          student:student_profiles(
-            id,
-            full_name_en,
-            full_name_ar,
-            email,
-            avatar_url,
-            university,
-            faculty,
-            academic_year
-          )
-        `)
-        .eq('course_id', params.programId)
-        .eq('status', 'confirmed');
+      const enrollments = await fetchAllSupabaseRows((from, to) =>
+        admin
+          .from('course_enrollments')
+          .select(`
+            student:student_profiles(
+              id,
+              full_name_en,
+              full_name_ar,
+              email,
+              avatar_url,
+              university,
+              faculty,
+              academic_year
+            )
+          `)
+          .eq('course_id', params.programId)
+          .eq('status', 'confirmed')
+          .range(from, to)
+      );
 
       enrolledStudents = (enrollments || []).map((e: any) => e.student).filter(Boolean);
     } else {
       const { data: workshop } = await admin
         .from('workshops')
-        .select('id, title, sessions:workshop_sessions(id)')
+        .select('id, title')
         .eq('id', params.programId)
         .single();
 
       if (!workshop) throw new Error('Workshop not found');
       programTitle = workshop.title;
-      sessionIds = (workshop.sessions || []).map((s: any) => s.id);
+
+      const { data: sessions } = await admin
+        .from('workshop_sessions')
+        .select('id')
+        .eq('workshop_id', params.programId);
+
+      sessionIds = (sessions || []).map((s: any) => s.id);
       sessionsTotal = sessionIds.length;
 
-      const { data: registrations } = await admin
-        .from('workshop_registrations')
-        .select(`
-          student:student_profiles(
-            id,
-            full_name_en,
-            full_name_ar,
-            email,
-            avatar_url,
-            university,
-            faculty,
-            academic_year
-          )
-        `)
-        .eq('workshop_id', params.programId)
-        .eq('status', 'registered');
+      const registrations = await fetchAllSupabaseRows((from, to) =>
+        admin
+          .from('workshop_registrations')
+          .select(`
+            student:student_profiles(
+              id,
+              full_name_en,
+              full_name_ar,
+              email,
+              avatar_url,
+              university,
+              faculty,
+              academic_year
+            )
+          `)
+          .eq('workshop_id', params.programId)
+          .eq('status', 'registered')
+          .range(from, to)
+      );
 
       enrolledStudents = (registrations || []).map((r: any) => r.student).filter(Boolean);
     }
@@ -244,44 +263,46 @@ export async function getCertificateEligibility(params: {
 
     const studentIds = enrolledStudents.map((s) => s.id);
 
-    // Fetch existing issued certificates
-    let certQuery = admin
-      .from('student_certificates')
-      .select('*')
-      .in('student_id', studentIds);
-
-    if (params.programType === 'course') {
-      certQuery = certQuery.eq('course_id', params.programId);
-    } else {
-      certQuery = certQuery.eq('workshop_id', params.programId);
-    }
-
-    const { data: existingCerts } = await certQuery;
+    // Fetch existing issued certificates (paginated)
+    const existingCerts = await fetchAllSupabaseRows((from, to) => {
+      let certQuery = admin.from('student_certificates').select('*');
+      if (params.programType === 'course') {
+        certQuery = certQuery.eq('course_id', params.programId);
+      } else {
+        certQuery = certQuery.eq('workshop_id', params.programId);
+      }
+      return certQuery.range(from, to);
+    });
     const certMap = new Map<string, any>((existingCerts || []).map((c: any) => [c.student_id, c]));
 
-    // Fetch Attendance records
-    let attendanceMap = new Map<string, number>();
+    // Fetch Attendance records across program sessions (paginated to avoid 1000-row limit)
+    const studentSessionsMap = new Map<string, Set<string>>();
     if (sessionIds.length > 0) {
-      let attQuery = admin
-        .from('student_attendance')
-        .select('student_id')
-        .in('student_id', studentIds);
+      const attRows = await fetchAllSupabaseRows((from, to) => {
+        let attQuery = admin
+          .from('student_attendance')
+          .select('student_id, session_id, workshop_session_id');
 
-      if (params.programType === 'course') {
-        attQuery = attQuery.in('session_id', sessionIds);
-      } else {
-        attQuery = attQuery.in('workshop_session_id', sessionIds);
-      }
-
-      const { data: attRows } = await attQuery;
-      if (attRows) {
-        for (const row of attRows) {
-          attendanceMap.set(row.student_id, (attendanceMap.get(row.student_id) || 0) + 1);
+        if (params.programType === 'course') {
+          attQuery = attQuery.in('session_id', sessionIds);
+        } else {
+          attQuery = attQuery.in('workshop_session_id', sessionIds);
         }
+
+        return attQuery.range(from, to);
+      });
+
+      for (const row of attRows) {
+        const sessId = row.session_id || row.workshop_session_id;
+        if (!sessId) continue;
+        if (!studentSessionsMap.has(row.student_id)) {
+          studentSessionsMap.set(row.student_id, new Set());
+        }
+        studentSessionsMap.get(row.student_id)!.add(sessId);
       }
     }
 
-    // Fetch Tasks & Submissions
+    // Fetch Tasks & Submissions (paginated)
     let taskQuery = admin
       .from('student_tasks')
       .select('id, max_score')
@@ -300,24 +321,24 @@ export async function getCertificateEligibility(params: {
 
     let submissionsMap = new Map<string, Array<{ score: number; maxScore: number }>>();
     if (taskIds.length > 0) {
-      const { data: subs } = await admin
-        .from('student_task_submissions')
-        .select('student_id, task_id, score, status')
-        .in('student_id', studentIds)
-        .in('task_id', taskIds);
+      const subs = await fetchAllSupabaseRows((from, to) =>
+        admin
+          .from('student_task_submissions')
+          .select('student_id, task_id, score, status')
+          .in('task_id', taskIds)
+          .range(from, to)
+      );
 
-      if (subs) {
-        for (const s of subs) {
-          if (s.score !== null && s.score !== undefined) {
-            const list = submissionsMap.get(s.student_id) || [];
-            list.push({ score: Number(s.score), maxScore: taskMaxScoreMap.get(s.task_id) || 10 });
-            submissionsMap.set(s.student_id, list);
-          }
+      for (const s of subs) {
+        if (s.score !== null && s.score !== undefined) {
+          const list = submissionsMap.get(s.student_id) || [];
+          list.push({ score: Number(s.score), maxScore: taskMaxScoreMap.get(s.task_id) || 10 });
+          submissionsMap.set(s.student_id, list);
         }
       }
     }
 
-    // Fetch Quizzes & Attempts
+    // Fetch Quizzes & Attempts (paginated)
     let quizQuery = admin
       .from('quizzes')
       .select('id, passing_score_percentage')
@@ -335,19 +356,19 @@ export async function getCertificateEligibility(params: {
 
     let attemptsMap = new Map<string, Array<{ score: number; passed: boolean }>>();
     if (quizIds.length > 0) {
-      const { data: atts } = await admin
-        .from('quiz_attempts')
-        .select('student_id, quiz_id, total_score, passed')
-        .in('student_id', studentIds)
-        .in('quiz_id', quizIds);
+      const atts = await fetchAllSupabaseRows((from, to) =>
+        admin
+          .from('quiz_attempts')
+          .select('student_id, quiz_id, total_score, passed')
+          .in('quiz_id', quizIds)
+          .range(from, to)
+      );
 
-      if (atts) {
-        for (const a of atts) {
-          if (a.total_score !== null && a.total_score !== undefined) {
-            const list = attemptsMap.get(a.student_id) || [];
-            list.push({ score: Number(a.total_score), passed: Boolean(a.passed) });
-            attemptsMap.set(a.student_id, list);
-          }
+      for (const a of atts) {
+        if (a.total_score !== null && a.total_score !== undefined) {
+          const list = attemptsMap.get(a.student_id) || [];
+          list.push({ score: Number(a.total_score), passed: Boolean(a.passed) });
+          attemptsMap.set(a.student_id, list);
         }
       }
     }
@@ -357,7 +378,7 @@ export async function getCertificateEligibility(params: {
     let alreadyIssuedCount = 0;
 
     const students: StudentCertificateEligibility[] = enrolledStudents.map((s) => {
-      const attended = attendanceMap.get(s.id) || 0;
+      const attended = studentSessionsMap.get(s.id)?.size || 0;
       const attRate = sessionsTotal > 0 ? Math.round((attended / sessionsTotal) * 100) : 100;
 
       // Task avg %
@@ -821,34 +842,32 @@ export async function getAllIssuedStudentCertificates(): Promise<{
 
     const admin = createAdminClient();
 
-    const { data: certRows, error: certErr } = await admin
-      .from('student_certificates')
-      .select(`
-        id,
-        title,
-        certificate_number,
-        verification_code,
-        issue_date,
-        pdf_drive_file_id,
-        pdf_drive_url,
-        completion_stats,
-        created_at,
-        student_id,
-        course_id,
-        workshop_id,
-        template_id,
-        student:student_profiles(id, full_name_ar, full_name_en, email, phone, faculty, academic_year, department_major),
-        course:courses(id, title, category),
-        workshop:workshops(id, title, category),
-        template:certificate_templates(id, name),
-        issuer:profiles!student_certificates_issued_by_fkey(full_name, role)
-      `)
-      .order('created_at', { ascending: false });
-
-    if (certErr) {
-      console.error('getAllIssuedStudentCertificates error:', certErr);
-      return { success: false, certificates: [], error: certErr.message };
-    }
+    const certRows = await fetchAllSupabaseRows((from, to) =>
+      admin
+        .from('student_certificates')
+        .select(`
+          id,
+          title,
+          certificate_number,
+          verification_code,
+          issue_date,
+          pdf_drive_file_id,
+          pdf_drive_url,
+          completion_stats,
+          created_at,
+          student_id,
+          course_id,
+          workshop_id,
+          template_id,
+          student:student_profiles(id, full_name_ar, full_name_en, email, phone, faculty, academic_year, department_major),
+          course:courses(id, title, category),
+          workshop:workshops(id, title, category),
+          template:certificate_templates(id, name),
+          issuer:profiles!student_certificates_issued_by_fkey(full_name, role)
+        `)
+        .order('created_at', { ascending: false })
+        .range(from, to)
+    );
 
     const certificates = (certRows || []).map((c: any) => ({
       ...c,

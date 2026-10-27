@@ -499,6 +499,7 @@ export async function commitAiAttendanceRecords(
     revalidatePath(`/student-portal/admin/courses/${input.courseId}/sessions`);
     revalidatePath(`/student-portal/admin/attendance/scan`);
     revalidatePath(`/student-portal/admin/students`);
+    revalidatePath('/student-portal/admin/certificates');
 
     // 4. Optionally dispatch notifications to present students
     if (input.notifyStudents && countPresent > 0) {

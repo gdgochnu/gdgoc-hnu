@@ -609,6 +609,7 @@ export async function recordStudentAttendance(input: {
     revalidatePath(`/student-portal/admin/attendance/sessions/${input.sessionId}`);
     revalidatePath(`/student/dashboard`);
     revalidatePath(`/student-portal/admin/students`);
+    revalidatePath('/student-portal/admin/certificates');
 
     return {
       success: true,
