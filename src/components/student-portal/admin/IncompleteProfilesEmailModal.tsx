@@ -21,7 +21,7 @@ import {
   ExternalLink,
 } from 'lucide-react';
 import {
-  AdminStudentItem,
+  type AdminStudentItem,
   getIncompleteProfileEmailPreview,
   sendBulkProfileCompletionReminderEmails,
   sendTestProfileCompletionEmail,

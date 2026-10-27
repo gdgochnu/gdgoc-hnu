@@ -36,8 +36,8 @@ import {
   Eye,
 } from 'lucide-react';
 import {
-  AdminStudentsDirectoryData,
-  AdminStudentItem,
+  type AdminStudentsDirectoryData,
+  type AdminStudentItem,
   sendProfileCompletionReminderEmail,
 } from '@/app/student-portal/admin/students/actions';
 import { IncompleteProfilesEmailModal } from './IncompleteProfilesEmailModal';
