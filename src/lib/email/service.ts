@@ -1828,7 +1828,7 @@ export function renderIncompleteProfileEmailHtml(params: {
     ? `
       <div style="background-color:#ffffff;border:1px solid #fed7aa;border-radius:10px;padding:14px 18px;margin:16px 0 0;">
         <div style="font-size:12px;font-weight:700;color:#c2410c;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:8px;">
-          Missing Data Checklist / البيانات المطلوب استكمالها:
+          Missing Information Checklist:
         </div>
         <ul style="margin:0;padding-left:18px;color:#431407;font-size:13px;line-height:1.7;font-family:Arial,sans-serif;">
           ${params.missingFields.map((f) => `<li style="margin-bottom:3px;"><strong>${f}</strong></li>`).join('')}
@@ -1840,26 +1840,20 @@ export function renderIncompleteProfileEmailHtml(params: {
   const contentHtml = `
     <!-- Greeting -->
     <p style="margin:0 0 16px;font-size:16px;color:#202124;font-weight:bold;font-family:'Google Sans',Roboto,Arial,sans-serif;">
-      Hello ${displayName}, / مرحباً ${displayName}،
+      Hello ${displayName},
     </p>
 
     <p style="margin:0 0 16px;font-size:14px;color:#3c4043;line-height:1.75;font-family:Arial,sans-serif;">
-      We are excited to welcome you to <strong>Google Developer Groups on Campus (GDGoC) Helwan National University</strong>!
-      <br />
-      سعداء جداً بانضمامك إلى مجتمع <strong>Google Developer Groups on Campus بجامعة حلوان الأهلية</strong>.
+      We are delighted to welcome you to <strong>Google Developer Groups on Campus (GDGoC) at Helwan National University</strong>!
     </p>
 
     <!-- Urgent Action Alert Box -->
     <div style="background-color:#fff7ed;border-left:5px solid #f97316;border-radius:0 12px 12px 0;padding:18px 22px;margin:22px 0;">
       <div style="font-size:15px;font-weight:800;color:#c2410c;margin-bottom:6px;font-family:'Google Sans',Roboto,Arial,sans-serif;">
         ⚠️ Action Required: Complete Your Academic Student Profile
-        <br />
-        مطلوب إجراء فوري: استكمال وتأكيد بيانات ملفك الطلابي
       </div>
       <p style="margin:0;font-size:13.5px;color:#7c2d12;line-height:1.65;font-family:Arial,sans-serif;">
-        Our presidential records indicate that your registration is not yet finalized. Completing your profile takes less than 60 seconds and is <strong>mandatory</strong> to activate your student privileges and access tracks.
-        <br />
-        توضح سجلاتنا أن تسجيلك الأكاديمي لم يكتمل بعد. استكمال البيانات يستغرق دقيقة واحدة فقط وهو <strong>إلزامي</strong> لتفعيل حسابك والاستفادة من جميع برامج ومسارات المجتمع.
+        Our chapter presidential records indicate that your student profile is not yet finalized. Completing your profile takes less than 60 seconds and is <strong>mandatory</strong> to activate your official membership, verify your academic eligibility, and unlock platform access.
       </p>
       ${missingListHtml}
     </div>
@@ -1869,7 +1863,7 @@ export function renderIncompleteProfileEmailHtml(params: {
            style="background-color:#f8f9fa;border-radius:12px;border:1.5px solid #e8eaed;overflow:hidden;margin:22px 0;">
       <tr>
         <td style="background-color:#1a73e8;padding:12px 20px;color:#ffffff;font-size:14px;font-weight:bold;font-family:'Google Sans',Roboto,Arial,sans-serif;">
-          What You Unlock Upon Completion | مزايا تفعيل حسابك الطلابي
+          What You Unlock Upon Profile Completion
         </td>
       </tr>
       <tr>
@@ -1913,7 +1907,7 @@ export function renderIncompleteProfileEmailHtml(params: {
               <td align="center" style="border-radius:10px;background:linear-gradient(135deg, #1a73e8 0%, #1557b0 100%);box-shadow:0 6px 18px rgba(26,115,232,0.35);">
                 <a href="${onboardingUrl}" target="_blank"
                    style="font-size:15px;font-weight:700;color:#ffffff;text-decoration:none;padding:15px 36px;display:inline-block;border-radius:10px;font-family:'Google Sans',Roboto,Arial,sans-serif;">
-                  استكمال البيانات وتفعيل الحساب الآن &rarr;
+                  Complete Your Profile Now &rarr;
                 </a>
               </td>
             </tr>
@@ -1928,15 +1922,13 @@ export function renderIncompleteProfileEmailHtml(params: {
 
     <!-- Important Guidance Note -->
     <div style="background-color:#eff6ff;border-radius:10px;padding:14px 18px;margin:24px 0 0;font-size:12.5px;color:#1e40af;line-height:1.65;font-family:Arial,sans-serif;">
-      <strong>💡 Important Notice / ملاحظة هامة:</strong>
-      Please ensure you provide your <strong>Quad Name</strong> in Arabic and English (matching your university ID card) and your <strong>14-digit National ID</strong> accurately, as they are utilized directly on issued presidential certificates.
-      <br />
-      يرجى التأكد من كتابة الاسم الرباعي بالعربية والإنجليزية بدقة والرقم القومي المكون من 14 رقم، حيث تُعتمد هذه البيانات في إصدار الشهادات الرسمية والبطاقات الأكاديمية.
+      <strong>💡 Important Guidance:</strong>
+      Please ensure you provide your <strong>Quad Name</strong> in Arabic and English (matching your university ID card) and your <strong>14-digit National ID</strong> accurately, as they are utilized directly on issued presidential certificates and academic records.
     </div>
 
     <!-- Sign-off -->
     <p style="margin:26px 0 0;font-size:14px;color:#202124;font-weight:600;font-family:'Google Sans',Roboto,Arial,sans-serif;">
-      Best regards / خالص التحيات والتوفيق،<br />
+      Best regards,<br />
       <span style="color:#1a73e8;font-weight:700;">Chapter Presidential Leadership Team</span><br />
       <span style="font-size:12px;color:#70757a;font-weight:normal;">Google Developer Groups on Campus — Helwan National University</span>
     </p>
@@ -1958,7 +1950,7 @@ export async function sendIncompleteProfileReminderEmail(params: {
 
   return sendEmail({
     to: params.to,
-    subject: '⚠️ مطلوب: استكمال بيانات حسابك الأكاديمي في GDGoC HNU | Complete Your Student Profile',
+    subject: '⚠️ Action Required: Complete Your Student Profile | GDGoC Helwan National University',
     html,
     metadata: {
       type: 'incomplete_profile_reminder',

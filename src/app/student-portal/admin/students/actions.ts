@@ -499,13 +499,13 @@ export async function sendProfileCompletionReminderEmail(studentId: string): Pro
     }
 
     const missing: string[] = [];
-    if (!student.faculty) missing.push('Faculty / كلية الطالب');
-    if (!student.academic_year) missing.push('Academic Year (1-5) / الفرقة الدراسية');
-    if (!student.phone || !student.whatsapp_number) missing.push('Egyptian Mobile & WhatsApp / رقم الهاتف والواتساب');
-    if (!student.national_id) missing.push('14-digit National ID / الرقم القومي');
+    if (!student.faculty) missing.push('University Faculty');
+    if (!student.academic_year) missing.push('Academic Stage (1st – 5th Year)');
+    if (!student.phone || !student.whatsapp_number) missing.push('Egyptian Mobile & WhatsApp Numbers');
+    if (!student.national_id) missing.push('14-digit Egyptian National ID');
     const arParts = (student.full_name_ar || '').trim().split(/\s+/).filter(Boolean);
     const enParts = (student.full_name_en || '').trim().split(/\s+/).filter(Boolean);
-    if (arParts.length < 4 || enParts.length < 4) missing.push('Quad Arabic & English Names / الاسم الرباعي بالعربية والإنجليزية');
+    if (arParts.length < 4 || enParts.length < 4) missing.push('Official Quad Name (Arabic & English)');
 
     const appUrl = getAppBaseUrl();
     const res = await sendIncompleteProfileReminderEmail({
@@ -592,10 +592,10 @@ export async function sendBulkProfileCompletionReminderEmails(options?: {
       const promises = batch.map(async (student) => {
         const studentName = student.full_name_en || student.full_name_ar || authMap.get(student.id) || null;
         const missing: string[] = [];
-        if (!student.faculty) missing.push('Faculty / الكلية');
-        if (!student.academic_year) missing.push('Academic Year / الفرقة');
-        if (!student.phone || !student.whatsapp_number) missing.push('Phone & WhatsApp / الهاتف والواتساب');
-        if (!student.national_id) missing.push('National ID / الرقم القومي');
+        if (!student.faculty) missing.push('University Faculty');
+        if (!student.academic_year) missing.push('Academic Stage (1st – 5th Year)');
+        if (!student.phone || !student.whatsapp_number) missing.push('Egyptian Mobile & WhatsApp Numbers');
+        if (!student.national_id) missing.push('14-digit Egyptian National ID');
 
         const result = await sendIncompleteProfileReminderEmail({
           to: student.email!,
@@ -656,11 +656,11 @@ export async function getIncompleteProfileEmailPreview(studentId?: string): Prom
     let studentName = 'Magdy Ayad';
     let sampleRecipient = 'magdyayadnady2006@gmail.com';
     let missingFields = [
-      'Faculty / كلية الطالب',
-      'Academic Year (1-5) / الفرقة الدراسية',
-      'Egyptian Mobile & WhatsApp / رقم الهاتف والواتساب',
-      '14-digit National ID / الرقم القومي',
-      'Quad Name in Arabic & English / الاسم الرباعي بالعربية والإنجليزية',
+      'University Faculty',
+      'Academic Stage (1st – 5th Year)',
+      'Egyptian Mobile & WhatsApp Numbers',
+      '14-digit Egyptian National ID',
+      'Official Quad Name (Arabic & English)',
     ];
 
     if (studentId) {
@@ -681,7 +681,7 @@ export async function getIncompleteProfileEmailPreview(studentId?: string): Prom
     return {
       success: true,
       html,
-      subject: '⚠️ مطلوب: استكمال بيانات حسابك الأكاديمي في GDGoC HNU | Complete Your Student Profile',
+      subject: '⚠️ Action Required: Complete Your Student Profile | GDGoC Helwan National University',
       sender: 'GDGoC Helwan National University <gdgochnu@uniskills.pro>',
       sampleRecipient,
     };
