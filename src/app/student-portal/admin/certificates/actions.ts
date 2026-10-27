@@ -1067,3 +1067,177 @@ export async function sendTestCertificateEmailAction(input: {
   }
 }
 
+/**
+ * 10. Resend Student Certificate Action (Leadership Gated)
+ * Re-renders the official PDF certificate, re-dispatches the email with PDF attachment,
+ * and pushes an in-app student notification.
+ */
+export async function resendStudentCertificateAction(certId: string): Promise<{
+  success: boolean;
+  message?: string;
+  error?: string;
+}> {
+  try {
+    const context = await getUserContext();
+    if (!context.user || !context.profile) {
+      return { success: false, error: 'Unauthorized: Authentication required.' };
+    }
+
+    const role = context.profile.role;
+    const isLeadership = [
+      'president',
+      'co_president',
+      'branch_head',
+      'committee_head',
+      'committee_co_head',
+    ].includes(role);
+
+    if (!isLeadership) {
+      return { success: false, error: 'Permission denied: Leadership access required.' };
+    }
+
+    const admin = createAdminClient();
+
+    // 1. Fetch certificate record
+    const { data: cert, error: certErr } = await admin
+      .from('student_certificates')
+      .select(`
+        id,
+        title,
+        certificate_number,
+        verification_code,
+        issue_date,
+        pdf_drive_file_id,
+        pdf_drive_url,
+        course_id,
+        workshop_id,
+        template_id,
+        student:student_profiles(id, full_name_ar, full_name_en, email),
+        course:courses(id, title),
+        workshop:workshops(id, title),
+        template:certificate_templates(id, field_layout, background_image_drive_file_id)
+      `)
+      .eq('id', certId)
+      .maybeSingle();
+
+    if (certErr || !cert) {
+      return { success: false, error: certErr?.message || 'Certificate not found.' };
+    }
+
+    const student = Array.isArray(cert.student) ? cert.student[0] : cert.student;
+    if (!student || !student.email) {
+      return { success: false, error: 'Student email is not registered.' };
+    }
+
+    const recipientDisplayName = student.full_name_en || student.full_name_ar || 'Student';
+    const programTitle = cert.title || 'Technical Track Curriculum';
+    const template = Array.isArray(cert.template) ? cert.template[0] : cert.template;
+    const fieldLayout = template?.field_layout || DEFAULT_FIELD_LAYOUT;
+    const backgroundUrl = template?.background_image_drive_file_id || null;
+
+    const issueDateStr = cert.issue_date
+      ? new Date(cert.issue_date).toLocaleDateString('en-US', {
+          month: 'long',
+          day: 'numeric',
+          year: 'numeric',
+        })
+      : new Date().toLocaleDateString('en-US', {
+          month: 'long',
+          day: 'numeric',
+          year: 'numeric',
+        });
+
+    // 2. Render PDF buffer
+    const { buffer, verifyUrl } = await renderCertificatePDFBuffer({
+      recipientName: recipientDisplayName,
+      recipientEmail: student.email,
+      title: programTitle,
+      issueDate: issueDateStr,
+      certificateNumber: cert.certificate_number,
+      verificationCode: cert.verification_code,
+      fieldLayout,
+      backgroundImageUrl: backgroundUrl,
+    });
+
+    // 3. Attempt Drive upload if missing
+    let driveUrl = cert.pdf_drive_url;
+    if (!driveUrl) {
+      try {
+        const drivePromise = uploadFileToDrive({
+          fileName: `${cert.certificate_number}_${recipientDisplayName.replace(/\s+/g, '_')}.pdf`,
+          mimeType: 'application/pdf',
+          base64Data: buffer.toString('base64'),
+          makePublic: true,
+        });
+        const timeoutPromise = new Promise<{ success: false }>((resolve) =>
+          setTimeout(() => resolve({ success: false }), 4000)
+        );
+        const driveRes = (await Promise.race([drivePromise, timeoutPromise])) as any;
+        if (driveRes && driveRes.success && driveRes.data) {
+          driveUrl = driveRes.data.fileUrl || driveRes.data.downloadUrl || null;
+          if (driveUrl) {
+            await admin
+              .from('student_certificates')
+              .update({
+                pdf_drive_file_id: driveRes.data.fileId,
+                pdf_drive_url: driveUrl,
+              })
+              .eq('id', cert.id);
+          }
+        }
+      } catch (dErr) {
+        console.warn('Drive re-upload attempt error:', dErr);
+      }
+    }
+
+    const baseUrl = getAppBaseUrl();
+    const downloadUrl = driveUrl || `${baseUrl}/api/certificates/${cert.id}/download`;
+
+    // 4. Send email
+    const emailRes = await sendStudentCertificateEmail({
+      to: student.email,
+      recipientName: recipientDisplayName,
+      programTitle,
+      certificateNumber: cert.certificate_number,
+      verificationCode: cert.verification_code,
+      downloadUrl,
+      verifyUrl,
+      issueDate: issueDateStr,
+      pdfBuffer: buffer,
+    });
+
+    // 5. Dispatch student in-app notification
+    try {
+      await dispatchStudentNotification({
+        studentId: student.id,
+        type: 'certificate',
+        title: 'Official Certificate Issued / Re-sent!',
+        message: `Your certificate for "${programTitle}" (${cert.certificate_number}) is ready for download and verification.`,
+        linkUrl: '/student/certificates',
+        relatedEntityType: 'certificate',
+        relatedEntityId: cert.id,
+      });
+    } catch (notifErr) {
+      console.warn('Student notification warning:', notifErr);
+    }
+
+    if (!emailRes.success) {
+      return {
+        success: false,
+        error: emailRes.error || 'Failed to dispatch email. Please check SMTP/Hostinger logs.',
+      };
+    }
+
+    revalidatePath('/student-portal/admin/certificates');
+    revalidatePath('/student/certificates');
+
+    return {
+      success: true,
+      message: `Certificate successfully sent to ${student.email}!`,
+    };
+  } catch (err: any) {
+    console.error('resendStudentCertificateAction error:', err);
+    return { success: false, error: err?.message || 'Failed to resend certificate.' };
+  }
+}
+

@@ -44,11 +44,39 @@ import {
   deleteStudentCertificateAction,
   getCertificateEmailPreviewAction,
   sendTestCertificateEmailAction,
+  getAllIssuedStudentCertificates,
+  resendStudentCertificateAction,
 } from '@/app/student-portal/admin/certificates/actions';
 import { deleteCertificateTemplateAction } from '@/lib/certificates/template-actions';
 import { TemplateBuilder } from '@/components/certificates/TemplateBuilder';
 import { CertificatePreviewCanvas } from '@/components/certificates/CertificatePreviewCanvas';
 import { generateStyledQRDataURL } from '@/lib/certificates/qr-generator';
+
+/**
+ * Normalizes Arabic text for tolerant search matching:
+ * - Strips Tashkeel (diacritics) and Tatweel
+ * - Unifies Alef variants (أ, إ, آ, ٱ -> ا)
+ * - Unifies Taa Marbuta and Haa (ة -> ه)
+ * - Unifies Yaa and Alef Maksura (ى, ي -> ي)
+ * - Unifies common compound names (عبد الـ -> عبدالـ, ابو الـ -> ابوالـ, etc.)
+ */
+export function normalizeArabicSearch(text: string | null | undefined): string {
+  if (!text) return '';
+  return text
+    .trim()
+    .toLowerCase()
+    .replace(/[\u064B-\u065F\u0670]/g, '') // Tashkeel
+    .replace(/\u0640/g, '') // Tatweel
+    .replace(/[أإآٱ]/g, 'ا')
+    .replace(/ة/g, 'ه')
+    .replace(/[ىي]/g, 'ي')
+    .replace(/عبد\s+/g, 'عبد')
+    .replace(/ابو\s+/g, 'ابو')
+    .replace(/نور\s+الدين/g, 'نورالدين')
+    .replace(/سيف\s+الدين/g, 'سيفالدين')
+    .replace(/علاء\s+الدين/g, 'علاءالدين')
+    .replace(/\s+/g, ' ');
+}
 
 export interface StudentCertificateRecord {
   id: string;
@@ -123,10 +151,41 @@ export function PresidentCertificateClient({
   // Issued Registry State
   // ---------------------------------------------------------------------------
   const [certificates, setCertificates] = useState<StudentCertificateRecord[]>(initialCertificates);
+  const [isRefreshingRegistry, setIsRefreshingRegistry] = useState<boolean>(false);
+  const [resendingCertId, setResendingCertId] = useState<string | null>(null);
+  const [resendStatusMsg, setResendStatusMsg] = useState<{ id: string; success: boolean; message: string } | null>(null);
   const [registrySearch, setRegistrySearch] = useState<string>('');
   const [registryProgramFilter, setRegistryProgramFilter] = useState<string>('all');
   const [deletingCertId, setDeletingCertId] = useState<string | null>(null);
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
+
+  // Sync state if initialCertificates changes from SSR
+  useEffect(() => {
+    if (initialCertificates && initialCertificates.length > 0) {
+      setCertificates((prev) => {
+        // Keep the latest if server returned more
+        if (initialCertificates.length >= prev.length) {
+          return initialCertificates;
+        }
+        return prev;
+      });
+    }
+  }, [initialCertificates]);
+
+  // Fetch / Sync Fresh Registry from Database
+  const fetchCertificatesRegistry = async () => {
+    setIsRefreshingRegistry(true);
+    try {
+      const res = await getAllIssuedStudentCertificates();
+      if (res.success && res.certificates) {
+        setCertificates(res.certificates);
+      }
+    } catch (err) {
+      console.error('Failed to sync certificates registry:', err);
+    } finally {
+      setIsRefreshingRegistry(false);
+    }
+  };
 
   const handleCopyLink = (code: string) => {
     if (typeof window !== 'undefined') {
@@ -134,6 +193,35 @@ export function PresidentCertificateClient({
       navigator.clipboard.writeText(url);
       setCopiedCode(code);
       setTimeout(() => setCopiedCode(null), 2200);
+    }
+  };
+
+  const handleResendCertificate = async (cert: StudentCertificateRecord) => {
+    const displayName = cert.student?.full_name_en || cert.student?.full_name_ar || 'Student';
+    const email = cert.student?.email;
+    if (!email) {
+      alert(`Student "${displayName}" does not have a registered email address.`);
+      return;
+    }
+
+    if (!confirm(`Are you sure you want to re-send the official certificate PDF email to ${displayName} (${email})?`)) {
+      return;
+    }
+
+    setResendingCertId(cert.id);
+    setResendStatusMsg(null);
+    try {
+      const res = await resendStudentCertificateAction(cert.id);
+      if (res.success) {
+        setResendStatusMsg({ id: cert.id, success: true, message: res.message || `Certificate email sent to ${email}!` });
+        setTimeout(() => setResendStatusMsg(null), 5000);
+      } else {
+        alert(res.error || 'Failed to re-send certificate email.');
+      }
+    } catch (err: any) {
+      alert(err?.message || 'Error occurred while re-sending certificate email.');
+    } finally {
+      setResendingCertId(null);
     }
   };
 
@@ -513,8 +601,8 @@ export function PresidentCertificateClient({
         errors: allErrors.length > 0 ? allErrors : undefined,
       });
 
-      // Refresh eligibility after all batches complete
-      fetchEligibility();
+      // Refresh eligibility and full registry after all batches complete
+      await Promise.all([fetchEligibility(), fetchCertificatesRegistry()]);
     } catch (err: any) {
       setIssuanceResult({
         success: totalIssued > 0,
@@ -562,20 +650,25 @@ export function PresidentCertificateClient({
       if (pId !== registryProgramFilter) return false;
     }
     if (!registrySearch.trim()) return true;
-    const q = registrySearch.toLowerCase();
-    const nameEn = cert.student?.full_name_en?.toLowerCase() || '';
-    const nameAr = cert.student?.full_name_ar?.toLowerCase() || '';
-    const certNum = cert.certificate_number?.toLowerCase() || '';
-    const progTitle = cert.title?.toLowerCase() || '';
-    const email = cert.student?.email?.toLowerCase() || '';
-    const faculty = cert.student?.faculty?.toLowerCase() || '';
+    const qRaw = registrySearch.toLowerCase().trim();
+    const qNorm = normalizeArabicSearch(qRaw);
+
+    const nameEn = (cert.student?.full_name_en || '').toLowerCase();
+    const nameAr = (cert.student?.full_name_ar || '').toLowerCase();
+    const nameArNorm = normalizeArabicSearch(cert.student?.full_name_ar);
+    const certNum = (cert.certificate_number || '').toLowerCase();
+    const progTitle = (cert.title || '').toLowerCase();
+    const email = (cert.student?.email || '').toLowerCase();
+    const faculty = (cert.student?.faculty || '').toLowerCase();
+
     return (
-      nameEn.includes(q) ||
-      nameAr.includes(q) ||
-      certNum.includes(q) ||
-      progTitle.includes(q) ||
-      email.includes(q) ||
-      faculty.includes(q)
+      nameEn.includes(qRaw) ||
+      nameAr.includes(qRaw) ||
+      (qNorm ? nameArNorm.includes(qNorm) : false) ||
+      certNum.includes(qRaw) ||
+      progTitle.includes(qRaw) ||
+      email.includes(qRaw) ||
+      faculty.includes(qRaw)
     );
   });
 
@@ -585,12 +678,22 @@ export function PresidentCertificateClient({
     if (studentFilterTab === 'not-issued' && s.alreadyIssued) return false;
 
     if (!studentSearch.trim()) return true;
-    const q = studentSearch.toLowerCase();
-    const nameEn = s.full_name_en?.toLowerCase() || '';
-    const nameAr = s.full_name_ar?.toLowerCase() || '';
-    const email = s.email?.toLowerCase() || '';
-    const faculty = s.faculty?.toLowerCase() || '';
-    return nameEn.includes(q) || nameAr.includes(q) || email.includes(q) || faculty.includes(q);
+    const qRaw = studentSearch.toLowerCase().trim();
+    const qNorm = normalizeArabicSearch(qRaw);
+
+    const nameEn = (s.full_name_en || '').toLowerCase();
+    const nameAr = (s.full_name_ar || '').toLowerCase();
+    const nameArNorm = normalizeArabicSearch(s.full_name_ar);
+    const email = (s.email || '').toLowerCase();
+    const faculty = (s.faculty || '').toLowerCase();
+
+    return (
+      nameEn.includes(qRaw) ||
+      nameAr.includes(qRaw) ||
+      (qNorm ? nameArNorm.includes(qNorm) : false) ||
+      email.includes(qRaw) ||
+      faculty.includes(qRaw)
+    );
   });
 
   return (
@@ -816,7 +919,10 @@ export function PresidentCertificateClient({
       >
         {/* Tab 1: Issued Student Registry */}
         <button
-          onClick={() => setActiveTab('issued')}
+          onClick={() => {
+            setActiveTab('issued');
+            fetchCertificatesRegistry();
+          }}
           style={{
             display: 'inline-flex',
             alignItems: 'center',
@@ -968,50 +1074,109 @@ export function PresidentCertificateClient({
               )}
             </div>
 
-            {/* Program Filter Select */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-              <Filter size={16} color="var(--text-muted)" />
-              <select
-                value={registryProgramFilter}
-                onChange={(e) => setRegistryProgramFilter(e.target.value)}
+            {/* Program Filter & Sync Toolbar Controls */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <Filter size={16} color="var(--text-muted)" />
+                <select
+                  value={registryProgramFilter}
+                  onChange={(e) => setRegistryProgramFilter(e.target.value)}
+                  style={{
+                    background: 'rgba(255, 255, 255, 0.05)',
+                    border: '1px solid rgba(255, 255, 255, 0.1)',
+                    borderRadius: '10px',
+                    padding: '0.5rem 0.85rem',
+                    color: 'var(--text-primary)',
+                    fontSize: '0.85rem',
+                    outline: 'none',
+                    cursor: 'pointer',
+                  }}
+                >
+                  <option value="all" style={{ background: '#121212' }}>
+                    All Programs ({certificates.length})
+                  </option>
+                  <optgroup label="Courses" style={{ background: '#121212' }}>
+                    {courses.map((c) => (
+                      <option key={c.id} value={c.id} style={{ background: '#121212' }}>
+                        Course: {c.title}
+                      </option>
+                    ))}
+                  </optgroup>
+                  <optgroup label="Workshops" style={{ background: '#121212' }}>
+                    {workshops.map((w) => (
+                      <option key={w.id} value={w.id} style={{ background: '#121212' }}>
+                        Workshop: {w.title}
+                      </option>
+                    ))}
+                  </optgroup>
+                </select>
+              </div>
+
+              {/* Sync / Refresh Button */}
+              <button
+                onClick={fetchCertificatesRegistry}
+                disabled={isRefreshingRegistry}
+                title="Sync and refresh issued certificates from database"
                 style={{
-                  background: 'rgba(255, 255, 255, 0.05)',
-                  border: '1px solid rgba(255, 255, 255, 0.1)',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.45rem',
+                  background: 'rgba(66, 133, 244, 0.12)',
+                  border: '1px solid rgba(66, 133, 244, 0.25)',
                   borderRadius: '10px',
-                  padding: '0.5rem 0.85rem',
-                  color: 'var(--text-primary)',
-                  fontSize: '0.85rem',
-                  outline: 'none',
-                  cursor: 'pointer',
+                  padding: '0.5rem 0.9rem',
+                  color: 'var(--google-blue)',
+                  fontSize: '0.82rem',
+                  fontWeight: 700,
+                  cursor: isRefreshingRegistry ? 'wait' : 'pointer',
+                  transition: 'all 0.2s',
                 }}
               >
-                <option value="all" style={{ background: '#121212' }}>
-                  All Programs ({certificates.length})
-                </option>
-                <optgroup label="Courses" style={{ background: '#121212' }}>
-                  {courses.map((c) => (
-                    <option key={c.id} value={c.id} style={{ background: '#121212' }}>
-                      Course: {c.title}
-                    </option>
-                  ))}
-                </optgroup>
-                <optgroup label="Workshops" style={{ background: '#121212' }}>
-                  {workshops.map((w) => (
-                    <option key={w.id} value={w.id} style={{ background: '#121212' }}>
-                      Workshop: {w.title}
-                    </option>
-                  ))}
-                </optgroup>
-              </select>
+                <RefreshCw
+                  size={14}
+                  className={isRefreshingRegistry ? 'animate-spin' : ''}
+                />
+                <span>{isRefreshingRegistry ? 'Syncing...' : 'Sync Registry'}</span>
+              </button>
             </div>
           </div>
+
+          {/* Resend Status Notification Banner */}
+          {resendStatusMsg && (
+            <div
+              style={{
+                padding: '0.75rem 1.25rem',
+                borderRadius: '14px',
+                background: resendStatusMsg.success ? 'rgba(52, 168, 83, 0.15)' : 'rgba(234, 67, 53, 0.15)',
+                border: `1px solid ${resendStatusMsg.success ? 'var(--google-green)' : '#EA4335'}`,
+                color: resendStatusMsg.success ? 'var(--google-green)' : '#EA4335',
+                fontSize: '0.86rem',
+                fontWeight: 600,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                boxShadow: '0 4px 12px rgba(0, 0, 0, 0.2)',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                {resendStatusMsg.success ? <CheckCircle2 size={16} /> : <AlertCircle size={16} />}
+                <span>{resendStatusMsg.message}</span>
+              </div>
+              <button
+                onClick={() => setResendStatusMsg(null)}
+                style={{ background: 'none', border: 'none', color: 'inherit', cursor: 'pointer', display: 'flex' }}
+              >
+                <X size={14} />
+              </button>
+            </div>
+          )}
 
           {/* Credentials Ledger Table */}
           <div className="glass-panel" style={{ borderRadius: '20px', overflow: 'hidden' }}>
             <div
               style={{
                 display: 'grid',
-                gridTemplateColumns: '170px 1.5fr 1.2fr 160px 110px 160px',
+                gridTemplateColumns: '160px 1.4fr 1.1fr 150px 105px 190px',
                 padding: '0.875rem 1.25rem',
                 background: 'rgba(255, 255, 255, 0.04)',
                 borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
@@ -1082,7 +1247,7 @@ export function PresidentCertificateClient({
                     key={cert.id}
                     style={{
                       display: 'grid',
-                      gridTemplateColumns: '170px 1.5fr 1.2fr 160px 110px 160px',
+                      gridTemplateColumns: '160px 1.4fr 1.1fr 150px 105px 190px',
                       alignItems: 'center',
                       padding: '1rem 1.25rem',
                       borderBottom: '1px solid rgba(255, 255, 255, 0.04)',
@@ -1280,6 +1445,35 @@ export function PresidentCertificateClient({
                         }}
                       >
                         {isCopied ? <Check size={14} /> : <Copy size={14} />}
+                      </button>
+
+                      {/* Re-send Email with PDF */}
+                      <button
+                        onClick={() => handleResendCertificate(cert)}
+                        disabled={resendingCertId === cert.id}
+                        title={
+                          cert.student?.email
+                            ? `Re-send certificate PDF email to ${cert.student.email}`
+                            : 'No email address registered for student'
+                        }
+                        style={{
+                          padding: '0.45rem',
+                          borderRadius: '8px',
+                          background: 'rgba(251, 188, 4, 0.15)',
+                          border: '1px solid rgba(251, 188, 4, 0.35)',
+                          color: '#FBBC04',
+                          cursor: resendingCertId === cert.id ? 'wait' : 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          transition: 'all 0.15s ease',
+                        }}
+                      >
+                        {resendingCertId === cert.id ? (
+                          <Loader2 size={14} className="animate-spin" />
+                        ) : (
+                          <Send size={14} />
+                        )}
                       </button>
 
                       {/* Revoke / Delete */}
@@ -1946,22 +2140,34 @@ export function PresidentCertificateClient({
                       {/* Status Tag */}
                       <div style={{ textAlign: 'right' }}>
                         {alreadyIssued ? (
-                          <span
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setActiveTab('issued');
+                              setRegistrySearch(stu.full_name_ar || stu.full_name_en || '');
+                              fetchCertificatesRegistry();
+                            }}
+                            title="Click to view & manage this certificate in Issued Student Registry"
                             style={{
                               display: 'inline-flex',
                               alignItems: 'center',
-                              gap: '0.3rem',
-                              padding: '0.2rem 0.55rem',
+                              gap: '0.35rem',
+                              padding: '0.22rem 0.6rem',
                               borderRadius: '12px',
                               background: 'rgba(66, 133, 244, 0.15)',
+                              border: '1px solid rgba(66, 133, 244, 0.35)',
                               color: 'var(--google-blue)',
                               fontSize: '0.72rem',
                               fontWeight: 700,
+                              cursor: 'pointer',
+                              transition: 'all 0.15s ease',
                             }}
                           >
-                            <Shield size={12} />
-                            <span>Issued</span>
-                          </span>
+                            <CheckCircle2 size={12} />
+                            <span>Issued (View)</span>
+                            <ExternalLink size={10} />
+                          </button>
                         ) : isEligible ? (
                           <span
                             style={{
