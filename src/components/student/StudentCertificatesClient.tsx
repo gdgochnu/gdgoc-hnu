@@ -379,7 +379,7 @@ export function StudentCertificatesClient({ student, certificates }: StudentCert
           </div>
         </div>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(380px, 1fr))', gap: '1.75rem' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 340px), 1fr))', gap: '1.75rem', width: '100%', boxSizing: 'border-box' }}>
           {certificates.map((cert) => {
             const stats = cert.completion_stats || {};
             const isCopied = copiedCode === cert.certificate_number;
@@ -389,10 +389,14 @@ export function StudentCertificatesClient({ student, certificates }: StudentCert
                 key={cert.id}
                 className="glass-panel student-cert-card"
                 style={{
-                  padding: '1.75rem',
+                  padding: 'clamp(1.15rem, 2.5vw, 1.75rem)',
                   display: 'flex',
                   flexDirection: 'column',
                   justifyContent: 'space-between',
+                  width: '100%',
+                  maxWidth: '100%',
+                  minWidth: 0,
+                  boxSizing: 'border-box',
                   gap: '1.5rem',
                   borderRadius: '16px',
                   border: '1px solid rgba(251, 188, 4, 0.3)',

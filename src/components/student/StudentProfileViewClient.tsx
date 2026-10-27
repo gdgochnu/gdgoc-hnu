@@ -785,7 +785,7 @@ export function StudentProfileViewClient({ initialData }: StudentProfileViewClie
       {/* TAB CONTENT 1: ACADEMIC & PROFILE DETAILS */}
       {/* ========================================================================= */}
       {activeTab === 'overview' && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))', gap: '1.5rem' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 340px), 1fr))', gap: '1.5rem', width: '100%', boxSizing: 'border-box' }}>
           {/* Card 1: Academic Identity */}
           <div
             className="glass-panel"
@@ -1130,7 +1130,7 @@ export function StudentProfileViewClient({ initialData }: StudentProfileViewClie
               </Link>
             </div>
           ) : (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '1.25rem' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 300px), 1fr))', gap: '1.25rem', width: '100%', boxSizing: 'border-box' }}>
               {courses.map((c) => {
                 const attRate = c.sessions_total > 0 ? Math.round((c.sessions_attended / c.sessions_total) * 100) : 0;
                 return (
@@ -1260,7 +1260,7 @@ export function StudentProfileViewClient({ initialData }: StudentProfileViewClie
               </Link>
             </div>
           ) : (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '1.25rem' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 300px), 1fr))', gap: '1.25rem', width: '100%', boxSizing: 'border-box' }}>
               {workshops.map((w) => (
                 <div
                   key={w.id}
@@ -1357,7 +1357,7 @@ export function StudentProfileViewClient({ initialData }: StudentProfileViewClie
               </p>
             </div>
           ) : (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '1.25rem' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 300px), 1fr))', gap: '1.25rem', width: '100%', boxSizing: 'border-box' }}>
               {certificates.map((cert) => (
                 <div
                   key={cert.id}

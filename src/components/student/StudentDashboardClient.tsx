@@ -1046,7 +1046,7 @@ export function StudentDashboardClient({ initialData }: StudentDashboardClientPr
       {/* ========================================================================= */}
       {/* 4. ACADEMIC HUB & ACTIVITY TABS */}
       {/* ========================================================================= */}
-      <div className="glass-panel" style={{ padding: '1.75rem', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+      <div className="glass-panel student-academic-hub-card" style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', width: '100%', maxWidth: '100%', boxSizing: 'border-box' }}>
         {/* Tab Headers */}
         <div
           className="student-scroll-tabs"
@@ -1057,6 +1057,9 @@ export function StudentDashboardClient({ initialData }: StudentDashboardClientPr
             borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
             paddingBottom: '0.75rem',
             overflowX: 'auto',
+            width: '100%',
+            maxWidth: '100%',
+            boxSizing: 'border-box',
           }}
         >
           {(isNewStudent
@@ -1093,6 +1096,7 @@ export function StudentDashboardClient({ initialData }: StudentDashboardClientPr
                   fontWeight: isActive ? 700 : 500,
                   cursor: 'pointer',
                   whiteSpace: 'nowrap',
+                  flexShrink: 0,
                   transition: 'all 0.15s ease',
                 }}
               >
@@ -1136,7 +1140,7 @@ export function StudentDashboardClient({ initialData }: StudentDashboardClientPr
         </div>
 
         {/* Tab Content Panels */}
-        <div>
+        <div style={{ width: '100%', minWidth: 0, maxWidth: '100%', boxSizing: 'border-box' }}>
           {/* TAB 1: COURSES */}
           {activeTab === 'courses' && (
             <div>
@@ -1182,7 +1186,7 @@ export function StudentDashboardClient({ initialData }: StudentDashboardClientPr
                   </Link>
                 </div>
               ) : (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(360px, 1fr))', gap: '1.5rem' }}>
+                <div className="student-cards-grid">
                   {courses.map((course) => {
                     const attendancePercent = course.sessions_total > 0
                       ? Math.round((course.sessions_attended / course.sessions_total) * 100)
@@ -1193,7 +1197,7 @@ export function StudentDashboardClient({ initialData }: StudentDashboardClientPr
                         key={course.id}
                         className="glass-panel student-course-card"
                         style={{
-                          padding: '1.5rem',
+                          padding: 'clamp(1.15rem, 2.5vw, 1.5rem)',
                           display: 'flex',
                           flexDirection: 'column',
                           justifyContent: 'space-between',
@@ -1202,6 +1206,10 @@ export function StudentDashboardClient({ initialData }: StudentDashboardClientPr
                           borderRadius: '16px',
                           position: 'relative',
                           overflow: 'hidden',
+                          width: '100%',
+                          maxWidth: '100%',
+                          minWidth: 0,
+                          boxSizing: 'border-box',
                         }}
                       >
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.9rem' }}>
@@ -1544,7 +1552,7 @@ export function StudentDashboardClient({ initialData }: StudentDashboardClientPr
                     </Link>
                   </div>
                 ) : (
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(360px, 1fr))', gap: '1.5rem' }}>
+                  <div className="student-cards-grid">
                     {filteredWorkshops.map((ws) => {
                       const attendancePercent = ws.sessions_count > 0 ? Math.round((ws.sessions_attended / ws.sessions_count) * 100) : 0;
                       return (
@@ -1552,13 +1560,17 @@ export function StudentDashboardClient({ initialData }: StudentDashboardClientPr
                           key={ws.id}
                           className="glass-panel student-workshop-card"
                           style={{
-                            padding: '1.5rem',
+                            padding: 'clamp(1.15rem, 2.5vw, 1.5rem)',
                             display: 'flex',
                             flexDirection: 'column',
                             gap: '1.25rem',
                             justifyContent: 'space-between',
                             borderRadius: '16px',
                             border: '1px solid rgba(255, 255, 255, 0.08)',
+                            width: '100%',
+                            maxWidth: '100%',
+                            minWidth: 0,
+                            boxSizing: 'border-box',
                           }}
                         >
                           <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
@@ -1918,18 +1930,22 @@ export function StudentDashboardClient({ initialData }: StudentDashboardClientPr
                     </div>
                   </div>
                 ) : (
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(360px, 1fr))', gap: '1.25rem' }}>
+                  <div className="student-cards-grid-compact">
                     {filteredTasks.map((task) => (
                       <div
                         key={task.id}
                         className="glass-panel student-task-card"
                         style={{
-                          padding: '1.35rem',
+                          padding: 'clamp(1rem, 2.5vw, 1.35rem)',
                           display: 'flex',
                           flexDirection: 'column',
                           justifyContent: 'space-between',
                           gap: '1rem',
                           borderRadius: '14px',
+                          width: '100%',
+                          maxWidth: '100%',
+                          minWidth: 0,
+                          boxSizing: 'border-box',
                           border: task.is_overdue
                             ? '1px solid rgba(234, 67, 53, 0.35)'
                             : task.is_due_soon
@@ -2070,18 +2086,22 @@ export function StudentDashboardClient({ initialData }: StudentDashboardClientPr
                   </div>
                 </div>
               ) : (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(360px, 1fr))', gap: '1.25rem' }}>
+                <div className="student-cards-grid-compact">
                   {quizzes.map((quiz) => (
                     <div
                       key={quiz.id}
                       className="glass-panel student-quiz-card"
                       style={{
-                        padding: '1.35rem',
+                        padding: 'clamp(1rem, 2.5vw, 1.35rem)',
                         display: 'flex',
                         flexDirection: 'column',
                         justifyContent: 'space-between',
                         gap: '1rem',
                         borderRadius: '14px',
+                        width: '100%',
+                        maxWidth: '100%',
+                        minWidth: 0,
+                        boxSizing: 'border-box',
                         border: quiz.status === 'completed'
                           ? '1px solid rgba(52, 168, 83, 0.3)'
                           : '1px solid rgba(251, 188, 4, 0.3)',
@@ -2193,12 +2213,15 @@ export function StudentDashboardClient({ initialData }: StudentDashboardClientPr
               <div
                 style={{
                   display: 'grid',
-                  gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 200px), 1fr))',
                   gap: '1rem',
-                  padding: '1.25rem',
+                  padding: 'clamp(1rem, 2.5vw, 1.25rem)',
                   borderRadius: '12px',
                   background: 'rgba(255, 255, 255, 0.02)',
                   border: '1px solid rgba(255, 255, 255, 0.06)',
+                  width: '100%',
+                  maxWidth: '100%',
+                  boxSizing: 'border-box',
                 }}
               >
                 <div>
@@ -2415,12 +2438,22 @@ export function StudentDashboardClient({ initialData }: StudentDashboardClientPr
                   </div>
                 </div>
               ) : (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '1.25rem' }}>
+                <div className="student-cards-grid-compact">
                   {certificates.map((cert) => (
                     <div
                       key={cert.id}
                       className="glass-panel student-cert-card"
-                      style={{ padding: '1.25rem', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: '1rem' }}
+                      style={{
+                        padding: 'clamp(1rem, 2.5vw, 1.25rem)',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        justifyContent: 'space-between',
+                        gap: '1rem',
+                        width: '100%',
+                        maxWidth: '100%',
+                        minWidth: 0,
+                        boxSizing: 'border-box',
+                      }}
                     >
                       <div>
                         <div style={{ fontSize: '0.74rem', color: '#F87171', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
@@ -2505,10 +2538,11 @@ export function StudentDashboardClient({ initialData }: StudentDashboardClientPr
               <div
                 style={{
                   display: 'grid',
-                  gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))',
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 200px), 1fr))',
                   gap: '1rem',
                   width: '100%',
                   maxWidth: '920px',
+                  boxSizing: 'border-box',
                   textAlign: 'left',
                 }}
               >
